@@ -15,5 +15,5 @@ syntax: glob
 *.synctex.gz
 *.cgns
 *.dat
-*.lay
+*.xyz
 callgrind*

@@ -11,31 +11,33 @@ from __future__ import division
 TO DO
 
 - add subiteration loop
-- check 3D metric correction
 - check smoothing
-- update plot3d export function
-- add compute normal and projection steps
-
--set up scaling factor based on distance
--blend the angle-based dissipation coefficient
+- set up scaling factor based on distance
+- blend the angle-based dissipation coefficient
 '''
 
-def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension, \
-                epsE0 = 1.0, theta = 0.0, \
-                alphaP0 = 0.25, num_smoothing_passes = 0, \
-                nuArea = 0.16, num_area_passes = 0, \
-                sigmaSplay = 0.3, \
-                metricCorrection = False, \
+def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
+                epsE0 = 1.0, theta = 0.0,
+                alphaP0 = 0.25, numSmoothingPasses = 0,
+                nuArea = 0.16, numAreaPasses = 0,
+                sigmaSplay = 0.3,
                 ratioGuess = 20):
 
-    # This function will march N steps
+    # This is the main function that generates the surface mesh from an initial curve
 
     # IMPORTS
     from numpy import zeros, copy
 
-    # Initialize 2D array that contains all the grid points
+    # Get the number of nodes
+    numNodes = int(len(rBaseline)/3)
+
+    # Initialize 2D array that will contains all the surface grid points in the end
     R = zeros((numLayers,len(rBaseline)))
+
+    # Store the initial curve
     R[0,:] = rBaseline
+
+    # We need a guess for the previous layer in order to compute the grid distribution sensor
     rm1 = rBaseline
 
     # Initialize step size and total marched distance
@@ -64,13 +66,10 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
     ==========================================
     '''
 
-    def sub_iteration(r0, rm1, Aprev, s, s_tot, layer_index):
+    def sub_iteration(r0, N0, rm1, Aprev, s, s_tot, layer_index):
 
         # IMPORTS
         from numpy.linalg import solve
-
-        # Smooth coordinates
-        #r0 = smoothing(r0,layer_index+2)
 
         # Compute area factor
         A = area_factor(r0,s)
@@ -79,12 +78,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
         # As we don't have a previous layer, we just repeat areas
         if isinstance(Aprev,int):
             Aprev = A[:]
-
-        '''
-        Add function to compute normals HERE
-        '''
-        # Temporary normals
-        N0 = NBaseline
 
         # Generate matrices of the linear system
         K,f = compute_matrices(r0, rm1, N0, Aprev, A, layer_index, s_tot)
@@ -97,9 +90,17 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
 
         # Update r
         r_next = r0 + dr
+        
+        # Smooth coordinates
+        r_next = smoothing(r_next,layer_index+2)
+
+        # Project onto surface
+        surf.inverse_evaluate(r_next.reshape((numNodes, 3)))
+        r_next = surf.get_points(None).flatten()
+        N_next = surf.get_normals(None).T
 
         # RETURNS
-        return r_next, A
+        return r_next, N_next, A
 
     def area_factor(r0,s):
 
@@ -124,7 +125,7 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
         A = d*s
 
         # Do the requested number of averagings
-        for index in xrange(num_area_passes):
+        for index in xrange(numAreaPasses):
             # Store previous values
             Aplus = A[1]
             Aminus = A[-2]
@@ -135,38 +136,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
 
         # RETURNS
         return A
-
-    def metric_correction(x0_eta, y0_eta, dA_curr, r0_prev, r0_curr, r0_next, layer_index):
-
-        # This function applies the metric correction algorithm to update x0_eta and y0_eta
-
-        '''
-
-        # Compute distance vectors (Eq. 6.9)
-        r_plus = r0_next - r0_curr
-        r_minus = r0_prev - r0_curr
-
-        # Compute corrected zeta derivatives (Eq. 7.2)
-        r_zeta = 0.25*(abs(r_plus) + abs(r_minus))*(r_plus/abs(r_plus) - r_minus/abs(r_minus))
-        xp_zeta = r_zeta[0]
-        yp_zeta = r_zeta[1]
-
-        # Find the adjusted eta derivatives (Eq. 7.1)
-        gamma_p = xp_zeta*xp_zeta + yp_zeta*yp_zeta
-        xp_eta = -dA_curr/gamma_p*yp_zeta
-        yp_eta = dA_curr/gamma_p*xp_zeta
-
-        # Compute metric correction factor
-        nu_mc = 2**(-layer_index)
-
-        # Apply metric correction (Eq. 7.3)
-        x0_eta = (1-nu_mc)*x0_eta + nu_mc*xp_eta
-        y0_eta = (1-nu_mc)*y0_eta + nu_mc*yp_eta
-
-        '''
-
-        # RETURNS
-        return x0_eta, y0_eta
 
     def compute_matrices(r0,rm1,N0,Aprev,A,layer_index,s_tot):
 
@@ -225,15 +194,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                         [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
                         [0, 0, 0]])
 
-            '''
-            if metricCorrection:
-                r0_prev = r0[2*(prev_index):2*(prev_index)+2]
-                r0_curr = r0[2*(curr_index):2*(curr_index)+2]
-                r0_next = r0[2*(next_index):2*(next_index)+2]
-                dA_curr = dA[curr_index]
-                x0_eta, y0_eta = metric_correction(x0_eta, y0_eta, dA_curr, r0_prev, r0_curr, r0_next, layer_index)
-            '''
-
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(next_index):3*(next_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(prev_index):3*(prev_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(next_index):3*(next_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(prev_index):3*(prev_index)+3]-r0[3*(index):3*(index)+3])
@@ -270,7 +230,7 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                 L_block = -0.5*(1+theta)*C0 - epsI*eye(3)
                 M_block = (1 + 2*epsI)*eye(3)
                 N_block = 0.5*(1+theta)*C0 - epsI*eye(3)
-                f_block = B0invg - De
+                f_block = B0invg + De
 
                 # Populate matrix
                 K[3*(curr_index):3*(curr_index)+3,3*(prev_index):3*(prev_index)+3] = L_block
@@ -310,15 +270,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                         [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
                         [0, 0, 0]])
 
-            '''
-            if metricCorrection:
-                r0_prev = r0[2*(prev_index):2*(prev_index)+2]
-                r0_curr = r0[2*(curr_index):2*(curr_index)+2]
-                r0_next = r0[2*(next_index):2*(next_index)+2]
-                dA_curr = dA[curr_index]
-                x0_eta, y0_eta = metric_correction(x0_eta, y0_eta, dA_curr, r0_prev, r0_curr, r0_next, layer_index)
-            '''
-
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(next_index):3*(next_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(nextnext_index):3*(nextnext_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(next_index):3*(next_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(nextnext_index):3*(nextnext_index)+3]-r0[3*(index):3*(index)+3])
@@ -341,7 +292,7 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
             L_block = -0.5*(1+theta)*C0 - epsI*eye(3)
             M_block = 2*(1+theta)*C0 + 2*epsI*eye(3)
             N_block = -1.5*(1+theta)*C0 + (1-epsI)*eye(3)
-            f_block = B0invg - De
+            f_block = B0invg + De
 
             # Populate matrix
             K[3*(curr_index):3*(curr_index)+3,3*(nextnext_index):3*(nextnext_index)+3] = L_block
@@ -381,15 +332,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                         [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
                         [0, 0, 0]])
 
-            '''
-            if metricCorrection:
-                r0_prev = r0[2*(prev_index):2*(prev_index)+2]
-                r0_curr = r0[2*(curr_index):2*(curr_index)+2]
-                r0_next = r0[2*(next_index):2*(next_index)+2]
-                dA_curr = dA[curr_index]
-                x0_eta, y0_eta = metric_correction(x0_eta, y0_eta, dA_curr, r0_prev, r0_curr, r0_next, layer_index)
-            '''
-
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(prev_index):3*(prev_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(prevprev_index):3*(prevprev_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(prev_index):3*(prev_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(prevprev_index):3*(prevprev_index)+3]-r0[3*(index):3*(index)+3])
@@ -412,7 +354,7 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
             L_block = 0.5*(1+theta)*C0 - epsI*eye(3)
             M_block = -2*(1+theta)*C0 + 2*epsI*eye(3)
             N_block = 1.5*(1+theta)*C0 + (1-epsI)*eye(3)
-            f_block = B0invg - De
+            f_block = B0invg + De
 
             # Populate matrix
             K[3*(curr_index):3*(curr_index)+3,3*(prevprev_index):3*(prevprev_index)+3] = L_block
@@ -461,7 +403,6 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                                                                 [N0[0,index], N0[1,index], N0[2,index]],
                                                                 [d_vec[0], d_vec[1], d_vec[2]]])
                 f[3*index:3*index+3] = array([A[index]*(1-sigmaSplay), 0, 0])
-                #f[3*index:3*index+3] = array([0, s*(1-sigmaSplay)*norm(d_vec_rot)])
 
             elif bc1 is 'constX':
 
@@ -531,21 +472,21 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                                                                 [d_vec[0], d_vec[1], d_vec[2]]])
                 f[3*index:3*index+3] = array([A[index]*(1-sigmaSplay), 0, 0])
 
-            elif bc1 is 'constX':
+            elif bc2 is 'constX':
 
                 # Populate matrix
                 K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
                 K[3*index:3*index+3,3*index:3*index+3] = eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1 is 'constY':
+            elif bc2 is 'constY':
 
                 # Populate matrix
                 K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
                 K[3*index:3*index+3,3*index:3*index+3] = eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1 is 'constZ':
+            elif bc2 is 'constZ':
 
                 # Populate matrix
                 K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
@@ -557,34 +498,29 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
 
     def smoothing(r,eta):
 
-        '''
-
         # This function does the grid smoothing
 
         # IMPORTS
         from numpy import copy, zeros
         from numpy.linalg import norm
 
-        # Find number of nodes
-        numNodes = int(len(r)/2)
-
         # Loop over the desired number of smoothing passes
-        for index_pass in range(num_smoothing_passes):
+        for index_pass in range(numSmoothingPasses):
 
             # Initialize array of smoothed coordinates
-            r_smooth = zeros(2*numNodes)
+            r_smooth = zeros(3*numNodes)
 
             # Copy the edge nodes
-            r_smooth[:2] = r[:2]
-            r_smooth[-2:] = r[-2:]
+            r_smooth[:3] = r[:3]
+            r_smooth[-3:] = r[-3:]
 
             # Smooth every node
             for index in xrange(1,numNodes-1):
 
                 # Get coordinates
-                r_curr = r[2*(index):2*(index)+2]
-                r_next = r[2*(index+1):2*(index+1)+2]
-                r_prev = r[2*(index-1):2*(index-1)+2]
+                r_curr = r[3*(index):3*(index)+3]
+                r_next = r[3*(index+1):3*(index+1)+3]
+                r_prev = r[3*(index-1):3*(index-1)+3]
 
                 # Compute distances
                 lp = norm(r_next - r_curr)
@@ -594,12 +530,10 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
                 alphaP = min(alphaP0, alphaP0*(eta-2)/numLayers)
 
                 # Compute smoothed coordinates
-                r_smooth[2*index:2*index+2] = (1-alphaP)*r_curr + alphaP*(lm*r_next + lp*r_prev)/(lp + lm)
+                r_smooth[3*index:3*index+3] = (1-alphaP)*r_curr + alphaP*(lm*r_next + lp*r_prev)/(lp + lm)
 
             # Copy coordinates to allow next pass
             r = copy(r_smooth)
-
-        '''
 
         # RETURNS
         return r
@@ -657,9 +591,15 @@ def create_mesh(rBaseline, NBaseline, bc1, bc2, sBaseline, numLayers, extension,
         if layer_index == 0:
             Aprev = 0
 
+            # Normal vectors
+            surf.inverse_evaluate(r0.reshape((numNodes, 3)))
+            N0 = surf.get_normals(None).T
+        else:
+            N0 = N_next
+
         # Subiter
         for index_sub in range(1):
-            r_next, Aprev = sub_iteration(r0, rm1, Aprev, s, s_tot, layer_index)
+            r_next, N_next, Aprev = sub_iteration(r0, N0, rm1, Aprev, s, s_tot, layer_index)
 
         # Store grid points
         R[layer_index+1,:] = r_next
@@ -852,7 +792,7 @@ def plot_grid(X,Y,Z,show=False):
 #=============================================
 #=============================================
 
-def export_plot3d(X,Y,filename,zSpan=1,zNodes=2):
+def export_plot3d(X,Y,Z,filename):
 
     '''
     This function exports a 3D mesh in plot3d format.
@@ -860,18 +800,16 @@ def export_plot3d(X,Y,filename,zSpan=1,zNodes=2):
     '''
 
     # IMPORTS
-    from plot3d_writer import Grid, export_plot3d
+    from plot3d_interface import Grid, export_plot3d
     from numpy import array, copy, ones, linspace
 
     # Initialize grid object
     myGrid = Grid()
 
     # Expand the coordinate matrices
-    X3d = array([copy(X) for dummy in range(zNodes)])
-    Y3d = array([copy(Y) for dummy in range(zNodes)])
-
-    # Create the span-wise coordinates
-    Z3d = array([z*ones(X.shape) for z in linspace(0,zSpan,zNodes)])
+    X3d = array([X])
+    Y3d = array([Y])
+    Z3d = array([Z])
 
     # Add block to the grid
     myGrid.add_block(X3d, Y3d, Z3d)
