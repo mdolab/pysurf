@@ -26,7 +26,7 @@ class Surface(object):
 
         self.bse.vec['pt_str'](0)[:, :, :] = surf
         for ind in xrange(3):
-            cp[:, ind] = bicgstab(jac.T.dot(jac), jac.T.dot(pt[:, ind]))[0]
+            cp[:, ind] = bicgstab(jac.T.dot(jac), jac.T.dot(pt[:, ind]), tol=1.0e-8)[0]
 
     def inverse_evaluate(self, xyz):
         self.bse.compute_projection('proj', xyz, ndim=3)
