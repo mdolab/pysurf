@@ -16,45 +16,94 @@ TO DO
 - blend the angle-based dissipation coefficient
 '''
 
-def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
-                epsE0 = 1.0, theta = 0.0,
-                alphaP0 = 0.25, numSmoothingPasses = 0,
-                nuArea = 0.16, numAreaPasses = 0,
-                sigmaSplay = 0.3,
-                ratioGuess = 20):
+def createMesh(rStart, bc1, bc2, dStart, numLayers, extension, surf,
+               epsE0 = 1.0, theta = 0.0,
+               alphaP0 = 0.25, numSmoothingPasses = 0,
+               nuArea = 0.16, numAreaPasses = 0,
+               sigmaSplay = 0.3,
+               cMax = 3.0,
+               ratioGuess = 20):
 
-    # This is the main function that generates the surface mesh from an initial curve
+    '''
+    This is the main function that generates the surface mesh from an initial curve
+
+    INPUTS
+    rStart: 2D array (numNodes x 3) -> coordinates of the initial curve
+            rStart = [x1 y1 z1,
+                      x2 y2 z2,
+                      x3 y3 z3, ...]
+
+    bc1: string -> boundary condition applied at the first node
+         options: 'free', 'splay', 'constX', 'constY', 'constZ'
+
+    bc2: string -> boundary condition applied at the last node
+         options: 'free', 'splay', 'constX', 'constY', 'constZ'
+
+    dStart: float -> initial layer spacing to be used when generating the first layer.
+            This value will grow geometrically until the last layer
+
+    numLayers: integer -> total number of layers (including the starting one) that
+               should be in the final mesh
+
+    extension: float -> total marching distance, normalized by the largest size of
+               the bounding box surrounding the initial curve
+
+    surf: surface object -> surface object that should contain inverse_evaluate,
+          get_points, and get_normals methods
+    '''
 
     # IMPORTS
-    from numpy import zeros, copy
+    from numpy import zeros, copy, ceil
+
+    # Flatten the coordinates vector
+    # We do this because the linear system is assembled assuming that
+    # the coordinates vector is flattened
+    rStart = rStart.flatten()
 
     # Get the number of nodes
-    numNodes = int(len(rBaseline)/3)
+    numNodes = int(len(rStart)/3)
 
     # Initialize 2D array that will contains all the surface grid points in the end
-    R = zeros((numLayers,len(rBaseline)))
+    R = zeros((numLayers,len(rStart)))
 
     # Store the initial curve
-    R[0,:] = rBaseline
-
-    # We need a guess for the previous layer in order to compute the grid distribution sensor
-    rm1 = rBaseline
+    R[0,:] = rStart
 
     # Initialize step size and total marched distance
-    s = sBaseline
-    s_tot = 0
+    d = dStart
+    dTot = 0
 
     # Find the characteristic radius of the mesh
-    radius = findRadius(rBaseline)
+    radius = findRadius(rStart)
 
     # Find the desired marching distance
-    s_max = radius*(extension-1)
+    dMax = radius*(extension-1)
 
     # Compute the growth ratio necessary to match this distance
-    growth = findRatio(s_max, sBaseline, numLayers, ratioGuess)
+    dGrowth = findRatio(dMax, dStart, numLayers, ratioGuess)
 
     # Print growth ratio
-    print 'Growth ratio: ',growth
+    print 'Growth ratio: ',dGrowth
+
+    # Project the given points to the surface
+    # (just to make sure the points are actually one the surface)
+    surf.inverse_evaluate(rStart.reshape((numNodes, 3)))
+    rNext = surf.get_points(None).flatten()
+
+    # Compute surface normals at the projected points that will be used in the first iteration
+    NNext = surf.get_normals(None).T
+
+    # Issue a warning message if the projected points are far from the given points
+    if max(abs(rNext - rStart)) > 1.0e-4:
+        print ''
+        print 'WARNING!:' 
+        print 'The given points (rStart) might not belong to the given surface (surf)'
+        print 'These points were projected for the surface mesh generation'
+        print ''
+
+    # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
+    # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
+    rm1 = rStart[:]
 
     '''
     ==========================================
@@ -66,48 +115,82 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
     ==========================================
     '''
 
-    def sub_iteration(r0, N0, rm1, Aprev, s, s_tot, layer_index):
+    def subIteration(r0, N0, S0, rm1, Sm1, layerIndex):
+
+        '''
+        r0 -> 1D array (1 x 3*numNodes): flattened vector containing coordinates of the latest curve
+              r0 = [x1 y1 z1 x2 y2 z2 x3 y3 z3 ... ]
+
+        N0 -> 2D array (3 x numNodes): Surface normals at every node of the latest curve (r0)
+              N0 = [ nx1 nx2 nx3 nx4 ... ]
+                   [ ny1 ny2 ny3 ny4 ... ]
+                   [ nz1 nz2 nz3 nz4 ... ]
+
+        S0 -> 1D array (1 x numNodes): Area factor (related to marching distance) of every node of
+                                       the latest curve (r0). The area is the marching distance times
+                                       the distance between the node and its neighbors
+              S0 = [ S1 S2 S3 S4 ... ]
+
+        rm1 -> 1D array (1 x 3*numNodes): flattened vector containing coordinates of the
+                                          first-before-last curve
+               rm1 = [x1m1 y1m1 z1m1 x2m1 y2m1 z2m1 x3m1 y3m1 z3m1 ... ]
+
+        Sm1 -> 1D array (1 x numNodes): Area factor (related to marching distance) of every node of
+                                        the first-before-last curve (rm1)
+              S0 = [ S1m1 S2m1 S3m1 S4m1 ... ]
+
+        layerIndex -> integer : 0-based index corresponding to the current layer (the starting curve
+                                 has layerIndex = 0, the first generated curve has layerIndex = 1,
+                                 and so on...
+
+        '''
 
         # IMPORTS
         from numpy.linalg import solve
 
-        # Compute area factor
-        A = area_factor(r0,s)
-
-        # Repeat areas for the first iteration
-        # As we don't have a previous layer, we just repeat areas
-        if isinstance(Aprev,int):
-            Aprev = A[:]
-
         # Generate matrices of the linear system
-        K,f = compute_matrices(r0, rm1, N0, Aprev, A, layer_index, s_tot)
-
-        # Store areas to be used by the next layer
-        Aprev = A[:]
+        K,f = computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
 
         # Solve the linear system
         dr = solve(K,f)
 
-        # Update r
-        r_next = r0 + dr
-        
-        # Smooth coordinates
-        r_next = smoothing(r_next,layer_index+2)
+        # Get maximum residual
+        res = K.dot(dr) - f
+        maxRes = max(abs(res))
 
-        # Project onto surface
-        surf.inverse_evaluate(r_next.reshape((numNodes, 3)))
-        r_next = surf.get_points(None).flatten()
-        N_next = surf.get_normals(None).T
+        # Update r
+        rNext = r0 + dr
+
+        # Smooth coordinates
+        #rNext = smoothing(rNext,layerIndex+2)
+
+        # Project onto surface and compute surface normals
+        surf.inverse_evaluate(rNext.reshape((numNodes, 3)))
+        rNext = surf.get_points(None).flatten()
+        NNext = surf.get_normals(None).T
 
         # RETURNS
-        return r_next, N_next, A
+        return rNext, NNext, maxRes
 
-    def area_factor(r0,s):
+    def areaFactor(r0,d):
 
-        # This function computes the area factor distribution
+        '''
+        This function computes the area factor distribution for the current curve.
+        The area factor is the marched distance times the distance between the node
+        and its neighbors.
+        This function also computes the stretching ratio of the desired marching distance
+        (ratio between marching distance and the neighbor distance), so that we can avoid
+        large steps
+
+        INPUTS:
+        r0 -> 1d array (1 x 3*numNodes) : coordinates of all points in a layer:
+        r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
+
+        d -> float : desired marching distance
+        '''
 
         # IMPORT
-        from numpy import hstack, reshape
+        from numpy import hstack, reshape, max
         from numpy.linalg import norm
 
         # Extrapolate the end points
@@ -119,36 +202,45 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
         R0_extrap = reshape(r0_extrap,(-1,3)).T
 
         # Compute the distance of each node to its neighbors
-        d = 0.5*(norm(R0_extrap[:,1:-1] - R0_extrap[:,:-2],axis=0) + norm(R0_extrap[:,2:] - R0_extrap[:,1:-1],axis=0))
+        neighborDist = 0.5*(norm(R0_extrap[:,1:-1] - R0_extrap[:,:-2],axis=0) + norm(R0_extrap[:,2:] - R0_extrap[:,1:-1],axis=0))
 
         # Multiply distances by the step size to get the areas
-        A = d*s
+        S = d*neighborDist
+
+        # Divide the marching distance and the neighbor distance to get the stretch ratios
+        stretchRatio = d/neighborDist
+
+        # Get the maximum stretch ratio
+        maxStretch = max(stretchRatio)
 
         # Do the requested number of averagings
         for index in xrange(numAreaPasses):
             # Store previous values
-            Aplus = A[1]
-            Aminus = A[-2]
-            # Do the averaging
-            A[1:-1] = (1-nuArea)*A[1:-1] + nuArea/2*(A[:-2] + A[2:])
-            A[0] = (1-nuArea)*A[0] + nuArea*Aplus
-            A[-1] = (1-nuArea)*A[-1] + nuArea*Aminus
+            Splus = S[1]
+            Sminus = S[-2]
+            # Do the averaging for the central nodes
+            S[1:-1] = (1-nuArea)*S[1:-1] + nuArea/2*(S[:-2] + S[2:])
+            # Average for the extremum nodes
+            S[0] = (1-nuArea)*S[0] + nuArea*Splus
+            S[-1] = (1-nuArea)*S[-1] + nuArea*Sminus
 
         # RETURNS
-        return A
+        return S, maxStretch
 
-    def compute_matrices(r0,rm1,N0,Aprev,A,layer_index,s_tot):
+    def computeMatrices(r0,N0,S0,rm1,Sm1,layerIndex):
 
-        # This function computes the derivatives r_zeta and r_eta for a group
-        # of coordinates given in r.
-        # It shoud be noted that r is a 1d array that contains x and y
-        # coordinates of all points in a layer:
-        # r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
-        #
-        # N0 is a 2D array with the surface normals at each r0 point
-        # N0 = nx1 nx2 nx3 nx4 ...
-        #      ny1 ny2 ny3 ny4 ...
-        #      nz1 nz2 nz3 nz4
+        '''
+        This function computes the derivatives r_zeta and r_eta for a group
+        of coordinates given in r.
+        It should be noted that r0 is a 1d array that contains x and y
+        coordinates of all points in a layer:
+        r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
+        
+        N0 is a 2D array with the surface normals at each r0 point
+        N0 = [ nx1 nx2 nx3 nx4 ... ]
+             [ ny1 ny2 ny3 ny4 ... ]
+             [ nz1 nz2 nz3 nz4 ... ]
+        '''
 
         # IMPORTS
         from numpy import zeros, sqrt, eye, array, arctan2, pi, cross
@@ -162,7 +254,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
         f = zeros(3*numNodes)
 
         # Define assembly routines
-        def central_matrices(prev_index,curr_index,next_index):
+        def centralMatrices(prev_index,curr_index,next_index):
 
             # Using central differencing for zeta = 2:numNodes-1
             r0_xi = 0.5*(r0[3*(next_index):3*(next_index)+3] - r0[3*(prev_index):3*(prev_index)+3])
@@ -184,7 +276,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             B0inv = inv(B0)
 
             # Compute eta derivatives
-            r0_eta = B0inv.dot(array([0, Aprev[curr_index], 0]))
+            r0_eta = B0inv.dot(array([0, Sm1[curr_index], 0]))
             x0_eta = r0_eta[0]
             y0_eta = r0_eta[1]
             z0_eta = r0_eta[2]
@@ -197,13 +289,13 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(next_index):3*(next_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(prev_index):3*(prev_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(next_index):3*(next_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(prev_index):3*(prev_index)+3]-r0[3*(index):3*(index)+3])
-            d_sensor = dnum/dden
+            dSensor = dnum/dden
 
             # Compute the local grid angle based on the neighbors
-            angle = give_angle(r0[3*(prev_index):3*(prev_index)+3],
-                               r0[3*(curr_index):3*(curr_index)+3],
-                               r0[3*(next_index):3*(next_index)+3],
-                               N0[:,curr_index])
+            angle = giveAngle(r0[3*(prev_index):3*(prev_index)+3],
+                              r0[3*(curr_index):3*(curr_index)+3],
+                              r0[3*(next_index):3*(next_index)+3],
+                              N0[:,curr_index])
 
             # Sharp convex corner detection
             if angle > 240*pi/180: # Corner detected
@@ -220,10 +312,10 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 C0 = B0inv.dot(A0)
 
                 # Compute smoothing coefficients
-                epsE, epsI = dissipation_coefficients(layer_index, r0_xi, r0_eta, d_sensor, angle)
+                epsE, epsI = dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
 
                 # Compute RHS components
-                B0invg = B0inv.dot(array([0, A[curr_index], 0]))
+                B0invg = B0inv.dot(array([0, S0[curr_index], 0]))
                 De = epsE*(r0[3*(prev_index):3*(prev_index)+3] - 2*r0[3*(index):3*(index)+3] + r0[3*(next_index):3*(next_index)+3])
 
                 # Compute block matrices
@@ -238,7 +330,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 K[3*(curr_index):3*(curr_index)+3,3*(next_index):3*(next_index)+3] = N_block
                 f[3*(curr_index):3*(curr_index)+3] = f_block
 
-        def forward_matrices(curr_index,next_index,nextnext_index):
+        def forwardMatrices(curr_index,next_index,nextnext_index):
 
             # Using forward differencing for xi = 1
             r0_xi = 0.5*(-3*r0[3*(curr_index):3*(curr_index)+3] + 4*r0[3*(next_index):3*(next_index)+3] - r0[3*(nextnext_index):3*(nextnext_index)+3])
@@ -260,7 +352,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             B0inv = inv(B0)
 
             # Compute eta derivatives
-            r0_eta = B0inv.dot(array([0, Aprev[curr_index], 0]))
+            r0_eta = B0inv.dot(array([0, Sm1[curr_index], 0]))
             x0_eta = r0_eta[0]
             y0_eta = r0_eta[1]
             z0_eta = r0_eta[2]
@@ -273,7 +365,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(next_index):3*(next_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(nextnext_index):3*(nextnext_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(next_index):3*(next_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(nextnext_index):3*(nextnext_index)+3]-r0[3*(index):3*(index)+3])
-            d_sensor = dnum/dden
+            dSensor = dnum/dden
 
             # Compute the local grid angle based on the neighbors
             angle = pi
@@ -282,10 +374,10 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             C0 = B0inv.dot(A0)
 
             # Compute smoothing coefficients
-            epsE, epsI = dissipation_coefficients(layer_index, r0_xi, r0_eta, d_sensor, angle)
+            epsE, epsI = dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
 
             # Compute RHS components
-            B0invg = B0inv.dot(array([0, A[curr_index], 0]))
+            B0invg = B0inv.dot(array([0, S0[curr_index], 0]))
             De = epsE*(r0[3*(nextnext_index):3*(nextnext_index)+3] - 2*r0[3*(next_index):3*(next_index)+3] + r0[3*(curr_index):3*(curr_index)+3])
 
             # Compute block matrices
@@ -300,7 +392,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
             f[3*(curr_index):3*(curr_index)+3] = f_block
 
-        def backward_matrices(curr_index,prev_index,prevprev_index):
+        def backwardMatrices(curr_index,prev_index,prevprev_index):
 
             # Using backward differencing for xi = numNodes
             r0_xi = 0.5*(3*r0[3*(curr_index):3*(curr_index)+3] - 4*r0[3*(prev_index):3*(prev_index)+3] + r0[3*(prevprev_index):3*(prevprev_index)+3])
@@ -322,7 +414,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             B0inv = inv(B0)
 
             # Compute eta derivatives
-            r0_eta = B0inv.dot(array([0, Aprev[curr_index], 0]))
+            r0_eta = B0inv.dot(array([0, Sm1[curr_index], 0]))
             x0_eta = r0_eta[0]
             y0_eta = r0_eta[1]
             z0_eta = r0_eta[2]
@@ -335,7 +427,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = norm(rm1[3*(prev_index):3*(prev_index)+3]-rm1[3*(index):3*(index)+3]) + norm(rm1[3*(prevprev_index):3*(prevprev_index)+3]-rm1[3*(index):3*(index)+3])
             dden = norm(r0[3*(prev_index):3*(prev_index)+3]-r0[3*(index):3*(index)+3]) + norm(r0[3*(prevprev_index):3*(prevprev_index)+3]-r0[3*(index):3*(index)+3])
-            d_sensor = dnum/dden
+            dSensor = dnum/dden
 
             # Compute the local grid angle based on the neighbors
             angle = pi
@@ -344,10 +436,10 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             C0 = B0inv.dot(A0)
 
             # Compute smoothing coefficients
-            epsE, epsI = dissipation_coefficients(layer_index, r0_xi, r0_eta, d_sensor, angle)
+            epsE, epsI = dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
 
             # Compute RHS components
-            B0invg = B0inv.dot(array([0, A[curr_index], 0]))
+            B0invg = B0inv.dot(array([0, S0[curr_index], 0]))
             De = epsE*(r0[3*(prevprev_index):3*(prevprev_index)+3] - 2*r0[3*(prev_index):3*(prev_index)+3] + r0[3*(curr_index):3*(curr_index)+3])
 
             # Compute block matrices
@@ -374,7 +466,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 nextnext_index = index+2
 
                 # Call assembly routine
-                forward_matrices(curr_index,next_index,nextnext_index)
+                forwardMatrices(curr_index,next_index,nextnext_index)
 
             elif bc1 is 'continuous':
 
@@ -384,7 +476,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 next_index = index+1
 
                 # Call assembly routine
-                central_matrices(prev_index,curr_index,next_index)
+                centralMatrices(prev_index,curr_index,next_index)
 
             elif bc1 is 'splay':
 
@@ -402,7 +494,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 K[3*index:3*index+3,3*index:3*index+3] = array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
                                                                 [N0[0,index], N0[1,index], N0[2,index]],
                                                                 [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = array([A[index]*(1-sigmaSplay), 0, 0])
+                f[3*index:3*index+3] = array([S0[index]*(1-sigmaSplay), 0, 0])
 
             elif bc1 is 'constX':
 
@@ -433,7 +525,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             next_index = index+1
 
             # Call assembly routine
-            central_matrices(prev_index,curr_index,next_index)
+            centralMatrices(prev_index,curr_index,next_index)
 
         for index in [numNodes-1]:
 
@@ -445,7 +537,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 prevprev_index = index-2
 
                 # Call assembly routine
-                backward_matrices(curr_index,prev_index,prevprev_index)
+                backwardMatrices(curr_index,prev_index,prevprev_index)
 
             elif bc2 is 'continuous':
 
@@ -470,7 +562,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
                 K[3*index:3*index+3,3*index:3*index+3] = array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
                                                                 [N0[0,index], N0[1,index], N0[2,index]],
                                                                 [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = array([A[index]*(1-sigmaSplay), 0, 0])
+                f[3*index:3*index+3] = array([S0[index]*(1-sigmaSplay), 0, 0])
 
             elif bc2 is 'constX':
 
@@ -538,7 +630,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
         # RETURNS
         return r
 
-    def dissipation_coefficients(layer_index, r0_xi, r0_eta, d_sensor, angle):
+    def dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle):
 
         # IMPORTS
         from numpy import sqrt, cos, pi
@@ -548,7 +640,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
         N = norm(r0_eta)/norm(r0_xi)
 
         # Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
-        l = layer_index+2
+        l = layerIndex+2
         ltrans = int(3/4*numLayers)
         if l <= ltrans:
             Sl = sqrt((l-1)/(ltrans-1))
@@ -556,7 +648,7 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
             Sl = sqrt((ltrans-1)/(numLayers-1))
 
         # Compute adjusted grid distribution sensor (Eq. 6.7)
-        dbar = max([d_sensor**(2/Sl), 0.1])
+        dbar = max([dSensor**(2/Sl), 0.1])
 
         # Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
         if angle >= pi: # Convex corner
@@ -579,36 +671,70 @@ def create_mesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
     '''
     The marching function actually begins here
     '''
+    # Some functions require the area factors of the first-before-last curve
+    # We will repeat the first curve areas for simplicity.
+    # rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
+    # But we still need to find Sm1
+    Sm1, maxStretch = areaFactor(rStart,d)
+
+    maxRes = 0
 
     # MARCH!!!
-    for layer_index in range(numLayers-1):
-        # Get the previous coordinates
-        r0 = R[layer_index,:]
+    for layerIndex in range(numLayers-1):
 
-        # Compute the total marched distance
-        s_tot = s_tot + s
+        # Get the coordinates computed by the previous iteration
+        r0 = rNext[:]
 
-        if layer_index == 0:
-            Aprev = 0
+        # Compute the new area factor for the desired marching distance
+        S0, maxStretch = areaFactor(r0,d)
 
-            # Normal vectors
-            surf.inverse_evaluate(r0.reshape((numNodes, 3)))
-            N0 = surf.get_normals(None).T
-        else:
-            N0 = N_next
+        # The subiterations will use pseudo marching steps.
+        # If the required marching step is too large, the hyperbolic marching might become
+        # unstable. So we subdivide the current marching step into multiple smaller pseudo-steps
 
-        # Subiter
-        for index_sub in range(1):
-            r_next, N_next, Aprev = sub_iteration(r0, N0, rm1, Aprev, s, s_tot, layer_index)
+        # Compute the factor between the current stretching ratio and the allowed one.
+        # If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
+        # The pseudo-step will be the same as the desired step.
+        cFactor = int(ceil(maxStretch/cMax))
+
+        # Constrain the marching distance if the stretching ratio is too high
+        dPseudo = d/cFactor
+
+        print cFactor, maxRes, rNext
+
+        # Subiteration
+        # The number of subiterations is the one required to meet the desired marching distance
+        for indexSubIter in range(cFactor):
+
+            # Recompute areas with the pseudo-step
+            S0, maxStretch = areaFactor(r0,dPseudo)
+
+            # Update the Normals with the values computed in the last iteration.
+            # We do this because, the last iteration already projected the new
+            # points to the surface and also computed the normals. So we don't
+            # have to repeat the projection step
+            N0 = NNext[:,:]
+
+            # March using the pseudo-marching distance
+            rNext, NNext, maxRes = subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
+
+            # Update Sm1 (Store the previous area factors)
+            Sm1 = S0[:]
+
+            # Update rm1
+            rm1 = r0[:]
+
+            # Update r0
+            r0 = rNext[:]
 
         # Store grid points
-        R[layer_index+1,:] = r_next
+        R[layerIndex+1,:] = rNext
+
+        # Compute the total marched distance so far
+        dTot = dTot + d
 
         # Update step size
-        s = s*growth
-
-        # Update rm1
-        rm1 = R[layer_index,:]
+        d = d*dGrowth
 
     # Convert to X, Y and Z
     X = R[:,::3]
@@ -627,7 +753,7 @@ MORE AUXILIARY FUNCTIONS
 #=============================================
 #=============================================
 
-def give_angle(r0,r1,r2,N1):
+def giveAngle(r0,r1,r2,N1):
 
     '''
     This function gives the angle between the vectors joining
@@ -673,13 +799,13 @@ def give_angle(r0,r1,r2,N1):
 #=============================================
 #=============================================
 
-def findRatio(s_max, s0, numLayers, ratioGuess):
+def findRatio(dMax, d0, numLayers, ratioGuess):
 
     '''
     This function returns the geometrical progression ratio that satisfies
     the farfield distance and the number of cells. Newton search is used
     INPUTS
-    s_max: distance that should be reached
+    dMax: distance that should be reached
     s0: cell edge length at the wall
     numLayers: number of cells used to reach farfield
     '''
@@ -694,10 +820,10 @@ def findRatio(s_max, s0, numLayers, ratioGuess):
     # Newton search loop
     for i in xrange(nIters):
        # Residual function
-       R = s0*(1-q**(numLayers-1)) - s_max*(1-q)
+       R = d0*(1-q**(numLayers-1)) - dMax*(1-q)
 
        # Residual derivative
-       Rdot = -(numLayers-1)*s0*q**(numLayers-2) + s_max
+       Rdot = -(numLayers-1)*d0*q**(numLayers-2) + dMax
 
        # Update ratio with Newton search
        q = q - R/Rdot
@@ -748,7 +874,7 @@ def findRadius(r):
 #=============================================
 #=============================================
 
-def plot_grid(X,Y,Z,show=False):
+def plotGrid(X,Y,Z,show=False):
 
     # This function plots the grid
 
@@ -792,7 +918,7 @@ def plot_grid(X,Y,Z,show=False):
 #=============================================
 #=============================================
 
-def export_plot3d(X,Y,Z,filename):
+def exportPlot3d(X,Y,Z,filename):
 
     '''
     This function exports a 3D mesh in plot3d format.
