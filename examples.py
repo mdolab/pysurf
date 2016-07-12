@@ -10,11 +10,11 @@ import os
 # OPTIONS
 
 # Select example
-#example = 'kink_on_plate'
+# example = 'kink_on_plate'
 # example = 'line_on_curve'
-example = 'line_on_paraboloid'
+#example = 'line_on_paraboloid'
 # example = 'circle_on_curve'
-# example = 'circle_on_paraboloid'
+example = 'circle_on_paraboloid'
 
 # EXAMPLE SELECTION
 
@@ -29,8 +29,7 @@ if example == 'kink_on_plate':
                        [5,0,0]])
     bc1 = 'splay'
     bc2 = 'splay'
-    sBaseline = 1e-2
-    numLayers = 20
+    numLayers = 3
     extension = 3.25
     n = len(rBaseline)/3
 
@@ -56,7 +55,7 @@ if example == 'kink_on_plate':
     ratioGuess = 20
 
     # Options
-    sBaseline = 0.01
+    sBaseline = 0.15
     numLayers = 20
     extension = 3.25
 
@@ -103,7 +102,7 @@ elif example == 'line_on_curve':
 elif example == 'line_on_paraboloid':
 
     # Set problem
-    n = 5
+    n = 20
     nums = linspace(1, -1, n)
     x = -0.5*ones(n)
     y = nums
@@ -187,7 +186,7 @@ elif example == 'circle_on_paraboloid':
     x = cos(nums)+5.0
     y = sin(nums)
     z = zeros(n)
-    rBaseline = vstack([x, y, z]).T.ravel()
+    rBaseline = vstack([x, y, z]).T
     NBaseline = array([array([0, 0, 1])] * n).T
     bc1 = 'continuous'
     bc2 = 'continuous'

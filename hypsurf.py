@@ -44,7 +44,6 @@ class HypSurfMesh(object):
 
         # Get the number of nodes
         self.numNodes = curve.shape[0]
-        print self.numNodes
         self.mesh = np.zeros((3, self.numNodes, self.optionsDict['numLayers']))
 
     def createMesh(self):
@@ -92,12 +91,20 @@ class HypSurfMesh(object):
         # Initialize 2D array that will contains all the surface grid points in the end
         R = np.zeros((numLayers,len(rStart)))
 
+        # Project the given points to the surface
+        # (just to make sure the points are actually one the surface)
+        self.ref_surf.inverse_evaluate(rStart.reshape((self.numNodes, 3)))
+        rNext = self.ref_surf.get_points(None).flatten()
+
+        # Compute surface normals at the projected points that will be used in the first iteration
+        NNext = self.ref_surf.get_normals(None).T
+
         # Initialize step size and total marched distance
         d = dStart
         dTot = 0
 
         # Find the characteristic radius of the mesh
-        radius = findRadius(rStart)
+        radius = findRadius(rNext)
 
         # Find the desired marching distance
         dMax = radius*(extension-1)
@@ -107,14 +114,6 @@ class HypSurfMesh(object):
 
         # Print growth ratio
         print 'Growth ratio: ',dGrowth
-
-        # Project the given points to the surface
-        # (just to make sure the points are actually one the surface)
-        self.ref_surf.inverse_evaluate(rStart.reshape((self.numNodes, 3)))
-        rNext = self.ref_surf.get_points(None).flatten()
-
-        # Compute surface normals at the projected points that will be used in the first iteration
-        NNext = self.ref_surf.get_normals(None).T
 
         # Store the initial curve
         R[0,:] = rNext
@@ -877,6 +876,8 @@ def findRadius(r):
 
     # IMPORTS
     from numpy import max, min
+
+    print r
 
     # Split coordinates
     x = r[::3]
