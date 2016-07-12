@@ -10,19 +10,23 @@ import os
 # OPTIONS
 
 # Select example
-#example = 'kink_on_plate'
-#example = 'line_on_curve'
-example = 'line_on_paraboloid'
-#example = 'circle_on_curve'
-#example = 'circle_on_paraboloid'
+example = 'kink_on_plate'
+# example = 'line_on_curve'
+# example = 'line_on_paraboloid'
+# example = 'circle_on_curve'
+# example = 'circle_on_paraboloid'
 
 # EXAMPLE SELECTION
 
 if example == 'kink_on_plate':
 
     # Set problem
-    rBaseline = array([0,0,0, 1,1,0, 2,2,0, 3,2,0, 4,1,0, 5,0,0])
-    NBaseline = array([[0,0,1], [0,0,1], [0,0,1], [0,0,1], [0,0,1], [0,0,1]]).T
+    rBaseline = array([[0,0,0],
+                       [1,1,0],
+                       [2,2,0],
+                       [3,2,0],
+                       [4,1,0],
+                       [5,0,0]])
     bc1 = 'splay'
     bc2 = 'splay'
     sBaseline = 1e-2
@@ -48,7 +52,7 @@ if example == 'kink_on_plate':
     nuArea = 0.16
     numAreaPasses = 0
     sigmaSplay = 0.0
-    cMax = 2.0
+    cMax = 20.0
     ratioGuess = 20
 
     # Options
@@ -144,8 +148,7 @@ elif example == 'circle_on_curve':
     x = cos(nums)
     y = sin(nums)
     z = zeros(n)
-    rBaseline = vstack([x, y, z]).T.ravel()
-    NBaseline = array([array([0, 0, 1])] * n).T
+    rBaseline = vstack([x, y, z])
     bc1 = 'continuous'
     bc2 = 'continuous'
 
@@ -223,21 +226,33 @@ elif example == 'circle_on_paraboloid':
 # Create surface object
 surf = surface.Surface(pts)
 
-# Project onto surface
-surf.inverse_evaluate(rBaseline.reshape((n, 3)))
-rBaseline = surf.get_points(None).flatten()
+# Set reference geometry
+ref_geom = {'surf':surf}
 
-# Generate surface mesh
-X,Y,Z = hypsurf.createMesh(rBaseline, bc1, bc2, sBaseline, numLayers, extension, surf,
-                           epsE0 = epsE0, theta = theta,
-                           alphaP0 = alphaP0, numSmoothingPasses = numSmoothingPasses,
-                           nuArea = nuArea, numAreaPasses = numAreaPasses,
-                           sigmaSplay = sigmaSplay,
-                           cMax = cMax,
-                           ratioGuess = ratioGuess)
+# Set options
+options = {
 
-# Plot results
-fig = hypsurf.plotGrid(X,Y,Z,show=False)
-fig.savefig('output.png')
-hypsurf.exportPlot3d(X,Y,Z,'output.xyz')
+    'bc1' : bc1,
+    'bc2' : bc2,
+    'dStart' : sBaseline,
+    'numLayers' : numLayers,
+    'extension' : extension,
+    'epsE0' : epsE0,
+    'theta' : theta,
+    'alphaP0' : alphaP0,
+    'numSmoothingPasses' : numSmoothingPasses,
+    'nuArea' : nuArea,
+    'numAreaPasses' : numAreaPasses,
+    'sigmaSplay' : sigmaSplay,
+    'cMax' : cMax,
+    'ratioGuess' : ratioGuess,
+
+    }
+
+mesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
+
+mesh.createMesh()
+
+mesh.exportPlot3d('output.xyz')
+
 os.system('tec360 layout_mesh.lay')
