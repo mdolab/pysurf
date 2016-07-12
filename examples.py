@@ -76,8 +76,8 @@ elif example == 'line_on_curve':
     pts = zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)    # X coordiantes
-            pts[i, j, 1] = s1 * (-1. + 2 * j / nv)    # Y coordiantes
+            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)    # X coordinates
+            pts[i, j, 1] = s1 * (-1. + 2 * j / nv)    # Y coordinates
             pts[i, j, 2] = 100*s1 * (-1. + 2 * j / nv)**2  # Z coordinates
 
     # Set parameters
@@ -116,25 +116,25 @@ elif example == 'line_on_paraboloid':
     pts = zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)    # X coordiantes
-            pts[i, j, 1] = s1 * (-1. + 2 * j / nv)    # Y coordiantes
+            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)    # X coordinates
+            pts[i, j, 1] = s1 * (-1. + 2 * j / nv)    # Y coordinates
             pts[i, j, 2] = 100*s0 * (-1. + 2 * i / nv)**2 + 100*s1 * (-1. + 2 * j / nv)**2  # Z coordinates
 
     # Set parameters
-    epsE0 = 15.0
-    theta = 3.0
+    epsE0 = 20.0
+    theta = 5.0
     alphaP0 = 0.25
-    numSmoothingPasses = 0
+    numSmoothingPasses = 1
     nuArea = 0.16
-    numAreaPasses = 10
-    sigmaSplay = 0.3
-    cMax = 0.1
-    ratioGuess = 20
+    numAreaPasses = 0
+    sigmaSplay = 0.8
+    cMax = 100.0
+    ratioGuess = 2
 
     # Options
-    sBaseline = 0.002
-    numLayers = 50
-    extension = 5
+    sBaseline = 0.05
+    numLayers = 20
+    extension = 10
 
 elif example == 'circle_on_curve':
 
@@ -181,7 +181,7 @@ elif example == 'circle_on_paraboloid':
     # Set problem
     n = 41
     nums = linspace(1, 0, n) * 2*pi
-    x = cos(nums)
+    x = cos(nums)+5.0
     y = sin(nums)
     z = zeros(n)
     rBaseline = vstack([x, y, z]).T.ravel()

@@ -51,16 +51,17 @@ class Surface(object):
 if __name__ == '__main__':
     import numpy
 
-    nu, nv = 10, 10
+    nu, nv = 11, 11
     array = numpy.zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            array[i, j, 0] = i / nu
-            array[i, j, 1] = j / nv
+            array[i, j, 0] = i / (nu-1)
+            array[i, j, 1] = j / (nv-1)
+            array[i, j, 2] = j / (nv-1)
     s = Surface(array)
 
     xyz = numpy.zeros((1, 3))
-    xyz[0, :] = [0.5, 0.5, 10]
+    xyz[0, :] = [0.5, 0.5, 1.0]
     s.inverse_evaluate(xyz)
     print s.get_points(None)
     print s.get_normals(None)
