@@ -92,9 +92,6 @@ class HypSurfMesh(object):
         # Initialize 2D array that will contains all the surface grid points in the end
         R = np.zeros((numLayers,len(rStart)))
 
-        # Store the initial curve
-        R[0,:] = rStart
-
         # Initialize step size and total marched distance
         d = dStart
         dTot = 0
@@ -119,6 +116,9 @@ class HypSurfMesh(object):
         # Compute surface normals at the projected points that will be used in the first iteration
         NNext = self.ref_surf.get_normals(None).T
 
+        # Store the initial curve
+        R[0,:] = rNext
+
         # Issue a warning message if the projected points are far from the given points
         if max(abs(rNext - rStart)) > 1.0e-3:
             print ''
@@ -129,7 +129,7 @@ class HypSurfMesh(object):
 
         # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
         # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-        rm1 = rStart[:]
+        rm1 = rNext[:]
 
         #===========================================================
 
@@ -140,7 +140,7 @@ class HypSurfMesh(object):
         # We will repeat the first curve areas for simplicity.
         # rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
         # But we still need to find Sm1
-        Sm1, maxStretch = self.areaFactor(rStart, d)
+        Sm1, maxStretch = self.areaFactor(rNext, d)
 
         maxRes = 0
 
@@ -618,7 +618,7 @@ class HypSurfMesh(object):
                 matrixBuilder(index)
 
 
-        view_mat(K)
+        #view_mat(K)
 
 
         # RETURNS
@@ -628,6 +628,7 @@ class HypSurfMesh(object):
 
         alphaP0 = self.optionsDict['alphaP0']
         numSmoothingPasses = self.optionsDict['numSmoothingPasses']
+        numLayers = self.optionsDict['numLayers']
 
         # This function does the grid smoothing
 

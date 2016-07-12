@@ -10,9 +10,9 @@ import os
 # OPTIONS
 
 # Select example
-example = 'kink_on_plate'
+#example = 'kink_on_plate'
 # example = 'line_on_curve'
-# example = 'line_on_paraboloid'
+example = 'line_on_paraboloid'
 # example = 'circle_on_curve'
 # example = 'circle_on_paraboloid'
 
@@ -103,12 +103,12 @@ elif example == 'line_on_curve':
 elif example == 'line_on_paraboloid':
 
     # Set problem
-    n = 20
+    n = 5
     nums = linspace(1, -1, n)
     x = -0.5*ones(n)
     y = nums
     z = zeros(n)
-    rBaseline = vstack([x, y, z]).T.ravel()
+    rBaseline = vstack([x, y, z]).T
     NBaseline = array([array([0, 0, 1])] * n).T
     bc1 = 'splay'
     bc2 = 'splay'
