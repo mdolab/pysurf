@@ -162,7 +162,7 @@ def createMesh(rStart, bc1, bc2, dStart, numLayers, extension, surf,
         rNext = r0 + dr
 
         # Smooth coordinates
-        #rNext = smoothing(rNext,layerIndex+2)
+        rNext = smoothing(rNext,layerIndex+2)
 
         # Project onto surface and compute surface normals
         surf.inverse_evaluate(rNext.reshape((numNodes, 3)))
@@ -700,7 +700,7 @@ def createMesh(rStart, bc1, bc2, dStart, numLayers, extension, surf,
         # Constrain the marching distance if the stretching ratio is too high
         dPseudo = d/cFactor
 
-        print cFactor, maxRes, rNext
+        print cFactor, maxRes
 
         # Subiteration
         # The number of subiterations is the one required to meet the desired marching distance
