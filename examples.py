@@ -10,9 +10,9 @@ import os
 # OPTIONS
 
 # Select example
-#example = 'kink_on_plate'
+example = 'kink_on_plate'
 #example = 'line_on_curve'
-example = 'line_on_paraboloid'
+# example = 'line_on_paraboloid'
 #example = 'line_on_eggcrate'
 #example = 'circle_on_curve'
 #example = 'circle_on_paraboloid'
@@ -29,10 +29,8 @@ if example == 'kink_on_plate':
                        [3,2,0],
                        [4,1,0],
                        [5,0,0]])
-    bc1 = 'splay'
+    bc1 = 'curve'
     bc2 = 'splay'
-    numLayers = 3
-    extension = 3.25
     n = len(rBaseline)/3
 
     # Define surface points
@@ -44,6 +42,16 @@ if example == 'kink_on_plate':
         for j in xrange(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
+
+    # Define surface points
+    s0 = 100
+    s1 = 100
+    nu, nv = 100, 4
+    curve_pts = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            curve_pts[i, j, 0] = 0.0
+            curve_pts[i, j, 1] = s1 * (-1. + 2 * i / nv)
 
     # Set parameters
     epsE0 = 1.0
@@ -58,8 +66,8 @@ if example == 'kink_on_plate':
 
     # Options
     sBaseline = 0.15
-    numLayers = 20
-    extension = 3.25
+    numLayers = 5
+    extension = 1.25
 
 elif example == 'line_on_curve':
 
@@ -311,9 +319,11 @@ elif example == 'airfoil_on_cylinder':
 
 # Create surface object
 surf = surface.Surface(pts)
+curve1 = surface.Surface(curve_pts)
 
 # Set reference geometry
-ref_geom = {'surf':surf}
+ref_geom = {'surf':surf,
+            'curve1':curve1}
 
 # Set options
 options = {

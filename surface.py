@@ -47,6 +47,12 @@ class Surface(object):
             cross[:, ind] = cross[:, ind] / norms
         return cross
 
+    def get_tangent(self, dmy):
+        self.bse.apply_jacobian('proj', 'd(proj_du)/d(cp_str)', 'cp_str')
+        du = numpy.array(self.bse.vec['proj'].array)
+        du = du / numpy.sum(du**2, axis=1)**0.5
+        return du
+
 
 if __name__ == '__main__':
     import numpy

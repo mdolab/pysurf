@@ -8,6 +8,7 @@
 from __future__ import division
 from time import time
 import numpy as np
+import pdb
 
 '''
 TO DO
@@ -88,16 +89,20 @@ class HypSurfMesh(object):
         # the coordinates vector is flattened
         rStart = self.curve.flatten()
 
+
         # Initialize 2D array that will contains all the surface grid points in the end
         R = np.zeros((numLayers,len(rStart)))
 
-        # Project the given points to the surface
-        # (just to make sure the points are actually one the surface)
-        self.ref_surf.inverse_evaluate(rStart.reshape((self.numNodes, 3)))
-        rNext = self.ref_surf.get_points(None).flatten()
+        print
+        print rStart
+        print
 
-        # Compute surface normals at the projected points that will be used in the first iteration
-        NNext = self.ref_surf.get_normals(None).T
+        # Project onto the surface or curve (if applicable)
+        rNext, NNext = self.projection(rStart)
+
+        print rNext
+        print
+        exit()
 
         # Initialize step size and total marched distance
         d = dStart
@@ -255,13 +260,39 @@ class HypSurfMesh(object):
         # Smooth coordinates
         rNext = self.smoothing(rNext,layerIndex+2)
 
-        # Project onto surface and compute surface normals
-        self.ref_surf.inverse_evaluate(rNext.reshape((self.numNodes, 3)))
-        rNext = self.ref_surf.get_points(None).flatten()
-        NNext = self.ref_surf.get_normals(None).T
+        rNext, NNext = self.projection(rNext)
+
+        # if self.optionsDict['bc2'] == 'curve':
+        #     self.ref_curve1.inverse_evaluate(rNext[:3].reshape((1, 3)))
+        #     rNext[:3] = self.ref_curve1.get_points(None).flatten()[:3]
+        #     NNext[:3] = self.ref_curve1.get_tangent(None).T[:3]
+        # else:
+        #     rNext[:3] = self.ref_surf.get_points(None).flatten()[:3]
+        #     NNext[:3] = self.ref_surf.get_normals(None).T[:3]
 
         # RETURNS
         return rNext, NNext, maxRes
+
+    def projection(self, rNext):
+        NNext = np.zeros((3, self.numNodes))
+        rNew = np.zeros((rNext.shape))
+
+        # Project onto surface and compute surface normals
+        self.ref_surf.inverse_evaluate(rNext.reshape((self.numNodes, 3)))
+        rNext[3:] = self.ref_surf.get_points(None).flatten()[3:]
+        print self.ref_surf.get_points(None).flatten()[3:]
+        print rNext[3:]
+        NNext[:, 1:] = self.ref_surf.get_normals(None).T[:, 1:]
+
+        if self.optionsDict['bc1'] == 'curve':
+            self.ref_curve1.inverse_evaluate(rNext[:3].reshape((1, 3)))
+            rNext[:3] = self.ref_curve1.get_points(None).flatten()[:3]
+            NNext[:, 0] = self.ref_curve1.get_tangent(None).T[:, 0]
+        else:
+            rNext[:3] = self.ref_surf.get_points(None).flatten()[:3]
+            NNext[:, 0] = self.ref_surf.get_normals(None).T[:, 0]
+
+        return rNext, NNext
 
     def areaFactor(self, r0, d):
 
@@ -391,6 +422,8 @@ class HypSurfMesh(object):
                                   r0[3*(curr_index):3*(curr_index)+3],
                                   r0[3*(neighbor2_index):3*(neighbor2_index)+3],
                                   N0[:,curr_index])
+                if np.isnan(angle):
+                    pdb.set_trace()
 
             x0_xi = r0_xi[0]
             y0_xi = r0_xi[1]
@@ -553,6 +586,12 @@ class HypSurfMesh(object):
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
+            elif bc1 is 'curve':
+
+                # Populate matrix
+                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                f[3*index:3*index+3] = S0[index] * N0[:,index]
+
             else:
 
                 # Call assembly routine
@@ -617,8 +656,7 @@ class HypSurfMesh(object):
                 matrixBuilder(index)
 
 
-        #view_mat(K)
-
+        view_mat(K)
 
         # RETURNS
         return K,f
@@ -814,8 +852,9 @@ def giveAngle(r0,r1,r2,N1):
     dr1dotdr2 = dr1.dot(dr2) # dot product
     dr1crossdr2 = np.cross(dr1,dr2) # cross product
 
-    # Compute acute angle
-    angle = np.arccos(dr1dotdr2/np.linalg.norm(dr1)/np.linalg.norm(dr2))
+    # Compute acute angle and ensure it's <= 1.0
+    arccos_inside = dr1dotdr2/np.linalg.norm(dr1)/np.linalg.norm(dr2)
+    angle = np.arccos(np.min([arccos_inside, 1.0]))
 
     # If the cross product points in the same direction of the surface
     # normal, we have an acute corner
@@ -953,7 +992,7 @@ def view_mat(mat):
     import matplotlib.pyplot as plt
     if len(mat.shape) > 2:
         mat = np.sum(mat, axis=2)
-    print "Cond #:", np.linalg.cond(mat)
+    # print "Cond #:", np.linalg.cond(mat)
     im = plt.imshow(mat, interpolation='none')
     plt.colorbar(im, orientation='horizontal')
     plt.show()
