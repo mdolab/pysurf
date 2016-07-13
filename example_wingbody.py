@@ -9,13 +9,13 @@ import os
 
 trailingEdge = 'sharp'
 generateBodyMesh = True
-generateWingMesh = False
+generateWingMesh = True
 
 # BODY GEOMETRY
 
 # Basic dimensions
-x0 = -10 # Initial position
-length = 20 # cylinder length
+x0 = -0.5 # Initial position
+length = 2.0 # cylinder length
 radius = 0.5 # cylinder ratio
 
 # Set cylinder points
@@ -82,7 +82,7 @@ rBaseline = bodySurf.get_points(None)
 # We will use the projected airfoil to extreude the wing
 
 # Parameters
-span = 5.0
+span = 1.0
 nv = 4 # Number of span-wise control points
 
 # Determine number of chord-wise points
@@ -145,6 +145,9 @@ bodyMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=optio
 
 if generateBodyMesh:
 
+    # Print log
+    print 'Generating body mesh'
+
     # Generate mesh
     bodyMesh.createMesh()
 
@@ -191,6 +194,9 @@ if trailingEdge == 'sharp':
 wingMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
 
 if generateWingMesh:
+
+    # Print log
+    print 'Generating wing mesh'
 
     # Generate mesh
     wingMesh.createMesh()
