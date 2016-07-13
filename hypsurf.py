@@ -119,7 +119,7 @@ class HypSurfMesh(object):
         R[0,:] = rNext
 
         # Issue a warning message if the projected points are far from the given points
-        if max(abs(rNext - rStart)) > 1.0e-3:
+        if max(abs(rNext - rStart)) > 1.0e-5:
             print ''
             print 'WARNING!:'
             print 'The given points (rStart) might not belong to the given surface (surf)'
@@ -876,8 +876,6 @@ def findRadius(r):
 
     # IMPORTS
     from numpy import max, min
-
-    print r
 
     # Split coordinates
     x = r[::3]
