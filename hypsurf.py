@@ -724,8 +724,13 @@ class HypSurfMesh(object):
         Y3d = np.array([Y])
         Z3d = np.array([Z])
 
-        # Add block to the grid
+        # Add mesh to the grid
         myGrid.add_block(X3d, Y3d, Z3d)
+
+        # Add initial curve as a separate zone
+        myGrid.add_block(np.array([[self.curve[:,0]]]),
+                         np.array([[self.curve[:,1]]]),
+                         np.array([[self.curve[:,2]]]))
 
         # Export grid
         export_plot3d(myGrid, filename)
