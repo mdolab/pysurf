@@ -8,7 +8,7 @@ import surface
 import os
 
 trailingEdge = 'sharp'
-generateBodyMesh = True
+generateBodyMesh = False
 generateWingMesh = True
 
 # BODY GEOMETRY
@@ -40,7 +40,7 @@ n = 81 # Number of points in the airfoil
 tc = 0.12 # Airfoil thickness
 chord = 1.0 # Airfoil chord
 x0 = 0.0 # Leading edge position
-y0 = 0.0 # Leading edge position
+y0 = -.3 # Leading edge position
 z0 = radius # Leading edge position
 
 # Generate non-dimensional coordinates
@@ -116,7 +116,7 @@ if trailingEdge == 'blunt':
         'bc2' : 'continuous',
         'dStart' : 0.02,
         'numLayers' : 17,
-        'extension' : 2,
+        'extension' : 1.7,
         'epsE0' : 10.0,
         'theta' : 0.0,
         'alphaP0' : 0.25,
@@ -131,7 +131,7 @@ if trailingEdge == 'sharp':
         'bc2' : 'continuous',
         'dStart' : 0.02,
         'numLayers' : 17,
-        'extension' : 2,
+        'extension' : 1.7,
         'epsE0' : 1.5,
         'theta' : 0.5,
         'alphaP0' : 0.25,
@@ -183,7 +183,7 @@ if trailingEdge == 'sharp':
         'numLayers' : 17,
         'extension' : 2,
         'epsE0' : 1.5,
-        'theta' : 0.5,
+        'theta' : 1.5,
         'alphaP0' : 0.25,
         'numSmoothingPasses' : 0,
         'numAreaPasses' : 0,
