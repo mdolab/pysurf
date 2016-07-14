@@ -156,8 +156,22 @@ if generateBodyMesh:
 
 # WING PROBLEM
 
+# Determine points
+nu = 6
+nv = 4
+curve1_pts = zeros((nu, nv, 3))
+for i in xrange(nu):
+    for j in xrange(nv):
+        curve1_pts[i, j, 0] = rBaseline[-1,0]
+        curve1_pts[i, j, 1] = rBaseline[-1,1]
+        curve1_pts[i, j, 2] = rBaseline[-1,2] + span*(i/(nv-1) - 0.05)
+
+curve1 = surface.Surface(curve1_pts)
+
 # Set reference geometry
-ref_geom = {'surf':wingSurf}
+ref_geom = {'surf':wingSurf,
+            'curve1':curve1,
+            'curve2':curve1}
 
 # Set options
 if trailingEdge == 'blunt':
@@ -177,11 +191,11 @@ if trailingEdge == 'blunt':
 
 if trailingEdge == 'sharp':
     options = {
-        'bc1' : 'constX',
-        'bc2' : 'constX',
-        'dStart' : 0.02,
-        'numLayers' : 17,
-        'extension' : 2,
+        'bc1' : 'curve',
+        'bc2' : 'curve',
+        'dStart' : 0.002,
+        'numLayers' : 4,
+        'extension' : 1.05,
         'epsE0' : 1.5,
         'theta' : 1.5,
         'alphaP0' : 0.25,
