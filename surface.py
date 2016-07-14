@@ -57,17 +57,46 @@ class Surface(object):
 if __name__ == '__main__':
     import numpy
 
-    nu, nv = 11, 11
-    array = numpy.zeros((nu, nv, 3))
+    # nu, nv = 11, 11
+    # array = numpy.zeros((nu, nv, 3))
+    # for i in xrange(nu):
+    #     for j in xrange(nv):
+    #         array[i, j, 0] = i / (nu-1)
+    #         array[i, j, 1] = j / (nv-1)
+    #         array[i, j, 2] = j / (nv-1)
+    # s = Surface(array)
+    #
+    # xyz = numpy.zeros((1, 3))
+    # xyz[0, :] = [0.5, 0.5, 1.0]
+    # s.inverse_evaluate(xyz)
+    # print s.get_points(None)
+    # print s.get_normals(None)
+
+    # Define surface points
+    s0 = 100
+    s1 = 100
+    nu, nv = 10, 4
+    curve1_pts = numpy.zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            array[i, j, 0] = i / (nu-1)
-            array[i, j, 1] = j / (nv-1)
-            array[i, j, 2] = j / (nv-1)
-    s = Surface(array)
+            curve1_pts[i, j, 0] = -5. + i
+            curve1_pts[i, j, 1] = 2.5
+    for i in range(4):
+        curve1_pts[:, i, :] = numpy.array([[ -3.71661445e+00,   1.85840743e+00,   1.72689747e+00],
+                                           [ -3.13941694e+00,   1.96221597e+00,   1.37089540e+00],
+                                           [ -2.48185790e+00,   2.06828033e+00,   1.04407268e+00],
+                                           [ -1.73311129e+00,   2.16645113e+00,   7.70094923e-01],
+                                           [ -8.95715540e-01,   2.23938614e+00,   5.82100990e-01],
+                                           [  3.42931180e-05,   2.26693406e+00,   5.14241593e-01],
+                                           [  8.95798123e-01,   2.23942268e+00,   5.82005704e-01],
+                                           [  1.73321982e+00,   2.16650657e+00,   7.69937250e-01],
+                                           [  2.48198542e+00,   2.06833871e+00,   1.04388412e+00],
+                                           [  3.13954714e+00,   1.96226976e+00,   1.37069305e+00]])
 
+
+    s = Surface(curve1_pts)
     xyz = numpy.zeros((1, 3))
-    xyz[0, :] = [0.5, 0.5, 1.0]
+    xyz[0, :] = [ -3.71661445e+00,   1.85840743e+00,   1.72689747e+00]
+
     s.inverse_evaluate(xyz)
     print s.get_points(None)
-    print s.get_normals(None)

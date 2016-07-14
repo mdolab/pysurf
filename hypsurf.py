@@ -87,22 +87,13 @@ class HypSurfMesh(object):
         # Flatten the coordinates vector
         # We do this because the linear system is assembled assuming that
         # the coordinates vector is flattened
-        rStart = self.curve.flatten()
-
+        rStart = self.curve.flatten().astype(float)
 
         # Initialize 2D array that will contains all the surface grid points in the end
         R = np.zeros((numLayers,len(rStart)))
 
-        print
-        print rStart
-        print
-
         # Project onto the surface or curve (if applicable)
         rNext, NNext = self.projection(rStart)
-
-        print rNext
-        print
-        exit()
 
         # Initialize step size and total marched distance
         d = dStart
@@ -262,36 +253,32 @@ class HypSurfMesh(object):
 
         rNext, NNext = self.projection(rNext)
 
-        # if self.optionsDict['bc2'] == 'curve':
-        #     self.ref_curve1.inverse_evaluate(rNext[:3].reshape((1, 3)))
-        #     rNext[:3] = self.ref_curve1.get_points(None).flatten()[:3]
-        #     NNext[:3] = self.ref_curve1.get_tangent(None).T[:3]
-        # else:
-        #     rNext[:3] = self.ref_surf.get_points(None).flatten()[:3]
-        #     NNext[:3] = self.ref_surf.get_normals(None).T[:3]
-
         # RETURNS
         return rNext, NNext, maxRes
 
     def projection(self, rNext):
+
+        # Initialize normals array
         NNext = np.zeros((3, self.numNodes))
-        rNew = np.zeros((rNext.shape))
+
+        # Save endpoints
+        node1 = rNext[:3]
+        node2 = rNext[-3:]
 
         # Project onto surface and compute surface normals
         self.ref_surf.inverse_evaluate(rNext.reshape((self.numNodes, 3)))
-        rNext[3:] = self.ref_surf.get_points(None).flatten()[3:]
-        print self.ref_surf.get_points(None).flatten()[3:]
-        print rNext[3:]
-        NNext[:, 1:] = self.ref_surf.get_normals(None).T[:, 1:]
+        rNext = self.ref_surf.get_points(None).flatten()
+        NNext = self.ref_surf.get_normals(None).T
 
         if self.optionsDict['bc1'] == 'curve':
-            self.ref_curve1.inverse_evaluate(rNext[:3].reshape((1, 3)))
-            rNext[:3] = self.ref_curve1.get_points(None).flatten()[:3]
+            self.ref_curve1.inverse_evaluate(node1.reshape((1, 3)))
+            rNext[:3] = self.ref_curve1.get_points(None).flatten()
             NNext[:, 0] = self.ref_curve1.get_tangent(None).T[:, 0]
-        else:
-            rNext[:3] = self.ref_surf.get_points(None).flatten()[:3]
-            NNext[:, 0] = self.ref_surf.get_normals(None).T[:, 0]
 
+        if self.optionsDict['bc2'] == 'curve':
+            self.ref_curve2.inverse_evaluate(rNext[-3:].reshape((1, 3)))
+            # rNext[-3:] = self.ref_curve2.get_points(None).flatten()
+            NNext[:, -1] = self.ref_curve2.get_tangent(None).T[:, 0]
         return rNext, NNext
 
     def areaFactor(self, r0, d):
@@ -650,13 +637,20 @@ class HypSurfMesh(object):
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
+            elif bc2 is 'curve':
+
+                # Populate matrix
+                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                f[3*index:3*index+3] = S0[index] * N0[:,index]
+                print N0[:, index]
+
             else:
 
                 # Call assembly routine
                 matrixBuilder(index)
 
 
-        view_mat(K)
+        # view_mat(K)
 
         # RETURNS
         return K,f

@@ -2,7 +2,7 @@
 
 from __future__ import division
 import hypsurf
-from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack
+from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 import surface
 import os
@@ -10,9 +10,9 @@ import os
 # OPTIONS
 
 # Select example
-example = 'kink_on_plate'
+# example = 'kink_on_plate'
 #example = 'line_on_curve'
-# example = 'line_on_paraboloid'
+example = 'line_on_paraboloid'
 #example = 'line_on_eggcrate'
 #example = 'circle_on_curve'
 #example = 'circle_on_paraboloid'
@@ -24,13 +24,13 @@ if example == 'kink_on_plate':
 
     # Set problem
     rBaseline = array([[0,0,0],
-                       [1,1,0],
-                       [2,2,0],
-                       [3,2,0],
-                       [4,1,0],
+                       [1,0,0],
+                       [2,0,0],
+                       [3,0,0],
+                       [4,0,0],
                        [5,0,0]])
     bc1 = 'curve'
-    bc2 = 'splay'
+    bc2 = 'curve'
     n = len(rBaseline)/3
 
     # Define surface points
@@ -40,18 +40,28 @@ if example == 'kink_on_plate':
     pts = zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
-            pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
+            pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))
+            pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))
 
     # Define surface points
     s0 = 100
     s1 = 100
     nu, nv = 100, 4
-    curve_pts = zeros((nu, nv, 3))
+    curve1_pts = zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            curve_pts[i, j, 0] = 0.0
-            curve_pts[i, j, 1] = s1 * (-1. + 2 * i / nv)
+            curve1_pts[i, j, 0] = 0.0
+            curve1_pts[i, j, 1] = s1 * (-1. + 2 * i / (nv-1))
+
+    # Define surface points
+    s0 = 50
+    s1 = 50
+    nu, nv = 5, 4
+    curve2_pts = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            curve2_pts[i, j, 0] = 5.0
+            curve2_pts[i, j, 1] = s1 * (-1. + 2 * i / (nv-1))
 
     # Set parameters
     epsE0 = 1.0
@@ -66,8 +76,8 @@ if example == 'kink_on_plate':
 
     # Options
     sBaseline = 0.15
-    numLayers = 5
-    extension = 1.25
+    numLayers = 20
+    extension = 3.25
 
 elif example == 'line_on_curve':
 
@@ -112,13 +122,13 @@ elif example == 'line_on_paraboloid':
 
     # Set problem
     n = 20
-    nums = 2.5*linspace(1, -1, n)
+    nums = 2.5*linspace(-1, 1, n)
     x = -5.0*ones(n)
     y = nums
     z = zeros(n)
     rBaseline = vstack([x, y, z]).T
-    bc1 = 'splay'
-    bc2 = 'splay'
+    bc1 = 'curve'
+    bc2 = 'curve'
 
     # Define surface points
     s0 = 100
@@ -130,6 +140,26 @@ elif example == 'line_on_paraboloid':
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
             pts[i, j, 2] = 10*s0 * (-1. + 2 * i / nv)**2 + 10*s1 * (-1. + 2 * j / nv)**2
+
+    # Define surface points
+    s0 = 100
+    s1 = 100
+    nu, nv = 10, 4
+    curve1_pts = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            curve1_pts[i, j, 0] = -10. + (nu - i) - 1.
+            curve1_pts[i, j, 1] = 2.5
+
+    # Define surface points
+    s0 = 100
+    s1 = 100
+    nu, nv = 10, 4
+    curve2_pts = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            curve2_pts[i, j, 0] = -10. + (nu - i) - 1.
+            curve2_pts[i, j, 1] = -2.5
 
     # Set parameters
     epsE0 = 20.0
@@ -144,8 +174,8 @@ elif example == 'line_on_paraboloid':
 
     # Options
     sBaseline = 0.05
-    numLayers = 50
-    extension = 30
+    numLayers = 15
+    extension = 10
 
 elif example == 'line_on_eggcrate':
 
@@ -319,11 +349,27 @@ elif example == 'airfoil_on_cylinder':
 
 # Create surface object
 surf = surface.Surface(pts)
-curve1 = surface.Surface(curve_pts)
+
+# print curve1_pts[:, 0, :]
+
+# Project curve points to the Surface
+surf.inverse_evaluate(curve1_pts.reshape((-1, 3)))
+curve1_pts = surf.get_points(None).reshape((-1, 4, 3))
+
+# print curve1_pts[:, 0, :]
+# exit()
+
+surf.inverse_evaluate(curve2_pts.reshape((-1, 3)))
+curve2_pts = surf.get_points(None).reshape((-1, 4, 3))
+
+curve1 = surface.Surface(curve1_pts)
+curve2 = surface.Surface(curve2_pts)
+
 
 # Set reference geometry
 ref_geom = {'surf':surf,
-            'curve1':curve1}
+            'curve1':curve2,
+            'curve2':curve1}
 
 # Set options
 options = {
