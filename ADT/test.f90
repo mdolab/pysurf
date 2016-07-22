@@ -75,6 +75,8 @@ program test
      do i=1,3
         print *,coorPts(i,:)
      end do
+  else
+    coor = 0.
   end if
 
   ! Determine number of nodes, elements, and projected points
