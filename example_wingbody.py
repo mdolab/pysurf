@@ -8,7 +8,7 @@ import surface
 import os
 
 trailingEdge = 'sharp'
-generateBodyMesh = False
+generateBodyMesh = True
 generateWingMesh = True
 
 # BODY GEOMETRY

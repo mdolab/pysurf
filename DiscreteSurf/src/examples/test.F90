@@ -3,7 +3,7 @@ program test
   ! EXTERNAL MODULES
   use precision
   use communication
-  use readCGNS
+  use CGNSinterface
 
   implicit none
 
@@ -12,10 +12,10 @@ program test
   !===============================
   ! USER INPUTS
   !===============================
-  integer(kind=intType) :: comm, ierr
+  integer(kind=intType) :: comm, ierr, ii
 
   integer(kind=intType), dimension(:,:), allocatable :: triaConn, quadsConn
-  real(kind=realType), dimension(:,:), pointer :: coor
+  real(kind=realType), dimension(:,:), allocatable :: coor
 
   ! Initialize MPI
   call mpi_init(ierr)
@@ -27,13 +27,15 @@ program test
   ! EXECUTION
   !===============================
 
-  call readCGNS_routine('cube2.cgns', coor, triaConn, quadsConn)
+  call readCGNS('cube2.cgns', comm, coor, triaConn, quadsConn)
 
   ! Determine number of processors and current processor ID
   call MPI_COMM_SIZE(comm, nProc, ierr)
   call MPI_COMM_RANK(comm, myID, ierr)
   if (myID == 0) then
-    print *,coor
+     do ii=1,size(coor,2)
+        print *,coor(:,ii)
+     end do
     print *,''
     print *,triaConn
     print *,quadsConn

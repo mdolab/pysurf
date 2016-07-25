@@ -1,4 +1,167 @@
-subroutine readUnstructuredCGNS(cg)
+module CGNSinterface
+
+contains
+
+subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
+
+  ! This is the main subroutine that should be called to read a CGNS file
+  ! INPUTS
+  ! cgns_file: string -> name of the CGNS file
+  ! comm: integer -> MPI communicator
+  !
+  ! OUTPUTS
+  ! coor: real(3,numNodes) -> X,Y,Z coordinates of all nodes
+  ! triaConn: real(3,numTria) -> Triangles connectivity
+  ! quadsConn: real(4,numQuads) -> Quads connectivity
+
+  use mpi
+  use CGNSGrid
+
+  implicit none
+  include 'cgnslib_f.h'
+
+  ! Input Arguments
+  character*(*),intent(in) :: cgns_file
+  integer, intent(in) :: comm
+
+  ! Output
+  integer(kind=intType), intent(out), dimension(:,:), allocatable :: triaConn, quadsConn
+  real(kind=realType), intent(out), dimension(:,:), allocatable :: coor
+
+  ! Working
+  integer(kind=intType) :: cg, ierr, i, myid
+  integer(kind=intType):: CellDim, PhysDim, nZones, base, nbases
+  integer(kind=intType) :: nstructured, nunstructured, zoneType
+  integer(kind=intType) :: iZone, sec, nElem, nConn, iEnd, iStart, nQuads, nTria
+  integer(kind=intType) :: nTriaTotal, nQuadsTotal, iQuads, iTria, dims(2)
+
+  character*32 :: baseName
+
+  ! Set the default family names
+  defaultFamName(BCAxisymmetricWedge) = 'axi'
+  defaultFamName(BCDegenerateLine) = 'degenerate'
+  defaultFamName(BCDegeneratePoint) ='degenerate'
+  defaultFamName(BCDirichlet) = 'dirichlet'
+  defaultFamName(BCExtrapolate) = 'extrap'
+  defaultFamName(BCFarfield) = 'far'
+  defaultFamName(BCGeneral) = 'general'
+  defaultFamName(BCInflow) = 'inflow'
+  defaultFamName(BCInflowSubsonic) = 'inflow'
+  defaultFamName(BCInflowSupersonic) = 'inflow'
+  defaultFamName(BCNeumann) = 'neumann'
+  defaultFamName(BCOutflow) = 'outflow'
+  defaultFamName(BCOutflowSubsonic) = 'outflow'
+  defaultFamName(BCOutflowSupersonic)  ='outflow'
+  defaultFamName(BCSymmetryPlane) = 'sym'
+  defaultFamName(BCSymmetryPolar) = 'sympolar'
+  defaultFamName(BCTunnelInflow) = 'inflow'
+  defaultFamName(BCTunnelOutflow) = 'outflow'
+  defaultFamName(BCWall) = 'wall'
+  defaultFamName(BCWallInviscid) = 'wall'
+  defaultFamName(BCWallViscous) = 'wall'
+  defaultFamName(BCWallViscousHeatFlux) = 'wall'
+  defaultFamName(BCWallViscousIsothermal) = 'wall'
+  defaultFamName(FamilySpecified) = 'wall'
+
+  ! Determine current MPI rank
+  call MPI_COMM_RANK(comm, myid, ierr)
+
+  ! Do the I/O that is common to both types of grids
+
+  if (myid == 0) then
+     print *, ' -> Reading CGNS File: ', cgns_file
+
+     ! Open and get the number of zones:
+     call cg_open_f(trim(cgns_file), CG_MODE_READ, cg, ierr)
+     if (ierr .eq. CG_ERROR) call cg_error_exit_f
+
+     call cg_nbases_f(cg, nbases, ierr)
+     if (ierr .eq. CG_ERROR) call cg_error_exit_f
+
+     if (nbases .gt. 1) then
+        print *, ' ** Warning: pyWarpUstruct only reads the first base in a cgns file'
+     end if
+
+     base = 1_intType
+
+     call cg_base_read_f(cg, base, basename, CellDim, PhysDim, ierr)
+     if (ierr .eq. CG_ERROR) call cg_error_exit_f
+     if (cellDim .ne. 2 .or. PhysDim .ne. 3) then
+        print *, 'The Cells must 2 dimensional'
+        stop
+     end if
+
+     call cg_nzones_f(cg, base, nZones, ierr);
+     if (ierr .eq. CG_ERROR) call cg_error_exit_f
+     print *, '   -> Number of Zones:', nzones
+
+     ! Determine if we have structured or unstructured zones. We can
+     ! only deal with one or the other.
+     nStructured = 0
+     nUnstructured = 0
+     do i=1, nZones
+        call cg_zone_type_f(cg, base, i, zoneType, ierr)
+        if (zoneType == Structured) then
+           nStructured = nStructured + 1
+        else if (zoneType == Unstructured) then
+           nUnstructured = nUnstructured + 1
+        end if
+     end do
+
+     ! Call the read for unstructured meshes
+     call readUnstructuredCGNS(cg, coor)
+
+     ! From now on we need to create connectivity arrays in the format
+     ! required by ADT. That is one array for triangle connectivities
+     ! and another array for quad connectivities.
+
+     ! Initialize counter for different types of elements
+     nTriaTotal = 0
+     nQuadsTotal = 0
+
+     ! Loop over the zones to obtain the total number of trias and quads
+     zoneLoop1: do iZone = 1,nZones
+        do sec=1, zones(iZone)%nSections
+           nTria = zones(iZone)%sections(sec)%nTria
+           nQuads = zones(iZone)%sections(sec)%nQuads
+           nTriaTotal = nTriaTotal + nTria
+           nQuadsTotal = nQuadsTotal + nQuads
+        end do
+     end do zoneLoop1
+
+     iTria = 1
+     iQuads = 1
+     allocate(triaConn(3, nTriaTotal))
+     allocate(quadsConn(4, nQuadsTotal))
+
+     ! Loop over the zones and read the nodes
+     zoneLoop2: do iZone = 1,nZones
+        do sec=1, zones(iZone)%nSections
+           nElem = zones(iZone)%sections(sec)%nElem
+           nTria = zones(iZone)%sections(sec)%nTria
+           nQuads = zones(iZone)%sections(sec)%nQuads
+
+           if (nTria + nQuads .ne. 0) then
+              do i=2, nElem+1
+                 iStart = zones(iZone)%sections(sec)%elemPtr(i-1)
+                 iEnd = zones(iZone)%sections(sec)%elemPtr(i)
+                 nConn = iEnd - iStart
+                 if (nConn .eq. 3) then
+                    triaConn(:, iTria) = zones(iZone)%sections(sec)%elemConn(iStart:iEnd-1)
+                    iTria = iTria + 1
+                 else
+                    quadsConn(:, iQuads) = zones(iZone)%sections(sec)%elemConn(iStart:iEnd-1)
+                    iQuads = iQuads + 1
+                 end if
+              end do
+           end if
+        end do
+     end do zoneLoop2
+  end if
+
+end subroutine readCGNS
+
+subroutine readUnstructuredCGNS(cg,allNodes)
 
   use precision
   use communication
@@ -30,9 +193,11 @@ subroutine readUnstructuredCGNS(cg)
   real(kind=realType), dimension(:), allocatable :: coorX, coorY, coorZ
   integer(kind=intType), dimension(:), allocatable :: tmpConn
 #ifdef USE_COMPLEX
-  complex(kind=realType), intent(out), dimension(:, :), allocatable :: allNodes, localNodes
+  complex(kind=realType), intent(out), dimension(:, :), allocatable, target :: allNodes
+  complex(kind=realType), intent(out), dimension(:, :), allocatable :: localNodes
   complex(kind=realType), dimension(:,:), pointer :: elemNodes
 #else
+  real(kind=realType), dimension(:, :), allocatable, target :: allNodes
   real(kind=realType), dimension(:, :), allocatable :: localNodes
   real(kind=realType), dimension(:,:), pointer :: elemNodes
 #endif
@@ -104,7 +269,7 @@ subroutine readUnstructuredCGNS(cg)
         allocate(coorX(dims(1)), coorY(dims(1)), coorZ(dims(1)))
 
         ! Read the x,y,z-coordinates. Assume double precision
-         call cg_coord_read_f(cg,base,iZone,"CoordinateX",&
+        call cg_coord_read_f(cg,base,iZone,"CoordinateX",&
              & realDouble, 1, dims(1), coorX, ierr)
         if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
@@ -152,7 +317,7 @@ subroutine readUnstructuredCGNS(cg)
 
            ! Nullify the elemPtr and elemConn, since it may not be allocated
            nullify(zones(iZone)%sections(sec)%elemConn, &
-                   zones(iZone)%sections(sec)%elemPtr)
+                zones(iZone)%sections(sec)%elemPtr)
 
            ! Number of elements on this section
            nElem = eEnd - eBeg + 1
@@ -162,7 +327,6 @@ subroutine readUnstructuredCGNS(cg)
            zones(iZone)%sections(sec)%elemEnd = eEnd
            zones(iZone)%sections(sec)%nQuads = 0
            zones(iZone)%sections(sec)%nTria = 0
-
 
            ! Currently we can only deal with three and four sided
            ! surfaces. These can show up type == TRI_3 (all tris),
@@ -187,7 +351,7 @@ subroutine readUnstructuredCGNS(cg)
               call cg_elements_read_f(cg, base, iZone, sec, &
                    zones(iZone)%sections(sec)%elemConn, NULL, ierr)
               zones(iZone)%sections(sec)%elemConn = &
-                zones(iZone)%sections(sec)%elemConn + zoneStart
+                   zones(iZone)%sections(sec)%elemConn + zoneStart
               if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
               ! Set up the pointer which is simple in this case...it
@@ -199,9 +363,9 @@ subroutine readUnstructuredCGNS(cg)
               end do
 
               if (nConn .eq. 3) then
-                zones(iZone)%sections(sec)%nTria = nElem
+                 zones(iZone)%sections(sec)%nTria = nElem
               else
-                zones(iZone)%sections(sec)%nQuads = nElem
+                 zones(iZone)%sections(sec)%nQuads = nElem
               end if
 
            case (MIXED)
@@ -291,11 +455,11 @@ subroutine readUnstructuredCGNS(cg)
                        eCount = eCount + 1
 
                        if (nConn .eq. 3) then
-                         zones(iZone)%sections(sec)%nTria = &
-                          zones(iZone)%sections(sec)%nTria + 1
+                          zones(iZone)%sections(sec)%nTria = &
+                               zones(iZone)%sections(sec)%nTria + 1
                        else
-                         zones(iZone)%sections(sec)%nQuads = &
-                          zones(iZone)%sections(sec)%nQuads + 1
+                          zones(iZone)%sections(sec)%nQuads = &
+                               zones(iZone)%sections(sec)%nQuads + 1
                        end if
 
                     case default
@@ -504,3 +668,5 @@ subroutine readUnstructuredCGNS(cg)
   ! data from the root processor.
 
 end subroutine readUnstructuredCGNS
+
+end module CGNSinterface
