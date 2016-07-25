@@ -1,3 +1,6 @@
+mkdir obj
+mkdir mod
+
 cd src/common
 bash compile_and_run.sh
 
