@@ -64,6 +64,10 @@
 !       ****************************************************************
 !
         implicit none
+
+        !f2py intent(in) nTria, nQuads, nNodes, useBBox, adtID
+        !f2py intent(in) triaConn, quadsConn, BBox, coor, comm
+
 !
 !       Subroutine arguments.
 !
@@ -173,10 +177,10 @@
         !***************************************************************
         !***************************************************************
 
-        subroutine adtContainmentSearch(nCoor,  coor,        adtID,     &
-                                        procID, elementType, elementID, &
-                                        uvw,    nInterpol,   arrDonor,  &
-                                        arrInterpol)
+        subroutine adtContainmentSearch(nCoor,     coor,        adtID,     &
+                                        procID,    elementType, elementID, &
+                                        uvw,       allxfs,      allNorms,  &
+                                        nInterpol, arrDonor,    arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -232,15 +236,16 @@
         integer(kind=adtElementType), dimension(:), intent(out) :: &
                                                             elementType
         real(kind=realType), dimension(:,:), intent(out) :: uvw
+        real(kind=realType), dimension(:,:), intent(out) :: allxfs, allNorms
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         !===============================================================
 
         ! Call the subroutine containmentSearch to do the actual work.
 
-        call containmentSearch(nCoor,       coor,      adtID, procID,    &
-                               elementType, elementID, uvw,   nInterpol, &
-                               arrDonor,    arrInterpol)
+        call containmentSearch(nCoor,       coor,      adtID,    procID,    &
+                               elementType, elementID, uvw,      allxfs,    &
+                               allNorms,    nInterpol, arrDonor, arrInterpol)
 
         end subroutine adtContainmentSearch
 
@@ -280,8 +285,9 @@
 
         subroutine adtFailSafeSearch(nCoor,    coor,        adtID,     &
                                      procID,   elementType, elementID, &
-                                     uvw,      dist2,       nInterpol, &
-                                     arrDonor, arrInterpol)
+                                     uvw,      dist2,       allxfs,    &
+                                     allNorms, nInterpol,   arrDonor,  &
+                                     arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -354,14 +360,17 @@
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
+        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
+
 
         !===============================================================
 
         ! Call the subroutine failSafeSearch to do the actual work.
 
-        call failSafeSearch(nCoor,       coor,      adtID,    procID, &
-                            elementType, elementID, uvw,      dist2,  &
-                            nInterpol,   arrDonor, arrInterpol)
+        call failSafeSearch(nCoor,       coor,      adtID,     procID,   &
+                            elementType, elementID, uvw,       dist2,    &
+                            allxfs,      allNorms,  nInterpol, arrDonor, &
+                            arrInterpol)
 
         end subroutine adtFailSafeSearch
 
@@ -370,8 +379,9 @@
 
         subroutine adtMinDistanceSearch(nCoor,    coor,        adtID,     &
                                         procID,   elementType, elementID, &
-                                        uvw,      dist2,       nInterpol, &
-                                        arrDonor, arrInterpol)
+                                        uvw,      dist2,       allxfs,    &
+                                        allNorms, nInterpol,   arrDonor,  &
+                                        arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -441,14 +451,16 @@
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
+        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
 
         !===============================================================
 
         ! Call the subroutine minDistanceSearch to do the actual work.
 
-        call minDistanceSearch(nCoor,       coor,      adtID,    procID, &
-                               elementType, elementID, uvw,      dist2,  &
-                               nInterpol,   arrDonor,  arrInterpol)
+        call minDistanceSearch(nCoor,       coor,      adtID,     procID,   &
+                               elementType, elementID, uvw,       dist2,    &
+                               allxfs,      allNorms,  nInterpol, arrDonor, &
+                               arrInterpol)
 
         end subroutine adtMinDistanceSearch
 

@@ -14,7 +14,7 @@ module cgnsGrid
      character(maxCGNSNameLen) :: family
 
      ! Required for unstructured grids
-     integer(kind=intTYpe) :: nBCElem
+     integer(kind=intType) :: nBCElem
      integer(kind=intType) :: nBCNodes
      integer(kind=intType), dimension(:), allocatable :: BCElements
      integer(kind=intType), dimension(:), pointer :: elemPtr, elemConn
@@ -57,8 +57,5 @@ module cgnsGrid
 
   ! List of default names for surfaces if not provided
   character(maxCGNSNameLen), dimension(25) :: defaultFamName
-
-  ! Define allNodes as a 'global' variable
-  real(kind=realType), dimension(:, :), allocatable :: allNodes
 
 end module cgnsGrid
