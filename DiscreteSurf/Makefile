@@ -1,6 +1,4 @@
 # Makefile for DiscSurf
-# Ney Secco 07-22-2016
-# 
 
 # Specify calling options
 .PHONY: clean help

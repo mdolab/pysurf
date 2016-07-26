@@ -31,9 +31,9 @@ mv *.mod ../../mod/.
 
 mpifort -I../../mod -c -cpp -fPIC adtAPI.F90
 
-cp *.o ../../obj/.
-cp *.mod ../../mod/.
+mv *.o ../../obj/.
+mv *.mod ../../mod/.
 
-f2py adtAPI.F90 -m adtAPI -h adtAPI.pyf --overwrite-signature
+f2py -c -L../../lib -ldiscsurf -L/home/$USER/packages/petsc-3.6.1/real-debug/lib -lmpi_usempi -lmpi_mpifh -lmpi -I../../mod ../../obj/adtAPI.o adtAPI.pyf
 
-f2py -c -L../../lib -ldiscsurf -L/home/john/packages/petsc-3.6.1/real-debug/lib -lmpi_usempi -lmpi_mpifh -lmpi -I../../mod ../../obj/*.o adtAPI.o adtAPI.pyf
+python importTest.py

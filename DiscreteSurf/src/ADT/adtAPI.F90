@@ -18,7 +18,6 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      use precision
       use adtBuild
       use adtSearch
       use adtUtils
@@ -77,7 +76,7 @@
 !       Subroutine arguments.
 !
         integer, intent(in)          :: comm
-        character(len=*), intent(in) :: adtID
+        character(len=32), intent(in) :: adtID
 
         integer(kind=intType), intent(in) :: nTria
         integer(kind=intType), intent(in) :: nQuads
@@ -85,12 +84,12 @@
 
         logical, intent(in) :: useBBox
 
-        integer(kind=intType), dimension(:,:), intent(in) :: triaConn
-        integer(kind=intType), dimension(:,:), intent(in) :: quadsConn
+        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
 
         real(kind=realType), dimension(3,2), intent(in) :: BBox
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
+        real(kind=realType), dimension(3,nNodes), intent(in) :: coor
 
         !===============================================================
 
@@ -382,7 +381,7 @@
         !***************************************************************
         !***************************************************************
 
-        subroutine adtMinDistanceSearch(nCoor,    coor,        adtID,     &
+        subroutine adtMinDistanceSearch(nCoor,    nNodes,      coor,        adtID,     &
                                         procID,   elementType, elementID, &
                                         uvw,      dist2,       allxfs,    &
                                         allNorms, nInterpol,   arrDonor,  &
@@ -438,30 +437,30 @@
 !
         implicit none
 
-        !f2py intent(in) nCoor, coor, adtID, nInterpol, arrDonor
+        !f2py intent(in) nCoor, nNodes, coor, adtID, nInterpol, arrDonor
         !f2py intent(out) procID, elementType, elementID, uvw, arrInterpol
         !f2py intent(inout) dist2
 
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in) :: nCoor, nInterpol
-        character(len=*),         intent(in) :: adtID
+        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
+        character(len=32),     intent(in) :: adtID
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
-        real(kind=realType), dimension(:,:), intent(in) :: arrDonor
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
 
-        integer, dimension(:), intent(out) :: procID
-        integer(kind=intType), dimension(:), intent(out) :: elementID
+        integer, dimension(nCoor), intent(out) :: procID
+        integer(kind=intType), dimension(nCoor), intent(out) :: elementID
 
-        integer(kind=adtElementType), dimension(:), intent(out) :: &
+        integer(kind=adtElementType), dimension(nCoor), intent(out) :: &
                                                             elementType
 
-        real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
+        real(kind=realType), dimension(3,nCoor), intent(out) :: uvw
+        real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpol
 
-        real(kind=realType), dimension(:), intent(inout) :: dist2
-        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(nCoor), intent(inout) :: dist2
+        real(kind=realType), dimension(3,nCoor), intent(inout) :: allxfs, allNorms
 
         !===============================================================
 

@@ -106,7 +106,7 @@ program test
   dist2 = 1.0e5
 
   ! Find minimum distance to the given point
-  call adtMinDistanceSearch(nPts,     coorPts,     adtID,     &
+  call adtMinDistanceSearch(nPts,     nNodes,      coorPts,     adtID,     &
                             procID,   elementType, elementID, &
                             uvw,      dist2,       allxfs,    &
                             allNorms, nInterpol,   arrDonor,  &
