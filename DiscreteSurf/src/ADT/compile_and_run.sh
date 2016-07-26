@@ -37,3 +37,5 @@ mv *.mod ../../mod/.
 f2py -c -L../../lib -ldiscsurf -L/home/$USER/packages/petsc-3.6.1/real-debug/lib -lmpi_usempi -lmpi_mpifh -lmpi -I../../mod ../../obj/adtAPI.o adtAPI.pyf
 
 python importTest.py
+
+mv *.so ../../python/.
