@@ -2,7 +2,7 @@ module CGNSinterface
 
 contains
 
-subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
+subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
 
   ! This is the main subroutine that should be called to read a CGNS file
   ! INPUTS
@@ -82,6 +82,7 @@ subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
         print *, ' ** Warning: pyWarpUstruct only reads the first base in a cgns file'
      end if
 
+     ! We will only read the first base
      base = 1_intType
 
      call cg_base_read_f(cg, base, basename, CellDim, PhysDim, ierr)
@@ -129,23 +130,40 @@ subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
         end do
      end do zoneLoop1
 
+     ! Set auxiliary indices to write in the global connectivity array
      iTria = 1
      iQuads = 1
+
+     ! Allocate connectivity arrays
      allocate(triaConn(3, nTriaTotal))
      allocate(quadsConn(4, nQuadsTotal))
 
      ! Loop over the zones and read the nodes
      zoneLoop2: do iZone = 1,nZones
         do sec=1, zones(iZone)%nSections
+
+           ! Get number of elements in the current section
            nElem = zones(iZone)%sections(sec)%nElem
            nTria = zones(iZone)%sections(sec)%nTria
            nQuads = zones(iZone)%sections(sec)%nQuads
 
+           ! Check if we have surface elements
            if (nTria + nQuads .ne. 0) then
+
+              ! Loop over the element pointer
               do i=2, nElem+1
+
+                 ! Get pointers corresponding to the beginning and ending of the current element
+                 ! Remeber that the element ends where the next one begins.
                  iStart = zones(iZone)%sections(sec)%elemPtr(i-1)
                  iEnd = zones(iZone)%sections(sec)%elemPtr(i)
+
+                 ! The difference between the initial and final pointers indicates
+                 ! how many nodes we have in the current element. Thus, we have the
+                 ! element type.
                  nConn = iEnd - iStart
+
+                 ! Store the necessary number of nodes
                  if (nConn .eq. 3) then
                     triaConn(:, iTria) = zones(iZone)%sections(sec)%elemConn(iStart:iEnd-1)
                     iTria = iTria + 1
@@ -159,7 +177,7 @@ subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
      end do zoneLoop2
   end if
 
-end subroutine readCGNS
+end subroutine readCGNSmain
 
 subroutine readUnstructuredCGNS(cg,allNodes)
 

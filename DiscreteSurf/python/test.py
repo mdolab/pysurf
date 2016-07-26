@@ -10,11 +10,11 @@ fileName = 'cube2.cgns'
 comm = MPI.COMM_WORLD.py2f()
 
 # Read CGNS file
-CGNSf2py.cgnsf2py.cgnsf2py_routine(fileName,comm)
+CGNSapi.cgnsapi.readcgns(fileName,comm)
 
-quadsConn = CGNSf2py.cgnsf2py.quadsconn
-triaConn = CGNSf2py.cgnsf2py.triaconn
-coor = CGNSf2py.cgnsf2py.coor
+quadsConn = CGNSapi.cgnsapi.quadsconn
+triaConn = CGNSapi.cgnsapi.triaconn
+coor = CGNSapi.cgnsapi.coor
 BBox = np.zeros((3, 2))
 useBBox = False
 adtID = 'test_surf'

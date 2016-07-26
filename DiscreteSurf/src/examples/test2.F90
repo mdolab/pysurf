@@ -60,7 +60,7 @@ program test
   call MPI_COMM_RANK(comm, myID, ierr)
 
   ! Read CGNS file
-  call readCGNS(fileName, comm, coor, triaConn, quadsConn)
+  call readCGNSmain(fileName, comm, coor, triaConn, quadsConn)
 
   ! Determine number of nodes, elements, and projected points
   nNodes = size(coor, 2)
