@@ -27,7 +27,7 @@ program test
   ! EXECUTION
   !===============================
 
-  call readCGNS('cube2.cgns', comm, coor, triaConn, quadsConn)
+  call readCGNSmain('cube2.cgns', comm, coor, triaConn, quadsConn)
 
   ! Determine number of processors and current processor ID
   call MPI_COMM_SIZE(comm, nProc, ierr)
