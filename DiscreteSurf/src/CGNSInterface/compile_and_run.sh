@@ -1,5 +1,6 @@
 rm *.o
 rm *.exe
+reset
 
 # The -cpp flag indicates that we should use the preprocessor to
 # parse the #ifdef statements
@@ -14,8 +15,10 @@ mpifort -I../../mod -c -cpp -fPIC -g -fbounds-check -I$HOME/packages/cgnslib_3.2
 mv *.o ../../obj/.
 mv *.mod ../../mod/.
 
-# mpifort -I../../mod -c -fPIC CGNSinter.f90
+mpifort -I../../mod -c -fPIC CGNSf2py.f90
 
-f2py CGNSinterface.F90 -m CGNSinterface -h CGNSinterface.pyf --overwrite-signature
+f2py CGNSf2py.f90 -m CGNSf2py -h CGNSf2py.pyf --overwrite-signature
 
-f2py -lgfortran -c -I../../mod CGNSinterface.o CGNSinterface.pyf
+f2py -c -L../../lib -ldiscsurf -L$HOME/packages/cgnslib_3.2.1/src -lcgns -L/home/john/packages/petsc-3.6.1/real-debug/lib -lmpi_usempi -lmpi_mpifh -lmpi -I../../mod CGNSf2py.o CGNSf2py.pyf
+
+python importTest.py

@@ -1,0 +1,43 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module adtAPI ! in
+    interface  ! in :adtAPI
+        module adtapi ! in :adtAPI:adtAPI.F90
+            use precision
+            use adtsearch
+            use adtbuild
+            use adtutils
+            subroutine adtbuildsurfaceadt(ntria,nquads,nnodes,coor,triaconn,quadsconn,bbox,usebbox,comm,adtid) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ntria
+                integer(kind=inttype) intent(in) :: nquads
+                integer(kind=inttype) intent(in) :: nnodes
+                real(kind=realtype) dimension(:,:),intent(in) :: coor
+                integer(kind=inttype) dimension(:,:),intent(in) :: triaconn
+                integer(kind=inttype) dimension(:,:),intent(in) :: quadsconn
+                real(kind=realtype) dimension(3,2),intent(in) :: bbox
+                logical intent(in) :: usebbox
+                integer intent(in) :: comm
+                character*(*) intent(in) :: adtid
+            end subroutine adtbuildsurfaceadt
+            subroutine adtmindistancesearch(ncoor,coor,adtid,procid,elementtype,elementid,uvw,dist2,allxfs,allnorms,ninterpol,arrdonor,arrinterpol) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                real(kind=realtype) dimension(:,:),intent(in) :: coor
+                character*(*) intent(in) :: adtid
+                integer dimension(:),intent(out) :: procid
+                integer(kind=adtelementtype) dimension(:),intent(out) :: elementtype
+                integer(kind=inttype) dimension(:),intent(out) :: elementid
+                real(kind=realtype) dimension(:,:),intent(out) :: uvw
+                real(kind=realtype) dimension(:),intent(inout) :: dist2
+                real(kind=realtype) dimension(:,:),intent(inout) :: allxfs
+                real(kind=realtype) dimension(:,:),intent(inout) :: allnorms
+                integer(kind=inttype) intent(in) :: ninterpol
+                real(kind=realtype) dimension(:,:),intent(in) :: arrdonor
+                real(kind=realtype) dimension(:,:),intent(out) :: arrinterpol
+            end subroutine adtmindistancesearch
+        end module adtapi
+    end interface
+end python module adtAPI
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

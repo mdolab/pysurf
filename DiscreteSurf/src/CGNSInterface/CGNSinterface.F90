@@ -1,14 +1,8 @@
 module CGNSinterface
 
-use precision
-
-! OUTPUTS
-real(kind=realType), dimension(:, :), allocatable :: coor
-integer(kind=intType), dimension(:, :), allocatable :: triaConn, quadsConn
-
 contains
 
-subroutine readCGNS(cgns_file, comm)
+subroutine readCGNS(cgns_file, comm, coor, triaConn, quadsConn)
 
   ! This is the main subroutine that should be called to read a CGNS file
   ! INPUTS
@@ -20,18 +14,19 @@ subroutine readCGNS(cgns_file, comm)
   ! triaConn: real(3,numTria) -> Triangles connectivity
   ! quadsConn: real(4,numQuads) -> Quads connectivity
 
-  use precision
   use mpi
   use CGNSGrid
 
   implicit none
   include 'cgnslib_f.h'
 
-  !f2py intent(in) cgns_file, comm
-
   ! Input Arguments
   character*(*),intent(in) :: cgns_file
   integer, intent(in) :: comm
+
+  ! Output
+  integer(kind=intType), intent(out), dimension(:,:), allocatable :: triaConn, quadsConn
+  real(kind=realType), intent(out), dimension(:,:), allocatable :: coor
 
   ! Working
   integer(kind=intType) :: cg, ierr, i, myid
