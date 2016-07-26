@@ -1,0 +1,30 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module CGNSinterface ! in
+    interface  ! in :CGNSinterface
+        module cgnsinterface ! in :CGNSinterface:CGNSinterface.F90
+            use precision
+            real(kind=realtype), allocatable,dimension(:,:) :: coor
+            integer(kind=inttype), allocatable,dimension(:,:) :: triaconn
+            integer(kind=inttype), allocatable,dimension(:,:) :: quadsconn
+            subroutine readcgns(cgns_file,comm) ! in :CGNSinterface:CGNSinterface.F90:cgnsinterface
+                use cgnsgrid
+                use precision
+                use mpi
+                character*(*) intent(in) :: cgns_file
+                integer intent(in) :: comm
+            end subroutine readcgns
+            subroutine readunstructuredcgns(cg,allnodes) ! in :CGNSinterface:CGNSinterface.F90:cgnsinterface
+                use communication
+                use cgnsgrid
+                use precision
+                integer(kind=inttype) intent(in) :: cg
+                complex(kind=realtype), target,allocatable,dimension(:,:),intent(out) :: allnodes
+            end subroutine readunstructuredcgns
+        end module cgnsinterface
+    end interface
+end python module CGNSinterface
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

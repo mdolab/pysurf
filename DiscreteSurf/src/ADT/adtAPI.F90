@@ -18,6 +18,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
+      use precision
       use adtBuild
       use adtSearch
       use adtUtils
@@ -33,6 +34,7 @@
                                       coor,  triaConn, quadsConn, &
                                       BBox,  useBBox,  comm,      &
                                       adtID)
+
 !
 !       ****************************************************************
 !       *                                                              *
@@ -65,8 +67,11 @@
 !
         implicit none
 
-        !f2py intent(in) nTria, nQuads, nNodes, useBBox, adtID
-        !f2py intent(in) triaConn, quadsConn, BBox, coor, comm
+        !f2py intent(in) nTria, nQuads, nNodes, coor, triaConn, quadsConn
+        !f2py intent(in) BBox, useBBox, comm, adtID
+        !f2py depends(nNodes) coor
+        !f2py depends(nTria) triaConn
+        !f2py depends(nQuads) quadsConn
 
 !
 !       Subroutine arguments.
@@ -432,6 +437,11 @@
 !       ****************************************************************
 !
         implicit none
+
+        !f2py intent(in) nCoor, coor, adtID, nInterpol, arrDonor
+        !f2py intent(out) procID, elementType, elementID, uvw, arrInterpol
+        !f2py intent(inout) dist2
+
 !
 !       Subroutine arguments.
 !

@@ -1,0 +1,21 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module CGNSf2py ! in 
+    interface  ! in :CGNSf2py
+        module cgnsf2py ! in :CGNSf2py:CGNSf2py.f90
+            use precision
+            use cgnsinterface
+            real(kind=realtype), allocatable,dimension(:,:) :: coor
+            integer(kind=inttype), allocatable,dimension(:,:) :: triaconn
+            integer(kind=inttype), allocatable,dimension(:,:) :: quadsconn
+            subroutine cgnsf2py_routine(cgns_file,comm) ! in :CGNSf2py:CGNSf2py.f90:cgnsf2py
+                character*32 intent(in) :: cgns_file
+                integer(kind=inttype) intent(in) :: comm
+            end subroutine cgnsf2py_routine
+        end module cgnsf2py
+    end interface 
+end python module CGNSf2py
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
