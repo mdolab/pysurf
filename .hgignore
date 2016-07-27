@@ -16,4 +16,5 @@ syntax: glob
 *.cgns
 *.dat
 *.xyz
+*.a
 callgrind*
