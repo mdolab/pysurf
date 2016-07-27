@@ -12,8 +12,8 @@ from mpi4py import MPI
 # OPTIONS
 
 # Select example
-example = 'kink_on_plate'
-#example = 'line_on_curve'
+#example = 'kink_on_plate'
+example = 'line_on_cylinder'
 # example = 'line_on_paraboloid'
 #example = 'line_on_eggcrate'
 #example = 'circle_on_curve'
@@ -81,28 +81,19 @@ if example == 'kink_on_plate':
     numLayers = 20
     extension = 2.5
 
-elif example == 'line_on_curve':
+    surf = Surface('inputs/plate.cgns')  # ADT
+
+elif example == 'line_on_cylinder':
 
     # Set problem
     n = 80
-    nums = 0.1*linspace(1, -1, n)
-    x = -1.0*ones(n)
-    y = nums
-    z = 10*y**2
+    nums = linspace(pi/6, -pi/6, n)
+    x = 0.5277*ones(n)
+    y = linspace(-0.2,0.2,n)#0.5*cos(nums)
+    z = 0.3*ones(n)#0.5*sin(nums)
     rBaseline = vstack([x, y, z]).T
     bc1 = 'splay'
     bc2 = 'splay'
-
-    # Define surface points
-    s0 = 3
-    s1 = 3
-    nu, nv = 100, 100
-    pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
-            pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))    # X coordinates
-            pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))    # Y coordinates
-            pts[i, j, 2] = 10*(s1 * (-1. + 2 * j / (nv-1)))**2  # Z coordinates
 
     # Set parameters
     epsE0 = 2.5
@@ -117,8 +108,10 @@ elif example == 'line_on_curve':
 
     # Options
     sBaseline = 0.01
-    numLayers = 50
-    extension = 10.0
+    numLayers = 10
+    extension = 3.0
+
+    surf = Surface('inputs/cylinder.cgns')  # ADT
 
 elif example == 'line_on_paraboloid':
 
@@ -351,7 +344,7 @@ elif example == 'airfoil_on_cylinder':
 
 # Create surface object
 # surf = Surface(pts)  # GeoMACH
-surf = Surface('plate.cgns')  # ADT
+
 
 # Project curve points to the Surface
 # surf.inverse_evaluate(curve1_pts.reshape((-1, 3)))
@@ -397,17 +390,8 @@ mesh.exportPlot3d('output.xyz')
 
 # EXPORT REFERENCE SURFACE
 
-# Replace coordinates
-mesh.mesh = zeros((3,pts.shape[0],pts.shape[1]))
-mesh.mesh[0,:,:] = pts[:,:,0]
-mesh.mesh[1,:,:] = pts[:,:,1]
-mesh.mesh[2,:,:] = pts[:,:,2]
-
-# Export wing
-mesh.exportPlot3d('surf.xyz')
-
 # Open tecplot
 if example == 'line_on_eggcrate':
     os.system('tec360 layout_eggcrate.lay')
 else:
-    os.system('tec360 layout_mesh.lay')
+    os.system('tec360 layout_cylinder.lay')

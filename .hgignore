@@ -18,3 +18,5 @@ syntax: glob
 *.xyz
 *.a
 callgrind*
+*.uns
+*.uns.bak
