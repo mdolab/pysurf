@@ -1,21 +1,21 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module CGNSapi ! in 
-    interface  ! in :CGNSapi
-        module cgnsapi ! in :CGNSapi:CGNSapi.F90
+python module cgnsAPI ! in 
+    interface  ! in :cgnsAPI
+        module cgnsapi ! in :cgnsAPI:cgnsAPI.F90
             use precision
             use cgnsinterface
             real(kind=realtype), allocatable,dimension(:,:) :: coor
             integer(kind=inttype), allocatable,dimension(:,:) :: triaconn
             integer(kind=inttype), allocatable,dimension(:,:) :: quadsconn
-            subroutine readcgns(cgns_file,comm) ! in :CGNSapi:CGNSapi.F90:cgnsapi
+            subroutine readcgns(cgns_file,comm) ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
                 character*32 intent(in) :: cgns_file
                 integer(kind=inttype) intent(in) :: comm
             end subroutine readcgns
         end module cgnsapi
     end interface 
-end python module CGNSapi
+end python module cgnsAPI
 
 ! This file was auto-generated with f2py (version:2).
 ! See http://cens.ioc.ee/projects/f2py2e/

@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-from DiscreteSurf.python import CGNSapi, adtAPI
+from DiscreteSurf.python import cgnsAPI, adtAPI
 from mpi4py import MPI
 
 class Surface(object):
@@ -9,11 +9,11 @@ class Surface(object):
         self.comm = comm
 
         # Read CGNS file
-        CGNSapi.cgnsapi.readcgns(filename, self.comm)
+        cgnsAPI.cgnsapi.readcgns(filename, self.comm)
 
-        quadsConn = CGNSapi.cgnsapi.quadsconn
-        triaConn = CGNSapi.cgnsapi.triaconn
-        self.coor = CGNSapi.cgnsapi.coor
+        quadsConn = cgnsAPI.cgnsapi.quadsconn
+        triaConn = cgnsAPI.cgnsapi.triaconn
+        self.coor = cgnsAPI.cgnsapi.coor
         BBox = np.zeros((3, 2))
         useBBox = False
         self.adtID = 'test_surf'
