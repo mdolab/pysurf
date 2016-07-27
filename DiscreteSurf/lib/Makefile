@@ -7,50 +7,23 @@
 #      * Last modified: 07-27-2016                                      *
 #      *                                                                *
 #      ******************************************************************
-
-HOME_DIR = ../..
+#
+HOME_DIR = ..
 COMMON_FILE = $(HOME_DIR)/common.mk
-RULES_FILE  = $(HOME_DIR)/rulesSources.mk
 include ${COMMON_FILE}
-include ${RULES_FILE}
-vpath %.o $(OBJDIR)
-
-FF90_OBJECTS_1 = adtData.o\
-	         gradD2Hexa.o\
-	         hessD2Hexa.o\
-	         minD2Hexa.o\
-	         newtonStep.o\
-
-FF90_OBJECTS_2 = adtUtils.o
-
-FF90_OBJECTS_3 = adtBuild.o\
-	         adtLocalSearch.o
-
-FF90_OBJECTS_4 = adtSearch.o
-
-FF90_OBJECTS_5 = adtAPI.o
-
 
 default: all
 
-all:
-	$(PMAKE)  src1
-	$(PMAKE)  src2
-	$(PMAKE)  src3
-	$(PMAKE)  src4
-	$(PMAKE)  src5
-	cp -f *.mod $(MODDIR)
+all: 	libdiscretesurf
 
 clean:
-	@echo "        Making clean in ADT... "
-	rm -f $(MAKE_CLEAN_ARGUMENTS)
+	@echo "        Making clean in lib ... "
+	rm -f lib/*
 
-src1:	$(FF90_OBJECTS_1)
-
-src2:	$(FF90_OBJECTS_2)
-
-src3:	$(FF90_OBJECTS_3)
-
-src4:	$(FF90_OBJECTS_4)
-
-src5:	$(FF90_OBJECTS_5)
+libdiscretesurf:
+	@echo "        creating library ..."
+	@echo
+	$(AR) $(AR_FLAGS) libdiscretesurf.a $(OBJDIR)/*.o
+	@echo
+	@echo "        library libdiscretesurf.a created."
+	@echo

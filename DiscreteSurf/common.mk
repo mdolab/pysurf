@@ -1,16 +1,46 @@
-# General variables and rules to make objects
+MODDIR = $(HOME_DIR)/mod
+OBJDIR = $(HOME_DIR)/obj
+LIBDIR = $(HOME_DIR)/lib
 
-# Assemble general flags
-FF90_ALL_FLAGS = -I$(MOD_DIR) $(CGNS_INCLUDE_FLAGS) $(FF90_FLAGS)
+#      ******************************************************************
+#      *                                                                *
+#      * Include the file describing the compiler settings.             *
+#      *                                                                *
+#      ******************************************************************
 
-.F90.o:	Makefile
-	$(FF90) $(FF90_ALL_FLAGS) -c $< -o $(@F)
-	@echo
-	@echo "        --- Compiled $*.F90 successfully ---"
-	@echo
+COMPILERS = $(HOME_DIR)/config.mk
+ifneq ($(MAKECMDGOALS),clean)
+include ${COMPILERS}
+endif
 
-.f90.o:	Makefile
-	$(FF90) $(FF90_ALL_FLAGS) -c $< -o $(@F)
-	@echo
-	@echo "        --- Compiled $*.f90 successfully ---"
-	@echo
+#      ******************************************************************
+#      *                                                                *
+#      * Redefine .SUFFIXES to be sure all the desired ones are         *
+#      * included.                                                      *
+#      *                                                                *
+#      ******************************************************************
+
+.SUFFIXES: .o .f .F .f90 .F90 
+
+#      ******************************************************************
+#      *                                                                *
+#      * Arguments of make clean.                                       *
+#      *                                                                *
+#      ******************************************************************
+
+MAKE_CLEAN_ARGUMENTS = *~ *.o *.mod *.il *.stb c_* *.a
+
+#      ******************************************************************
+#      *                                                                *
+#      * Compiler flags to compile the sources.                         *
+#      * The macro's ADDITIONAL_FF90_FLAGS and ADDITIONAL_CC_FLAGS      *
+#      * make it possible that every subdirectory adds its own specific *
+#      * compiler flags, if necessary.                                  *
+#      *                                                                *
+#      ******************************************************************
+
+FF90_ALL_FLAGS   = -I$(MODDIR) $(CGNS_INCLUDE_FLAGS) \
+		   $(FF90_GEN_FLAGS) $(FF90_OPT_FLAGS) $(PETSC_INCLUDE_FLAGS) 
+
+CC_ALL_FLAGS = -I$(MODDIR) $(CGNS_INCLUDE_FLAGS) \
+		   $(CC_GEN_FLAGS) $(CC_OPT_FLAGS) $(PETSC_INCLUDE_FLAGS)
