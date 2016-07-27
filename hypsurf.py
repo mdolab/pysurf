@@ -267,18 +267,18 @@ class HypSurfMesh(object):
 
         # Project onto surface and compute surface normals
         self.ref_surf.inverse_evaluate(rNext.reshape((self.numNodes, 3)))
-        rNext = self.ref_surf.get_points(None).flatten()
-        NNext = self.ref_surf.get_normals(None).T
+        rNext = self.ref_surf.get_points().flatten()
+        NNext = self.ref_surf.get_normals().T
 
         if self.optionsDict['bc1'] == 'curve':
             self.ref_curve1.inverse_evaluate(node1.reshape((1, 3)))
-            rNext[:3] = self.ref_curve1.get_points(None).flatten()
-            NNext[:, 0] = self.ref_curve1.get_tangent(None).T[:, 0]
+            rNext[:3] = self.ref_curve1.get_points().flatten()
+            NNext[:, 0] = self.ref_curve1.get_tangent().T[:, 0]
 
         if self.optionsDict['bc2'] == 'curve':
             self.ref_curve2.inverse_evaluate(rNext[-3:].reshape((1, 3)))
-            # rNext[-3:] = self.ref_curve2.get_points(None).flatten()
-            NNext[:, -1] = self.ref_curve2.get_tangent(None).T[:, 0]
+            # rNext[-3:] = self.ref_curve2.get_points().flatten()
+            NNext[:, -1] = self.ref_curve2.get_tangent().T[:, 0]
         return rNext, NNext
 
     def areaFactor(self, r0, d):

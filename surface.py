@@ -32,11 +32,11 @@ class Surface(object):
         self.bse.compute_projection('proj', xyz, ndim=3)
         return None
 
-    def get_points(self, dmy):
+    def get_points(self):
         self.bse.apply_jacobian('proj', 'd(proj)/d(cp_str)', 'cp_str')
         return self.bse.vec['proj'].array
 
-    def get_normals(self, dmy):
+    def get_normals(self):
         self.bse.apply_jacobian('proj', 'd(proj_du)/d(cp_str)', 'cp_str')
         du = numpy.array(self.bse.vec['proj'].array)
         self.bse.apply_jacobian('proj', 'd(proj_dv)/d(cp_str)', 'cp_str')
@@ -47,7 +47,7 @@ class Surface(object):
             cross[:, ind] = cross[:, ind] / norms
         return cross
 
-    def get_tangent(self, dmy):
+    def get_tangent(self):
         self.bse.apply_jacobian('proj', 'd(proj_du)/d(cp_str)', 'cp_str')
         du = numpy.array(self.bse.vec['proj'].array)
         du = du / numpy.sum(du**2, axis=1)**0.5
@@ -99,4 +99,4 @@ if __name__ == '__main__':
     xyz[0, :] = [ -3.71661445e+00,   1.85840743e+00,   1.72689747e+00]
 
     s.inverse_evaluate(xyz)
-    print s.get_points(None)
+    print s.get_points()
