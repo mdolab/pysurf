@@ -464,7 +464,7 @@
 
         !===============================================================
 
-        ! Call the subroutine minDistanceSearch to do the actual work.
+        ! Call the subroutine stanceSearch to do the actual work.
 
         call minDistanceSearch(nCoor,       coor,      adtID,     procID,   &
                                elementType, elementID, uvw,       dist2,    &
