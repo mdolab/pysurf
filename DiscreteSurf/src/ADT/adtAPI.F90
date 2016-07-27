@@ -381,11 +381,11 @@
         !***************************************************************
         !***************************************************************
 
-        subroutine adtMinDistanceSearch(nCoor,    nNodes,      coor,        adtID,     &
-                                        procID,   elementType, elementID, &
-                                        uvw,      dist2,       allxfs,    &
-                                        allNorms, nInterpol,   arrDonor,  &
-                                        arrInterpol)
+        subroutine adtMinDistanceSearch(nCoor,     nNodes,    coor,        &
+                                        adtID,     procID,    elementType, &
+                                        elementID, uvw,       dist2,       &
+                                        allxfs,    allNorms,  nInterpol,   &
+                                        arrDonor,  arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *

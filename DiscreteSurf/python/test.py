@@ -1,4 +1,4 @@
-import CGNSf2py
+import CGNSapi
 import adtAPI
 from mpi4py import MPI
 import numpy as np
