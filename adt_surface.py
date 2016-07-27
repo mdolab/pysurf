@@ -5,22 +5,39 @@ from mpi4py import MPI
 
 class Surface(object):
 
-    def __init__(self, filename, comm):
+    def __init__(self, inp, comm=MPI.COMM_WORLD.py2f()):
+
         self.comm = comm
 
-        # Read CGNS file
-        cgnsAPI.cgnsapi.readcgns(filename, self.comm)
+        if isinstance(inp, str):
+            # Read CGNS file
+            cgnsAPI.cgnsapi.readcgns(inp, self.comm)
 
-        quadsConn = cgnsAPI.cgnsapi.quadsconn
-        triaConn = cgnsAPI.cgnsapi.triaconn
-        self.coor = cgnsAPI.cgnsapi.coor
-        BBox = np.zeros((3, 2))
-        useBBox = False
+            self.coor = cgnsAPI.cgnsapi.coor
+            self.quadsConn = cgnsAPI.cgnsapi.quadsconn
+            self.triaConn = cgnsAPI.cgnsapi.triaconn
+
+        elif isinstance(inp, dict):
+            self.coor = inp['coor']
+            self.quadsConn = inp['quadsConn']
+            self.triaConn = inp['triaConn']
+
+        else:
+            raise SyntaxError('Incorrect input to Surface; must be a cgns file string or dictionary containing coordinate and connection info.')
+
+        self.BBox = np.zeros((3, 2))
+        self.useBBox = False
         self.adtID = 'test_surf'
 
-        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, triaConn, quadsConn, BBox, useBBox, self.comm, self.adtID)
+        self.update_points(self.coor)
+
+    def update_points(self, coor):
+        self.coor = coor
+
+        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, self.BBox, self.useBBox, self.comm, self.adtID)
 
     def inverse_evaluate(self, xyz):
+        xyz = xyz.T
         n = xyz.shape[1]
         allxfs = np.zeros((3, n), order='F')
         allNorms = np.zeros((3, n), order='F')
@@ -33,10 +50,10 @@ class Surface(object):
         self.normals = allNorms
 
     def get_points(self):
-        return self.proj_points
+        return self.proj_points.T
 
     def get_normals(self):
-        return self.normals
+        return self.normals.T
 
     def get_tangent(self):
         # get tangent not implemented in ADT yet for python
