@@ -30,8 +30,8 @@
                                      adtID,       procID,     &
                                      elementType, elementID,  &
                                      uvw,         allxfs,     &
-                                     allNorms,    nInterpol,  &
-                                     arrDonor,    arrInterpol)
+                                     nInterpol,   arrDonor,   &
+                                     arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -87,7 +87,7 @@
         integer(kind=adtElementType), dimension(:), intent(out) :: &
                                                              elementType
         real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: allxfs, allNorms
+        real(kind=realType), dimension(:,:), intent(out) :: allxfs
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 !
 !       Local variables.
@@ -137,7 +137,7 @@
 
         call search(nCoor,     coor,      procID,   elementType, &
                     elementID, uvw,       dummy,    allxfs,      &
-                    allNorms,  jj,       .true.,    nInterpol,   &
+                    jj,       .true.,    nInterpol,   &
                     arrDonor, arrInterpol)
 
 
@@ -150,9 +150,8 @@
                                   adtID,       procID,    &
                                   elementType, elementID, &
                                   uvw,         dist2,     &
-                                  allxfs,      allNorms,  &
-                                  nInterpol,   arrDonor,  &
-                                  arrInterpol)
+                                  allxfs,      nInterpol, &
+                                  arrDonor,    arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -224,7 +223,7 @@
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
-        real(kind=realType), dimension(:, :), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(:, :), intent(inout) :: allxfs
 
 !
 !       Local variables.
@@ -283,7 +282,7 @@
 
         call search(nCoor,     coor,      procID,   elementType, &
                     elementID, uvw,       dummy,    allxfs,      &
-                    allNorms,  jj,       .true.,    nInterpol,   &
+                    jj,       .true.,    nInterpol,   &
                     arrDonor, arrInterpol)
 
         ! Determine the number of coordinates for which the containment
@@ -345,7 +344,7 @@
 
         call search(nFail,        tmpCoor,   tmpProcID, tmpElementType, &
                     tmpElementID, tmpUVW,    tmpDist2,  allxfs,         &
-                    allNorms,     jj,       .false.,    nInterpol,      &
+                    jj,       .false.,    nInterpol,      &
                     arrDonor, tmpArrInt)
 
         ! Copy for the successful searches the data into the arrays to
@@ -797,9 +796,8 @@
                                      adtID,       procID,    &
                                      elementType, elementID, &
                                      uvw,         dist2,     &
-                                     allxfs,      allNorms,  &
-                                     nInterpol,   arrDonor,  &
-                                     arrInterpol)
+                                     allxfs,      nInterpol, &
+                                     arrDonor,    arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -869,7 +867,7 @@
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
-        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(:,:), intent(inout) :: allxfs
 
 !
 !       Local variables.
@@ -906,7 +904,7 @@
 
         call search(nCoor,     coor,      procID,   elementType, &
                     elementID, uvw,       dist2,    allxfs,      &
-                    allNorms,  jj,       .false.,   nInterpol,   &
+                    jj,       .false.,   nInterpol,   &
                     arrDonor, arrInterpol)
 
         ! Negate the elementID if the coordinate is outside the element,
@@ -923,7 +921,7 @@
 
         subroutine search(nCoor,       coor,      procID,   &
                           elementType, elementID, uvw,      &
-                          dist2,       allxfs,    allNorms, &
+                          dist2,       allxfs,              &
                           jj,          containmentSearch,   &
                           nInterpol,   arrDonor,  arrInterpol)
 !
@@ -985,7 +983,7 @@
 
         real(kind=realType), dimension(:,:), intent(in) :: coor
         real(kind=realType), dimension(:),   intent(inout) :: dist2
-        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(:,:), intent(inout) :: allxfs
 
 
         real(kind=realType), dimension(:,:), intent(in) :: arrDonor
@@ -1465,8 +1463,8 @@
 
             nn = j
             call minDistanceTreeSearch(jj,        coorRecv, intRecv,  &
-                                       uvwRecv,   allxfs,   allNorms, &
-                                       arrDonor,  nn,       nInterpol)
+                                       uvwRecv,   allxfs,   arrDonor, &
+                                       nn,        nInterpol)
 
             ! Store the interpolation data at the correct location in
             ! the corresponding arrays.
@@ -1584,9 +1582,8 @@
             else
               call minDistanceTreeSearch(jj,             coorRecv,       &
                                          intRecv(:,ii:), uvwRecv(:,ii:), &
-                                         allxfs,         allNorms,       &
-                                         arrDonor,       nn,             &
-                                         nInterpol)
+                                         allxfs,         arrDonor,       &
+                                         nn,             nInterpol)
             endif
 
             deallocate(coorRecv, stat=ierr)

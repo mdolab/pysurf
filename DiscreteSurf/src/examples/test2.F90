@@ -23,7 +23,7 @@ program test
   real(kind=realType) :: BBox(3,2), coorPts(3,1), arrDonor(1,1)
   real(kind=realType), dimension(:), allocatable :: dist2
   real(kind=realType), dimension(:,:), allocatable :: uvw, arrInterpol
-  real(kind=realType), dimension(:,:), allocatable :: allNorms, allxfs
+  real(kind=realType), dimension(:,:), allocatable :: allxfs
   logical :: useBBox
   character(32) :: adtID
 
@@ -77,7 +77,7 @@ program test
   ! Allocate output arrays
   allocate(elementID(nPts), elementType(nPts), arrInterpol(1,nPts))
   allocate(procID(nPts), uvw(3, nPts), dist2(nPts))
-  allocate(allxfs(3, nPts), allNorms(3, nPts))
+  allocate(allxfs(3, nPts))
 
   ! No additional variable should be interpolated
   nInterpol = 0
@@ -87,11 +87,10 @@ program test
   dist2 = 1.0e5
 
   ! Find minimum distance to the given point
-  call adtMinDistanceSearch(nPts,     nNodes,      coorPts,     adtID,     &
-                            procID,   elementType, elementID, &
-                            uvw,      dist2,       allxfs,    &
-                            allNorms, nInterpol, &
-                            arrDonor, arrInterpol)
+  call adtMinDistanceSearch(nPts,      nNodes,      coorPts,     adtID,     &
+                            procID,    elementType, elementID, &
+                            uvw,       dist2,       allxfs,    &
+                            nInterpol, arrDonor,    arrInterpol)
 
   if (myID == 0) then
      print *,'dist2'
@@ -106,8 +105,6 @@ program test
      print *,elementID
      print *,'global coord'
      print *,allxfs
-     print *,'normal'
-     print *,allNorms
   end if
 
   ! Finalize MPI

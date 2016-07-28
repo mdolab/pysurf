@@ -50,14 +50,12 @@ class Surface(object):
         xyz = xyz.T
         n = xyz.shape[1]
         allxfs = np.zeros((3, n), order='F')
-        allNorms = np.zeros((3, n), order='F')
         arrDonor = self.nodal_normals
         dist2 = np.ones((n), order='F') * 1e9
 
-        procID, elementType, elementID, uvw, arrInterpol = adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, allxfs, allNorms, arrDonor)
+        procID, elementType, elementID, uvw, arrInterpol = adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, allxfs, arrDonor)
 
         self.proj_points = allxfs
-        self.normals = allNorms
         self.normals = arrInterpol
 
     def get_points(self):

@@ -785,9 +785,8 @@
 
         subroutine minDistanceTreeSearch(jj,        coor,     &
                                          intInfo,   uvw,      &
-                                         allxfs,    allNorms, &
-                                         arrDonor,  nCoor,    &
-                                         nInterpol)
+                                         allxfs,    arrDonor, &
+                                         nCoor,     nInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -850,7 +849,6 @@
         integer(kind=intType), dimension(:,:), intent(out) :: intInfo
         real(kind=realType),   dimension(:,:), intent(out) :: uvw
         real(kind=realType),   dimension(:,:), intent(out) :: allxfs
-        real(kind=realType),   dimension(:,:), intent(out) :: allNorms
 
 !
 !       Local parameters used in the Newton algorithm.
@@ -1771,11 +1769,6 @@
                 uvw(ii,nn) = uvw(ii,nn) + weight(i)*arrDonor(ll,m(i))
               enddo
             enddo
-
-            ! Store normals at the projected point
-            allNorms(1,nn) = norm_(1)
-            allNorms(2,nn) = norm_(2)
-            allNorms(3,nn) = norm_(3)
 
             ! Store global coordinate of projected point
             allxfs(1,nn) = xf_(1)
