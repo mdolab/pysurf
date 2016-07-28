@@ -1,7 +1,7 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module adtAPI ! in 
+python module adtAPI ! in
     interface  ! in :adtAPI
         module adtapi ! in :adtAPI:adtAPI.F90
             use adtsearch
@@ -34,8 +34,17 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
                 real(kind=realtype) dimension(ninterpol,ncoor),intent(out) :: arrinterpol
             end subroutine adtmindistancesearch
+            subroutine computenodalnormals(ncoor,ntria,nquads,coor,triaconn,quadsconn,nodalnormals) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                integer(kind=inttype) intent(in) :: ntria
+                integer(kind=inttype) intent(in) :: nquads
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,ntria),intent(in) :: triaconn
+                real(kind=realtype) dimension(4,nquads),intent(in) :: quadsconn
+                real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormals
+            end subroutine computenodalnormals
         end module adtapi
-    end interface 
+    end interface
 end python module adtAPI
 
 ! This file was auto-generated with f2py (version:2).

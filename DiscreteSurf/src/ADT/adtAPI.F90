@@ -464,7 +464,7 @@
 
         !===============================================================
 
-        ! Call the subroutine stanceSearch to do the actual work.
+        ! Call the subroutine minDistanceSearch to do the actual work.
 
         call minDistanceSearch(nCoor,       coor,      adtID,     procID,   &
                                elementType, elementID, uvw,       dist2,    &
@@ -472,5 +472,124 @@
                                arrInterpol)
 
         end subroutine adtMinDistanceSearch
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine computeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
+                                       quadsConn, nodalNormals)
+!
+!       ****************************************************************
+!       *                                                              *
+!       *                                                              *
+!       ****************************************************************
+!
+        implicit none
+
+        !f2py intent(in) nCoor, nTria, nQuads, coor, triaConn, quadsConn
+        !f2py intent(out) nodalNormals
+
+!
+!       Subroutine arguments.
+!
+        ! Input
+        integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(3,nTria), intent(in) :: triaConn
+        real(kind=realType), dimension(4,nQuads), intent(in) :: quadsConn
+
+        ! Output
+        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
+
+        ! Working
+        real(kind=realType), dimension(nCoor) :: connect_count
+        real(kind=realType) :: norm, normal1(3), normal2(3), normal3(3), normal4(3)
+        integer(kind=intType) :: i, j, ind1, ind2, ind3, ind4
+        real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
+        real(kind=realType) :: x12(3), x23(3), x34(3), x41(3)
+
+
+        !===============================================================
+
+        ! Loop over triangle connectivities
+        do i = 1,nTria
+          ind1 = triaConn(1, i)
+          ind2 = triaConn(2, i)
+          ind3 = triaConn(3, i)
+
+          x1 = coor(:, ind1)
+          x2 = coor(:, ind2)
+          x3 = coor(:, ind3)
+
+          x12 = x1 - x2
+          x23 = x2 - x3
+
+          call cross_product(x12, x23, normal1)
+          normal1 = normal1 / sqrt(dot_product(normal1, normal1))
+
+          nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
+          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal1
+          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal1
+
+          connect_count(ind1) = connect_count(ind1) + 1
+          connect_count(ind2) = connect_count(ind2) + 1
+          connect_count(ind3) = connect_count(ind3) + 1
+        end do
+
+        ! Loop over quad connectivities
+        do i = 1,nQuads
+          ind1 = quadsConn(1, i)
+          ind2 = quadsConn(2, i)
+          ind3 = quadsConn(3, i)
+          ind4 = quadsConn(4, i)
+
+          x1 = coor(:, ind1)
+          x2 = coor(:, ind2)
+          x3 = coor(:, ind3)
+          x4 = coor(:, ind4)
+
+          x12 = x1 - x2
+          x23 = x2 - x3
+          x34 = x3 - x4
+          x41 = x4 - x1
+
+          call cross_product(x12, -x41, normal1)
+          normal1 = normal1 / sqrt(dot_product(normal1, normal1))
+          call cross_product(x23, -x12, normal2)
+          normal2 = normal2 / sqrt(dot_product(normal2, normal2))
+          call cross_product(x34, -x23, normal3)
+          normal3 = normal3 / sqrt(dot_product(normal3, normal3))
+          call cross_product(x41, -x34, normal4)
+          normal4 = normal4 / sqrt(dot_product(normal4, normal4))
+
+          nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
+          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal2
+          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal3
+          nodalNormals(:, ind4) = nodalNormals(:, ind4) + normal4
+
+          connect_count(ind1) = connect_count(ind1) + 1
+          connect_count(ind2) = connect_count(ind2) + 1
+          connect_count(ind3) = connect_count(ind3) + 1
+          connect_count(ind4) = connect_count(ind4) + 1
+        end do
+
+        do i = 1,3
+            nodalNormals(i, :) = nodalNormals(i, :) / connect_count
+        end do
+
+        end subroutine computeNodalNormals
+
+        subroutine cross_product(A, B, C)
+
+          implicit none
+
+          real(kind=realType), intent(in) :: A(3), B(3)
+          real(kind=realType), intent(out) :: C(3)
+
+          C(1) = A(2) * B(3) - A(3) * B(2)
+          C(2) = A(3) * B(1) - A(1) * B(3)
+          C(3) = A(1) * B(2) - A(2) * B(1)
+
+        end subroutine cross_product
 
       end module adtAPI

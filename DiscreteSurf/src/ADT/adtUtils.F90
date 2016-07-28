@@ -480,7 +480,7 @@
 
             ! Subarray is larger than the threshold for a linear sort.
             ! Choose median of left, center and right elements as
-            ! partitioning element a. Also rearrange so that 
+            ! partitioning element a. Also rearrange so that
             ! (l) <= (l+1) <= (r).
 
             k = (l+r)/2
