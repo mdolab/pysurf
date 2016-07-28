@@ -19,7 +19,7 @@ python module adtAPI ! in
                 integer intent(in) :: comm
                 character(32) intent(in) :: adtid
             end subroutine adtbuildsurfaceadt
-            subroutine adtmindistancesearch(ncoor,nnodes,coor,adtid,procid,elementtype,elementid,uvw,dist2,allxfs,allnorms,ninterpol,arrdonor,arrinterpol) ! in :adtAPI:adtAPI.F90:adtapi
+            subroutine adtmindistancesearch(ncoor,nnodes,coor,adtid,procid,elementtype,elementid,uvw,dist2,allxfs,ninterpol,arrdonor,arrinterpol) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
                 character(32) intent(in) :: adtid
@@ -29,7 +29,6 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: uvw
                 real(kind=realtype) dimension(ncoor),intent(inout) :: dist2
                 real(kind=realtype) dimension(3,ncoor),intent(inout) :: allxfs
-                real(kind=realtype) dimension(3,ncoor),intent(inout) :: allnorms
                 integer(kind=inttype) intent(in) :: ninterpol
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
                 real(kind=realtype) dimension(ninterpol,ncoor),intent(out) :: arrinterpol

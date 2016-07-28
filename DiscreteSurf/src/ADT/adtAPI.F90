@@ -183,8 +183,8 @@
 
         subroutine adtContainmentSearch(nCoor,     coor,        adtID,     &
                                         procID,    elementType, elementID, &
-                                        uvw,       allxfs,      allNorms,  &
-                                        nInterpol, arrDonor,    arrInterpol)
+                                        uvw,       allxfs,      nInterpol, &
+                                        arrDonor,  arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -240,7 +240,7 @@
         integer(kind=adtElementType), dimension(:), intent(out) :: &
                                                             elementType
         real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: allxfs, allNorms
+        real(kind=realType), dimension(:,:), intent(out) :: allxfs
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         !===============================================================
@@ -249,7 +249,7 @@
 
         call containmentSearch(nCoor,       coor,      adtID,    procID,    &
                                elementType, elementID, uvw,      allxfs,    &
-                               allNorms,    nInterpol, arrDonor, arrInterpol)
+                               nInterpol, arrDonor, arrInterpol)
 
         end subroutine adtContainmentSearch
 
@@ -290,7 +290,7 @@
         subroutine adtFailSafeSearch(nCoor,    coor,        adtID,     &
                                      procID,   elementType, elementID, &
                                      uvw,      dist2,       allxfs,    &
-                                     allNorms, nInterpol,   arrDonor,  &
+                                     nInterpol,   arrDonor,  &
                                      arrInterpol)
 !
 !       ****************************************************************
@@ -364,7 +364,7 @@
         real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
-        real(kind=realType), dimension(:,:), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(:,:), intent(inout) :: allxfs
 
 
         !===============================================================
@@ -373,7 +373,7 @@
 
         call failSafeSearch(nCoor,       coor,      adtID,     procID,   &
                             elementType, elementID, uvw,       dist2,    &
-                            allxfs,      allNorms,  nInterpol, arrDonor, &
+                            allxfs,      nInterpol, arrDonor, &
                             arrInterpol)
 
         end subroutine adtFailSafeSearch
@@ -384,7 +384,7 @@
         subroutine adtMinDistanceSearch(nCoor,     nNodes,    coor,        &
                                         adtID,     procID,    elementType, &
                                         elementID, uvw,       dist2,       &
-                                        allxfs,    allNorms,  nInterpol,   &
+                                        allxfs,    nInterpol,   &
                                         arrDonor,  arrInterpol)
 !
 !       ****************************************************************
@@ -460,7 +460,7 @@
         real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(nCoor), intent(inout) :: dist2
-        real(kind=realType), dimension(3,nCoor), intent(inout) :: allxfs, allNorms
+        real(kind=realType), dimension(3,nCoor), intent(inout) :: allxfs
 
         !===============================================================
 
@@ -468,7 +468,7 @@
 
         call minDistanceSearch(nCoor,       coor,      adtID,     procID,   &
                                elementType, elementID, uvw,       dist2,    &
-                               allxfs,      allNorms,  nInterpol, arrDonor, &
+                               allxfs,      nInterpol, arrDonor, &
                                arrInterpol)
 
         end subroutine adtMinDistanceSearch
