@@ -33,21 +33,32 @@ class Surface(object):
 
     def update_points(self, coor):
         self.coor = coor
-
+        self.normals = self.compute_nodal_normals()
         adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, self.BBox, self.useBBox, self.comm, self.adtID)
+
+    def compute_nodal_normals(self):
+        nCoor = self.coor.shape[1]
+        nTria = self.triaConn.shape[1]
+        nQuads = self.quadsConn.shape[1]
+        nodal_normals = np.zeros((3, nCoor))
+        connect_count = np.zeros((nCoor), dtype='int')
+
+        self.nodal_normals = \
+            adtAPI.adtapi.computenodalnormals(self.coor, self.triaConn, self.quadsConn)
 
     def inverse_evaluate(self, xyz):
         xyz = xyz.T
         n = xyz.shape[1]
         allxfs = np.zeros((3, n), order='F')
         allNorms = np.zeros((3, n), order='F')
-        arrDonor = np.zeros((1, self.coor.shape[1]), order='F')
+        arrDonor = self.nodal_normals
         dist2 = np.ones((n), order='F') * 1e9
 
-        adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, allxfs, allNorms, arrDonor)
+        procID, elementType, elementID, uvw, arrInterpol = adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, allxfs, allNorms, arrDonor)
 
         self.proj_points = allxfs
         self.normals = allNorms
+        self.normals = arrInterpol
 
     def get_points(self):
         return self.proj_points.T

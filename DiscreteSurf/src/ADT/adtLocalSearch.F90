@@ -1596,8 +1596,13 @@
                   ! Determine the new parameter values uu and vv. These
                   ! are limited to 0 <= (uu,vv) <= 1.
 
-                  u = u + du; u = min(adtOne,max(adtZero,u))
-                  v = v + dv; v = min(adtOne,max(adtZero,v))
+                  u = u + du
+                  ! u_raw = u
+                  u = min(adtOne,max(adtZero,u))
+
+                  v = v + dv
+                  ! v_raw = v
+                  v = min(adtOne,max(adtZero,v))
 
                   ! Determine the final values of the corrections.
 

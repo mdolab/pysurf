@@ -12,8 +12,8 @@ from mpi4py import MPI
 # OPTIONS
 
 # Select example
-#example = 'kink_on_plate'
-example = 'line_on_cylinder'
+example = 'kink_on_plate'
+# example = 'line_on_cylinder'
 # example = 'line_on_paraboloid'
 #example = 'line_on_eggcrate'
 #example = 'circle_on_curve'
@@ -89,8 +89,8 @@ elif example == 'line_on_cylinder':
     n = 80
     nums = linspace(pi/6, -pi/6, n)
     x = 0.5277*ones(n)
-    y = linspace(-0.2,0.2,n)#0.5*cos(nums)
-    z = 0.3*ones(n)#0.5*sin(nums)
+    y = 0.5*cos(nums)
+    z = 0.5*sin(nums)
     rBaseline = vstack([x, y, z]).T
     bc1 = 'splay'
     bc2 = 'splay'
@@ -108,8 +108,8 @@ elif example == 'line_on_cylinder':
 
     # Options
     sBaseline = 0.01
-    numLayers = 10
-    extension = 3.0
+    numLayers = 30
+    extension = 4.
 
     surf = Surface('inputs/cylinder.cgns')  # ADT
 
