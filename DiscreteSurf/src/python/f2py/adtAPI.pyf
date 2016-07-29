@@ -29,9 +29,9 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: uvw
                 real(kind=realtype) dimension(ncoor),intent(inout) :: dist2
                 real(kind=realtype) dimension(3,ncoor),intent(inout) :: allxfs
+                real(kind=realtype) dimension(ninterpol,ncoor),intent(inout) :: arrinterpol
                 integer(kind=inttype) intent(in) :: ninterpol
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
-                real(kind=realtype) dimension(ninterpol,ncoor),intent(out) :: arrinterpol
             end subroutine adtmindistancesearch
             subroutine computenodalnormals(ncoor,ntria,nquads,coor,triaconn,quadsconn,nodalnormals) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor

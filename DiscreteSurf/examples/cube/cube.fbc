@@ -1,5 +1,9 @@
-# family_boco file written by ICEM CFD by ney on Wed Jul 27 03:04:22 PM EDT 2016
+# family_boco file written by ICEM CFD by ney on Thu Jul 28 01:49:13 PM EDT 2016
 ## solver CGNS
 "GEOM"
-"GEOM" "color" 16663866
+"GEOM" "color" 16663900
+"DIAG"
+"DIAG" "color" 16663900
+"LINE"
+"LINE" "color" 16663900
 

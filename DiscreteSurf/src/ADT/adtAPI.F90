@@ -423,7 +423,6 @@
 !       *              actual interpolation weights. If the tree       *
 !       *              corresponds to a surface mesh the third entry   *
 !       *              of this array will not be filled.               *
-!       * arrInterpol: Array with the interpolated data.               *
 !       *                                                              *
 !       * Subroutine intent(inout) arguments.                          *
 !       * -----------------------------------                          *
@@ -433,13 +432,20 @@
 !       *        large value. In this way it is possible to handle     *
 !       *        periodic problems as efficiently as possible.         *
 !       *                                                              *
+!       * arrInterpol: Array with the interpolated data. Values will   *
+!       *              only be replaced if we find a better candidate  *
+!       *              at the current surface.                         *
+!       *                                                              *
+!       * allxfs: Array with projected points. Values will only be     *
+!       *         replaced if we find a better candidate  at the       *
+!       *         current surface.                                     *
 !       ****************************************************************
 !
         implicit none
 
         !f2py intent(in) nCoor, nNodes, coor, adtID, nInterpol, arrDonor
         !f2py intent(out) procID, elementType, elementID, uvw, arrInterpol
-        !f2py intent(inout) dist2
+        !f2py intent(inout) dist2, allxfs, arrInterpol
 
 !
 !       Subroutine arguments.
@@ -457,10 +463,10 @@
                                                             elementType
 
         real(kind=realType), dimension(3,nCoor), intent(out) :: uvw
-        real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(nCoor), intent(inout) :: dist2
         real(kind=realType), dimension(3,nCoor), intent(inout) :: allxfs
+        real(kind=realType), dimension(nInterpol,nCoor), intent(inout) :: arrInterpol
 
         !===============================================================
 

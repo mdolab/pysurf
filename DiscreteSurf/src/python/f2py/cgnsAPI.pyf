@@ -6,11 +6,17 @@ python module cgnsAPI ! in
         module cgnsapi ! in :cgnsAPI:cgnsAPI.F90
             use precision
             use cgnsinterface
-            real(kind=realtype), allocatable,dimension(:,:) :: coor
-            integer(kind=inttype), allocatable,dimension(:,:) :: triaconn
-            integer(kind=inttype), allocatable,dimension(:,:) :: quadsconn
+            real(kind=realtype), allocatable, dimension(:,:) :: coor
+            integer(kind=inttype), allocatable, dimension(:,:) :: triaconn
+            integer(kind=inttype), allocatable, dimension(:,:) :: quadsconn
+            integer(kind=inttype), allocatable, dimension(:,:) :: barsconn
+            integer(kind=inttype), allocatable, dimension(:) :: surftriaptr
+            integer(kind=inttype), allocatable, dimension(:) :: surfquadsptr
+            integer(kind=inttype), allocatable, dimension(:) :: curvebarsptr
+            character(32), allocatable, dimension(:) :: surfnames
+            character(32), allocatable, dimension(:) :: curvenames
             subroutine readcgns(cgns_file,comm) ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
-                character*32 intent(in) :: cgns_file
+                character(128) intent(in) :: cgns_file
                 integer(kind=inttype) intent(in) :: comm
             end subroutine readcgns
         end module cgnsapi
