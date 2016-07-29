@@ -577,6 +577,11 @@
             nodalNormals(i, :) = nodalNormals(i, :) / connect_count
         end do
 
+        do i=1,nCoor
+          normal1 = nodalNormals(:, i)
+          nodalNormals(:, i) = normal1 / sqrt(dot_product(normal1, normal1))
+        end do
+
         end subroutine computeNodalNormals
 
         subroutine cross_product(A, B, C)

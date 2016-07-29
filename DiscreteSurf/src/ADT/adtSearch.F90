@@ -366,6 +366,8 @@
             do j=1,nInterpol
               arrInterpol(j,ii) = tmpArrInt(j,i)
             enddo
+            arrInterpol(:,ii) = arrInterpol(:,ii) / &
+              sqrt(dot_product(arrInterpol(:,ii), arrInterpol(:,ii)))
           endif
         enddo
 
@@ -1422,6 +1424,8 @@
                 do m=1,nInterpol
                   arrInterpol(m,l) = uvwRecv(m+nVarCoor,j)
                 enddo
+                arrInterpol(:,l) = arrInterpol(:,l) / &
+                  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
               endif
 
             enddo
@@ -1501,6 +1505,9 @@
                 do m=1,nInterpol
                   arrInterpol(m,l) = uvwRecv(m+nVarCoor,j)
                 enddo
+                arrInterpol(:,l) = arrInterpol(:,l) / &
+                  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+
               endif
 
             enddo
@@ -1703,6 +1710,8 @@
                   do m=1,nInterpol
                     arrInterpol(m,l) = uvwBuf(m+nVarCoor,j)
                   enddo
+                  arrInterpol(:,l) = arrInterpol(:,l) / &
+                    sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
                 endif
 
               enddo
@@ -1742,6 +1751,8 @@
                   do m=1,nInterpol
                     arrInterpol(m,l) = uvwBuf(m+nVarCoor,j)
                   enddo
+                  arrInterpol(:,l) = arrInterpol(:,l) / &
+                    sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
                 endif
 
               enddo
