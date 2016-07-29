@@ -70,8 +70,11 @@ class Geometry(object):
                 iBarsStart = curveBarsPtr[iSurf]-1
                 iBarsEnd = curveBarsPtr[iSurf+1]-1
 
+                # Take the bar connectivity slice and reorder it
+                sortedConn = np.array(FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())).T
+
                 # Assemble dictionary entry for this curve
-                curveDict = {'barsConn':barsConn[:,iBarsStart:iBarsEnd]}
+                curveDict = {'barsConn':sortedConn}
 
                 # Add this entry to the geometry dictionary
                 inputDict[curve] = curveDict
@@ -129,7 +132,7 @@ class Geometry(object):
         for component in self.components.itervalues():
             component.update_points(coor)
 
-    def inverse_evaluate(self, xyz, componentsList=None, xyzProj=None, normProj=None, dist2=None):
+    def project_on_surface(self, xyz, xyzProj, normProj, dist2, componentsList=None):
 
         '''
         This function will compute projections and surface Normals
@@ -144,36 +147,41 @@ class Geometry(object):
         xyzProj -> float[numPts, 3] : If the user already have previous projection candidates, they
                                       should be provided in this array. The code will only replace
                                       values if it finds a better candidade. If the user has no
-                                      previous candidate, he could use xyzProj = None.
+                                      previous candidate, initialize all elements to zero and also
+                                      set large values to dist2.
 
         normProj -> float[numPts, 3] : Surface normals computed at the user-provided projection candidates.
+                                       If the user has no previous candidate, initialize all elements
+                                       to zero and also set large values to dist2.
 
         dist2 -> float[numPts] : distance**2 of the user-provided projection candidates. The code
                                  will use this distance value to check for the best candidate and
-                                 then replace values in xyzProj, and normProj acordingly.
+                                 then replace values in xyzProj, and normProj acordingly. If no previous
+                                 candidates are available, set all elements to a large number (1e10) so that
+                                 all information in xyzProj and normProj is replaced.
+
+        OUTPUTS
+        This function has no explicit outputs. It will update the variables xyzProj, normProj, and dist2 instead.
+
         '''
 
         # Initialize values if the user did not provide any previous projection candidates
-        if dist2 == None:
+        if xyzProj == None or normProj == None or dist2 == None:
             numPts = xyz.shape[0]
             dist2 = np.ones(numPts)*1e10
             xyzProj = np.zeros((numPts,3))
-            vecProj = np.zeros((numPts,3))
+            normProj = np.zeros((numPts,3))
 
         # If the user do not provide any component, we will project into all of them
         if componentsList == None:
             componentsList = self.surfNames
 
         # Call inverse_evaluate for each component in the list, so that we can update
-        # dist2, xyzProj, and vecProj
+        # dist2, xyzProj, and normProj
         for componentName in componentsList:
-            self.components[componentName.lower()].inverse_evaluate(xyz, dist2, xyzProj, vecProj)
+            self.components[componentName.lower()].project(xyz, dist2, xyzProj, normProj)
 
-        # For surfaces, projVectors are surface normals. For curves, projVectors are
-        # curve tangents.
-
-        # Return projections
-        return xyzProj, vecProj
+        print xyzProj
 
 #=================================================================
 # COMPONENT CLASSES
@@ -210,7 +218,7 @@ class Surface(object):
         self.nodal_normals = \
             adtAPI.adtapi.computenodalnormals(self.coor, self.triaConn, self.quadsConn)
 
-    def inverse_evaluate(self, xyz, dist2, xyzProj, normProj):
+    def project(self, xyz, dist2, xyzProj, normProj):
 
         '''
         This function will take the points given in xyz and project them to the surface.
@@ -275,6 +283,96 @@ def formatStringArray(fortranArray):
 
 #=============================================================
 
+def FEsort(barsConnIn, flip=False):
+
+    '''
+    This function can be used to sort connectivities coming from the CGNS file
+    It assumes that we only have one curve. It will crash if we have
+    multiple curves defined in the same FE set.
+
+    barsConnIn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
+    '''
+
+    # Find if we have any node that is used only once.
+    # This indicates that the curve has free ends.
+    # First we need to flatten the array
+    flatArray = [inner for outer in barsConnIn for inner in outer]
+
+    # Initialize logical variable to stop iteration
+    end_not_found = True
+
+    while end_not_found and len(flatArray) > 0:
+
+        # Remove one node from the array
+        node_to_check = flatArray.pop(0)
+
+        # Check for duplicates
+        if node_to_check not in flatArray:
+
+            # We found an end!
+            end_node = node_to_check
+            end_not_found = False
+
+    # If we did not find an end node, the curve is periodic, so we can start in any of them
+    if end_not_found:
+        end_node = barsConnIn[0,0]
+
+    # Initialize new connectivity list
+    newConn = []
+
+    # Create a copy of bars conn as we will pop things out
+    barsConn = barsConnIn[:]
+
+    # Now we will build a new connectivity starting from this end node
+    while len(barsConn) > 0:
+
+        # Initialize new element
+        newElement = [end_node, 0]
+
+        # Set counter for number of elements checked in barsConn
+        elemCounter = 0
+
+        # Loop over the elements in barsConn to find one the has the end node
+        for element in barsConn:
+
+            if end_node in element:
+
+                # Assign the second nodes in the new element
+                if end_node == element[0]:
+                    newElement[1] = element[1]
+                elif end_node == element[1]:
+                    newElement[1] = element[0]
+
+                # Update end_node
+                end_node = newElement[1]
+
+                # Append the new element to the list
+                newConn.append(newElement)
+
+                # Pop the old element from the old connectivities
+                barsConn.pop(elemCounter)
+
+                # Jump out of the for loop
+                break
+
+            else:
+
+                # Just increment the element counter
+                elemCounter = elemCounter + 1
+
+    # Just change ordering if requested
+    if flip:
+        # Flip elements
+        newConn = newConn[::-1]
+        # Flip nodes
+        for ii in range(len(newConn)):
+            newConn[ii] = newConn[ii][::-1]
+
+    # Return the sorted array
+    return newConn
+
+#=============================================================
+
 if __name__ == "__main__":
 
     geometry = Geometry('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
@@ -282,7 +380,13 @@ if __name__ == "__main__":
     geometry.get_names()
 
     pts = np.array([[.5, .5, 0.1]], order='F')
-    projPoints, projVectors = geometry.inverse_evaluate(pts,['CYLINDER'])
 
-    print projPoints
-    print projVectors
+    numPts = pts.shape[0]
+    dist2 = np.ones(numPts)*1e10
+    xyzProj = np.zeros((numPts,3))
+    normProj = np.zeros((numPts,3))
+
+    geometry.project_on_surface(pts,xyzProj,normProj,dist2,['CYLINDER'])
+
+    print xyzProj
+    print normProj
