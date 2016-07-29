@@ -2,7 +2,9 @@ module CGNSinterface
 
 contains
 
-subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
+subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn, barsConn, &
+                        surfTriaPtr, surfQuadsPtr, curveBarsPtr, &
+                        surfNames, curveNames)
 
   ! This is the main subroutine that should be called to read a CGNS file
   ! INPUTS
@@ -12,7 +14,11 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
   ! OUTPUTS
   ! coor: real(3,numNodes) -> X,Y,Z coordinates of all nodes
   ! triaConn: real(3,numTria) -> Triangles connectivity
-  ! quadsConn: real(4,numQuads) -> Quads connectivity
+  ! quadsConn: integer(4,numQuads) -> Quads connectivity
+  ! barsConn: integer(2,numBars) -> bars connectivity
+  ! surfTriaPtr: integer(numSections) -> Pointer indicating index of triaConn where a surface section begins
+  ! surfQuadsPtr: integer(numSections) -> Pointer indicating index of quadsConn where a surface section begins
+  ! curveBarsPtr: integer(numCurves) -> Pointer indicating index of barsConn where a curve section begins
 
   use mpi
   use CGNSGrid
@@ -25,8 +31,10 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
   integer, intent(in) :: comm
 
   ! Output
-  integer(kind=intType), intent(out), dimension(:,:), allocatable :: triaConn, quadsConn
   real(kind=realType), intent(out), dimension(:,:), allocatable :: coor
+  integer(kind=intType), intent(out), dimension(:,:), allocatable :: triaConn, quadsConn, barsConn
+  integer(kind=intType), intent(out), dimension(:), allocatable :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
+  character*32, intent(out), dimension(:), allocatable :: surfNames, curveNames
 
   ! Working
   integer(kind=intType) :: cg, ierr, i, myid
@@ -34,8 +42,11 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
   integer(kind=intType) :: nstructured, nunstructured, zoneType
   integer(kind=intType) :: iZone, sec, nElem, nConn, iEnd, iStart, nQuads, nTria
   integer(kind=intType) :: nTriaTotal, nQuadsTotal, iQuads, iTria, dims(2)
+  integer(kind=intType) :: nBarsTotal, nBars, iBars
+  integer(kind=intType) :: iSurf, iCurve
+  integer(kind=intType) :: nSurfSectionsTot, nCurveSectionsTot
 
-  character*32 :: baseName
+  character*32 :: baseName, secName
 
   ! Set the default family names
   defaultFamName(BCAxisymmetricWedge) = 'axi'
@@ -119,36 +130,77 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
      ! Initialize counter for different types of elements
      nTriaTotal = 0
      nQuadsTotal = 0
+     nBarsTotal = 0
 
-     ! Loop over the zones to obtain the total number of trias and quads
+     ! Get the total number of surface and curve sections
+     nSurfSectionsTot = 0
+     nCurveSectionsTot = 0
+     do iZone = 1, nZones
+        nSurfSectionsTot = nSurfSectionsTot + zones(iZone)%nSurfSections
+        nCurveSectionsTot = nCurveSectionsTot + zones(iZone)%nCurveSections
+     end do
+
+     ! Allocate section pointers and names
+     ! These pointers will indicate where each section begins in the connectivity arrays.
+     ! The additional last element will just point to the last element
+     allocate(surfTriaPtr(nSurfSectionsTot+1), &
+              surfQuadsPtr(nSurfSectionsTot+1), &
+              curveBarsPtr(nCurveSectionsTot+1), &
+              surfNames(nSurfSectionsTot), &
+              curveNames(nCurveSectionsTot))
+
+     ! Loop over the zones to obtain the total number of each element type
+     ! We also use the same loop to set pointers that indicates slices of
+     ! the connectivity arrays that belong to each zone
      zoneLoop1: do iZone = 1,nZones
         do sec=1, zones(iZone)%nSections
            nTria = zones(iZone)%sections(sec)%nTria
            nQuads = zones(iZone)%sections(sec)%nQuads
+           nBars = zones(iZone)%sections(sec)%nBars
            nTriaTotal = nTriaTotal + nTria
            nQuadsTotal = nQuadsTotal + nQuads
+           nBarsTotal = nBarsTotal + nBars
         end do
      end do zoneLoop1
 
      ! Set auxiliary indices to write in the global connectivity array
      iTria = 1
      iQuads = 1
+     iBars = 1
+
+     ! Initialize variables that gives how many surfaces/curves were detected so far
+     iSurf = 0
+     iCurve = 0
 
      ! Allocate connectivity arrays
      allocate(triaConn(3, nTriaTotal))
      allocate(quadsConn(4, nQuadsTotal))
+     allocate(barsConn(2, nBarsTotal))
 
      ! Loop over the zones and read the nodes
      zoneLoop2: do iZone = 1,nZones
         do sec=1, zones(iZone)%nSections
 
            ! Get number of elements in the current section
+           secName = zones(iZone)%sections(sec)%name
            nElem = zones(iZone)%sections(sec)%nElem
            nTria = zones(iZone)%sections(sec)%nTria
            nQuads = zones(iZone)%sections(sec)%nQuads
+           nBars = zones(iZone)%sections(sec)%nBars
 
-           ! Check if we have surface elements
+           ! Check if we have surface elements. We will treat curves in the else if statement
            if (nTria + nQuads .ne. 0) then
+
+              ! Increment number of detected surfaces
+              iSurf = iSurf + 1
+
+              ! Store pointers that indicates where the current surface begins in the global
+              ! connectivity arrays
+              surfTriaPtr(iSurf) = iTria
+              surfQuadsPtr(iSurf) = iQuads
+
+              ! Store surface name
+              surfNames(iSurf) = secName
 
               ! Loop over the element pointer
               do i=2, nElem+1
@@ -172,9 +224,48 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn)
                     iQuads = iQuads + 1
                  end if
               end do
+
+           else if (nBars .ne. 0) then ! We have a curve
+
+              ! Increment number of detected curves
+              iCurve = iCurve + 1
+
+              ! Store pointers that indicates where the current curve begins in the global
+              ! connectivity arrays
+              curveBarsPtr(iCurve) = iBars
+
+              ! Store curve name
+              curveNames(iCurve) = secName
+
+              ! Loop over the element pointer
+              do i=2, nElem+1
+
+                 ! Get pointers corresponding to the beginning and ending of the current element
+                 ! Remeber that the element ends where the next one begins.
+                 iStart = zones(iZone)%sections(sec)%elemPtr(i-1)
+                 iEnd = zones(iZone)%sections(sec)%elemPtr(i)
+
+                 ! The difference between the initial and final pointers indicates
+                 ! how many nodes we have in the current element. Thus, we have the
+                 ! element type.
+                 nConn = iEnd - iStart
+
+                 ! Store the connectivity and increment number of bars
+                 barsConn(:, iBars) = zones(iZone)%sections(sec)%elemConn(iStart:iEnd-1)
+                 iBars = iBars + 1
+
+              end do
+
            end if
         end do
      end do zoneLoop2
+
+     ! Assign the final elements in the pointer array. They should point to the
+     ! Last element in the array.
+     surfTriaPtr(nSurfSectionsTot+1) = iTria
+     surfQuadsPtr(nSurfSectionsTot+1) = iQuads
+     curveBarsPtr(nCurveSectionsTot+1) = iBars
+
   end if
 
 end subroutine readCGNSmain
@@ -316,12 +407,16 @@ subroutine readUnstructuredCGNS(cg,allNodes)
         ! figure out the boundary nodes.
 
         ! Determine the total number of sections in this zone. This
-        ! will involve surface sections and volume sections. We only
-        ! care about the surface sections
+        ! will involve bars sections, surface sections, and volume sections. We only
+        ! care about the surface and bars sections
         call cg_nsections_f(cg, base, iZone, nSections, ierr)
         if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
         zones(iZone)%nSections = nSections
+
+        ! Initialize number of surface and curve sections
+        zones(iZone)%nSurfSections = 0
+        zones(iZone)%nCurveSections = 0
 
         ! Allocate space for the sections
         allocate(zones(iZone)%sections(nSections))
@@ -339,23 +434,38 @@ subroutine readUnstructuredCGNS(cg,allNodes)
 
            ! Number of elements on this section
            nElem = eEnd - eBeg + 1
+
+           ! Store section info
+           zones(iZone)%sections(sec)%type = type
            zones(iZone)%sections(sec)%nElem = nElem
            zones(iZone)%sections(sec)%name = secName
            zones(iZone)%sections(sec)%elemStart = eBeg
            zones(iZone)%sections(sec)%elemEnd = eEnd
-           zones(iZone)%sections(sec)%nQuads = 0
+
+           ! Initialize number of bars and surface elements
            zones(iZone)%sections(sec)%nTria = 0
+           zones(iZone)%sections(sec)%nQuads = 0
+           zones(iZone)%sections(sec)%nBars = 0
 
            ! Currently we can only deal with three and four sided
            ! surfaces. These can show up type == TRI_3 (all tris),
            ! type == QUAD_4 or type == MIXED. In the case of mixed we
            ! need to check each of the types individually.
+           ! In case of curves, we have type == BAR_2
            select case (type)
 
-              ! all tris or quads
-           case (TRI_3, QUAD_4)
-              ! Firstly flag this section as a surface
-              zones(iZone)%sections(sec)%isSurface = .True.
+              ! all bars, tris or quads
+           case (BAR_2, TRI_3, QUAD_4)
+
+              ! Firstly flag this section as a surface for tris and quads
+              ! Also increment the number of surface/curve sections
+              if (type .ne. BAR_2) then
+                 zones(iZone)%sections(sec)%isSurface = .True.
+                 zones(iZone)%nSurfSections = zones(iZone)%nSurfSections + 1
+              else ! We have bars
+                 zones(iZone)%sections(sec)%isSurface = .False.
+                 zones(iZone)%nCurveSections = zones(iZone)%nCurveSections + 1
+              end if
 
               ! Get the nodes per element "npe" (constant)
               call cg_npe_f(type, nConn, ierr)
@@ -380,13 +490,19 @@ subroutine readUnstructuredCGNS(cg,allNodes)
                       zones(iZone)%sections(sec)%elemPtr(i-1) + nConn
               end do
 
-              if (nConn .eq. 3) then
+              ! Assign the correct number of elements to its type
+              select case (nConn)
+              case (2)
+                 zones(iZone)%sections(sec)%nBars = nElem
+              case (3)
                  zones(iZone)%sections(sec)%nTria = nElem
-              else
+              case default
                  zones(iZone)%sections(sec)%nQuads = nElem
-              end if
+              end select
 
            case (MIXED)
+
+              ! No bars are allowed in a mixed type
 
               ! This section *could* be a surface but we don't
               ! actually know yet.
@@ -431,6 +547,9 @@ subroutine readUnstructuredCGNS(cg,allNodes)
               ! Only continue if we are now sure the section is only
               ! surfaces
               if (zones(iZone)%sections(sec)%isSurface) then
+
+                 ! Increment the number of surfaces in the zone
+                 zones(iZone)%nSurfSections = zones(iZone)%nSurfSections + 1
 
                  ! Allocate space for the connectivities and the
                  ! pointer. It should be safe to take this as
