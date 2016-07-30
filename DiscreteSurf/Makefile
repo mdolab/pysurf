@@ -10,7 +10,8 @@
 
 SUBDIR_SRC    = src/common \
 		src/CGNSInterface \
-		src/ADT
+		src/ADT \
+		src/curveSearch
 
 default:
 # Check if the config.mk file is in the config dir.
@@ -52,5 +53,3 @@ discretesurf:
 		done
 	(cd lib && make)
 	(cd src/python/f2py && make)
-
-
