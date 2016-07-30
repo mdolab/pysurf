@@ -1,10 +1,12 @@
 // tetin file version 1.1
 // written by ICEM CFD - version 14.0 on Wed Jul 27 14:58:22 2016
+// written by ICEM CFD - version 14.0 on Wed Jul 27 15:44:04 2016
+// written by ICEM CFD - version 14.0 on Wed Jul 27 15:45:54 2016
+// written by ICEM CFD - version 14.0 on Wed Jul 27 15:51:19 2016
 
 set_triangulation_tolerance 0.001
-# In ICEM CFD 4.2 the family_boco file is no longer tied to tetin
-# read_family_boco family_boco
 define_family GEOM color 16663866
+define_family CREATED_FACES color 11782707
 
 prescribed_point 0 0 0 family GEOM name pnt.00
 prescribed_point 3 0 0 family GEOM name pnt.01
@@ -78,7 +80,7 @@ bspline
 0,0,1,1
 3,-1.2246467991474e-16,-0.5,1
 0,-1.2246467991474e-16,-0.5,1
-define_surface name srf.01 family GEOM tetra_size 1e+10 mesh_type quads_and_tris mesh_method patch_dependent
+define_surface name srf.01 family GEOM tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 4
 coedge 3dcurve - srf.00.C1
@@ -119,7 +121,7 @@ bspline
 0,0.3880711874577,-0.3880711874577,0.94280904158206
 0,0.17677669529664,-0.5,1
 0,-1.2246467991474e-16,-0.5,1
-define_surface name srf.02 family GEOM tetra_size 1e+10 mesh_type quads_and_tris mesh_method patch_dependent
+define_surface name srf.02 family GEOM tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 4
 coedge 3dcurve   crv.02
@@ -160,7 +162,7 @@ bspline
 0,-0.3880711874577,-0.3880711874577,0.94280904158206
 0,-0.17677669529664,-0.5,1
 0,-1.2246467991474e-16,-0.5,1
-define_surface name srf.03 family GEOM tetra_size 1e+10 mesh_type quads_and_tris mesh_method patch_dependent
+define_surface name srf.03 family GEOM tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 2
 coedge 3dcurve   srf.00.C0
@@ -193,7 +195,7 @@ bspline
 0,-0.3880711874577,0.3880711874577,0.94280904158206
 0,-0.17677669529664,0.5,1
 0,6.1232339957368e-17,0.5,1
-define_surface name srf.04 family GEOM tetra_size 1e+10 mesh_type quads_and_tris mesh_method patch_dependent
+define_surface name srf.04 family GEOM tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 2
 coedge 3dcurve   crv.02
@@ -227,6 +229,6 @@ bspline
 3,0.17677669529664,-0.5,1
 3,0,-0.5,1
 affix 0
-define_model 0.050000001 reference_size 1
+define_model 0.010000001 reference_size 1
 define_prism_meshing_parameters law 0 nlay 3 hratio 1.2
 return

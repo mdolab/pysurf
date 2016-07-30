@@ -1,40 +1,40 @@
 # ICEM CFD Project Settings
-# Saved by ney on mdolabnrs on Wed Jul 27 03:04:22 PM EDT 2016
+# Saved by ney on mdolabnrs on Thu Jul 28 01:49:13 PM EDT 2016
 # ANSYS ICEM CFD Environment - version 14.0 - Release date: Oct 12 2011
 
 array set file_name {
-    catia_dir .
-    parts_dir .
-    domain_loaded 0
+    catia_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
+    parts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
+    domain_loaded 1
     cart_file_loaded 0
     cart_file {}
     domain_saved cube.uns
     archive {}
     med_replay {}
-    topology_dir .
-    ugparts_dir .
+    topology_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
+    ugparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
     icons {{$env(ICEM_ACN)/lib/ai_env/icons} {$env(ICEM_ACN)/lib/va/EZCAD/icons} {$env(ICEM_ACN)/lib/icons} {$env(ICEM_ACN)/lib/va/CABIN/icons}}
     tetin cube.tin
     family_boco cube.fbc
-    prism_params {}
-    iges_dir .
+    prism_params cube.prism_params
+    iges_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
     solver_params_loaded 0
-    attributes_loaded 0
+    attributes_loaded 1
     project_lock {}
     attributes cube.atr
     domain cube.uns
-    domains_dir .
+    domains_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
     settings_loaded 0
     settings cube.prj
     blocking {}
     hexa_replay {}
-    transfer_dir .
-    mesh_dir .
+    transfer_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
+    mesh_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
     family_topo {}
-    gemsparts_dir .
-    family_boco_loaded 0
-    tetin_loaded 0
-    project_dir .
+    gemsparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
+    family_boco_loaded 1
+    tetin_loaded 1
+    project_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cube
     topo_mulcad_out {}
     solver_params cube.par
 }
@@ -123,7 +123,7 @@ array set disp_options {
     uns_directions 0
     uns_thickness 0
     uns_shell_diagnostic 0
-    uns_normals 1
+    uns_normals 0
     uns_couplings 0
     uns_periodicity 0
     uns_single_surfaces 0
@@ -132,7 +132,7 @@ array set disp_options {
     uns_multiple_surfaces 0
     uns_no_inner 0
     uns_enums 0
-    uns_disp Solid/wire
+    uns_disp Wire
     uns_bcfield_name {}
     uns_color_by_quality 0
     uns_changes 0
@@ -224,170 +224,215 @@ array set saved_views {
 #------------- DEZ Data ------------------
 
 namespace eval ::AIEnv::GUIManagement::DEZ {
-    array set createSurfsDEZ_data {
-        this createSurfsDEZ
+    array set createPointsDEZ_data {
+        this createPointsDEZ
         type DEZ
-        PartList {"From screen"}
-        __createSurfsFam_Last_Index 0
-        name box8.00
-        createSurfsEXGVal 13
-        createSurfSimpleMethodVal 0
-        curveList {}
-        createSrfTol 0.01
-        Simple4ptsList {}
-        curveDrivingList {}
-        curveDrivenList {}
-        createSurfSweepMethodVal 0
-        pntSweepVecList {{0 0 0} {1 0 0}}
-        curveSweepList {}
-        crvSweepDList {}
-        sangle 0
-        eangle 360
-        curveRevAxis {}
-        curveRevList {}
-        lofttol 0.1
-        loftsurfList {}
-        offsetdist 0
-        offsetSurfList {}
-        createSurfMidMethodVal 0
-        distance 0.0
-        how_modes {
-        Confirm
-        Present/Confirm
-        Quiet
+        PartList {"From screen" DIAG GEOM}
+        __createPointsFam_Last_Index 0
+        name pnt.05
+        createPointsEXGVal 1
+        pickScreenList {}
+        createPntExplicitVal 0
+        x 0.11
+        y 0.71
+        z 1
+        crePntParamList {-1, 1, 0.1}
+        Xexpress 2*sin(m*180)
+        Yexpress 2*cos(m*180)
+        Zexpress { m / 2}
+        pickBasePnt {}
+        dx 0
+        dy 0
+        dz 0
+        createPointsCentFRVal 0
+        pickCenterList {}
+        pickCenterCrv {}
+        createPnt2LocMethodVal 1
+        nPnt2Loc 1
+        ratio 0.5
+        pickBetweenList {}
+        ptExtEGVal 0
+        pickEndList {}
+        how_select_end {both xmin xmax ymin ymax zmin zmax}
+        which_end both
+        __createPntCrvEnd_Last_Index 0
+        fangle 30
+        toler 0.1
+        pickIntList {}
+        createPntCrvParMethodVal 1
+        crePnts3param 0.5
+        pickParList {}
+        pickProjCrv {}
+        pickPoint {}
+        trimCrvPrjFlag 0
+        pickProjSrf {}
+        pickPoint2 {}
+        embedPntOnSurfFlag 0
     }
-        mode Quiet
-        __createPartMidMode_Last_Index 0
-        partsurfList {}
-        keepFlag 0
-        DelUnattFlag 1
-        assemblyFlag 0
-        partialFlag 0
-        similarFlag 0
-        connectedFlag 0
-        __createSurfMidMode_Last_Index 0
-        midsurfList {}
-        midsurfList2 {}
-        modifyFacetSurf2EXGVal 0
-        crvSurfTrmSurfList {}
-        crvSurfTrmCurveList {}
-        modSegmPlaneNormEGVal 0
-        SegPlanePntList {}
-        segPlanenormal {0 1 0}
-        SegPlanePnt1 {}
-        SegPlanePnt2 {}
-        SegPlanePnt3 {}
-        modSurfKeepOldFlag 0
-        seg_angle 30
-        minSeg 1
-        modifyReapproxSurfVal 0
-        modSurfMergeList {}
-        reappSurfList {}
-        mtol1 0.1
-        reappSurf1List {}
-        reappCur1List {}
-        mtol2 0.1
-        reappSurf2List {}
-        mtol4 0.1
-        facetedonlyFlag3 0
-        how_modes1 {
-        Confirm
-        Quiet
-    }
-        mode1 Confirm
-        __reappEachSurfMode_Last_Index 0
-        reappEachSurfList {}
-        mtol3 0.1
-        facetedonlyFlag4 0
-        TrimSurfs {}
-        CurtSurfCurvList {}
-        CurtSurfSurfList {}
+    array set createCurvesDEZ_data {
+        this createCurvesDEZ
+        type DEZ
+        PartList {"From screen" DIAG GEOM}
+        __createCurvesFam_Last_Index 0
+        name crv.02
+        createCurvesEXGVal 0
+        pickList {}
+        createCrvArcMethodVal 0
+        pickArcList {}
+        RadiusArcGGVal 0
+        radius 0
+        keep_arc 0
+        RadiusGGVal 0
+        stangle 0
+        enangle 360
+        pickCircleList {}
+        creCurveEGVal 2
+        pickSurf {}
+        pickCurvCrePnt {}
+        pickEdgePnt {}
+        UVChoiceVal 0
+        isopar 0.5
+        creCrvIntSetRVal 0
+        diffPartsFlag 0
+        pickSetSurfs {}
+        createCurveIntCTVal 1
+        pickSet1Surfs {}
+        pickSet2Surfs {}
+        createCrvProjMethodVal 0
+        pickCurvesProj {}
+        pickSurfsProj {}
+        createCrvPrjEGVal 0
+        projpointsvec {}
+        prjOriginCurvFlag 1
         prTrFlag 0
-        createSurfExtMethodVal 2
-        ExtendCurve {}
-        ExtendSurf {}
-        extendlist {
-        "Closest"
-        "Tangential from edge"
-        "Tangential along U/V"
+        modifyCurveSegFRVal 0
+        pickCurveSeg {}
+        pickPointSeg {}
+        pickCurveSegWith {}
+        segBothFlag 0
+        modSegmCRVNormEGVal 0
+        SegPlanePntList {}
+        segVecList {}
+        keepOriginCurvFlag 0
+        seg_angle2 20
+        minSeg2 1
+        modifyReapproxCrvVal 0
+        pickCurveConcat {}
+        creCrvConcatTolGGVal 0
+        ctol 0.1
+        pickCurveReapp {}
+        ctol1 0.1
+        reappcrvfacetedFlag 0
+        pickCurveHull {}
+        hull_tol 0.0009
+        shrink 0.2
+        four 0
+        pickCurveExtract {}
+        crvExtEGVal 0
+        extract_bsp_how 0
+        fangle 20
+        MinSeg {}
+        boundary {}
+        __facetedBoundaryOpt_Last_Index 0
+        modCrvEGVal 0
+        modCrv_crv0 {}
+        modCrv_crv1 {}
+        modCrvExtEndEGVal 0
+        modCrvExtEndPnt {}
+        allowExtendTargetFlag 0
+        CrvExtTo {}
+        modCrvExtLen 1
+        modCrvExtMethod line
+        modCrv_crv2 {}
+        modCrvMatchAcc 1
+        modCrvMatchOneOrBoth 0
+        modCrvMatchMethodEGVal 2
+        modCrvKeepFlag 0
+        modCrv_crv3_1 {}
+        createCrvMidMethodVal 0
+        pickMidline_crv2 {}
+        midlineList {}
+        midlineList2 {}
+        pickSurfSect {}
+        sectCurvePlaneEGVal 0
+        sectCurvePlaneXYZEGVal 0
+        sectCurveplnpnt1 {}
+        sectCurveplnpnt2 {}
+        sectCurveplnpnt3 {}
+        pickcrvexist {}
+        numsect {}
+        sectCurveOffsetGGVal 0
+        mpsectdelta {}
+        mpsectstart {}
+        mpsectend {}
     }
-        extend_method Closest
-        __createSurfaceExtendMethod_Last_Index 0
-        connect 1
-        ExtSrfAtEdgeSrf {}
-        ExtSrfAtEdgeEdgenum {}
-        ExtSrfAtEdgeDistance {}
-        absolute 0
-        midparts {}
-        proximity 0.0
-        __MPartsMethod_Last_Index 0
-        ext_image {}
-        ext_single {}
-        imagesize {}
-        shrinkWrapEGVal 0
-        minFeatSize {}
-        nSmooth 1
-        projFactor {}
-        c3dshrinkPart {}
-        __c3dshrinkPart_Last_Index 0
-        partFlag 0
-        VisGeomFlag 0
-        MakeGeomFlag 0
-        convexHullMethodEXGVal 0
-        convexHullSurList {}
-        convexCoarsenGGVal 1
-        convexTol 0.001
-        convexRemInterFaceFlag 0
-        convexHullSeparateFlag 1
-        convexCoarsenGG2Val 0
-        splitMethodGGVal 0
-        splitXDiv 2
-        splitYDiv 2
-        splitZDiv 2
-        convexCoarsenGG3Val 0
-        createStdShapeEGVal 0
-        stdBoxTypeEGVal 0
-        StdBoxSides {1 1 1}
-        boxAxPntList {0 0 0}
-        boxEntityList {}
-        xF 1
-        yF 1
-        zF 1
-        stdBoxAdjustBoundsVal 0
-        Xmin {}
-        Xmax {}
-        Ymin {}
-        Ymax {}
-        Zmin {}
-        Zmax {}
-        RadStdSphGGVal 0
-        radiusSph 1
-        stangleSph 0
-        enangleSph 180
-        StdSphereList {{0 0 0} {0 0 1}}
-        CylindRad1 1
-        CylindRad2 1
-        CylindBase1Flag 1
-        CylindBase2Flag 1
-        cylAxPntList {}
-        StdHoleSurfList {}
-        ReplaceHoleGGVal 0
-        StdHoleCrvList {}
-        StdHoleRad {}
-        StdHoleLocList {}
-        StdPlaneSide 1
-        TrimPlaneCurveList {}
-        StdPlaneCurveParam {}
-        StdPlaneRadius 1
-        TrimPlaneSurfList {}
+    array set deletePointsDEZ_data {
+        this deletePointsDEZ
+        type DEZ
+        pointsList {}
+        DelUnattFlag 0
+        JoinCrvFlag 0
+    }
+    array set mszCurveDEZ_data {
+        this mszCurveDEZ
+        type DEZ
+        mszCurveTypeGGVal 0
+        curveList crv.01
+        emax 0.025
+        nmax 25
+        ehgt 0
+        hrat 0
+        nlay 0
+        ewid 0
+        emin 0
+        edev 0
+        LawList {BiGeometric Biexponential Curvature Exponential1 Exponential2 FullCosinus Geometric1 Geometric2 HalfCosinus1 HalfCosinus2 Hyperbolic Poisson Uniform}
+        law {}
+        __curveParamLaw_Last_Index 5
+        h1 {}
+        r1 {}
+        h2 {}
+        r2 {}
+        lmax {}
+        dirCurveFlag 0
+        adjustFlag 0
+        remeshFlag 0
+        brat 1.0
+        simpleLawList {BiGeometric Geometric1 Geometric2 Uniform}
+        blaw FullCosinus
+        __mszCurveBLaw_Last_Index 0
+        setSelectPropertiesVal 0
+        emax_incr 1.0
+        nmax_incr 1
+        brat_incr 0.1
+        ehgt_incr 0.1
+        hrat_incr 0.1
+        ewid_incr 1
+        emin_incr 0.1
+        edev_incr 0.1
+        copyCurveFrom {}
+        from_emax {}
+        from_nmax {}
+        from_ehgt {}
+        from_hrat {}
+        from_ewid {}
+        from_emin {}
+        from_edev {}
+        from_law {}
+        from_h1 {}
+        from_h2 {}
+        from_r1 {}
+        from_r2 {}
+        from_lmax {}
+        copyCurveTo {}
+        copy_absolute 0
     }
     array set mszGlobalDEZ_data {
         this mszGlobalDEZ
         type DEZ
-        mszGlobalTypeGGVal 0
-        globalSF 1.0
+        globalSF 1
         dspScaleFlag 0
-        maxSz 0.05
+        maxSz 0.050000001
         dspSeedFlag 0
         natSzGGVal 0
         minSize 1
@@ -406,7 +451,6 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         meshElemMethodList {Autoblock {Patch Dependent} {Patch Independent} Shrinkwrap}
         mesh_method2 {Patch Dependent}
         __mszShellMethod_Last_Index 0
-        mszShellAdvancedVal 1
         ign_size 0.0009
         mappedMethodsList {
         "Free"
@@ -439,8 +483,6 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         smooth_dormant 0
         shrinkwrap_nsmooth 5
         shrinkwrap_projfactor 0.1
-        mszGlobalVolumeTypeEGVal 0
-        mszGlobalTetTypeVal 0
         tetra_batch 0
         fastTranFlag 0
         gedgec 0.2
@@ -465,7 +507,6 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         tetra_expansion_factor 1.2
         tetra_proximity_check 0
         hybrid_remeshCenter 0
-        mszGlobalMeshCartEGVal 0
         cart_proj_factor 0.98
         cart_split_degen 0
         cart_create_pyramids 0
@@ -506,13 +547,75 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         smoothing_steps 12
         first_layer_smoothing_steps 1
         DefineperiodicGGVal 0
-        periodicTypeEGVal 0
+        periodicTypeEGVal {}
         periodicTypeRotMVal 0
         base {0 0 0}
         axis {0 0 0}
         angle 0
         num_sectors {}
         VecList {}
+    }
+    array set defineConnectorsDEZ_data {
+        this defineConnectorsDEZ
+        type DEZ
+        defineConnectorsTypeGGVal 0
+        groupOnWhich {}
+        arbConnSrcSelMethod 0
+        groupEntsOnWhich {}
+        arbConnSourceFam {}
+        arbConnTrgSelMethod 0
+        groupEntsToWhich {}
+        arbConnTargetFam {}
+        group_list {DIAG GEOM}
+        groupResultName CONNECTIONS
+        __defineArbConnFam_Last_Index 0
+        maxProjection {}
+        curDirectActive 1
+        __defineConnectorsFam_Last_Index 0
+        boltHoleNQuadLayers 2
+        boltHoleIsWasher 0
+        dumbSeamWeldMethod 0
+        seamTargetFam {}
+        __defineConnectorsNewPartFam_Last_Index 0
+        possible_splitting_methods {{Remesh area (Tri/Quad)} Terminate Propagate}
+        splittingMethod {Remesh area (Tri/Quad)}
+        __defineConnectorsSeamSplitMethod_Last_Index 0
+        __defineConnectorsNewPartFam2_Last_Index 0
+        __defineConnectorsSeamSplitMethod2_Last_Index 0
+        __defineConnectorsNewPartFam3_Last_Index 0
+        __defineConnectorsSeamSplitMethod3_Last_Index 0
+        glinkaSubType 0
+        glinka_sides {{Both directions} {Positive direction} {Negative direction}}
+        glinkaDiagsSide {Both directions}
+        __jkaSWDumbWidgetOffsetNormSide_Last_Index 0
+        glinka_one_side {{Positive direction} {Negative direction}}
+        glinkaDiagsOneSide {Positive direction}
+        __jkaSWDumbWidgetOffsetOneSide_Last_Index 0
+        glinkaSpacing 0
+        glinkaOffsetHeight {}
+        glinkaOffsetNLayers {}
+        glinkaOffsetHeightRatio {}
+        glinkaOffsetRadius {}
+        glinkaExtendType 1
+        spotMultTargets {}
+        __defineSpotConnectorsNewPartFam_Last_Index 0
+        dumbSpotWeldMethod 0
+        __defineConnMultSplitMethod3_Last_Index 0
+        rbe3PartName {}
+        __jkaDumbWidgetRbe3Part0_Last_Index 0
+        weldRadius {}
+        __jkaDumbWidgetRbe3Part1_Last_Index 0
+        spotFileName {}
+        spotFileReport ./spot_welding_report.txt
+        spotFileElSplitting {Remesh area (Tri/Quad)}
+        __defineConnectorsSpotWeldFileSplitMethod_Last_Index 0
+        __defineConnectorsSpotWeldFileFam_Last_Index 0
+        spotFileMaxProj {}
+    }
+    array set meshLineDEZ_data {
+        this meshLineDEZ
+        type DEZ
+        curvList crv.00
     }
     array set meshPrismDEZ_data {
         this meshPrismDEZ
@@ -555,7 +658,7 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         meshTetUseExist2Val 0
         tetinFile {}
         loadFlag 1
-        PartList {{From screen} GEOM inherited}
+        PartList {{From screen} DIAG GEOM LINE inherited}
         family CREATED_MATERIAL
         __meshDelRemeshMF_Last_Index 0
         loadmesh 1
@@ -571,5 +674,33 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         kpt_tol {}
         inf_method 0
         prism_input 0
+    }
+    array set deleteElemsDEZ_data {
+        this deleteElemsDEZ
+        type DEZ
+        elemList {}
+    }
+    array set createPartDEZ_data {
+        this createPartDEZ
+        type curve
+        PartList {"From screen" DIAG GEOM}
+        name LINE
+        __createPartName_Last_Index 0
+        createPartSelectVal 0
+        entityList {}
+        adjust_geo_names 0
+        location {}
+        select_geo_0d 0
+        select_geo_1d 1
+        select_geo_2d 1
+        select_geo_3d 1
+        minx 0
+        miny 0
+        minz 0
+        maxx 1
+        maxy 1
+        maxz 1
+        BoxFlag 0
+        blocks {}
     }
 }
