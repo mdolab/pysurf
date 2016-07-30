@@ -1,40 +1,40 @@
 # ICEM CFD Project Settings
-# Saved by ney on mdolabnrs on Wed Jul 27 02:58:22 PM EDT 2016
+# Saved by ney on mdolabnrs on Wed Jul 27 03:51:20 PM EDT 2016
 # ANSYS ICEM CFD Environment - version 14.0 - Release date: Oct 12 2011
 
 array set file_name {
-    catia_dir .
-    parts_dir .
-    domain_loaded 0
+    catia_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
+    parts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
+    domain_loaded 1
     cart_file_loaded 0
     cart_file {}
     domain_saved cylinder.uns
     archive {}
     med_replay {}
-    topology_dir .
-    ugparts_dir .
+    topology_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
+    ugparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
     icons {{$env(ICEM_ACN)/lib/ai_env/icons} {$env(ICEM_ACN)/lib/va/EZCAD/icons} {$env(ICEM_ACN)/lib/icons} {$env(ICEM_ACN)/lib/va/CABIN/icons}}
     tetin cylinder.tin
     family_boco cylinder.fbc
-    prism_params {}
-    iges_dir .
+    prism_params cylinder.prism_params
+    iges_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
     solver_params_loaded 0
-    attributes_loaded 0
+    attributes_loaded 1
     project_lock {}
     attributes cylinder.atr
     domain cylinder.uns
-    domains_dir .
+    domains_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
     settings_loaded 0
     settings cylinder.prj
     blocking {}
     hexa_replay {}
-    transfer_dir .
-    mesh_dir .
+    transfer_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
+    mesh_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
     family_topo {}
-    gemsparts_dir .
-    family_boco_loaded 0
-    tetin_loaded 0
-    project_dir .
+    gemsparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
+    family_boco_loaded 1
+    tetin_loaded 1
+    project_dir /home/ney/hg/pysurf/DiscreteSurf/examples/cylinder
     topo_mulcad_out {}
     solver_params cylinder.par
 }
@@ -224,323 +224,13 @@ array set saved_views {
 #------------- DEZ Data ------------------
 
 namespace eval ::AIEnv::GUIManagement::DEZ {
-    array set createPointsDEZ_data {
-        this createPointsDEZ
-        type DEZ
-        PartList {"From screen" GEOM}
-        __createPointsFam_Last_Index 0
-        name pnt.04
-        createPointsEXGVal 1
-        pickScreenList {}
-        createPntExplicitVal 0
-        x 0
-        y 0
-        z 0.5
-        crePntParamList {-1, 1, 0.1}
-        Xexpress 2*sin(m*180)
-        Yexpress 2*cos(m*180)
-        Zexpress { m / 2}
-        pickBasePnt {}
-        dx 0
-        dy 0
-        dz 0
-        createPointsCentFRVal 0
-        pickCenterList {}
-        pickCenterCrv {}
-        createPnt2LocMethodVal 1
-        nPnt2Loc 1
-        ratio 0.5
-        pickBetweenList {}
-        ptExtEGVal 0
-        pickEndList {}
-        how_select_end {both xmin xmax ymin ymax zmin zmax}
-        which_end both
-        __createPntCrvEnd_Last_Index 0
-        fangle 30
-        toler 0.1
-        pickIntList {}
-        createPntCrvParMethodVal 1
-        crePnts3param 0.5
-        pickParList {}
-        pickProjCrv {}
-        pickPoint {}
-        trimCrvPrjFlag 0
-        pickProjSrf {}
-        pickPoint2 {}
-        embedPntOnSurfFlag 0
-    }
-    array set createCurvesDEZ_data {
-        this createCurvesDEZ
-        type DEZ
-        PartList {"From screen" GEOM}
-        __createCurvesFam_Last_Index 0
-        name crv.03
-        createCurvesEXGVal 6
-        pickList {}
-        createCrvArcMethodVal 0
-        pickArcList {}
-        RadiusArcGGVal 0
-        radius 0
-        keep_arc 0
-        RadiusGGVal 0
-        stangle 0
-        enangle 360
-        pickCircleList {}
-        creCurveEGVal 2
-        pickSurf {}
-        pickCurvCrePnt {}
-        pickEdgePnt {}
-        UVChoiceVal 0
-        isopar 0.5
-        creCrvIntSetRVal 0
-        diffPartsFlag 0
-        pickSetSurfs {}
-        createCurveIntCTVal 1
-        pickSet1Surfs {}
-        pickSet2Surfs {}
-        createCrvProjMethodVal 0
-        pickCurvesProj {}
-        pickSurfsProj {}
-        createCrvPrjEGVal 0
-        projpointsvec {}
-        prjOriginCurvFlag 1
-        prTrFlag 0
-        modifyCurveSegFRVal 0
-        pickCurveSeg srf.00.C0
-        pickPointSeg {}
-        pickCurveSegWith {}
-        segBothFlag 0
-        modSegmCRVNormEGVal 0
-        SegPlanePntList {}
-        segVecList {}
-        keepOriginCurvFlag 0
-        seg_angle2 20
-        minSeg2 1
-        modifyReapproxCrvVal 0
-        pickCurveConcat {}
-        creCrvConcatTolGGVal 0
-        ctol 0.1
-        pickCurveReapp {}
-        ctol1 0.1
-        reappcrvfacetedFlag 0
-        pickCurveHull {}
-        hull_tol 0.002
-        shrink 0.2
-        four 0
-        pickCurveExtract {}
-        crvExtEGVal 0
-        extract_bsp_how 0
-        fangle 20
-        MinSeg {}
-        boundary {}
-        __facetedBoundaryOpt_Last_Index 0
-        modCrvEGVal 0
-        modCrv_crv0 {}
-        modCrv_crv1 {}
-        modCrvExtEndEGVal 0
-        modCrvExtEndPnt {}
-        allowExtendTargetFlag 0
-        CrvExtTo {}
-        modCrvExtLen 1
-        modCrvExtMethod line
-        modCrv_crv2 {}
-        modCrvMatchAcc 1
-        modCrvMatchOneOrBoth 0
-        modCrvMatchMethodEGVal 2
-        modCrvKeepFlag 0
-        modCrv_crv3_1 {}
-        createCrvMidMethodVal 0
-        pickMidline_crv2 {}
-        midlineList {}
-        midlineList2 {}
-        pickSurfSect {}
-        sectCurvePlaneEGVal 0
-        sectCurvePlaneXYZEGVal 0
-        sectCurveplnpnt1 {}
-        sectCurveplnpnt2 {}
-        sectCurveplnpnt3 {}
-        pickcrvexist {}
-        numsect {}
-        sectCurveOffsetGGVal 0
-        mpsectdelta {}
-        mpsectstart {}
-        mpsectend {}
-    }
-    array set createSurfsDEZ_data {
-        this createSurfsDEZ
-        type DEZ
-        PartList {"From screen" GEOM}
-        __createSurfsFam_Last_Index 0
-        name srf.05
-        createSurfsEXGVal 0
-        createSurfSimpleMethodVal 0
-        curveList {}
-        createSrfTol 0.01
-        Simple4ptsList {}
-        curveDrivingList {}
-        curveDrivenList {}
-        createSurfSweepMethodVal 0
-        pntSweepVecList {{0 0 0} {1 0 0}}
-        curveSweepList {}
-        crvSweepDList {}
-        sangle 0
-        eangle 360
-        curveRevAxis {}
-        curveRevList {}
-        lofttol 0.1
-        loftsurfList {}
-        offsetdist 0
-        offsetSurfList {}
-        createSurfMidMethodVal 0
-        distance 0.02
-        how_modes {
-        Confirm
-        Present/Confirm
-        Quiet
-    }
-        mode Quiet
-        __createPartMidMode_Last_Index 0
-        partsurfList {}
-        keepFlag 0
-        DelUnattFlag 1
-        assemblyFlag 0
-        partialFlag 0
-        similarFlag 0
-        connectedFlag 0
-        __createSurfMidMode_Last_Index 0
-        midsurfList {}
-        midsurfList2 {}
-        modifyFacetSurf2EXGVal 0
-        crvSurfTrmSurfList {}
-        crvSurfTrmCurveList {}
-        modSegmPlaneNormEGVal 0
-        SegPlanePntList {}
-        segPlanenormal {0 1 0}
-        SegPlanePnt1 {}
-        SegPlanePnt2 {}
-        SegPlanePnt3 {}
-        modSurfKeepOldFlag 0
-        seg_angle 30
-        minSeg 1
-        modifyReapproxSurfVal 0
-        modSurfMergeList {}
-        reappSurfList {}
-        mtol1 0.1
-        reappSurf1List {}
-        reappCur1List {}
-        mtol2 0.1
-        reappSurf2List {}
-        mtol4 0.1
-        facetedonlyFlag3 0
-        how_modes1 {
-        Confirm
-        Quiet
-    }
-        mode1 Confirm
-        __reappEachSurfMode_Last_Index 0
-        reappEachSurfList {}
-        mtol3 0.1
-        facetedonlyFlag4 0
-        TrimSurfs {}
-        CurtSurfCurvList {}
-        CurtSurfSurfList {}
-        prTrFlag 0
-        createSurfExtMethodVal 2
-        ExtendCurve {}
-        ExtendSurf {}
-        extendlist {
-        "Closest"
-        "Tangential from edge"
-        "Tangential along U/V"
-    }
-        extend_method Closest
-        __createSurfaceExtendMethod_Last_Index 0
-        connect 1
-        ExtSrfAtEdgeSrf {}
-        ExtSrfAtEdgeEdgenum {}
-        ExtSrfAtEdgeDistance {}
-        absolute 0
-        midparts {}
-        proximity 0.04
-        __MPartsMethod_Last_Index 0
-        ext_image {}
-        ext_single {}
-        imagesize {}
-        shrinkWrapEGVal 0
-        minFeatSize {}
-        nSmooth 1
-        projFactor {}
-        c3dshrinkPart {}
-        __c3dshrinkPart_Last_Index 0
-        partFlag 0
-        VisGeomFlag 0
-        MakeGeomFlag 0
-        convexHullMethodEXGVal 0
-        convexHullSurList {}
-        convexCoarsenGGVal 1
-        convexTol 0.001
-        convexRemInterFaceFlag 0
-        convexHullSeparateFlag 1
-        convexCoarsenGG2Val 0
-        splitMethodGGVal 0
-        splitXDiv 2
-        splitYDiv 2
-        splitZDiv 2
-        convexCoarsenGG3Val 0
-        createStdShapeEGVal 2
-        stdBoxTypeEGVal 0
-        StdBoxSides {1 1 1}
-        boxAxPntList {0 0 0}
-        boxEntityList {}
-        xF 1
-        yF 1
-        zF 1
-        stdBoxAdjustBoundsVal 0
-        Xmin {}
-        Xmax {}
-        Ymin {}
-        Ymax {}
-        Zmin {}
-        Zmax {}
-        RadStdSphGGVal 0
-        radiusSph 1
-        stangleSph 0
-        enangleSph 180
-        StdSphereList {{0 0 0} {0 0 1}}
-        CylindRad1 0.5
-        CylindRad2 0.5
-        CylindBase1Flag 1
-        CylindBase2Flag 1
-        cylAxPntList {}
-        StdHoleSurfList {}
-        ReplaceHoleGGVal 0
-        StdHoleCrvList {}
-        StdHoleRad {}
-        StdHoleLocList {}
-        StdPlaneSide 1
-        TrimPlaneCurveList {}
-        StdPlaneCurveParam {}
-        StdPlaneRadius 1
-        TrimPlaneSurfList {}
-    }
-    array set deleteSurfDEZ_data {
-        this deleteSurfDEZ
-        type DEZ
-        surfList {}
-    }
-    array set deleteEntityDEZ_data {
-        this deleteEntityDEZ
-        type DEZ
-        entityList {}
-        DelUnattFlag 0
-    }
     array set mszGlobalDEZ_data {
         this mszGlobalDEZ
         type DEZ
         mszGlobalTypeGGVal 0
-        globalSF 1
+        globalSF 1.0
         dspScaleFlag 0
-        maxSz 0
+        maxSz 0.010000001
         dspSeedFlag 0
         natSzGGVal 0
         minSize 1
@@ -680,7 +370,7 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
     }
     array set meshAutoDEZ_data {
         this meshAutoDEZ
-        type 2
+        type 3
         meshAutoWhatVal 0
         set_surfparams_type 1
         surfElemTypeList {
@@ -689,9 +379,9 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
 	    "Quad Dominant"
 	    "All Quad"
     }
-        etype2 {Quad Dominant}
+        etype2 {All Tri}
         __meshSurfType_Last_Index 0
-        set_surfparams_method 1
+        set_surfparams_method 0
         surfElemMethodList {Autoblock {Patch Dependent} {Patch Independent} Shrinkwrap}
         emethod2 {Patch Dependent}
         __meshSurfMethod_Last_Index 0
@@ -725,119 +415,9 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         inf_method 0
         prism_input 0
     }
-    array set transformElemsToolsDEZ_data {
-        this transformElemsToolsDEZ
-        type DEZ
-        elemList {}
-        transformElemsEGVal 0
-        moveElemesCopyGGVal 0
-        numCopies 1
-        incrParts {}
-        copyElemsMergeNodesGG0Val 0
-        copyElemsMergeNodesGI0TVal 0
-        mergeTol {}
-        mergeElems 0
-        translateElemsEGVal 0
-        x 0
-        y 0
-        z 0
-        pointList2 {}
-        moveElemesCopyGG2Val 0
-        copyElemsMergeNodesGG1Val 0
-        copyElemsMergeNodesGI1TVal 0
-        ElemRotateAxisOptionEGVal 0
-        axisElemList {}
-        rot_angle 0
-        RotateElemCenterEGVal 0
-        rotateCenterPnt {}
-        moveElemesCopyGG3Val 0
-        copyElemsMergeNodesGG2Val 0
-        copyElemsMergeNodesGI2TVal 0
-        ElemMirrorAxisOptionEGVal 0
-        normPointList {}
-        ReflectElemCenterEGVal 0
-        reflectCenterPnt {}
-        moveElemesCopyGG4Val 0
-        xF 1
-        yF 1
-        zF 1
-        ScaleElemsCentEGVal 0
-        scaleCenterPnt {}
-    }
-    array set repairMeshDEZ_data {
-        this repairMeshDEZ
-        type DEZ
-        repairMeshRGVal 0
-        createBuilTopoAngBarVal 0
-        topoang 30
-        BTMeshVal 0
-        BTMeshList {}
-        typeList {
-        "All Quad"
-        "Quad w/one Tri"
-        "Quad Dominant"
-        "All Tri"
-        "Tri (STL like)"
-        "Tetra"
-    }
-        elType {All Tri}
-        __repairElType0_Last_Index 0
-        remeshList {}
-        remesh_part {}
-        __repairPartName_Last_Index 0
-        repairSurfProjFlag 0
-        ignoreDimFlag 0
-        offsetLayerFlag 0
-        offsetHeightFlag 1.0
-        OffsetList {
-        "Standard"
-        "Simple"
-        "Forced simple"
-    }
-        offsetSimpleFlag Standard
-        __offsetSimple_Last_Index 0
-        __repairElType1_Last_Index 0
-        qualityList {
-        "Angle error"
-        "Quality"
-        "Aspect ratio"
-        "Custom quality"
-        "Ford"
-    }
-        qualityMetric {Angle error}
-        __repairQualityMetric_Last_Index 0
-        upto 0.8
-        maxSteps 100
-        __repairElType2_Last_Index 0
-        repairGeoIdFlag 0
-        __repairElType3_Last_Index 0
-        repairSurfCompEdgeFlag 0
-        repairInterPolFlag 0
-        KeepConsistentFlag 0
-        mergetol 0.1
-        mergeEndNodesFlag 0
-        smoothIters 6
-        smoothAcc 0.025
-        smoothW 0
-        surfProjFlag 1
-        smoothB 0
-        FloodFillFlag 0
-        keepConsTypeGGVal 0
-        keepConsElemList {}
-        setAssocElemList {}
-        __repairElType10_Last_Index 0
-        enforceNodeMethodVal 0
-        nodeList {}
-        pointList {}
-        partList {}
-        makeRemPerGrVal 0
-        enclSurfs {}
-        bodyList {}
-        onlyVolumeFlag 1
-    }
     array set reorientMeshDEZ_data {
         this reorientMeshDEZ
-        type QUAD_4
+        type TRI_3
         reorientElemsEGVal 1
         reorientOutwardFlag 0
         elemList {}

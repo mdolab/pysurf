@@ -25,14 +25,16 @@ module cgnsGrid
      ! Only for unstructured grid
      character(maxCGNSNameLen) :: name
      logical :: isSurface
-     integer(kind=intType):: nElem, nTria, nQuads
-     integer(kind=intType):: elemStart, elemEnd
+     integer(kind=intType) :: type
+     integer(kind=intType) :: nElem, nTria, nQuads, nBars
+     integer(kind=intType) :: elemStart, elemEnd
      integer(kind=intType), dimension(:), pointer :: elemPtr, elemConn
   end type sectionDataType
 
   type zoneDataType
      integer(kind=intType) :: il, jl, kl
      integer(kind=intType):: nVertices, nElements, nSections
+     integer(kind=intType) :: nSurfSections, nCurveSections
      character(maxCGNSNameLen) :: name
      type(bcType), dimension(:), allocatable :: bocos
      type(sectionDataType), dimension(:), pointer :: sections

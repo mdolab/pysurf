@@ -14,7 +14,8 @@ program test
   !===============================
   integer(kind=intType) :: comm, ierr, ii
 
-  integer(kind=intType), dimension(:,:), allocatable :: triaConn, quadsConn
+  integer(kind=intType), dimension(:,:), allocatable :: triaConn, quadsConn, barsConn
+  integer(kind=intType), dimension(:), allocatable :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
   real(kind=realType), dimension(:,:), allocatable :: coor
 
   ! Initialize MPI
@@ -27,7 +28,10 @@ program test
   ! EXECUTION
   !===============================
 
-  call readCGNSmain('cube2.cgns', comm, coor, triaConn, quadsConn)
+  call readCGNSmain('cube2.cgns', comm, coor, triaConn, quadsConn, barsConn, &
+                    surfTriaPtr, surfQuadsPtr, curveBarsPtr)
+
+  print *,surfTriaPtr
 
   ! Determine number of processors and current processor ID
   call MPI_COMM_SIZE(comm, nProc, ierr)

@@ -5,20 +5,16 @@ import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from adt_surface import Surface  # ADT
+from DiscreteSurf.python.adt_geometry import Geometry  # ADT
 import os
 from mpi4py import MPI
 
 # OPTIONS
 
 # Select example
-example = 'kink_on_plate'
-# example = 'line_on_cylinder'
-# example = 'line_on_paraboloid'
-#example = 'line_on_eggcrate'
-#example = 'circle_on_curve'
-#example = 'circle_on_paraboloid'
-#example = 'airfoil_on_cylinder'
+#example = 'kink_on_plate'
+example = 'line_on_cylinder'
+#example = 'line_on_cube'
 
 # EXAMPLE SELECTION
 
@@ -86,17 +82,49 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Set problem
-    n = 80
+    n = 40
     nums = linspace(pi/6, -pi/6, n)
-    x = 0.5277*ones(n)
-    y = 0.5*cos(nums)
-    z = 0.5*sin(nums)
+    x = 0.5277 + linspace(0.0,0.3,n) -0.3
+    y = 0.5*cos(nums)#linspace(0.2,-0.2,n)
+    z = 0.5*sin(nums)#0.3*ones(n)
     rBaseline = vstack([x, y, z]).T
     bc1 = 'splay'
     bc2 = 'splay'
 
     # Set parameters
-    epsE0 = 2.5
+    epsE0 = 1.5
+    theta = 0.0
+    alphaP0 = 0.25
+    numSmoothingPasses = 0
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.1
+    cMax = 1.0
+    ratioGuess = 20
+
+    # Options
+    sBaseline = 0.01
+    numLayers = 50
+    extension = 4.8
+
+    surf = Surface('inputs/cubeAndCylinder.cgns')  # ADT
+
+    layout_file = 'layout_cylinder.lay'
+
+elif example == 'line_on_cube':
+
+    # Set problem
+    n = 40
+    nums = linspace(0.75, 0.25, n)
+    x = nums
+    y = nums #0.2*ones(n)
+    z = zeros(n)
+    rBaseline = vstack([x, y, z]).T
+    bc1 = 'splay'
+    bc2 = 'splay'
+
+    # Set parameters
+    epsE0 = 4.0
     theta = 1.0
     alphaP0 = 0.25
     numSmoothingPasses = 0
@@ -108,10 +136,12 @@ elif example == 'line_on_cylinder':
 
     # Options
     sBaseline = 0.01
-    numLayers = 30
-    extension = 4.
+    numLayers = 50
+    extension = 5.0
 
-    surf = Surface('inputs/cylinder.cgns')  # ADT
+    surf = Surface('inputs/cube.cgns')  # ADT
+
+    layout_file = 'layout_cube.lay'
 
 elif example == 'line_on_paraboloid':
 
@@ -391,7 +421,4 @@ mesh.exportPlot3d('output.xyz')
 # EXPORT REFERENCE SURFACE
 
 # Open tecplot
-if example == 'line_on_eggcrate':
-    os.system('tec360 layout_eggcrate.lay')
-else:
-    os.system('tec360 layout_cylinder.lay')
+os.system('tec360 ' + layout_file)

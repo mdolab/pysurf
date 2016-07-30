@@ -12,7 +12,8 @@ import os
 # Select example
 # example = 'kink_on_plate'
 #example = 'line_on_curve'
-example = 'line_on_paraboloid'
+example = 'line_on_cylinder'
+#example = 'line_on_paraboloid'
 #example = 'line_on_eggcrate'
 #example = 'circle_on_curve'
 #example = 'circle_on_paraboloid'
@@ -101,6 +102,47 @@ elif example == 'line_on_curve':
             pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))    # X coordinates
             pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))    # Y coordinates
             pts[i, j, 2] = 10*(s1 * (-1. + 2 * j / (nv-1)))**2  # Z coordinates
+
+    # Set parameters
+    epsE0 = 2.5
+    theta = 1.0
+    alphaP0 = 0.25
+    numSmoothingPasses = 0
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.0
+    cMax = 1.0
+    ratioGuess = 20
+
+    # Options
+    sBaseline = 0.01
+    numLayers = 50
+    extension = 10.0
+
+elif example == 'line_on_cylinder':
+
+    # Set problem
+    n = 40
+    nums = linspace(pi/6, -pi/6, n)
+    x = 0.5277*ones(n)
+    y = linspace(-0.2,0.2,n)#0.5*cos(nums)
+    z = 0.3*ones(n)#0.5*sin(nums)
+    rBaseline = vstack([x, y, z]).T
+    bc1 = 'splay'
+    bc2 = 'splay'
+
+    # Define surface points
+    s0 = 0.0
+    s1 = 3.0
+    radius = 0.5
+    nu, nv = 100, 100
+    pts = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            theta = pi*j/(nv-1)
+            pts[i, j, 0] = s0 + (s1-s0) * (i / nu)
+            pts[i, j, 1] = -radius*cos(theta)
+            pts[i, j, 2] = radius*sin(theta)
 
     # Set parameters
     epsE0 = 2.5
@@ -349,7 +391,7 @@ elif example == 'airfoil_on_cylinder':
 
 # Create surface object
 surf = surface.Surface(pts)
-
+'''
 # print curve1_pts[:, 0, :]
 
 # Project curve points to the Surface
@@ -364,12 +406,13 @@ curve2_pts = surf.get_points(None).reshape((-1, 4, 3))
 
 curve1 = surface.Surface(curve1_pts)
 curve2 = surface.Surface(curve2_pts)
-
+'''
 
 # Set reference geometry
 ref_geom = {'surf':surf,
-            'curve1':curve2,
-            'curve2':curve1}
+            #'curve1':curve2,
+            #'curve2':curve1}
+            }
 
 # Set options
 options = {

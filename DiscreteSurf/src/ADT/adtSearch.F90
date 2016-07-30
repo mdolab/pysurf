@@ -866,10 +866,10 @@
                                                              elementType
 
         real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
         real(kind=realType), dimension(:,:), intent(inout) :: allxfs
+        real(kind=realType), dimension(:,:), intent(inout) :: arrInterpol
 
 !
 !       Local variables.
@@ -984,8 +984,10 @@
         integer(kind=intType), intent(in) :: nInterpol
 
         real(kind=realType), dimension(:,:), intent(in) :: coor
+
         real(kind=realType), dimension(:),   intent(inout) :: dist2
         real(kind=realType), dimension(:,:), intent(inout) :: allxfs
+        real(kind=realType), dimension(:,:), intent(inout) :: arrInterpol
 
 
         real(kind=realType), dimension(:,:), intent(in) :: arrDonor
@@ -997,7 +999,6 @@
                                                              elementType
 
         real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
 
         logical, intent(in) :: containmentSearch
 !
@@ -1421,11 +1422,11 @@
                 uvw(2,l)       = uvwRecv(2,j)
                 uvw(3,l)       = uvwRecv(3,j)
 
-                do m=1,nInterpol
-                  arrInterpol(m,l) = uvwRecv(m+nVarCoor,j)
-                enddo
-                arrInterpol(:,l) = arrInterpol(:,l) / &
-                  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+                ! NEY: I will not store interpolated data yet because this loop
+                !      do not check minimum distance yet
+                !do m=1,nInterpol
+                !  arrInterpol(m,l) = uvwRecv(m+nVarCoor,j)
+                !enddo
               endif
 
             enddo
