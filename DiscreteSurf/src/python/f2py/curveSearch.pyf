@@ -1,0 +1,21 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module curveSearch ! in
+    interface  ! in :curveSearch
+        module curveproj ! in :curveSearch:curveSearch.F90
+            use precision
+            subroutine mindistancecurve(ncoor,nbars,coor,barnodes,allprojpoints,alldist) ! in :curveSearch:curveSearch.F90:curveproj
+                integer(kind=inttype) intent(in) :: ncoor
+                integer(kind=inttype) intent(in) :: nbars
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,nbars+1),intent(in) :: barnodes
+                real(kind=realtype) dimension(3,ncoor),intent(inout) :: allprojpoints
+                real(kind=realtype) dimension(ncoor),intent(inout) :: alldist
+            end subroutine mindistancecurve
+        end module curveproj
+    end interface
+end python module curveSearch
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
