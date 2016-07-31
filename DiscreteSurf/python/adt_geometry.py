@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import cgnsAPI, adtAPI
+import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 
 class Geometry(object):
@@ -90,11 +90,11 @@ class Geometry(object):
             raise SyntaxError('Incorrect input to Surface; must be a cgns file string or dictionary containing coordinate and connection info.')
 
         # INITIALIZING SURFACE AND CURVE OBJECTS
-        
+
         self.components = {}
 
         for componentName in inputDict.iterkeys():
-            
+
             if componentName == 'coor': # We will not do anything with coor
                 pass
 
@@ -127,7 +127,7 @@ class Geometry(object):
         This function will update nodal coordinates.
         The connectivities will stay the same
         '''
-        
+
         # Call update for each component
         for component in self.components.itervalues():
             component.update_points(coor)
@@ -225,7 +225,7 @@ class Surface(object):
 
         INPUTS:
         xyz -> float[nPoints,3] : coordinates of the points that should be projected
-        
+
         dist2 -> float[nPoints] : values of best distance**2 found so far. If the distance of the projected
                                   point is less than dist2, then we will take the projected point. Otherwise,
                                   the projection will be set to (-99999, -99999, -99999), meaning that we could
@@ -244,10 +244,46 @@ class Surface(object):
         '''
 
         xyz = xyz.T
-        n = xyz.shape[1]
         arrDonor = self.nodal_normals
 
         procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, xyzProj.T, arrDonor, normProj.T)
+
+class Curve(object):
+
+    def __init__(self, name, coor, barsConn, comm=MPI.COMM_WORLD.py2f()):
+
+        self.comm = comm
+        self.coor = coor
+        self.barsConn = barsConn
+
+    def update_points(self, coor):
+        self.coor = coor
+
+    def project(self, xyz, dist2, xyzProj, tangents):
+
+        '''
+        This function will take the points given in xyz and project them to the surface.
+
+        INPUTS:
+        xyz -> float[nPoints,3] : coordinates of the points that should be projected
+
+        dist2 -> float[nPoints] : values of best distance**2 found so far. If the distance of the projected
+                                  point is less than dist2, then we will take the projected point. This allows us to find the best
+                                  projection even with multiple surfaces.
+                                  If you don't have previous values to dist2, just initialize all elements to
+                                  a huge number (1e10).
+
+        xyzProj -> float[nPoints,3] : coordinates of projected points found so far. These projections could be on other curves as well. This function will only replace projections whose dist2 are smaller
+                                      than previous dist2. This allows us to use the same array while working with multiple curves.
+                                      If you don't have previous values, just initialize all elements to zero. Also
+                                      remember to set dist2 to a huge number so that all values are replaced.
+
+        tangents -> float[nPoints,3] : tangent directions for the curve at the projected points.
+
+        This function has no explicit outputs. It will just update dist2, xyzProj, and tangents
+        '''
+
+        curveSearch.curveproj.mindistancecurve(xyz, self.coor, self.barsConn, xyzProj, tangents, dist2)
 
 #===================================
 # AUXILIARY FUNCTIONS

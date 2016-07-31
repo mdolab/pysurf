@@ -1,1 +1,1 @@
-from .DiscreteSurf.python import adtAPI, CGNSf2py
+from .DiscreteSurf.python import adtAPI, CGNSf2py, curveSearch

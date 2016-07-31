@@ -5,13 +5,16 @@ python module curveSearch ! in
     interface  ! in :curveSearch
         module curveproj ! in :curveSearch:curveSearch.F90
             use precision
-            subroutine mindistancecurve(ncoor,nbars,coor,barnodes,allprojpoints,alldist) ! in :curveSearch:curveSearch.F90:curveproj
+            subroutine mindistancecurve(nxyz,ncoor,nbars,xyz,coor,barsconn,allprojpoints,tangents,alldist) ! in :curveSearch:curveSearch.F90:curveproj
+                integer(kind=inttype) intent(in) :: nxyz
                 integer(kind=inttype) intent(in) :: ncoor
                 integer(kind=inttype) intent(in) :: nbars
+                real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
-                real(kind=realtype) dimension(3,nbars+1),intent(in) :: barnodes
-                real(kind=realtype) dimension(3,ncoor),intent(inout) :: allprojpoints
-                real(kind=realtype) dimension(ncoor),intent(inout) :: alldist
+                real(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
+                real(kind=realtype) dimension(3,nxyz),intent(inout) :: allprojpoints
+                real(kind=realtype) dimension(3,nxyz),intent(inout) :: tangents
+                real(kind=realtype) dimension(nxyz),intent(inout) :: alldist
             end subroutine mindistancecurve
         end module curveproj
     end interface
