@@ -5,7 +5,8 @@ import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from DiscreteSurf.python.adt_geometry import Geometry  # ADT
+from DiscreteSurf.python import adt_geometry
+import classes
 import os
 from mpi4py import MPI
 
@@ -14,6 +15,7 @@ from mpi4py import MPI
 # Select example
 #example = 'kink_on_plate'
 example = 'line_on_cylinder'
+#example = 'line_on_cubeAndCylinder'
 #example = 'line_on_cube'
 
 # EXAMPLE SELECTION
@@ -81,13 +83,48 @@ if example == 'kink_on_plate':
 
 elif example == 'line_on_cylinder':
 
+    # Read inputs from CGNS file
+    componentsDict = adt_geometry.getCGNScomponents('inputs/cylinder.cgns')
+
+    # Flip BC curve
+    componentsDict['bc1'].flip()
+
+    # Assign components to a Geometry object
+    geom = classes.Geometry(componentsDict)
+    
     # Set problem
-    n = 40
-    nums = linspace(pi/6, -pi/6, n)
-    x = 0.5277 + linspace(0.0,0.3,n) -0.3
-    y = 0.5*cos(nums)#linspace(0.2,-0.2,n)
-    z = 0.5*sin(nums)#0.3*ones(n)
-    rBaseline = vstack([x, y, z]).T
+    curve = componentsDict['source']
+    bc1 = 'splay'
+    bc2 = 'curve:bc1'
+
+    # Set parameters
+    epsE0 = 5.5
+    theta = 0.0
+    alphaP0 = 0.25
+    numSmoothingPasses = 0
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.2
+    cMax = 1.0
+    ratioGuess = 20
+
+    # Options
+    sBaseline = 0.01
+    numLayers = 50
+    extension = 4.8
+
+    layout_file = 'layout_cylinder.lay'
+
+elif example == 'line_on_cubeAndCylinder':
+
+    # Read inputs from CGNS file
+    componentsDict = adt_geometry.getCGNScomponents('inputs/cubeAndCylinder.cgns')
+
+    # Assign components to a Geometry object
+    geom = classes.Geometry(componentsDict)
+    
+    # Set problem
+    curve = componentsDict['diag']
     bc1 = 'splay'
     bc2 = 'splay'
 
@@ -107,9 +144,7 @@ elif example == 'line_on_cylinder':
     numLayers = 50
     extension = 4.8
 
-    surf = Surface('inputs/cubeAndCylinder.cgns')  # ADT
-
-    layout_file = 'layout_cylinder.lay'
+    layout_file = 'layout_cubeAndCylinder.lay'
 
 elif example == 'line_on_cube':
 
@@ -386,12 +421,6 @@ elif example == 'airfoil_on_cylinder':
 # curve1 = Surface(curve1_pts)
 # curve2 = Surface(curve2_pts)
 
-
-# Set reference geometry
-ref_geom = {'surf':surf}
-            # 'curve1':curve2,
-            # 'curve2':curve1}
-
 # Set options
 options = {
 
@@ -412,7 +441,7 @@ options = {
 
     }
 
-mesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
+mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
 mesh.createMesh()
 
