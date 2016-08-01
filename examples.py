@@ -4,8 +4,9 @@ from __future__ import division
 import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
-import surface
 import os
+import GeoMACH_interface.geomach_geometry as geomach_geometry
+import classes
 
 # OPTIONS
 
@@ -121,13 +122,13 @@ elif example == 'line_on_curve':
 
 elif example == 'line_on_cylinder':
 
-    # Set problem
+    # Set source line
     n = 40
     nums = linspace(pi/6, -pi/6, n)
-    x = 0.5277*ones(n)
-    y = linspace(-0.2,0.2,n)#0.5*cos(nums)
-    z = 0.3*ones(n)#0.5*sin(nums)
-    rBaseline = vstack([x, y, z]).T
+    x = 0.5*ones(n)
+    y = 0.5*cos(nums)
+    z = 0.5*sin(nums)
+    curve = vstack([x, y, z]).T
     bc1 = 'splay'
     bc2 = 'splay'
 
@@ -144,6 +145,10 @@ elif example == 'line_on_cylinder':
             pts[i, j, 1] = -radius*cos(theta)
             pts[i, j, 2] = radius*sin(theta)
 
+    # Create geometry object
+    surf = geomach_geometry.Surface('cylinder',pts)
+    geom = classes.Geometry({'cylinder':surf})
+
     # Set parameters
     epsE0 = 2.5
     theta = 1.0
@@ -159,6 +164,8 @@ elif example == 'line_on_cylinder':
     sBaseline = 0.01
     numLayers = 50
     extension = 10.0
+
+    layout_file = 'layout_cylinder.lay'
 
 elif example == 'line_on_paraboloid':
 
@@ -389,8 +396,6 @@ elif example == 'airfoil_on_cylinder':
 
 # MAIN PROGRAM
 
-# Create surface object
-surf = surface.Surface(pts)
 '''
 # print curve1_pts[:, 0, :]
 
@@ -407,12 +412,6 @@ curve2_pts = surf.get_points(None).reshape((-1, 4, 3))
 curve1 = surface.Surface(curve1_pts)
 curve2 = surface.Surface(curve2_pts)
 '''
-
-# Set reference geometry
-ref_geom = {'surf':surf,
-            #'curve1':curve2,
-            #'curve2':curve1}
-            }
 
 # Set options
 options = {
@@ -434,7 +433,7 @@ options = {
 
     }
 
-mesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
+mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
 mesh.createMesh()
 
@@ -442,17 +441,5 @@ mesh.exportPlot3d('output.xyz')
 
 # EXPORT REFERENCE SURFACE
 
-# Replace coordinates
-mesh.mesh = zeros((3,pts.shape[0],pts.shape[1]))
-mesh.mesh[0,:,:] = pts[:,:,0]
-mesh.mesh[1,:,:] = pts[:,:,1]
-mesh.mesh[2,:,:] = pts[:,:,2]
-
-# Export wing
-mesh.exportPlot3d('surf.xyz')
-
 # Open tecplot
-if example == 'line_on_eggcrate':
-    os.system('tec360 layout_eggcrate.lay')
-else:
-    os.system('tec360 layout_mesh.lay')
+os.system('tec360 ' + layout_file)

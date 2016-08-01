@@ -3,186 +3,91 @@ import numpy as np
 import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 
-class Geometry(object):
+def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
 
-    def __init__(self, inp, comm=MPI.COMM_WORLD.py2f()):
+    # Read CGNS file
+    cgnsAPI.cgnsapi.readcgns(inp, comm)
 
-        # Assign communicator
-        self.comm = comm
+    # Retrieve data from the CGNS file
+    coor = cgnsAPI.cgnsapi.coor
+    triaConn = cgnsAPI.cgnsapi.triaconn
+    quadsConn = cgnsAPI.cgnsapi.quadsconn
+    barsConn = cgnsAPI.cgnsapi.barsconn
+    surfTriaPtr = cgnsAPI.cgnsapi.surftriaptr
+    surfQuadsPtr = cgnsAPI.cgnsapi.surfquadsptr
+    curveBarsPtr = cgnsAPI.cgnsapi.curvebarsptr
+    surfNames = cgnsAPI.cgnsapi.surfnames
+    curveNames = cgnsAPI.cgnsapi.curvenames
 
-        # CHECKING INPUTS
+    # Format strings coming to Fortran into a Python list
+    surfNames = formatStringArray(surfNames)
+    curveNames = formatStringArray(curveNames)
 
-        if isinstance(inp, str):
-            # Read CGNS file
-            cgnsAPI.cgnsapi.readcgns(inp, self.comm)
+    # Initialize dictionary
+    componentsDict = {}
 
-            # Retrieve data from the CGNS file
-            coor = cgnsAPI.cgnsapi.coor
-            triaConn = cgnsAPI.cgnsapi.triaconn
-            quadsConn = cgnsAPI.cgnsapi.quadsconn
-            barsConn = cgnsAPI.cgnsapi.barsconn
-            surfTriaPtr = cgnsAPI.cgnsapi.surftriaptr
-            surfQuadsPtr = cgnsAPI.cgnsapi.surfquadsptr
-            curveBarsPtr = cgnsAPI.cgnsapi.curvebarsptr
-            surfNames = cgnsAPI.cgnsapi.surfnames
-            curveNames = cgnsAPI.cgnsapi.curvenames
+    # Now we split the connectivity arrays according to the sections
+    iSurf = 0
+    for surf in surfNames:
 
-            # Format strings coming to Fortran into a Python list
-            surfNames = formatStringArray(surfNames)
-            curveNames = formatStringArray(curveNames)
+        # Get indices to slice connectivity array.
+        # Remember to shift indices as Python starts at 0
+        iTriaStart = surfTriaPtr[iSurf]-1
+        iTriaEnd = surfTriaPtr[iSurf+1]-1
+        iQuadsStart = surfQuadsPtr[iSurf]-1
+        iQuadsEnd = surfQuadsPtr[iSurf+1]-1
 
-            # Save current names
-            self.surfNames = surfNames
-            self.curveNames = curveNames
+        # Slice connectivities
+        currTriaConn = triaConn[:,iTriaStart:iTriaEnd]
+        currQuadsConn = quadsConn[:,iQuadsStart:iQuadsEnd]
 
-            # Initialize dictionary
-            inputDict = {}
+        # Initialize surface object
+        currSurf = Surface(surf, coor,
+                           currQuadsConn, currTriaConn,
+                           comm)
 
-            # Add coordinates to the dictionary
-            inputDict['coor'] = coor
+        # Add this component to the dictionary
+        componentsDict[surf] = currSurf
 
-            # Now we split the connectivity arrays according to the sections
-            iSurf = 0
-            for surf in surfNames:
+        # Increment surface counter
+        iSurf = iSurf + 1
 
-                # Get indices to slice connectivity array.
-                # Remember to shift indices as Python starts at 0
-                iTriaStart = surfTriaPtr[iSurf]-1
-                iTriaEnd = surfTriaPtr[iSurf+1]-1
-                iQuadsStart = surfQuadsPtr[iSurf]-1
-                iQuadsEnd = surfQuadsPtr[iSurf+1]-1
+    iCurve = 0
+    for curve in curveNames:
 
-                # Assemble dictionary entry for this surface
-                surfDict = {'triaConn':triaConn[:,iTriaStart:iTriaEnd],
-                            'quadsConn':quadsConn[:,iQuadsStart:iQuadsEnd]}
-
-                # Add this entry to the geometry dictionary
-                inputDict[surf] = surfDict
-
-                # Increment surface counter
-                iSurf = iSurf + 1
-
-            iCurve = 0
-            for curve in curveNames:
-
-                # Get indices to slice connectivity array.
-                # Remember to shift indices as Python starts at 0
-                iBarsStart = curveBarsPtr[iSurf]-1
-                iBarsEnd = curveBarsPtr[iSurf+1]-1
-
-                # Take the bar connectivity slice and reorder it
-                sortedConn = np.array(FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())).T
-
-                # Assemble dictionary entry for this curve
-                curveDict = {'barsConn':sortedConn}
-
-                # Add this entry to the geometry dictionary
-                inputDict[curve] = curveDict
-
-                # Increment curve counter
-                iCurve = iCurve + 1
-
-        elif isinstance(inp, dict):
-            pass
-            # TODO: We still need to check the input here
-
+        # Get indices to slice connectivity array.
+        # Remember to shift indices as Python starts at 0
+        iBarsStart = curveBarsPtr[iCurve]-1
+        iBarsEnd = curveBarsPtr[iCurve+1]-1
+        
+        # Take the bar connectivity slice and reorder it
+        sortedConn = FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())
+        
+        # Check for failures
+        if sortedConn is not None:
+            sortedConn = np.array(sortedConn).T
         else:
-            raise SyntaxError('Incorrect input to Surface; must be a cgns file string or dictionary containing coordinate and connection info.')
+            # Just use the original connectivity
+            sortedConn = barsConn[:,iBarsStart:iBarsEnd]
+            # Print message
+            print ''
+            print 'Curve','"'+curve+'"','could not be sorted. It might be composed by disconnect curves.'
+            print ''
 
-        # INITIALIZING SURFACE AND CURVE OBJECTS
+        # Initialize surface object
+        currCurve = Curve(curve, coor,
+                          sortedConn,
+                          comm)
 
-        self.components = {}
+        # Add this entry to the geometry dictionary
+        componentsDict[curve] = currCurve
 
-        for componentName in inputDict.iterkeys():
+        # Increment curve counter
+        iCurve = iCurve + 1
 
-            if componentName == 'coor': # We will not do anything with coor
-                pass
-
-            elif 'barsConn' in inputDict[componentName].keys(): # We have a curve component
-                pass
-
-            elif 'triaConn' in inputDict[componentName].keys(): # We have a surface component
-
-                # Initialize object
-                # TODO: Slice coor to take just the necessary elements
-                currSurf = Surface(componentName, inputDict['coor'],
-                                   inputDict[componentName]['quadsConn'], inputDict[componentName]['triaConn'],
-                                   self.comm)
-
-                # Add surface to the list
-                self.components[componentName] = currSurf
-
-    def get_names(self):
-
-        '''
-        This function will give the names of all components in the geometry object
-        '''
-
-        for componentName in self.components.keys():
-            print componentName
-
-    def update_points(self, coor):
-
-        '''
-        This function will update nodal coordinates.
-        The connectivities will stay the same
-        '''
-
-        # Call update for each component
-        for component in self.components.itervalues():
-            component.update_points(coor)
-
-    def project_on_surface(self, xyz, xyzProj, normProj, dist2, componentsList=None):
-
-        '''
-        This function will compute projections and surface Normals
-
-        INPUTS:
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
-
-        componentsList -> list of strings : Names of the surfaces components on which we should
-                                            look for projections. If nothing is provided, the
-                                            code will use all available surfaces.
-
-        xyzProj -> float[numPts, 3] : If the user already have previous projection candidates, they
-                                      should be provided in this array. The code will only replace
-                                      values if it finds a better candidade. If the user has no
-                                      previous candidate, initialize all elements to zero and also
-                                      set large values to dist2.
-
-        normProj -> float[numPts, 3] : Surface normals computed at the user-provided projection candidates.
-                                       If the user has no previous candidate, initialize all elements
-                                       to zero and also set large values to dist2.
-
-        dist2 -> float[numPts] : distance**2 of the user-provided projection candidates. The code
-                                 will use this distance value to check for the best candidate and
-                                 then replace values in xyzProj, and normProj acordingly. If no previous
-                                 candidates are available, set all elements to a large number (1e10) so that
-                                 all information in xyzProj and normProj is replaced.
-
-        OUTPUTS
-        This function has no explicit outputs. It will update the variables xyzProj, normProj, and dist2 instead.
-
-        '''
-
-        # Initialize values if the user did not provide any previous projection candidates
-        if xyzProj == None or normProj == None or dist2 == None:
-            numPts = xyz.shape[0]
-            dist2 = np.ones(numPts)*1e10
-            xyzProj = np.zeros((numPts,3))
-            normProj = np.zeros((numPts,3))
-
-        # If the user do not provide any component, we will project into all of them
-        if componentsList == None:
-            componentsList = self.surfNames
-
-        # Call inverse_evaluate for each component in the list, so that we can update
-        # dist2, xyzProj, and normProj
-        for componentName in componentsList:
-            self.components[componentName.lower()].project(xyz, dist2, xyzProj, normProj)
-
-        print xyzProj
-
+    # Return components dictionary
+    return componentsDict
+ 
 #=================================================================
 # COMPONENT CLASSES
 #=================================================================
@@ -193,26 +98,30 @@ class Surface(object):
 
         self.comm = comm
 
+        self.type = 'surface'
+
         self.coor = coor
         self.quadsConn = quadsConn
         self.triaConn = triaConn
 
-        self.BBox = np.zeros((3, 2))
-        self.useBBox = False
-        self.adtID = name
+        self.name = name
 
         self.update_points(self.coor)
 
     def update_points(self, coor):
         self.coor = coor
-        self.normals = self.compute_nodal_normals()
-        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, self.BBox, self.useBBox, self.comm, self.adtID)
+        self.compute_nodal_normals()
+
+        BBox = np.zeros((3, 2))
+        useBBox = False
+
+        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, BBox, useBBox, self.comm, self.name)
 
     def compute_nodal_normals(self):
         nCoor = self.coor.shape[1]
+
         nTria = self.triaConn.shape[1]
         nQuads = self.quadsConn.shape[1]
-        nodal_normals = np.zeros((3, nCoor))
         connect_count = np.zeros((nCoor), dtype='int')
 
         self.nodal_normals = \
@@ -243,21 +152,51 @@ class Surface(object):
         This function has no explicit outputs. It will just update dist2, xyzProj, and normProj
         '''
 
-        xyz = xyz.T
-        arrDonor = self.nodal_normals
-
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz, self.adtID, dist2, xyzProj.T, arrDonor, normProj.T)
+        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.name,
+                                                                                 dist2, xyzProj.T,
+                                                                                 self.nodal_normals, normProj.T)
 
 class Curve(object):
 
     def __init__(self, name, coor, barsConn, comm=MPI.COMM_WORLD.py2f()):
 
+        self.name = name
+
         self.comm = comm
         self.coor = coor
         self.barsConn = barsConn
 
+        self.type = 'curve'
+
+    def extract_points(self):
+
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Initialize coordinates matrix
+        pts = np.zeros((numElems+1, 3))
+
+        # Get coordinates
+        for ii in range(numElems):
+            pts[ii,:] = self.coor[:, self.barsConn[0,ii]-1]
+
+        # Get the last point
+        pts[-1,:] = self.coor[:, self.barsConn[-1,-1]-1]
+
+        # Return coordiantes
+        return pts
+
     def update_points(self, coor):
         self.coor = coor
+
+    def flip(self):
+
+        # Flip elements
+        self.barsConn = self.barsConn[::-1]
+        # Flip nodes
+        for ii in range(len(self.barsConn)):
+            self.barsConn[ii] = self.barsConn[ii][::-1]
+        
 
     def project(self, xyz, dist2, xyzProj, tangents):
 
@@ -283,7 +222,7 @@ class Curve(object):
         This function has no explicit outputs. It will just update dist2, xyzProj, and tangents
         '''
 
-        curveSearch.curveproj.mindistancecurve(xyz, self.coor, self.barsConn, xyzProj, tangents, dist2)
+        curveSearch.curveproj.mindistancecurve(xyz.T, self.coor, self.barsConn, xyzProj.T, tangents.T, dist2)
 
 #===================================
 # AUXILIARY FUNCTIONS
@@ -319,7 +258,7 @@ def formatStringArray(fortranArray):
 
 #=============================================================
 
-def FEsort(barsConnIn, flip=False):
+def FEsort(barsConnIn):
 
     '''
     This function can be used to sort connectivities coming from the CGNS file
@@ -327,6 +266,8 @@ def FEsort(barsConnIn, flip=False):
     multiple curves defined in the same FE set.
 
     barsConnIn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
+
+    newConn will be set to None if the sorting algorithm fails.
     '''
 
     # Find if we have any node that is used only once.
@@ -359,8 +300,15 @@ def FEsort(barsConnIn, flip=False):
     # Create a copy of bars conn as we will pop things out
     barsConn = barsConnIn[:]
 
+    # We should stop the code if it finds nodes connected to three elements or disconnected curves.
+    # We will use the noFail flag for this task
+    noFail = True
+
     # Now we will build a new connectivity starting from this end node
-    while len(barsConn) > 0:
+    while (len(barsConn) > 0) and noFail:
+
+        # Assume we have a fail
+        noFail = False
 
         # Initialize new element
         newElement = [end_node, 0]
@@ -388,6 +336,9 @@ def FEsort(barsConnIn, flip=False):
                 # Pop the old element from the old connectivities
                 barsConn.pop(elemCounter)
 
+                # If we assign an element during this loop, we can continue
+                noFail = True
+
                 # Jump out of the for loop
                 break
 
@@ -396,13 +347,11 @@ def FEsort(barsConnIn, flip=False):
                 # Just increment the element counter
                 elemCounter = elemCounter + 1
 
-    # Just change ordering if requested
-    if flip:
-        # Flip elements
-        newConn = newConn[::-1]
-        # Flip nodes
-        for ii in range(len(newConn)):
-            newConn[ii] = newConn[ii][::-1]
+    # Check for fails
+    if noFail is False:
+
+        # Set new connectivity to None, indicating failure
+        newConn = None
 
     # Return the sorted array
     return newConn
@@ -411,18 +360,20 @@ def FEsort(barsConnIn, flip=False):
 
 if __name__ == "__main__":
 
-    geometry = Geometry('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
+    componentsDict = getCGNScomponents('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
 
-    geometry.get_names()
+    pts = np.array([[.6, .5, 0.1]], order='F')
 
-    pts = np.array([[.5, .5, 0.1]], order='F')
+    for component in componentsDict.itervalues():
 
-    numPts = pts.shape[0]
-    dist2 = np.ones(numPts)*1e10
-    xyzProj = np.zeros((numPts,3))
-    normProj = np.zeros((numPts,3))
+        numPts = pts.shape[0]
+        dist2 = np.ones(numPts)*1e10
+        xyzProj = np.zeros((numPts,3))
+        normProj = np.zeros((numPts,3))
 
-    geometry.project_on_surface(pts,xyzProj,normProj,dist2,['CYLINDER'])
+        print 'Projecting on:',component.name
 
-    print xyzProj
-    print normProj
+        component.project(pts,dist2,xyzProj,normProj)
+
+        print xyzProj
+        print normProj

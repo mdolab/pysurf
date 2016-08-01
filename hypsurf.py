@@ -30,21 +30,26 @@ class HypSurfMesh(object):
     def __init__(self, curve, ref_geom, options={}):
         self._getDefaultOptions()
         self._applyUserOptions(options)
-        self.curve = curve
-        self.ref_surf = ref_geom['surf']
 
-        try:
-            self.ref_curve1 = ref_geom['curve1']
-        except KeyError:
+        if isinstance(curve, np.ndarray):
+            self.curve = curve
+        else:
+            self.curve = curve.extract_points()
+
+        self.ref_geom = ref_geom
+
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            self.ref_curve1 = ref_geom.Curves[self.optionsDict['bc1'][6:]].name
+        else:
             self.ref_curve1 = []
 
-        try:
-            self.ref_curve2 = ref_geom['curve2']
-        except KeyError:
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            self.ref_curve2 = ref_geom.Curves[self.optionsDict['bc2'][6:]].name
+        else:
             self.ref_curve2 = []
 
         # Get the number of nodes
-        self.numNodes = curve.shape[0]
+        self.numNodes = self.curve.shape[0]
         self.mesh = np.zeros((3, self.numNodes, self.optionsDict['numLayers']))
 
     def createMesh(self):
@@ -266,19 +271,20 @@ class HypSurfMesh(object):
         node2 = rNext[-3:]
 
         # Project onto surface and compute surface normals
-        self.ref_surf.inverse_evaluate(rNext.reshape((self.numNodes, 3)))
-        rNext = self.ref_surf.get_points().flatten()
-        NNext = self.ref_surf.get_normals().T
+        rNext, NNext = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
+        rNext = rNext.flatten()
+        NNext = NNext.T
 
-        if self.optionsDict['bc1'] == 'curve':
-            self.ref_curve1.inverse_evaluate(node1.reshape((1, 3)))
-            rNext[:3] = self.ref_curve1.get_points().flatten()
-            NNext[:, 0] = self.ref_curve1.get_tangent().T[:, 0]
+        # Replace end points if we use curve BCs
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            rNext[:3], NNextAux = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
+            NNext[:, 0] = NNextAux.T[:, 0]
 
-        if self.optionsDict['bc2'] == 'curve':
-            self.ref_curve2.inverse_evaluate(rNext[-3:].reshape((1, 3)))
-            # rNext[-3:] = self.ref_curve2.get_points().flatten()
-            NNext[:, -1] = self.ref_curve2.get_tangent().T[:, 0]
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            #rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            dummy, NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            NNext[:, -1] = NNextAux.T[:, 0]
+
         return rNext, NNext
 
     def areaFactor(self, r0, d):
@@ -331,6 +337,12 @@ class HypSurfMesh(object):
             # Average for the extremum nodes
             S[0] = (1-nuArea)*S[0] + nuArea*Splus
             S[-1] = (1-nuArea)*S[-1] + nuArea*Sminus
+
+        # If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            S[0] = d
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            S[-1] = d
 
         # RETURNS
         return S, maxStretch
@@ -573,7 +585,7 @@ class HypSurfMesh(object):
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1 is 'curve':
+            elif self.optionsDict['bc1'].lower().startswith('curve'):
 
                 # Populate matrix
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
@@ -637,12 +649,11 @@ class HypSurfMesh(object):
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc2 is 'curve':
+            elif self.optionsDict['bc2'].lower().startswith('curve'):
 
                 # Populate matrix
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] = S0[index] * N0[:,index]
-                print N0[:, index]
 
             else:
 
