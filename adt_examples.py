@@ -14,9 +14,12 @@ from mpi4py import MPI
 
 # Select example
 #example = 'kink_on_plate'
-example = 'line_on_cylinder'
+# example = 'line_on_cylinder'
 #example = 'line_on_cubeAndCylinder'
 #example = 'line_on_cube'
+# example = 'wing'
+example = 'body'
+
 
 # EXAMPLE SELECTION
 
@@ -91,7 +94,7 @@ elif example == 'line_on_cylinder':
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
-    
+
     # Set problem
     curve = componentsDict['source']
     bc1 = 'splay'
@@ -122,7 +125,7 @@ elif example == 'line_on_cubeAndCylinder':
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
-    
+
     # Set problem
     curve = componentsDict['diag']
     bc1 = 'splay'
@@ -359,67 +362,82 @@ elif example == 'circle_on_paraboloid':
     numLayers = 100
     extension = 30
 
-elif example == 'airfoil_on_cylinder':
+elif example == 'wing':
+
+    # Read inputs from CGNS file
+    componentsDict = adt_geometry.getCGNScomponents('inputs/wing.cgns')
+    componentsDict.pop("geom")
+
+    # Flip BC curve
+    componentsDict['intersection'].flip()
+    componentsDict['lower_te'].flip()
+    componentsDict['upper_te'].flip()
+
+    # Assign components to a Geometry object
+    geom = classes.Geometry(componentsDict)
 
     # Set problem
-    n = 81
-    tc = 0.12
-    x = (1-cos(linspace(0, 1, n)*pi))/2
-    y = 5*tc*(0.2969*sqrt(x) - 0.1260*x - 0.3516*x**2 + 0.2843*x**3 - 0.1036*x**4)
-    x = hstack([x[::-1], x[1:]])
-    y = hstack([-y[::-1], y[1:]])
-    z = ones(len(x))
-    rBaseline = vstack([x, y, z]).T
-
-    bc1 = 'continuous'
-    bc2 = 'continuous'
-
-    # Define surface points
-    s0 = 3
-    s1 = 3
-    radius = 1.0
-    nu, nv = 100, 100
-    pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
-            theta = pi*j/(nv-1)
-            pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
-            pts[i, j, 1] = -radius*cos(theta)
-            pts[i, j, 2] = radius*sin(theta)
+    curve = componentsDict['intersection']
+    bc1 = 'curve:lower_te'
+    bc2 = 'curve:upper_te'
 
     # Set parameters
-    epsE0 = 4.0
+    epsE0 = 5.5
+    theta = 0.0
+    alphaP0 = 0.25
+    numSmoothingPasses = 0
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.
+    cMax = 1.0
+    ratioGuess = 20
+
+    # Options
+    sBaseline = .005
+    numLayers = 20
+    extension = 3.5
+
+    layout_file = 'wingbody.lay'
+
+elif example == 'body':
+
+    # Read inputs from CGNS file
+    componentsDict = adt_geometry.getCGNScomponents('inputs/wing.cgns')
+    componentsDict.pop("wing")
+
+    # Flip BC curve
+    # componentsDict['bc1'].flip()
+
+    # Assign components to a Geometry object
+    geom = classes.Geometry(componentsDict)
+
+    # Set problem
+    curve = componentsDict['intersection']
+    bc1 = 'splay'  #'curve:UPPER_TE'
+    bc2 = 'splay'  #'curve:LOWER_TE'
+
+    # Set parameters
+    epsE0 = 5.5
     theta = 0.0
     alphaP0 = 0.25
     numSmoothingPasses = 0
     nuArea = 0.16
     numAreaPasses = 0
     sigmaSplay = 0.3
-    cMax = 10.0
+    cMax = 1.0
     ratioGuess = 20
 
     # Options
-    sBaseline = 0.02
+    sBaseline = .005
     numLayers = 10
-    extension = 2
+    extension = 1.5
+
+    layout_file = 'wingbody.lay'
+
 
 ###########################################
 
 # MAIN PROGRAM
-
-# Create surface object
-# surf = Surface(pts)  # GeoMACH
-
-
-# Project curve points to the Surface
-# surf.inverse_evaluate(curve1_pts.reshape((-1, 3)))
-# curve1_pts = surf.get_points(None).reshape((-1, 4, 3))
-#
-# surf.inverse_evaluate(curve2_pts.reshape((-1, 3)))
-# curve2_pts = surf.get_points(None).reshape((-1, 4, 3))
-
-# curve1 = Surface(curve1_pts)
-# curve2 = Surface(curve2_pts)
 
 # Set options
 options = {
