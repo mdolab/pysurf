@@ -281,8 +281,7 @@ class HypSurfMesh(object):
             NNext[:, 0] = NNextAux.T[:, 0]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            #rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
-            dummy, NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
             NNext[:, -1] = NNextAux.T[:, 0]
 
         return rNext, NNext
