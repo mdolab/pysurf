@@ -5,7 +5,7 @@ import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 import os
-import GeoMACH_interface.geomach_geometry as geomach_geometry
+import GeoMACHSurf.geomach_geometry as geomach_geometry
 import classes
 
 # OPTIONS
@@ -25,12 +25,14 @@ example = 'line_on_cylinder'
 if example == 'kink_on_plate':
 
     # Set problem
-    rBaseline = array([[0,0,0],
-                       [1,0,0],
-                       [2,0,0],
-                       [3,0,0],
-                       [4,0,0],
-                       [5,0,0]])
+    curve = array([[0,0,0],
+                   [1,0,0],
+                   [2,0,0],
+                   [3,0,0],
+                   [4,0,0],
+                   [5,0,0]])
+
+
     bc1 = 'curve'
     bc2 = 'curve'
     n = len(rBaseline)/3
@@ -45,7 +47,7 @@ if example == 'kink_on_plate':
             pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))
             pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))
 
-    # Define surface points
+    # Define curve points
     s0 = 100
     s1 = 100
     nu, nv = 100, 4
@@ -55,7 +57,7 @@ if example == 'kink_on_plate':
             curve1_pts[i, j, 0] = 0.0
             curve1_pts[i, j, 1] = s1 * (-1. + 2 * i / (nv-1))
 
-    # Define surface points
+    # Define curve points
     s0 = 50
     s1 = 50
     nu, nv = 5, 4
@@ -124,8 +126,8 @@ elif example == 'line_on_cylinder':
 
     # Set source line
     n = 40
-    nums = linspace(pi/6, -pi/6, n)
-    x = 0.5*ones(n)
+    nums = linspace(-pi/6, pi/6, n)
+    x = linspace(0.4,0.6,n)
     y = 0.5*cos(nums)
     z = 0.5*sin(nums)
     curve = vstack([x, y, z]).T
@@ -140,7 +142,7 @@ elif example == 'line_on_cylinder':
     pts = zeros((nu, nv, 3))
     for i in xrange(nu):
         for j in xrange(nv):
-            theta = pi*j/(nv-1)
+            theta = 2*pi*j/(nv-1)
             pts[i, j, 0] = s0 + (s1-s0) * (i / nu)
             pts[i, j, 1] = -radius*cos(theta)
             pts[i, j, 2] = radius*sin(theta)
@@ -163,7 +165,7 @@ elif example == 'line_on_cylinder':
     # Options
     sBaseline = 0.01
     numLayers = 50
-    extension = 10.0
+    extension = 4.0
 
     layout_file = 'layout_cylinder.lay'
 
