@@ -4,7 +4,8 @@ from __future__ import division
 import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, ceil
 from numpy.random import rand
-import surface
+from GeoMACHSurf.geomach_geometry import Surface, Curve
+from classes import Geometry
 import os
 
 trailingEdge = 'sharp'
@@ -32,7 +33,10 @@ for i in xrange(nu):
 bodyPts = pts[:,:,:]
 
 # Create surface object
-bodySurf = surface.Surface(bodyPts)
+bodySurf = Surface('body', bodyPts)
+
+bodyDict = {'body' : bodySurf}
+bodyGeom = Geometry(bodyDict)
 
 # AIRFOIL COORDINATES
 # Parameters
@@ -40,7 +44,7 @@ n = 81 # Number of points in the airfoil
 tc = 0.12 # Airfoil thickness
 chord = 1.0 # Airfoil chord
 x0 = 0.0 # Leading edge position
-y0 = -.3 # Leading edge position
+y0 = -0. # Leading edge position
 z0 = radius # Leading edge position
 
 # Generate non-dimensional coordinates
@@ -56,7 +60,7 @@ elif trailingEdge == 'blunt':
     dy = sqrt((x[-1] - x[-2])**2 + (y[-1] - y[-2])**2)
 
     # Estimate how many nodes we can fit on the blunt TE (symmetric part only)
-    nTEnodes = ceil(y[-1]/dy) + 1
+    nTEnodes = int(ceil(y[-1]/dy) + 1)
 
     # Generate coordinates for the vertical segment
     yTE = linspace(y[-1],0,nTEnodes)
@@ -75,8 +79,7 @@ z = z0*ones(len(x))
 rBaseline = vstack([x, y, z]).T
 
 # Project to the cylinder surface
-bodySurf.inverse_evaluate(rBaseline)
-rBaseline = bodySurf.get_points(None)
+rBaseline, _ = bodyGeom.project_on_surface(rBaseline)
 
 # WING COORDINATES
 # We will use the projected airfoil to extreude the wing
@@ -96,18 +99,58 @@ for i in xrange(nu):
         pts[i, j, 1] = rBaseline[i,1]
         pts[i, j, 2] = rBaseline[i,2] + span*(j/(nv-1) - 0.05)
 
-# Save wing points
-wingPts = pts[:,:,:]
+if trailingEdge == 'blunt':
+
+    rBaselineTE = vstack((rBaseline[-nTEnodes:, :], rBaseline[:nTEnodes, :]))
+
+    # Determine number of chord-wise points
+    nu = rBaselineTE.shape[0]
+
+    # Determine points
+    ptsTE = zeros((nu, nv, 3))
+    for i in xrange(nu):
+        for j in xrange(nv):
+            ptsTE[i, j, 0] = rBaselineTE[i,0]
+            ptsTE[i, j, 1] = rBaselineTE[i,1]
+            ptsTE[i, j, 2] = rBaselineTE[i,2] + span*(j/(nv-1) - 0.05)
+
+    # Save wing points
+    wingPtsTE = ptsTE[:,:,:]
+
+    # Create surface object
+    wingSurfTE = Surface('wingTE', wingPtsTE)
+
+    # Save wing points
+    wingPts = pts[nTEnodes-1:-nTEnodes+1,:,:]
+
+else:
+
+    wingPts = pts.copy()
 
 # Create surface object
-wingSurf = surface.Surface(wingPts)
+wingSurf = Surface('wing', wingPts)
+
+# Determine points
+nu = 6
+nv = 4
+curve1_pts = zeros((nu, nv, 3))
+for i in xrange(nu):
+    for j in xrange(nv):
+        curve1_pts[i, j, 0] = rBaseline[-1,0]
+        curve1_pts[i, j, 1] = rBaseline[-1,1]
+        curve1_pts[i, j, 2] = rBaseline[-1,2] + span*(i/(nv-1) - 0.05)
+
+curve1 = Curve('curve1', curve1_pts)
+
+wingDict = {'wing' : wingSurf,
+            'curve1' : curve1}
+if trailingEdge == 'blunt':
+    wingDict['wingTE'] = wingSurfTE
+wingGeom = Geometry(wingDict)
 
 #==============================================================#
 
 # BODY PROBLEM
-
-# Set reference geometry
-ref_geom = {'surf':bodySurf}
 
 # Set options
 if trailingEdge == 'blunt':
@@ -141,7 +184,7 @@ if trailingEdge == 'sharp':
     }
 
 # Set meshing problem
-bodyMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
+bodyMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=bodyGeom, options=options)
 
 if generateBodyMesh:
 
@@ -156,32 +199,15 @@ if generateBodyMesh:
 
 # WING PROBLEM
 
-# Determine points
-nu = 6
-nv = 4
-curve1_pts = zeros((nu, nv, 3))
-for i in xrange(nu):
-    for j in xrange(nv):
-        curve1_pts[i, j, 0] = rBaseline[-1,0]
-        curve1_pts[i, j, 1] = rBaseline[-1,1]
-        curve1_pts[i, j, 2] = rBaseline[-1,2] + span*(i/(nv-1) - 0.05)
-
-curve1 = surface.Surface(curve1_pts)
-
-# Set reference geometry
-ref_geom = {'surf':wingSurf,
-            'curve1':curve1,
-            'curve2':curve1}
-
 # Set options
 if trailingEdge == 'blunt':
     options = {
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.02,
+        'bc1' : 'curve.curve1',
+        'bc2' : 'curve.curve1',
+        'dStart' : 0.002,
         'numLayers' : 17,
-        'extension' : 2,
-        'epsE0' : 2.5,
+        'extension' : 1.2,
+        'epsE0' : 2.,
         'theta' : 0.0,
         'alphaP0' : 0.25,
         'numSmoothingPasses' : 0,
@@ -191,11 +217,11 @@ if trailingEdge == 'blunt':
 
 if trailingEdge == 'sharp':
     options = {
-        'bc1' : 'curve',
-        'bc2' : 'curve',
+        'bc1' : 'curve.curve1',
+        'bc2' : 'curve.curve1',
         'dStart' : 0.002,
-        'numLayers' : 4,
-        'extension' : 1.05,
+        'numLayers' : 17,
+        'extension' : 1.2,
         'epsE0' : 1.5,
         'theta' : 1.5,
         'alphaP0' : 0.25,
@@ -205,7 +231,7 @@ if trailingEdge == 'sharp':
     }
 
 # Set meshing problem
-wingMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=ref_geom, options=options)
+wingMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=wingGeom, options=options)
 
 if generateWingMesh:
 
@@ -237,6 +263,16 @@ wingMesh.mesh[2,:,:] = wingPts[:,:,2]
 
 # Export wing
 wingMesh.exportPlot3d('wingSurf.xyz')
+
+if trailingEdge == 'blunt':
+    # Replace coordinates of the wing mesh
+    wingMesh.mesh = zeros((3,wingPtsTE.shape[0],wingPtsTE.shape[1]))
+    wingMesh.mesh[0,:,:] = wingPtsTE[:,:,0]
+    wingMesh.mesh[1,:,:] = wingPtsTE[:,:,1]
+    wingMesh.mesh[2,:,:] = wingPtsTE[:,:,2]
+
+    # Export wing
+    wingMesh.exportPlot3d('wingSurfTE.xyz')
 
 # Open tecplot
 os.system('tec360 layout_wingBody.lay')
