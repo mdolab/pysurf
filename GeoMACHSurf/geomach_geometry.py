@@ -57,6 +57,7 @@ class Surface(object):
             if dist2New[ii] < dist2[ii]:
                 xyzProj[ii,:] = xyzProjNew[ii,:]
                 normProj[ii,:] = cross[ii,:]
+                dist2[ii] = dist2New[ii]
 
 class Curve(object):
 
@@ -90,11 +91,11 @@ class Curve(object):
 
         # Get points
         self.bse.apply_jacobian('proj', 'd(proj)/d(cp_str)', 'cp_str')
-        xyzProjNew = self.bse.vec['proj'].array.copy
+        xyzProjNew = self.bse.vec['proj'].array.copy()
 
         # Get tangent
         self.bse.apply_jacobian('proj', 'd(proj_du)/d(cp_str)', 'cp_str')
-        du = self.bse.vec['proj'].array.copy
+        du = self.bse.vec['proj'].array.copy()
         du = du / numpy.sum(du**2, axis=1)**0.5
 
         # Get new distances
@@ -104,6 +105,7 @@ class Curve(object):
             if dist2New[ii] < dist2[ii]:
                 xyzProj[ii,:] = xyzProjNew[ii,:]
                 tanProj[ii,:] = du[ii,:]
+                dist2[ii] = dist2New[ii]
 
 
 if __name__ == '__main__':
@@ -124,7 +126,7 @@ if __name__ == '__main__':
 
     # Create geometry object
     s = Surface('cylinder',pts)
-    
+
     xyz = numpy.zeros((1, 3))
     xyz[0, :] = [0.5, 0.5, 1.0]
 
