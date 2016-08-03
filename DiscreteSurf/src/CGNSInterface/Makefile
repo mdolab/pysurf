@@ -19,7 +19,9 @@ FF90_OBJECTS_1 = cgnsGrid.o
 
 FF90_OBJECTS_2 = cgnsInterface.o
 
-FF90_OBJECTS_3 = cgnsAPI.o
+FF90_OBJECTS_3 = releaseMemory.o
+
+FF90_OBJECTS_4 = cgnsAPI.o
 
 
 default: all
@@ -28,6 +30,7 @@ all:
 	$(PMAKE)  src1
 	$(PMAKE)  src2
 	$(PMAKE)  src3
+	$(PMAKE)  src4
 	cp -f *.mod $(MODDIR)
 
 clean:
@@ -39,3 +42,5 @@ src1:	$(FF90_OBJECTS_1)
 src2:	$(FF90_OBJECTS_2)
 
 src3:	$(FF90_OBJECTS_3)
+
+src4:	$(FF90_OBJECTS_4)

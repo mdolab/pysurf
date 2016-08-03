@@ -821,7 +821,12 @@
           if(ADTs(nn)%myID == 0)                    &
             call adtTerminate(nn, "reallocateADTs", &
                               "Given ID corresponds to an already &
-                              &active ADT")
+                              &active ADT. &
+                              Please check if you are using the same &
+                              section names in different .cgns files. &
+                              Rename the sections so there are no repeated &
+                              name between .cgns files. You can do this &
+                              using the cgnsview command from terminal.")
           call mpi_barrier(ADTs(nn)%comm, ierr)
         endif
 

@@ -48,6 +48,9 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn, barsConn, &
 
   character*32 :: baseName, secName
 
+  print *,'======================'
+  print *,cgns_file
+
   ! Set the default family names
   defaultFamName(BCAxisymmetricWedge) = 'axi'
   defaultFamName(BCDegenerateLine) = 'degenerate'

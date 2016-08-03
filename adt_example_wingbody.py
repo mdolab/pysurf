@@ -9,10 +9,11 @@ from DiscreteSurf.python import adt_geometry
 import classes
 import os
 from mpi4py import MPI
+import copy
 
 # OPTIONS
 generate_wing = True
-generate_body = False
+generate_body = True
 layout_file = 'layout_wingBody_adt.lay'
 
 # DEFINE FUNCTION TO GENERATE MESH
@@ -40,35 +41,40 @@ def generateMesh(curve, geom, output_name):
     }
 
     mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
-    
+
     mesh.createMesh()
-    
+
     mesh.exportPlot3d(output_name)
 
 
 #================================================
 
+
+# Read inputs from CGNS file
+componentsDict = adt_geometry.getCGNScomponents('inputs/backup_cube.cgns')
+componentsDict = adt_geometry.getCGNScomponents('inputs/wingBody.cgns')
+wingDict = copy.deepcopy(componentsDict)
+bodyDict = copy.deepcopy(componentsDict)
+
 # GENERATE WING MESH
 
 if generate_wing:
 
-    # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/wingBody.cgns')
-    componentsDict.pop("geom")
+    wingDict.pop("geom")
 
     # Flip BC curve
-    componentsDict['intersection'].flip()
-    componentsDict['lower_te'].flip()
-    componentsDict['upper_te'].flip()
-    
+    wingDict['intersection'].flip()
+    wingDict['lower_te'].flip()
+    wingDict['upper_te'].flip()
+
     # Assign components to a Geometry object
-    geom = classes.Geometry(componentsDict)
+    geom = classes.Geometry(wingDict)
 
     # Set problem
-    curve = componentsDict['intersection']
+    curve = wingDict['intersection']
     bc1 = 'curve:upper_te'
     bc2 = 'curve:lower_te'
-    
+
     # Set parameters
     epsE0 = 5.5
     theta = 0.0
@@ -92,15 +98,13 @@ if generate_wing:
 
 if generate_body:
 
-    # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/wingBody.cgns')
-    componentsDict.pop("wing")
+    bodyDict.pop("wing")
 
     # Assign components to a Geometry object
-    geom = classes.Geometry(componentsDict)
+    geom = classes.Geometry(bodyDict)
 
     # Set problem
-    curve = componentsDict['intersection']
+    curve = bodyDict['intersection']
     bc1 = 'splay'
     bc2 = 'splay'
 
@@ -119,7 +123,7 @@ if generate_body:
     sBaseline = .005
     numLayers = 10
     extension = 1.5
-    
+
     # Call meshing function
     generateMesh(curve, geom, 'body.xyz')
 
