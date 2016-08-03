@@ -2,6 +2,7 @@ module CGNSapi
 
 use precision
 use CGNSinterface
+use releaseMemory
 
 ! OUTPUTS
 real(kind=realType), dimension(:, :), allocatable :: coor
@@ -46,6 +47,9 @@ subroutine readCGNS(cgns_file, comm)
   do index = 1,size(curveNames)
      print *,curveNames(index)
   end do
+
+  call release
+
 
 end subroutine readCGNS
 

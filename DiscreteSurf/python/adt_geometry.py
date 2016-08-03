@@ -59,10 +59,10 @@ def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
         # Remember to shift indices as Python starts at 0
         iBarsStart = curveBarsPtr[iCurve]-1
         iBarsEnd = curveBarsPtr[iCurve+1]-1
-        
+
         # Take the bar connectivity slice and reorder it
         sortedConn = FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())
-        
+
         # Check for failures
         if sortedConn is not None:
             sortedConn = np.array(sortedConn).T
@@ -87,7 +87,7 @@ def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
 
     # Return components dictionary
     return componentsDict
- 
+
 #=================================================================
 # COMPONENT CLASSES
 #=================================================================
@@ -196,7 +196,7 @@ class Curve(object):
         # Flip nodes
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
-        
+
 
     def project(self, xyz, dist2, xyzProj, tangents):
 
