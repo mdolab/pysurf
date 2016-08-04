@@ -51,8 +51,8 @@ def generateMesh(curve, geom, output_name):
 
 
 # Read inputs from CGNS file
-componentsDict = adt_geometry.getCGNScomponents('inputs/backup_cube.cgns')
-componentsDict = adt_geometry.getCGNScomponents('inputs/wingBody.cgns')
+componentsDict = adt_geometry.getCGNSsections('inputs/backup_cube.cgns')
+componentsDict = adt_geometry.getCGNSsections('inputs/wingBody.cgns')
 wingDict = copy.deepcopy(componentsDict)
 bodyDict = copy.deepcopy(componentsDict)
 

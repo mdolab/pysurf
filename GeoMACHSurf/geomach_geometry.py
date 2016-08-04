@@ -61,14 +61,19 @@ class Surface(object):
 
 class Curve(object):
 
-    def __init__(self, name, surf):
+    def __init__(self, name, curve_2D):
 
         self.name = name
         self.type = 'curve'
 
-        self.bse = BSEmodel([surf])
+        nu = curve_2D.shape[0]
+        curve = numpy.zeros((nu, 4, 3))
+        for i in range(4):
+            curve[:, i, :] = curve_2D
 
-        nu, nv = surf.shape[:2]
+        self.bse = BSEmodel([curve])
+
+        nu, nv = curve.shape[:2]
         mu = max(4, int(nu/4))
         mv = max(4, int(nv/4))
         self.bse.set_bspline_option('num_cp', 0, 'u', mu)
@@ -82,7 +87,7 @@ class Curve(object):
         pt = self.bse.vec['pt_str'].array
         jac = self.bse.jac['d(pt_str)/d(cp_str)']
 
-        self.bse.vec['pt_str'](0)[:, :, :] = surf
+        self.bse.vec['pt_str'](0)[:, :, :] = curve
         for ind in xrange(3):
             cp[:, ind] = bicgstab(jac.T.dot(jac), jac.T.dot(pt[:, ind]), tol=1.0e-8)[0]
 
@@ -141,12 +146,11 @@ if __name__ == '__main__':
     # Define surface points
     s0 = 100
     s1 = 100
-    nu, nv = 10, 4
-    curve1_pts = numpy.zeros((nu, nv, 3))
+    nu = 10
+    curve1_pts = numpy.zeros((nu, 3))
     for i in xrange(nu):
-        for j in xrange(nv):
-            curve1_pts[i, j, 0] = -5. + i
-            curve1_pts[i, j, 1] = 2.5
+        curve1_pts[i, 0] = -5. + i
+        curve1_pts[i, 1] = 2.5
 
     s = Curve('curve',curve1_pts)
     xyz = numpy.zeros((1, 3))

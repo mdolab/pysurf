@@ -24,7 +24,7 @@ example = 'line_on_cube'
 if example == 'kink_on_plate':
 
     # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/plate.cgns')
+    componentsDict = adt_geometry.getCGNSsections('inputs/plate.cgns')
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
@@ -66,7 +66,7 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/cylinder.cgns')
+    componentsDict = adt_geometry.getCGNSsections('inputs/cylinder.cgns')
 
     # Flip BC curve
     componentsDict['bc1'].flip()
@@ -100,7 +100,7 @@ elif example == 'line_on_cylinder':
 elif example == 'cylinder_cap':
 
     # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/cylinder.cgns')
+    componentsDict = adt_geometry.getCGNSsections('inputs/cylinder.cgns')
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
@@ -138,7 +138,7 @@ elif example == 'cylinder_cap':
 elif example == 'line_on_cubeAndCylinder':
 
     # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/cubeAndCylinder.cgns')
+    componentsDict = adt_geometry.getCGNSsections('inputs/cubeAndCylinder.cgns')
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
@@ -169,7 +169,7 @@ elif example == 'line_on_cubeAndCylinder':
 elif example == 'line_on_cube':
 
     # Read inputs from CGNS file
-    componentsDict = adt_geometry.getCGNScomponents('inputs/cubeAndCylinder.cgns')
+    componentsDict = adt_geometry.getCGNSsections('inputs/cubeAndCylinder.cgns')
 
     # Assign components to a Geometry object
     geom = classes.Geometry(componentsDict)
