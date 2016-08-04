@@ -8,7 +8,7 @@ from GeoMACHSurf.geomach_geometry import Surface, Curve
 from classes import Geometry
 import os
 
-trailingEdge = 'sharp'
+trailingEdge = 'blunt'
 generateBodyMesh = True
 generateWingMesh = True
 
