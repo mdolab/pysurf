@@ -23,7 +23,10 @@ program test
 
   call triTriIntersect([0., 0., 0.], [1., 0., 0.], [0., 1., 0.],&
                   [.5, 0., 1.], [.5, 0., -1.], [.5, 1., 0.], intersect)
+  print *,intersect
 
+  call triTriIntersect([0., 0., 0.], [1., 0., 0.], [0., 1., 0.],&
+                  [0., 0., 1.], [0., 0., -1.], [0., -1., 0.], intersect)
   print *,intersect
 
 end program

@@ -3,7 +3,7 @@ import numpy as np
 import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 
-def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
+def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
 
     # Read CGNS file
     cgnsAPI.cgnsapi.readcgns(inp, comm)
@@ -24,7 +24,7 @@ def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
     curveNames = formatStringArray(curveNames)
 
     # Initialize dictionary
-    componentsDict = {}
+    sectionsDict = {}
 
     # Now we split the connectivity arrays according to the sections
     iSurf = 0
@@ -46,8 +46,8 @@ def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
                            currQuadsConn, currTriaConn,
                            comm)
 
-        # Add this component to the dictionary
-        componentsDict[surf] = currSurf
+        # Add this section to the dictionary
+        sectionsDict[surf] = currSurf
 
         # Increment surface counter
         iSurf = iSurf + 1
@@ -80,13 +80,13 @@ def getCGNScomponents(inp, comm=MPI.COMM_WORLD.py2f()):
                           comm)
 
         # Add this entry to the geometry dictionary
-        componentsDict[curve] = currCurve
+        sectionsDict[curve] = currCurve
 
         # Increment curve counter
         iCurve = iCurve + 1
 
-    # Return components dictionary
-    return componentsDict
+    # Return sections dictionary
+    return sectionsDict
 
 #=================================================================
 # COMPONENT CLASSES
@@ -360,20 +360,20 @@ def FEsort(barsConnIn):
 
 if __name__ == "__main__":
 
-    componentsDict = getCGNScomponents('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
+    sectionsDict = getCGNSsections('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
 
     pts = np.array([[.6, .5, 0.1]], order='F')
 
-    for component in componentsDict.itervalues():
+    for section in sectionsDict.itervalues():
 
         numPts = pts.shape[0]
         dist2 = np.ones(numPts)*1e10
         xyzProj = np.zeros((numPts,3))
         normProj = np.zeros((numPts,3))
 
-        print 'Projecting on:',component.name
+        print 'Projecting on:',section.name
 
-        component.project(pts,dist2,xyzProj,normProj)
+        section.project(pts,dist2,xyzProj,normProj)
 
         print xyzProj
         print normProj
