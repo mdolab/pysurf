@@ -2,7 +2,7 @@
 
 import sys
 
-modules = ['cgnsAPI', 'adtAPI', 'curveSearch']
+modules = ['cgnsAPI', 'adtAPI', 'curveSearch', 'intersectionAPI']
 
 for name in modules:
     print "Testing if module %s can be imported..." % name

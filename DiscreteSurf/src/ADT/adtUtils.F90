@@ -1054,4 +1054,33 @@
 
         end subroutine reallocPlus
 
+
+        !***************************************************************
+        !***************************************************************
+
+
+        subroutine numberOfADTs(nADT)
+
+! This subroutine computes the maximum number of ADTs defined so far
+! Ney Secco 08-2016
+
+          implicit none
+
+          ! OUTPUT VARIABLES
+
+          integer(kind=intType), intent(out) :: nADT
+
+
+          ! EXECUTION
+
+          ! First assume we have no ADTs
+          nADT = 0
+
+          ! If ADT is allocated, we get the maximum number of trees
+          if( allocated(ADTs) ) then
+             nADT = size(ADTs)
+          end if
+
+        end subroutine numberOfADTs
+
       end module adtUtils

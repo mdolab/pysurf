@@ -1,12 +1,30 @@
 from __future__ import division
 import numpy as np
 from mpi4py import MPI
-from ...classes import Component
+from classes import Component
 from geomach_geometry import Surface, Curve
 
 class GeoMACHComponent(Component):
 
+    '''
+    This GeoMACHComponent class inherits from the base Component
+    class defined in classes.py, at the top level pysurf directory
+    '''
+
     def _initialize(self, comm=MPI.COMM_WORLD.py2f(), *arg):
+
+        '''
+        The expected arguments for a GeoMACHComponent initialization are:
+
+        GeoMACHComponent(comm, pointsDict)
+        INPUTS:
+        pointsDict: dictionary(name,pts) --> name is a string that
+                    defines the subcomponent (curve or surface) name.
+                    pts is an array of floats that defines the
+                    sum-component. It is of size [nu,nv,3] for surfaces
+                    and size [nu,3] for curves.
+        '''
+
         pointsDict = arg[0]
 
         self.comm = comm

@@ -3,35 +3,80 @@ import numpy as np
 from mpi4py import MPI
 from ...classes import Component
 import adtAPI, cgnsAPI, curveSearch
-from adt_geometry import Surface, Curve, getCGNSsections
+from adt_geometry import getCGNSsections, initializeObjects
 
 class ADTComponent(Component):
 
-    def _initialize(self, comm=MPI.COMM_WORLD.py2f(), *arg):
+    def _initialize(self, *arg):
+
+        '''
+        This function initializes and ADTComponent.
+        It is called by the __init__ method of the parent Component
+        class defined in classes.py.
+
+        The expected arguments for the initialization function are:
+        ADTComponent(fileName, sectionsList, comm)
+
+        REQUIRED INPUTS:
+        fileName: string -> Name of the CGNS file that contains the
+                  triangulated surface definition.
+
+        OPTIONAL INPUTS:
+        sectionsList: list of strings -> List of strings containing
+                  the names of the sections in the CGNS file that
+                  should be included in the current ADTComponent.
+                  If nothing is provided, or if sectionList is None
+                  or an empty list, then all sections will be included.
+
+        comm: MPI communicator -> An MPI communicator, such as
+              MPI.COMM_WORLD
+        '''
+
+        # The first input is the file name
         filename = arg[0]
 
-        self.comm = comm
+        # Set default values in case we have no additional arguments
+        selectedSections = None # We will update this later if necessary
+        self.comm = MPI.COMM_WORLD # Communicate to all processors
 
-        sectionDict = getCGNSsections(filename, self.comm)
-        try:
-            sections = arg[1]
-        except IndexError:
-            sections = sectionDict.keys()
+        # Check the optional arguments and do the necessary changes
+        for optarg in arg[1:]:
 
-        self.Surfaces = {}
-        self.Curves = {}
+            if type(optarg) == MPI.Intracomm: # We have an MPI Communicator
+                self.comm = optarg
 
-        for section in sectionDict.itervalues():
+            elif type(optarg) == list:
+                selectedSections = optarg
 
-            if section.type == 'surface' and section.name in sections: # We have a surface section
+            elif optarg in (None, []):
+                print 'Reading all CGNS sections in ADTComponent assigment.'
 
-                self.Surfaces[section.name] = section
+        # Read the CGNS file
+        coor, sectionDict = getCGNSsections(filename, self.comm)
 
-            elif section.type == 'curve' and section.name in sections: # We have a curve section
+        # Select all section names in case the user provided none
+        if selectedSections is None:
+            selectedSections = sectionDict.keys()
 
-                self.Curves[section.name] = section
+        # Initialize surface and curve objects
+        # Note that a DiscreteSurf component will have a single surface object, but it might
+        # have multiple curve components
+        self.Surface, self.Curves = initializeObjects(coor, sectionDict, selectedSections, self.comm)
 
-    def project_on_surface(self, xyz, surfCandidates=None):
+    def update_points(self, coor):
+
+        '''
+        This function updates the nodal coordinates used by both surface and curve objects.
+        '''
+
+        # Update surface
+        self.Surface.update_points(coor)
+
+        # Update all curves
+        for curve in self.Curves:
+            curve.update_points(coor)
+
+    def project_on_surface(self, xyz):
 
         '''
         This function will compute projections and surface Normals
@@ -48,9 +93,6 @@ class ADTComponent(Component):
         '''
         Explanation of reference values:
 
-        componentsList -> list of strings : Names of the surfaces components on which we should
-                                            look for projections. If nothing is provided, the
-                                            code will use all available surfaces.
 
         xyzProj -> float[numPts, 3] : If the user already have previous projection candidates, they
                                       should be provided in this array. The code will only replace
@@ -69,21 +111,13 @@ class ADTComponent(Component):
                                  all information in xyzProj and normProj is replaced.
         '''
 
-        # Use all surfaces if None is provided by the user
-        if surfCandidates is None:
-            surfCandidates = self.Surfaces.keys()
-
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
         dist2 = np.ones(numPts)*1e10
         xyzProj = np.zeros((numPts,3))
         normProj = np.zeros((numPts,3))
 
-        # Call inverse_evaluate for each component in the list, so that we can update
-        # dist2, xyzProj, and normProj
-        for surface in self.Surfaces.itervalues():
-            if surface.name in surfCandidates:
-                surface.project(xyz, dist2, xyzProj, normProj)
+        self.Surface.project(xyz, dist2, xyzProj, normProj)
 
         # Return projections
         return xyzProj, normProj
@@ -136,11 +170,18 @@ class ADTComponent(Component):
         xyzProj = np.zeros((numPts,3))
         tanProj = np.zeros((numPts,3))
 
+        # Check if the candidates are actually defined
+        curveKeys = self.Curves.keys()
+        for curve in curveCandidates:
+            if curve not in curveKeys:
+                print 'ERROR: Curve',curve,'is not defined. Check the curve names in your CGNS file.'
+                quit()
+
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
-        for curve in self.Curves.itervalues():
-            if curve.name in curveCandidates:
-                curve.project(xyz, dist2, xyzProj, tanProj)
+        for curveName in self.Curves:
+            if curveName in curveCandidates:
+                self.Curves[curveName].project(xyz, dist2, xyzProj, tanProj)
 
         # Return projections
         return xyzProj, tanProj

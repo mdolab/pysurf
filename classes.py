@@ -4,7 +4,7 @@ from mpi4py import MPI
 
 class Component(object):
 
-    def __init__(self, *arg):
+    def __init__(self, *arg, **kwargs):
         print arg
         self._initialize(*arg)
 

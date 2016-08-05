@@ -3,10 +3,20 @@ import numpy as np
 import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 
-def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
+#===========================================
+# AUXILIARY FUNCTIONS
+#===========================================
+
+def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
+
+    '''
+    This function opens a CGNS file, reads its sections, and returns a
+    dictionary with selected sections. This code also initializes ADT
+    for each section.
+    '''
 
     # Read CGNS file
-    cgnsAPI.cgnsapi.readcgns(inp, comm)
+    cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
 
     # Retrieve data from the CGNS file
     coor = cgnsAPI.cgnsapi.coor
@@ -24,7 +34,7 @@ def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
     curveNames = formatStringArray(curveNames)
 
     # Initialize dictionary
-    sectionsDict = {}
+    sectionDict = {}
 
     # Now we split the connectivity arrays according to the sections
     iSurf = 0
@@ -41,13 +51,12 @@ def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
         currTriaConn = triaConn[:,iTriaStart:iTriaEnd]
         currQuadsConn = quadsConn[:,iQuadsStart:iQuadsEnd]
 
-        # Initialize surface object
-        currSurf = Surface(surf, coor,
-                           currQuadsConn, currTriaConn,
-                           comm)
+        # Initialize surface dictionary
+        currSurf = {'triaConn':currTriaConn,
+                    'quadsConn':currQuadsConn}
 
         # Add this section to the dictionary
-        sectionsDict[surf] = currSurf
+        sectionDict[surf] = currSurf
 
         # Increment surface counter
         iSurf = iSurf + 1
@@ -74,19 +83,83 @@ def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
             print 'Curve','"'+curve+'"','could not be sorted. It might be composed by disconnect curves.'
             print ''
 
-        # Initialize surface object
-        currCurve = Curve(curve, coor,
-                          sortedConn,
-                          comm)
+        # Initialize curve dictionary
+        currCurve = {'barsConn':sortedConn}
 
-        # Add this entry to the geometry dictionary
-        sectionsDict[curve] = currCurve
+        # Add this entry to the dictionary
+        sectionDict[curve] = currCurve
 
         # Increment curve counter
         iCurve = iCurve + 1
 
     # Return sections dictionary
-    return sectionsDict
+    return coor, sectionDict
+
+#========================================
+
+def initializeObjects(coor, sectionDict, selectedSections, comm):
+
+    '''
+    This function initializes a single ADT for all triangulated surfaces defined in selectedSections.
+
+    INPUTS:
+    sectionDict: dictionary{surfName,sDict} -> Dictionary that contains surface info. The
+                  keys are surface names, while the values are also dictionaries with the
+                  following fields:'coor','quadsConn','triaConn'
+    '''
+
+    # SURFACE OBJECT
+    # A DiscreteSurf component will have a single surface object that gather all elements
+    # of the selected sections.
+
+    # Initialize global connectivities
+    triaConn = None
+    quadsConn = None
+
+    # Loop over the selected surfaces to gather connectivities
+    for sectionName in selectedSections:
+        
+        if 'triaConn' in sectionDict[sectionName].keys(): # Then we have a surface section
+
+            # Assign connectivities
+            if triaConn is None:
+                # Start new connectivities if we have none
+                triaConn = sectionDict[sectionName]['triaConn']
+                quadsConn = sectionDict[sectionName]['quadsConn']
+            else:
+                # Append new connectivities
+                triaConn = np.hstack([triaConn, sectionDict[sectionName]['triaConn']])
+                quadsConn = np.hstack([quadsConn, sectionDict[sectionName]['quadsConn']])
+
+        else:
+            
+            # The user provided a name that is not a surface section
+            print sectionName,'is not a surface section.'
+    
+    # Instantiate the Surface class. This step will initialize ADT
+    # with the global connectivities
+    surfObj = Surface(coor, quadsConn, triaConn, comm)
+
+    # CURVE OBJECTS
+    # A DiscreteSurf component may have multiple curve objects
+
+    # Initialize dictionary that will hold all curve objects
+    curveObjDict = {}
+
+    # Now we will initialize curve objects
+    for sectionName in sectionDict:
+
+        if 'barsConn' in sectionDict[sectionName].keys(): # Then we have a curve section
+
+            # Get data from current section
+            barsConn = sectionDict[sectionName]['barsConn']
+
+            # Create Curve object and append entry to the dictionary
+            curveObjDict[sectionName] = Curve(coor, barsConn, comm)
+
+    # Return the new surface and curve objects
+    return surfObj, curveObjDict
+
 
 #=================================================================
 # COMPONENT CLASSES
@@ -94,18 +167,22 @@ def getCGNSsections(inp, comm=MPI.COMM_WORLD.py2f()):
 
 class Surface(object):
 
-    def __init__(self, name, coor, quadsConn, triaConn, comm=MPI.COMM_WORLD.py2f()):
+    def __init__(self, coor, quadsConn, triaConn, comm):
 
+        # Store communicator
         self.comm = comm
 
-        self.type = 'surface'
-
+        # Store sets of coordinates and connectivities
         self.coor = coor
         self.quadsConn = quadsConn
         self.triaConn = triaConn
 
-        self.name = name
+        # Assign an adtID for the current surface. This ID should be a unique string, so
+        # we select a name based on the number of trees defined so far
+        self.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
+        print 'My ID is',self.adtID
 
+        # Now assign nodes and set the ADT for this surface
         self.update_points(self.coor)
 
     def update_points(self, coor):
@@ -115,7 +192,7 @@ class Surface(object):
         BBox = np.zeros((3, 2))
         useBBox = False
 
-        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, BBox, useBBox, self.comm, self.name)
+        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, BBox, useBBox, self.comm.py2f(), self.adtID)
 
     def compute_nodal_normals(self):
         nCoor = self.coor.shape[1]
@@ -152,21 +229,17 @@ class Surface(object):
         This function has no explicit outputs. It will just update dist2, xyzProj, and normProj
         '''
 
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.name,
+        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.adtID,
                                                                                  dist2, xyzProj.T,
                                                                                  self.nodal_normals, normProj.T)
 
 class Curve(object):
 
-    def __init__(self, name, coor, barsConn, comm=MPI.COMM_WORLD.py2f()):
-
-        self.name = name
+    def __init__(self, coor, barsConn, comm):
 
         self.comm = comm
         self.coor = coor
         self.barsConn = barsConn
-
-        self.type = 'curve'
 
     def extract_points(self):
 
@@ -360,11 +433,11 @@ def FEsort(barsConnIn):
 
 if __name__ == "__main__":
 
-    sectionsDict = getCGNSsections('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
+    sectionDict = getCGNSsections('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
 
     pts = np.array([[.6, .5, 0.1]], order='F')
 
-    for section in sectionsDict.itervalues():
+    for section in sectionDict.itervalues():
 
         numPts = pts.shape[0]
         dist2 = np.ones(numPts)*1e10
