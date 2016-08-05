@@ -34,17 +34,20 @@ class HypSurfMesh(object):
         if isinstance(curve, np.ndarray):
             self.curve = curve
         else:
-            self.curve = curve.extract_points()
+            # We assume that curve is a string that defines a curve name
+            self.curve = ref_geom.Curves[curve].extract_points()
 
         self.ref_geom = ref_geom
 
+        # Store curve names if we have curve BCs
+        # we assume that curve BCs will be defined as: 'curve:<curve_name>'
         if self.optionsDict['bc1'].lower().startswith('curve'):
-            self.ref_curve1 = ref_geom.Curves[self.optionsDict['bc1'][6:]].name
+            self.ref_curve1 = self.optionsDict['bc1'][6:]
         else:
             self.ref_curve1 = []
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            self.ref_curve2 = ref_geom.Curves[self.optionsDict['bc2'][6:]].name
+            self.ref_curve2 = self.optionsDict['bc2'][6:]
         else:
             self.ref_curve2 = []
 

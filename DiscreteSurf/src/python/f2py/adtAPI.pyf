@@ -33,6 +33,9 @@ python module adtAPI ! in
                 integer(kind=inttype) intent(in) :: ninterpol
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
             end subroutine adtmindistancesearch
+            subroutine adtgetnumberoftrees(nADT) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(out) :: nADT
+            end subroutine adtgetnumberoftrees
             subroutine computenodalnormals(ncoor,ntria,nquads,coor,triaconn,quadsconn,nodalnormals) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor
                 integer(kind=inttype) intent(in) :: ntria

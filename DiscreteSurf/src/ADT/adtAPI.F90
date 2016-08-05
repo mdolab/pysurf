@@ -603,4 +603,29 @@
 
         end subroutine cross_product
 
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine adtGetNumberOfTrees(nADT)
+!
+!       ****************************************************************
+!       * This subroutine just gets the maximum number of ADTs         *
+!       * defined so far                                               *
+!       ****************************************************************
+!
+! Ney Secco 08-2016
+
+        implicit none
+
+        !f2py intent(out) nADT
+
+        ! OUTPUT VARIABLES
+        integer(kind=intType), intent(out) :: nADT
+
+        ! call subroutine defined in adtUtils.F90 that will do all the job
+        call numberOfADTs(nADT)
+
+      end subroutine adtGetNumberOfTrees
+
       end module adtAPI

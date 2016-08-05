@@ -5,7 +5,7 @@ import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from DiscreteSurf.python import adt_geometry
+from pysurf import ADTComponent
 import classes
 import os
 from mpi4py import MPI
@@ -50,28 +50,20 @@ def generateMesh(curve, geom, output_name):
 #================================================
 
 
-# Read inputs from CGNS file
-componentsDict = adt_geometry.getCGNSsections('inputs/backup_cube.cgns')
-componentsDict = adt_geometry.getCGNSsections('inputs/wingBody.cgns')
-wingDict = copy.deepcopy(componentsDict)
-bodyDict = copy.deepcopy(componentsDict)
-
 # GENERATE WING MESH
 
 if generate_wing:
 
-    wingDict.pop("geom")
+    # Read inputs from CGNS file
+    wing = ADTComponent('inputs/wingBody.cgns',['wing'])
 
     # Flip BC curve
-    wingDict['intersection'].flip()
-    wingDict['lower_te'].flip()
-    wingDict['upper_te'].flip()
-
-    # Assign components to a Geometry object
-    geom = classes.Geometry(wingDict)
+    wing.Curves['intersection'].flip()
+    wing.Curves['lower_te'].flip()
+    wing.Curves['upper_te'].flip()
 
     # Set problem
-    curve = wingDict['intersection']
+    curve = 'intersection'
     bc1 = 'curve:upper_te'
     bc2 = 'curve:lower_te'
 
@@ -92,19 +84,17 @@ if generate_wing:
     extension = 3.5
 
     # Call meshing function
-    generateMesh(curve, geom, 'wing.xyz')
+    generateMesh(curve, wing, 'wing.xyz')
 
 # GENERATE BODY MESH
 
 if generate_body:
 
-    bodyDict.pop("wing")
-
-    # Assign components to a Geometry object
-    geom = classes.Geometry(bodyDict)
+    # Read inputs from CGNS file
+    body = ADTComponent('inputs/wingBody.cgns',['geom'])
 
     # Set problem
-    curve = bodyDict['intersection']
+    curve = 'intersection'
     bc1 = 'splay'
     bc2 = 'splay'
 
@@ -125,7 +115,7 @@ if generate_body:
     extension = 1.5
 
     # Call meshing function
-    generateMesh(curve, geom, 'body.xyz')
+    generateMesh(curve, body, 'body.xyz')
 
 
 ###########################################
