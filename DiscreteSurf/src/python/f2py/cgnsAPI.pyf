@@ -19,6 +19,10 @@ python module cgnsAPI ! in
                 character(128) intent(in) :: cgns_file
                 integer(kind=inttype) intent(in) :: comm
             end subroutine readcgns
+            subroutine releasememory()
+                use precision
+                use cgnsgrid
+            end subroutine releasememory
         end module cgnsapi
     end interface 
 end python module cgnsAPI

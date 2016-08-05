@@ -36,6 +36,9 @@ python module adtAPI ! in
             subroutine adtgetnumberoftrees(nADT) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(out) :: nADT
             end subroutine adtgetnumberoftrees
+            subroutine adtdeallocateadts(adtid) ! in :adtAPI:adtAPI.F90:adtapi
+                character(32) intent(in) :: adtid
+            end subroutine adtdeallocateadts
             subroutine computenodalnormals(ncoor,ntria,nquads,coor,triaconn,quadsconn,nodalnormals) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor
                 integer(kind=inttype) intent(in) :: ntria

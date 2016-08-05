@@ -5,6 +5,7 @@ import sys
 modules = ['cgnsAPI', 'adtAPI', 'curveSearch', 'intersectionAPI']
 
 for name in modules:
+    print ''
     print "Testing if module %s can be imported..." % name
     import_cmd = "import %s" % name
     try:
@@ -14,4 +15,4 @@ for name in modules:
         sys.exit(1)
     # end try
 
-    print "Module %s was successfully imported." % name
+    print "OK! Module %s was successfully imported." % name

@@ -2,7 +2,6 @@ module CGNSapi
 
 use precision
 use CGNSinterface
-use releaseMemory
 
 ! OUTPUTS
 real(kind=realType), dimension(:, :), allocatable :: coor
@@ -48,9 +47,39 @@ subroutine readCGNS(cgns_file, comm)
      print *,curveNames(index)
   end do
 
-  call release
-
-
 end subroutine readCGNS
+
+subroutine releaseMemory()
+
+  ! This subroutine just deallocates memory used by the CGNSinterface.
+  ! Remember to call this function after you copy the outputs in Python.
+
+  use precision
+  use CGNSGrid
+  implicit none
+
+  ! Working variables
+  integer(kind=intType) :: iZone, sec, nZones
+
+  ! Deallocate zones
+  if (allocated(zones)) then
+     do iZone=1, nZones
+       do sec=1, zones(iZone)%nSections
+          deallocate(zones(iZone)%sections(sec)%elemConn)
+          deallocate(zones(iZone)%sections(sec)%elemPtr)
+        end do
+        deallocate(zones(iZone)%sections)
+     end do
+     deallocate(zones)
+  end if
+
+  ! Deallocate output variables
+  if (allocated(coor)) then
+     deallocate(coor, triaConn, quadsConn, barsConn, &
+                surfTriaPtr, surfQuadsPtr, curveBarsPtr, &
+                surfNames, curveNames)
+  end if
+
+end subroutine releaseMemory
 
 end module CGNSapi

@@ -18,16 +18,21 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Read CGNS file
     cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
 
-    # Retrieve data from the CGNS file
-    coor = cgnsAPI.cgnsapi.coor
-    triaConn = cgnsAPI.cgnsapi.triaconn
-    quadsConn = cgnsAPI.cgnsapi.quadsconn
-    barsConn = cgnsAPI.cgnsapi.barsconn
-    surfTriaPtr = cgnsAPI.cgnsapi.surftriaptr
-    surfQuadsPtr = cgnsAPI.cgnsapi.surfquadsptr
-    curveBarsPtr = cgnsAPI.cgnsapi.curvebarsptr
-    surfNames = cgnsAPI.cgnsapi.surfnames
-    curveNames = cgnsAPI.cgnsapi.curvenames
+    # Retrieve data from the CGNS file.
+    # We need to do actual copies, otherwise data will be overwritten if we read another
+    # CGNS file.
+    coor = cgnsAPI.cgnsapi.coor.copy()
+    triaConn = cgnsAPI.cgnsapi.triaconn.copy()
+    quadsConn = cgnsAPI.cgnsapi.quadsconn.copy()
+    barsConn = cgnsAPI.cgnsapi.barsconn.copy()
+    surfTriaPtr = cgnsAPI.cgnsapi.surftriaptr.copy()
+    surfQuadsPtr = cgnsAPI.cgnsapi.surfquadsptr.copy()
+    curveBarsPtr = cgnsAPI.cgnsapi.curvebarsptr.copy()
+    surfNames = cgnsAPI.cgnsapi.surfnames.copy()
+    curveNames = cgnsAPI.cgnsapi.curvenames.copy()
+
+    # Now we deallocate variables on the Fortran side
+    cgnsAPI.cgnsapi.releasememory()
 
     # Format strings coming to Fortran into a Python list
     surfNames = formatStringArray(surfNames)
@@ -97,20 +102,23 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
 #========================================
 
-def initializeObjects(coor, sectionDict, selectedSections, comm):
+
+
+#=================================================================
+# AUXILIARY SURFACE FUNCTIONS
+#=================================================================
+
+def merge_surface_sections(sectionDict, selectedSections):
 
     '''
     This function initializes a single ADT for all triangulated surfaces defined in selectedSections.
 
     INPUTS:
-    sectionDict: dictionary{surfName,sDict} -> Dictionary that contains surface info. The
-                  keys are surface names, while the values are also dictionaries with the
-                  following fields:'coor','quadsConn','triaConn'
+    section_dict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
+                  keys are section names, while the values are also dictionaries with the
+                  following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
+                  for curve sections. 
     '''
-
-    # SURFACE OBJECT
-    # A DiscreteSurf component will have a single surface object that gather all elements
-    # of the selected sections.
 
     # Initialize global connectivities
     triaConn = None
@@ -118,8 +126,14 @@ def initializeObjects(coor, sectionDict, selectedSections, comm):
 
     # Loop over the selected surfaces to gather connectivities
     for sectionName in selectedSections:
-        
-        if 'triaConn' in sectionDict[sectionName].keys(): # Then we have a surface section
+       
+        if sectionName not in sectionDict.keys():
+
+            # User wants a section that is not defined. Print a warning message:
+            print 'ERROR: Surface',sectionName,'is not defined. Check surface names in your CGNS file.'
+            quit()
+ 
+        elif 'triaConn' in sectionDict[sectionName].keys(): # Then we have a surface section
 
             # Assign connectivities
             if triaConn is None:
@@ -138,106 +152,69 @@ def initializeObjects(coor, sectionDict, selectedSections, comm):
     
     # Instantiate the Surface class. This step will initialize ADT
     # with the global connectivities
-    surfObj = Surface(coor, quadsConn, triaConn, comm)
+    # AAA surfObj = Surface(coor, quadsConn, triaConn, comm)
 
-    # CURVE OBJECTS
-    # A DiscreteSurf component may have multiple curve objects
+    return triaConn, quadsConn
 
-    # Initialize dictionary that will hold all curve objects
-    curveObjDict = {}
+#========================================
 
-    # Now we will initialize curve objects
-    for sectionName in sectionDict:
+def initialize_surface(ADTComponent):
 
-        if 'barsConn' in sectionDict[sectionName].keys(): # Then we have a curve section
+    '''
+    This function receives an ADT component and initializes its surface based on the
+    initial connectivity and coordinates
+    '''
 
-            # Get data from current section
-            barsConn = sectionDict[sectionName]['barsConn']
+    # Assign an adtID for the current surface. This ID should be a unique string, so
+    # we select a name based on the number of trees defined so far
+    ADTComponent.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
+    print 'My ID is',ADTComponent.adtID
 
-            # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = Curve(coor, barsConn, comm)
-
-    # Return the new surface and curve objects
-    return surfObj, curveObjDict
-
+    # Now call general function that sets ADT
+    update_surface(ADTComponent)
 
 #=================================================================
-# COMPONENT CLASSES
+
+def update_surface(ADTComponent):
+
+    '''
+    This function receives an ADT component and initializes its surface based on the
+    current connectivity and coordinates. If deallocate==True, this code will try to
+    deallocate the previous ADT. This should not be used when creating the initial ADT,
+    as there is nothing to deallocate.
+    '''
+
+    # Deallocate previous tree
+    adtAPI.adtapi.adtdeallocateadts(ADTComponent.adtID)
+
+    # Set bounding box for new tree
+    BBox = np.zeros((3, 2))
+    useBBox = False
+
+    # Compute set of nodal normals by taking the average normal of all elements surrounding
+    # the node. This allows the meshing algorithms, for instance, to march in an average
+    # direction near kinks.
+    ADTComponent.nodal_normals = adtAPI.adtapi.computenodalnormals(ADTComponent.coor,
+                                                                   ADTComponent.triaConn,
+                                                                   ADTComponent.quadsConn)
+
+    # Create new tree (the tree itself is stored in Fortran level)
+    adtAPI.adtapi.adtbuildsurfaceadt(ADTComponent.coor, 
+                                     ADTComponent.triaConn, ADTComponent.quadsConn,
+                                     BBox, useBBox,
+                                     ADTComponent.comm.py2f(),
+                                     ADTComponent.adtID)
+
 #=================================================================
 
-class Surface(object):
-
-    def __init__(self, coor, quadsConn, triaConn, comm):
-
-        # Store communicator
-        self.comm = comm
-
-        # Store sets of coordinates and connectivities
-        self.coor = coor
-        self.quadsConn = quadsConn
-        self.triaConn = triaConn
-
-        # Assign an adtID for the current surface. This ID should be a unique string, so
-        # we select a name based on the number of trees defined so far
-        self.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
-        print 'My ID is',self.adtID
-
-        # Now assign nodes and set the ADT for this surface
-        self.update_points(self.coor)
-
-    def update_points(self, coor):
-        self.coor = coor
-        self.compute_nodal_normals()
-
-        BBox = np.zeros((3, 2))
-        useBBox = False
-
-        adtAPI.adtapi.adtbuildsurfaceadt(self.coor, self.triaConn, self.quadsConn, BBox, useBBox, self.comm.py2f(), self.adtID)
-
-    def compute_nodal_normals(self):
-        nCoor = self.coor.shape[1]
-
-        nTria = self.triaConn.shape[1]
-        nQuads = self.quadsConn.shape[1]
-        connect_count = np.zeros((nCoor), dtype='int')
-
-        self.nodal_normals = \
-            adtAPI.adtapi.computenodalnormals(self.coor, self.triaConn, self.quadsConn)
-
-    def project(self, xyz, dist2, xyzProj, normProj):
-
-        '''
-        This function will take the points given in xyz and project them to the surface.
-
-        INPUTS:
-        xyz -> float[nPoints,3] : coordinates of the points that should be projected
-
-        dist2 -> float[nPoints] : values of best distance**2 found so far. If the distance of the projected
-                                  point is less than dist2, then we will take the projected point. Otherwise,
-                                  the projection will be set to (-99999, -99999, -99999), meaning that we could
-                                  not find a better projection at this surface. This allows us to find the best
-                                  projection even with multiple surfaces.
-                                  If you don't have previous values to dist2, just initialize all elements to
-                                  a huge number (1e10).
-
-        xyzProj -> float[nPoints,3] : coordinates of projected points found so far. These projections could be in other
-                                      surfaces as well. This function will only replace projections whose dist2 are smaller
-                                      than previous dist2. This allows us to use the same array while working with multiple surfaces
-                                      If you don't have previous values, just initialize all elements to zero. Also
-                                      remember to set dist2 to a huge number so that all values are replaced.
-
-        This function has no explicit outputs. It will just update dist2, xyzProj, and normProj
-        '''
-
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.adtID,
-                                                                                 dist2, xyzProj.T,
-                                                                                 self.nodal_normals, normProj.T)
+#=================================================================
+# AUXILIARY CURVE CLASSES AND FUNCTIONS
+#=================================================================
 
 class Curve(object):
 
-    def __init__(self, coor, barsConn, comm):
+    def __init__(self, coor, barsConn):
 
-        self.comm = comm
         self.coor = coor
         self.barsConn = barsConn
 
@@ -297,8 +274,51 @@ class Curve(object):
 
         curveSearch.curveproj.mindistancecurve(xyz.T, self.coor, self.barsConn, xyzProj.T, tangents.T, dist2)
 
+#=================================================================
+
+def initialize_curves(ADTComponent, sectionDict):
+
+    '''
+    This function initializes a single ADT for all triangulated surfaces defined in selectedSections.
+
+    INPUTS:
+    sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
+                 keys are section names, while the values are also dictionaries with the
+                 following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
+                 for curve sections.
+    
+    OUTPUTS:
+    This function has no explicit outputs. It assigns ADTComponent.Curves
+    '''
+
+    # CURVE OBJECTS
+    # A DiscreteSurf component may have multiple curve objects
+
+    # Initialize dictionary that will hold all curve objects
+    curveObjDict = {}
+
+    # Now we will initialize curve objects
+    for sectionName in sectionDict:
+
+        if 'barsConn' in sectionDict[sectionName].keys(): # Then we have a curve section
+
+            # Get data from current section
+            barsConn = sectionDict[sectionName]['barsConn']
+
+            # Create Curve object and append entry to the dictionary
+            curveObjDict[sectionName] = Curve(ADTComponent.coor, barsConn)
+
+    # Assign curve objects to ADT component
+    ADTComponent.Curves = curveObjDict
+
+#=================================================================
+
+#=================================================================
+
+#=================================================================
+
 #===================================
-# AUXILIARY FUNCTIONS
+# GENERAL AUXILIARY FUNCTIONS
 #===================================
 
 def formatStringArray(fortranArray):
@@ -430,23 +450,3 @@ def FEsort(barsConnIn):
     return newConn
 
 #=============================================================
-
-if __name__ == "__main__":
-
-    sectionDict = getCGNSsections('../examples/cubeAndCylinder/cubeAndCylinder.cgns', MPI.COMM_WORLD.py2f())
-
-    pts = np.array([[.6, .5, 0.1]], order='F')
-
-    for section in sectionDict.itervalues():
-
-        numPts = pts.shape[0]
-        dist2 = np.ones(numPts)*1e10
-        xyzProj = np.zeros((numPts,3))
-        normProj = np.zeros((numPts,3))
-
-        print 'Projecting on:',section.name
-
-        section.project(pts,dist2,xyzProj,normProj)
-
-        print xyzProj
-        print normProj

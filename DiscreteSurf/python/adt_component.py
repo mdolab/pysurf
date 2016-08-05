@@ -3,7 +3,11 @@ import numpy as np
 from mpi4py import MPI
 from ...classes import Component
 import adtAPI, cgnsAPI, curveSearch
-from adt_geometry import getCGNSsections, initializeObjects
+from adt_geometry import getCGNSsections, merge_surface_sections, \
+                         initialize_surface, initialize_curves, \
+                         update_surface
+
+# ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
 
 class ADTComponent(Component):
 
@@ -51,29 +55,37 @@ class ADTComponent(Component):
             elif optarg in (None, []):
                 print 'Reading all CGNS sections in ADTComponent assigment.'
 
-        # Read the CGNS file
-        coor, sectionDict = getCGNSsections(filename, self.comm)
+        # Read CGNS file
+        self.coor, sectionDict = getCGNSsections(filename, self.comm)
 
         # Select all section names in case the user provided none
         if selectedSections is None:
             selectedSections = sectionDict.keys()
 
-        # Initialize surface and curve objects
-        # Note that a DiscreteSurf component will have a single surface object, but it might
-        # have multiple curve components
-        self.Surface, self.Curves = initializeObjects(coor, sectionDict, selectedSections, self.comm)
+        # Now we call an auxiliary function to merge selected surface sections in a single
+        # connectivity array
+        self.triaConn, self.quadsConn = merge_surface_sections(sectionDict, selectedSections)
 
-    def update_points(self, coor):
+        # Create ADT for the current surface
+        initialize_surface(self)
+
+        # Initialize curves
+        initialize_curves(self, sectionDict)
+
+    def update(self, coor):
 
         '''
         This function updates the nodal coordinates used by both surface and curve objects.
         '''
 
-        # Update surface
-        self.Surface.update_points(coor)
+        # Update coordinates
+        self.coor = coor
+
+        # Update surface definition
+        update_surface(self)
 
         # Update all curves
-        for curve in self.Curves:
+        for curve in self.Curves.itervalues():
             curve.update_points(coor)
 
     def project_on_surface(self, xyz):
@@ -117,7 +129,10 @@ class ADTComponent(Component):
         xyzProj = np.zeros((numPts,3))
         normProj = np.zeros((numPts,3))
 
-        self.Surface.project(xyz, dist2, xyzProj, normProj)
+        # Call projection function
+        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.adtID,
+                                                                                 dist2, xyzProj.T,
+                                                                                 self.nodal_normals, normProj.T)
 
         # Return projections
         return xyzProj, normProj
@@ -185,3 +200,6 @@ class ADTComponent(Component):
 
         # Return projections
         return xyzProj, tanProj
+
+#=============================================================
+
