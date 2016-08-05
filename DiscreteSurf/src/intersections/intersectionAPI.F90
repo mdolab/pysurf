@@ -31,13 +31,24 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   !f2py intent(in) coorB, triaConnB, quadsConnB
 
   ! Working variables
-  real(kind=realType), dimension(3,2) :: BBoxA, BBoxB
+  real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
+  logical :: overlap
 
   ! EXECUTION
 
   ! Compute bounding boxes for each component
-  call computeBoundingBox(coorA, BBoxA)
-  call computeBoundingBox(coorB, BBoxB)
+  call computeBBox(coorA, BBoxA)
+  call computeBBox(coorB, BBoxB)
+
+  ! Compute bounding boxes intersection
+  call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+  ! We can stop if there is no bounding box intersection
+  if (.not. overlap) then
+     print *,'Components do not overlap.'
+  else
+     print *,'Components overlap.'
+  end if
 
 end subroutine computeIntersection
 

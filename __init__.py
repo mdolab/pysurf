@@ -1,3 +1,4 @@
 from classes import Component
 from DiscreteSurf.python.adt_component import ADTComponent
+from DiscreteSurf.python.adt_intersection import compute_intersections
 from GeoMACHSurf.geomach_component import GeoMACHComponent

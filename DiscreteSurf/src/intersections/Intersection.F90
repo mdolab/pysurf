@@ -6,18 +6,134 @@ implicit none
 contains
 
 
-subroutine computeBoundingBox(coor, BBox)
+subroutine computeBBox(coor, BBox)
 
+  ! This subroutine computes the bounding box of all points given in coor.
+  !
+  ! INPUTS:
+  !
+  ! coor: real(3, nNodes) -> coordinates (x,y,z) of all nodes used in the
+  !       triangulated surface definition.
+  !
+  ! OUTPUTS:
+  !
+  ! BBox: real(3, 2) -> coordinates defining the bounding box
+  !                     [xmin, xmax]
+  !                     [ymin, ymax]
+  !                     [zmin, zmax]
+  
+
+  implicit none
+
+  ! INPUTS
   real(kind=realType), dimension(:,:), intent(in) :: coor
 
+  ! OUTPUTS
   real(kind=realType), dimension(3,2), intent(out) :: BBox
 
+  ! EXECUTION
+
+  ! Get bounding values
   BBox(:, 1) = minval(coor, 2)
   BBox(:, 2) = maxval(coor, 2)
 
-  print *,BBox
+end subroutine computeBBox
 
-end subroutine computeBoundingBox
+!============================================================
+
+subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+  ! This subroutine gives a rectangle (BBoxAB) that correponds to the intersection
+  ! of two bounding boxes (BBoxA, and BBoxB).
+  ! If there is no intersection, we will return overlap = .false., but BBoxAB will
+  ! still have meaningless value.
+  !
+  ! INPUTS
+  !
+  ! BBoxA: real(3,2) -> bounding box coordinates of component A
+  !
+  ! BBoxA: real(3,2) -> bounding box coordinates of component B
+  !
+  ! OUTPUTS
+  !
+  ! BBoxAB: real(3,2) -> coordinates of the A-B intersection bounding box.
+  !         ATTENTION: This variable may still have meaningless values if
+  !         ovelap = .false.
+  !
+  ! overlap: logical -> logical indicating if there is an intersection
+  !          between boxes A and B. If overlap = .false., disregard all
+  !          values given in BBoxAB.
+
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), dimension(3,2), intent(in) :: BBoxA, BBoxB
+
+  ! OUTPUTS
+  real(kind=realType), dimension(3,2), intent(out) :: BBoxAB
+  logical, intent(out) :: overlap
+  
+  ! EXECUTION
+
+  ! Check overlaps along each dimension
+  ! We have an actual BBox intersection if there are overlaps in all dimensions
+
+  ! X overlap
+  call lineIntersectionInterval(BBoxA(1,1), BBoxA(1,2), BBoxB(1,1), BBoxB(1,2), &
+                                BBoxAB(1,1), BBoxAB(1,2), overlap)
+ 
+  if (overlap) then
+     ! Y overlap
+     call lineIntersectionInterval(BBoxA(2,1), BBoxA(2,2), BBoxB(2,1), BBoxB(2,2), &
+                                   BBoxAB(2,1), BBoxAB(2,2), overlap)
+
+     if (overlap) then
+        ! Z overlap
+        call lineIntersectionInterval(BBoxA(3,1), BBoxA(3,2), BBoxB(3,1), BBoxB(3,2), &
+                                      BBoxAB(3,1), BBoxAB(3,2), overlap)
+
+     end if
+
+  end if
+
+  ! Remember that overlap may be set to false in the Z overlap test
+
+end subroutine computeBBoxIntersection
+
+!============================================================
+
+subroutine lineIntersectionInterval(xminA, xmaxA, xminB, xmaxB, xminAB, xmaxAB, overlap)
+
+  ! This subroutine finds a 1D overlap interval between two lines.
+  ! This step is used three times (one for each dimension) when
+  ! computing bounding boxes intersection.
+  ! If the bounding boxes do not overlap we return overlap = .false.
+
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), intent(in) :: xminA, xmaxA, xminB, xmaxB
+
+  ! OUTPUTS
+  real(kind=realType), intent(out) :: xminAB, xmaxAB
+  logical, intent(out) :: overlap
+
+  ! EXECUTION
+
+  ! Get bounding interval
+  xminAB = max(xminA, xminB)
+  xmaxAB = min(xmaxA, xmaxB)
+
+  ! Check if we actually have an overlap
+  if (xminAB .gt. xmaxAB) then
+     overlap = .false.
+  else
+     overlap = .true.
+  end if
+
+end subroutine lineIntersectionInterval
+
+!============================================================
 
 subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
 

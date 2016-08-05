@@ -5,7 +5,9 @@ from mpi4py import MPI
 class Component(object):
 
     def __init__(self, *arg, **kwargs):
-        print arg
+
+        # Call the initialization method defined in each
+        # child class
         self._initialize(*arg)
 
     def get_names(self):
