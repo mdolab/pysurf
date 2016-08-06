@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 from mpi4py import MPI
-from ..classes import Component
+from ..baseClasses import Component
 from geomach_geometry import Surface, Curve
 
 class GeoMACHComponent(Component):
