@@ -81,7 +81,7 @@ if generate_wing:
     # Options
     sBaseline = .005
     numLayers = 20
-    extension = 3.5
+    extension = 2.5
 
     # Call meshing function
     generateMesh(curve, wing, 'wing.xyz')
