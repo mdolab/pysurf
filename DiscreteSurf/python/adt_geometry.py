@@ -21,13 +21,13 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Retrieve data from the CGNS file.
     # We need to do actual copies, otherwise data will be overwritten if we read another
     # CGNS file.
-    coor = cgnsAPI.cgnsapi.coor.copy()
-    triaConn = cgnsAPI.cgnsapi.triaconn.copy()
-    quadsConn = cgnsAPI.cgnsapi.quadsconn.copy()
-    barsConn = cgnsAPI.cgnsapi.barsconn.copy()
-    surfTriaPtr = cgnsAPI.cgnsapi.surftriaptr.copy()
-    surfQuadsPtr = cgnsAPI.cgnsapi.surfquadsptr.copy()
-    curveBarsPtr = cgnsAPI.cgnsapi.curvebarsptr.copy()
+    coor = np.array(cgnsAPI.cgnsapi.coor)
+    triaConn = np.array(cgnsAPI.cgnsapi.triaconn)
+    quadsConn = np.array(cgnsAPI.cgnsapi.quadsconn)
+    barsConn = np.array(cgnsAPI.cgnsapi.barsconn)
+    surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr)
+    surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr)
+    curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr)
     surfNames = cgnsAPI.cgnsapi.surfnames.copy()
     curveNames = cgnsAPI.cgnsapi.curvenames.copy()
 
