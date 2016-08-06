@@ -4,8 +4,7 @@ from __future__ import division
 import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
-from pysurf import ADTComponent
-import classes
+from pysurf import TSurfComponent
 import os
 from mpi4py import MPI
 
@@ -23,7 +22,7 @@ example = 'line_on_cube'
 if example == 'kink_on_plate':
 
     # Read inputs from CGNS file
-    geom = ADTComponent('inputs/plate.cgns')
+    geom = TSurfComponent('inputs/plate.cgns')
 
     # Set source curve
     curve = array([[0,0,0],
@@ -62,7 +61,7 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
-    geom = ADTComponent('inputs/cylinder.cgns')
+    geom = TSurfComponent('inputs/cylinder.cgns')
 
     # Flip BC curve
     geom.Curves['bc1'].flip()
@@ -93,7 +92,7 @@ elif example == 'line_on_cylinder':
 elif example == 'cylinder_cap':
 
     # Read inputs from CGNS file
-    geom = ADTComponent('inputs/cylinder.cgns')
+    geom = TSurfComponent('inputs/cylinder.cgns')
 
     # Set reference curve
     n1 = 7
@@ -129,8 +128,8 @@ elif example == 'cylinder_cap':
 elif example == 'line_on_cubeAndCylinder':
 
     # Read inputs from CGNS file
-    #geom = ADTComponent('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
-    geom = ADTComponent('inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
+    #geom = TSurfComponent('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
+    geom = TSurfComponent('inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
 
     # Set problem
     curve = 'diag'
@@ -158,7 +157,7 @@ elif example == 'line_on_cubeAndCylinder':
 elif example == 'line_on_cube':
 
     # Read inputs from CGNS file
-    geom = ADTComponent('inputs/cube.cgns') # mesh cube only
+    geom = TSurfComponent('inputs/cube.cgns') # mesh cube only
 
     # Set problem
     n = 40
