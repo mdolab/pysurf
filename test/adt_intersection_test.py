@@ -11,7 +11,7 @@ comm = MPI.COMM_WORLD
 
 # Define components
 cube = pysurf.ADTComponent('../inputs/cube.cgns', comm)
-cylinder = pysurf.ADTComponent('../inputs/cubeAndCylinder.cgns', comm)
+cylinder = pysurf.ADTComponent('../inputs/cylinder.cgns', comm)
 
 # Call intersection function
 pysurf.compute_intersections([cube, cylinder])

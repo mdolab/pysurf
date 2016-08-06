@@ -9,6 +9,7 @@ contains
 subroutine computeBBox(coor, BBox)
 
   ! This subroutine computes the bounding box of all points given in coor.
+  ! Ney Secco - 2016-08
   !
   ! INPUTS:
   !
@@ -47,6 +48,7 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   ! of two bounding boxes (BBoxA, and BBoxB).
   ! If there is no intersection, we will return overlap = .false., but BBoxAB will
   ! still have meaningless value.
+  ! Ney Secco - 2016-08
   !
   ! INPUTS
   !
@@ -108,6 +110,7 @@ subroutine lineIntersectionInterval(xminA, xmaxA, xminB, xmaxB, xminAB, xmaxAB, 
   ! This step is used three times (one for each dimension) when
   ! computing bounding boxes intersection.
   ! If the bounding boxes do not overlap we return overlap = .false.
+  ! Ney Secco - 2016-08
 
   implicit none
 
@@ -132,6 +135,168 @@ subroutine lineIntersectionInterval(xminA, xmaxA, xminB, xmaxB, xminAB, xmaxAB, 
   end if
 
 end subroutine lineIntersectionInterval
+
+!============================================================
+
+subroutine filterElements(coor, triaConn, quadsConn, BBox, &
+                          innerTriaID, innerQuadsID)
+
+  ! This subroutine finds elements that are inside (or partially inside)
+  ! the given bounding box.
+  ! Ney Secco - 2016-08
+  !
+  ! INPUTS:
+  !
+  ! coor: real(3,nNodes) -> Nodal coordinates of the local grid.
+  !
+  ! triaConn: int(3,nTria) -> Local connectivity of the triangles.
+  !
+  ! quadsConn: int(4,nQuads) -> Idem for the quadrilaterals.
+  !
+  ! BBox: real(3,2) -> Corners of the bounding box.
+  !
+  ! OUTPUTS:
+  !
+  ! innerTriaID: integer(nInnerTria) -> Indices of triangle elements that
+  !              are inside the bounding box.
+  !
+  ! innerQuadsID: integer(nInnerQuads) -> Indices of quad elements that
+  !               are inside the bounding box.
+
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), dimension(:,:), intent(in) :: coor
+  integer(kind=intType), dimension(:,:), intent(in) :: triaConn, quadsConn
+  real(kind=realType), dimension(3,2), intent(in) :: BBox
+
+  ! OUTPUTS
+  integer(kind=intType), dimension(:), allocatable, intent(out) :: innerTriaID, innerQuadsID
+
+  ! WORKING
+  integer(kind=intType), dimension(:), allocatable :: extInnerTriaID, extInnerQuadsID
+  logical, dimension(:), allocatable :: nodeLocation
+  integer(kind=intType) :: nNodes, nTria, nQuads
+  integer(kind=intType) :: elemID, nodeID
+  integer(kind=intType) :: numInnerTria, numInnerQuads
+  real(kind=realType) :: nodeX, nodeY, nodeZ
+  logical :: nodeIsInside
+
+  ! EXECUTION
+
+  ! Get problem size
+  nNodes = size(coor,2)
+  nTria = size(triaConn,2)
+  nQuads = size(quadsConn,2)
+
+  ! Allocate array that states whether a node is inside or outside of the BBox
+  ! nodeLocation(nodeID) = .false. -> node is outside the BBox
+  ! nodeLocation(nodeID) = .true.  -> node is inside the BBox
+  allocate(nodeLocation(nNodes))
+
+  ! Initialize array
+  nodeLocation = .false.
+
+  ! Now check each node
+  nodeLoop: do nodeID = 1,nNodes
+
+     ! Get current node coordinates
+     nodeX = coor(1,nodeID)
+     nodeY = coor(2,nodeID)
+     nodeZ = coor(3,nodeID)
+
+     ! Check each dimension
+     if ((nodeX .ge. BBox(1,1)) .and. (nodeX .le. BBox(1,2))) then
+        if ((nodeY .ge. BBox(2,1)) .and. (nodeY .le. BBox(2,2))) then
+           if ((nodeZ .ge. BBox(3,1)) .and. (nodeZ .le. BBox(3,2))) then
+              nodeLocation(nodeID) = .true.
+           end if
+        end if
+     end if
+
+  end do nodeLoop
+
+
+  ! Allocate extended arrays to store indices of the interior elements. In the worst
+  ! case, all elements would be inside, so we would need to store nTria and nQuads
+  ! indices in total.
+  allocate(extInnerTriaID(nTria), extInnerQuadsID(nQuads))
+  
+  ! Now we check all elements.
+  ! If one node is inside the bounding box, then we flag the element as "inside"
+
+  ! Initialize interior element counters
+  numInnerTria = 0
+  numInnerQuads = 0
+
+  ! First we check triangles
+  triaLoop: do elemID = 1,nTria
+
+     ! Loop over all the nodes of the element
+     do nodeID = 1,3
+
+        ! Get location flag of the current node
+        nodeIsInside = nodeLocation(triaConn(nodeID, elemID))
+
+        ! Flag the element if any node is inside
+        if (nodeIsInside) then
+
+           ! Increment number of inside elements
+           numInnerTria = numInnerTria + 1
+
+           ! Store element index in the extended array
+           extInnerTriaID(numInnerTria) = elemID
+
+           ! We do not need to check other nodes, so
+           ! we jump out of the do loop
+           exit
+
+        end if
+
+     end do
+
+  end do triaLoop
+
+  ! Now we check quads
+  quadsLoop: do elemID = 1,nQuads
+
+     ! Loop over all the nodes of the element
+     do nodeID = 1,4
+
+        ! Get location flag of the current node
+        nodeIsInside = nodeLocation(quadsConn(nodeID, elemID))
+
+        ! Flag the element if any node is inside
+        if (nodeIsInside) then
+
+           ! Increment number of inside elements
+           numInnerQuads = numInnerQuads + 1
+
+           ! Store element index in the extended array
+           extInnerQuadsID(numInnerQuads) = elemID
+
+           ! We do not need to check other nodes, so
+           ! we jump out of the do loop
+           exit
+
+        end if
+
+     end do
+
+  end do quadsLoop
+
+  ! Now that we know exactly how many elements are inside, we can
+  ! allocate outputs arrays with the proper size
+  allocate(innerTriaID(numInnerTria), innerQuadsID(numInnerQuads))
+  
+  ! Transfer values from the extended arrays to the output arrays
+  innerTriaID(:) = extInnerTriaID(1:numInnerTria)
+  innerQuadsID(:) = extInnerQuadsID(1:numInnerQuads)
+
+  ! We can finally deallocate the extended arrays
+  deallocate(extInnerTriaID, extInnerQuadsID)
+
+end subroutine filterElements
 
 !============================================================
 

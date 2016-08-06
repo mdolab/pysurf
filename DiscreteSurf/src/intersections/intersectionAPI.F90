@@ -33,6 +33,8 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! Working variables
   real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
   logical :: overlap
+  integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A 
+  integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
 
   ! EXECUTION
 
@@ -46,9 +48,22 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
      print *,'Components do not overlap.'
+     return
   else
      print *,'Components overlap.'
   end if
+
+  ! Filter elements that are inside the intersected bounding box
+  call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
+                      innerTriaID_A, innerQuadsID_A)
+  call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
+                      innerTriaID_B, innerQuadsID_B)
+
+  ! Print log
+  print *,'Number of interior elements in A:'
+  print *,size(innerTriaID_A) + size(innerQuadsID_A),'of',nTriaA + nQuadsA
+  print *,'Number of interior elements in B:'
+  print *,size(innerTriaID_B) + size(innerQuadsID_B),'of',nTriaB + nQuadsB
 
 end subroutine computeIntersection
 
