@@ -1,25 +1,25 @@
 from __future__ import division
 import numpy as np
 from mpi4py import MPI
-from ...classes import Component
+from ...baseClasses import Component
 import adtAPI, cgnsAPI, curveSearch
-from adt_geometry import getCGNSsections, merge_surface_sections, \
-                         initialize_surface, initialize_curves, \
-                         update_surface
+from tsurf_geometry import getCGNSsections, merge_surface_sections, \
+                           initialize_surface, initialize_curves, \
+                           update_surface
 
 # ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
 
-class ADTComponent(Component):
+class TSurfComponent(Component):
 
     def _initialize(self, *arg):
 
         '''
-        This function initializes and ADTComponent.
+        This function initializes and TSurfComponent.
         It is called by the __init__ method of the parent Component
         class defined in classes.py.
 
         The expected arguments for the initialization function are:
-        ADTComponent(fileName, sectionsList, comm)
+        TSurfComponent(fileName, sectionsList, comm)
 
         REQUIRED INPUTS:
         fileName: string -> Name of the CGNS file that contains the

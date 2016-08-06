@@ -6,7 +6,6 @@ from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hsta
 from numpy.random import rand
 import os
 import GeoMACHSurf.geomach_geometry as geomach_geometry
-import classes
 
 # OPTIONS
 

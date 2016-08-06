@@ -4,7 +4,7 @@ import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 
 #===========================================
-# AUXILIARY FUNCTIONS
+# AUXILIARY READING FUNCTIONS
 #===========================================
 
 def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
@@ -111,10 +111,11 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 def merge_surface_sections(sectionDict, selectedSections):
 
     '''
-    This function initializes a single ADT for all triangulated surfaces defined in selectedSections.
+    This function merges the connectivity data of all surface sections
+    specified in selectedSections.
 
     INPUTS:
-    section_dict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
+    sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
                   keys are section names, while the values are also dictionaries with the
                   following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
                   for curve sections. 
@@ -149,61 +150,56 @@ def merge_surface_sections(sectionDict, selectedSections):
             
             # The user provided a name that is not a surface section
             print sectionName,'is not a surface section.'
-    
-    # Instantiate the Surface class. This step will initialize ADT
-    # with the global connectivities
-    # AAA surfObj = Surface(coor, quadsConn, triaConn, comm)
 
     return triaConn, quadsConn
 
 #========================================
 
-def initialize_surface(ADTComponent):
+def initialize_surface(TSurfComponent):
 
     '''
-    This function receives an ADT component and initializes its surface based on the
-    initial connectivity and coordinates
+    This function receives a TSurf component and initializes its surface based
+    on the initial connectivity and coordinates
     '''
 
-    # Assign an adtID for the current surface. This ID should be a unique string, so
-    # we select a name based on the number of trees defined so far
-    ADTComponent.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
-    print 'My ID is',ADTComponent.adtID
+    # Assign an adtID for the current surface. This ID should be a
+    # unique string, so we select a name based on the number of trees
+    # defined so far
+    TSurfComponent.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
+    print 'My ID is',TSurfComponent.adtID
 
     # Now call general function that sets ADT
-    update_surface(ADTComponent)
+    update_surface(TSurfComponent)
 
 #=================================================================
 
-def update_surface(ADTComponent):
+def update_surface(TSurfComponent):
 
     '''
-    This function receives an ADT component and initializes its surface based on the
-    current connectivity and coordinates. If deallocate==True, this code will try to
-    deallocate the previous ADT. This should not be used when creating the initial ADT,
-    as there is nothing to deallocate.
+    This function receives a TSurf component and initializes its surface
+    ADT based on the current connectivity and coordinates.
     '''
 
     # Deallocate previous tree
-    adtAPI.adtapi.adtdeallocateadts(ADTComponent.adtID)
+    adtAPI.adtapi.adtdeallocateadts(TSurfComponent.adtID)
 
     # Set bounding box for new tree
     BBox = np.zeros((3, 2))
     useBBox = False
 
-    # Compute set of nodal normals by taking the average normal of all elements surrounding
-    # the node. This allows the meshing algorithms, for instance, to march in an average
-    # direction near kinks.
-    ADTComponent.nodal_normals = adtAPI.adtapi.computenodalnormals(ADTComponent.coor,
-                                                                   ADTComponent.triaConn,
-                                                                   ADTComponent.quadsConn)
+    # Compute set of nodal normals by taking the average normal of all
+    # elements surrounding the node. This allows the meshing algorithms,
+    # for instance, to march in an average direction near kinks.
+    TSurfComponent.nodal_normals = adtAPI.adtapi.computenodalnormals(TSurfComponent.coor,
+                                                                   TSurfComponent.triaConn,
+                                                                   TSurfComponent.quadsConn)
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(ADTComponent.coor, 
-                                     ADTComponent.triaConn, ADTComponent.quadsConn,
+    adtAPI.adtapi.adtbuildsurfaceadt(TSurfComponent.coor, 
+                                     TSurfComponent.triaConn, TSurfComponent.quadsConn,
                                      BBox, useBBox,
-                                     ADTComponent.comm.py2f(),
-                                     ADTComponent.adtID)
+                                     TSurfComponent.comm.py2f(),
+                                     TSurfComponent.adtID)
 
 #=================================================================
 
@@ -276,10 +272,10 @@ class Curve(object):
 
 #=================================================================
 
-def initialize_curves(ADTComponent, sectionDict):
+def initialize_curves(TSurfComponent, sectionDict):
 
     '''
-    This function initializes a single ADT for all triangulated surfaces defined in selectedSections.
+    This function initializes all curves given in sectionDict.
 
     INPUTS:
     sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
@@ -288,7 +284,7 @@ def initialize_curves(ADTComponent, sectionDict):
                  for curve sections.
     
     OUTPUTS:
-    This function has no explicit outputs. It assigns ADTComponent.Curves
+    This function has no explicit outputs. It assigns TSurfComponent.Curves
     '''
 
     # CURVE OBJECTS
@@ -306,10 +302,10 @@ def initialize_curves(ADTComponent, sectionDict):
             barsConn = sectionDict[sectionName]['barsConn']
 
             # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = Curve(ADTComponent.coor, barsConn)
+            curveObjDict[sectionName] = Curve(TSurfComponent.coor, barsConn)
 
     # Assign curve objects to ADT component
-    ADTComponent.Curves = curveObjDict
+    TSurfComponent.Curves = curveObjDict
 
 #=================================================================
 

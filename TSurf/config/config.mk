@@ -28,8 +28,8 @@ AR_FLAGS = -rvs
 LINKER_FLAGS = 
 
 # ------- Define Petsc Info --- Should not need to modify this -----
-include ${PETSC_DIR}/lib/petsc/conf/variables # PETSc 3.6
-#include ${PETSC_DIR}/conf/variables # PETSc 3.5
+#include ${PETSC_DIR}/lib/petsc/conf/variables # PETSc 3.6
+include ${PETSC_DIR}/conf/variables # PETSc 3.5
 PETSC_INCLUDE_FLAGS=${PETSC_CC_INCLUDES} -I$(PETSC_DIR)
 PETSC_LINKER_FLAGS=${PETSC_LIB}
 
