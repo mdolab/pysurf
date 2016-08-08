@@ -5,7 +5,9 @@ python module intersectionAPI ! in
     interface  ! in :intersectionAPI
         module intersectionapi ! in :intersectionAPI:intersectionAPI.F90
             use precision
-            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
+            integer(kind=inttype), allocatable,dimension(:,:) :: barsconn
+            real(kind=realtype), allocatable,dimension(:,:) :: coor
+            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb,disttol) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection
                 integer(kind=inttype), optional,intent(in),check(shape(coora,1)==nnodesa),depend(coora) :: nnodesa=shape(coora,1)
                 integer(kind=inttype), optional,intent(in),check(shape(triaconna,1)==ntriaa),depend(triaconna) :: ntriaa=shape(triaconna,1)
@@ -19,6 +21,7 @@ python module intersectionAPI ! in
                 real(kind=realtype) dimension(3,nnodesb),intent(in) :: coorb
                 integer(kind=inttype) dimension(3,ntriab),intent(in) :: triaconnb
                 integer(kind=inttype) dimension(4,nquadsb),intent(in) :: quadsconnb
+                real(kind=realtype) intent(in) :: disttol
             end subroutine computeintersection
         end module intersectionapi
     end interface 
