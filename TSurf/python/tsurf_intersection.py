@@ -4,6 +4,7 @@ This file contains functions to intersect ADT objects
 
 # IMPORTS
 import intersectionAPI as iapi
+import numpy as np
 
 # FUNCTIONS
 def compute_intersections(TSurfComponentList,distTol=1e-7):
@@ -45,3 +46,13 @@ def compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
                                              TSurfComponentB.triaConn,
                                              TSurfComponentB.quadsConn,
                                              distTol)
+
+    # Retrieve results from Fortran
+    coor = np.array(iapi.intersectionapi.coor)
+    barsConn = np.array(iapi.intersectionapi.barsconn)
+
+    print coor
+    print barsConn
+
+    # Return intersection FE data
+    return coor, barsConn

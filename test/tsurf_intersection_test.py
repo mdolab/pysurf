@@ -16,8 +16,10 @@ cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 # Call intersection function
 pysurf.compute_intersections([cube, cylinder])
 
+'''
 # Move the cube far away
 cube.update(cube.coor + 5.0)
 
 # Recompute intersection
 pysurf.compute_intersections([cube, cylinder])
+'''

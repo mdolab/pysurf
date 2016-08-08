@@ -1,7 +1,7 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module intersectionAPI ! in
+python module intersectionAPI ! in 
     interface  ! in :intersectionAPI
         module intersectionapi ! in :intersectionAPI:intersectionAPI.F90
             use precision
@@ -36,7 +36,7 @@ python module intersectionAPI ! in
                 real(kind=realtype) dimension(3),intent(out) :: vecend
             end subroutine testtri
         end module intersectionapi
-    end interface
+    end interface 
 end python module intersectionAPI
 
 ! This file was auto-generated with f2py (version:2).
