@@ -3,15 +3,32 @@ module intersectionAPI
 use precision
 implicit none
 
+! Here we define output variables of unknown shape as attributes, so we
+! can read them from Python
+
+! Intersection FE data
+real(kind=realType), dimension(:,:), allocatable :: coor ! Intersection nodes
+integer(kind=intType), dimension(:,:), allocatable :: barsConn ! Intersection bar connectivities
+
 contains
 
 subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
                                nNodesB, nTriaB, nQuadsB, &
                                coorA, triaConnA, quadsConnA, &
-                               coorB, triaConnB, quadsConnB)
+                               coorB, triaConnB, quadsConnB, &
+                               distTol)
 
   ! This function computes the intersection curve between two
   ! triangulated surface components A and B.
+  !
+  ! INPUTS
+  !
+  ! distTol: real -> distance tolerance to merge nearby nodes in
+  !          the intersection curve.
+  !
+  ! OUTPUTS
+  ! This subroutine has no explicit outputs. It updates the variables coor, and barsConn,
+  ! which should be called from Python as attributes of the intersectionAPI module.
 
   use Intersection
   implicit none
@@ -25,10 +42,12 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   real(kind=realType), dimension(3,nNodesB), intent(in) :: coorB
   integer(kind=intType), dimension(3,nTriaB), intent(in) :: triaConnB
   integer(kind=intType), dimension(4,nQuadsB), intent(in) :: quadsConnB
+  real(kind=realType), intent(in) :: distTol
   !f2py intent(in) nNodesA, nTriaA, nQuadsA
   !f2py intent(in) nNodesB, nTriaB, nQuadsB
   !f2py intent(in) coorA, triaConnA, quadsConnA
   !f2py intent(in) coorB, triaConnB, quadsConnB
+  !f2py intent(in) distTol
 
   ! Working variables
   real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
@@ -64,6 +83,12 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   print *,size(innerTriaID_A) + size(innerQuadsID_A),'of',nTriaA + nQuadsA
   print *,'Number of interior elements in B:'
   print *,size(innerTriaID_B) + size(innerQuadsID_B),'of',nTriaB + nQuadsB
+
+  ! ADD CODE TO COMPUTE TRIANGLE INTERSECTIONS HERE
+
+  ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
+  ! will be returned to Python.
+  ! call condenseBarFEs(distTol, intCoor, barsConn, coor)
 
 end subroutine computeIntersection
 

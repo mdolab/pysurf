@@ -6,11 +6,14 @@ This file contains functions to intersect ADT objects
 import intersectionAPI as iapi
 
 # FUNCTIONS
-def compute_intersections(TSurfComponentList):
+def compute_intersections(TSurfComponentList,distTol=1e-7):
 
     '''
     This function will just compute pair-wise intersections
-    for all components given in TSurfComponentList
+    for all components given in TSurfComponentList.
+
+    distTol is a distance tolerance used to merge nearby nodes when
+    generating the intersection finite element data.
     '''
 
     # Get number of components
@@ -25,9 +28,10 @@ def compute_intersections(TSurfComponentList):
     for ii in range(numComponents):
         for jj in range(ii+1,numComponents):
             compute_pair_intersection(TSurfComponentList[ii],
-                                      TSurfComponentList[jj])
+                                      TSurfComponentList[jj],
+                                      distTol)
 
-def compute_pair_intersection(TSurfComponentA, TSurfComponentB):
+def compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
 
     '''
     This function finds intersection curves between components A and B
@@ -39,4 +43,5 @@ def compute_pair_intersection(TSurfComponentA, TSurfComponentB):
                                              TSurfComponentA.quadsConn,
                                              TSurfComponentB.coor,
                                              TSurfComponentB.triaConn,
-                                             TSurfComponentB.quadsConn)
+                                             TSurfComponentB.quadsConn,
+                                             distTol)
