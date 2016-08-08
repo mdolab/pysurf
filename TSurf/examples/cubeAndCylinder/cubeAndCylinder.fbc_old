@@ -1,4 +1,4 @@
-# family_boco file written by ICEM CFD by ney on Thu Jul 28 02:25:40 PM EDT 2016
+# family_boco file written by ICEM CFD by ney on Mon Aug 08 12:40:54 PM EDT 2016
 ## solver CGNS
 "GEOM"
 "GEOM" "color" 16663900
@@ -7,4 +7,4 @@
 "LINE"
 "LINE" "color" 16663900
 "CYLINDER"
-"CYLINDER" "color" 3405418
+"CYLINDER" "color" 3405420

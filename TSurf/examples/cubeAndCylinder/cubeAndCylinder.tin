@@ -4,6 +4,7 @@
 // written by ICEM CFD - version 14.0 on Thu Jul 28 13:49:13 2016
 // written by undo_logger - version 14.0 on Thu Jul 28 14:20:16 2016
 // written by ICEM CFD - version 14.0 on Thu Jul 28 14:25:40 2016
+// written by ICEM CFD - version 14.0 on Mon Aug  8 12:40:53 2016
 
 set_triangulation_tolerance 0.001
 define_family GEOM color 16663900
@@ -340,7 +341,7 @@ bspline
 1,1,0
 1,0,1
 1,1,1
-define_surface name srf.01.S1 family CYLINDER tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
+define_surface name srf.01.S1 family CYLINDER tetra_size 0.0049999999 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 2
 coedge 3dcurve   srf.01.C0
@@ -375,7 +376,7 @@ bspline
 0.5,0.25,0.5,1
 0.35355339059327,0.17677669529664,0.35355339059327,0.70710678118655
 0.5,0.25,0.5,1
-define_surface name srf.01.S2 family CYLINDER tetra_size 1e+10 mesh_type tris mesh_method patch_dependent
+define_surface name srf.01.S2 family CYLINDER tetra_size 0.0049999999 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 2
 coedge 3dcurve   srf.01.C1
@@ -410,7 +411,7 @@ bspline
 0.5,2.25,0.5,1
 0.35355339059327,1.5909902576697,0.35355339059327,0.70710678118655
 0.5,2.25,0.5,1
-define_surface name srf.02 family CYLINDER tetra_size 0.02 mesh_type tris mesh_method patch_dependent
+define_surface name srf.02 family CYLINDER tetra_size 0.0049999999 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 4
 coedge 3dcurve - srf.01.C1
@@ -451,7 +452,7 @@ bspline
 0.66544011451988,0.23570226039552,0.66544011451988,0.94280904158206
 0.58838834764832,0.25,0.75,1
 0.5,0.25,0.75,1
-define_surface name srf.03 family CYLINDER tetra_size 0.02 mesh_type tris mesh_method patch_dependent
+define_surface name srf.03 family CYLINDER tetra_size 0.0049999999 mesh_type tris mesh_method patch_dependent
 trim_surface n_loops 1
 loop n_curves 4
 coedge 3dcurve - srf.02e31

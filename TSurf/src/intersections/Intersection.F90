@@ -444,7 +444,56 @@ end subroutine condenseBarFEs
 
 !============================================================
 
-subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
+subroutine getAllTrias(triaConn, quadsConn, innerTriaID, innerQuadsID, allTriaConn)
+
+  implicit none
+
+  ! INPUTS
+  integer(kind=intType), dimension(:,:), intent(in) :: triaConn, quadsConn
+  integer(kind=intType), dimension(:), intent(in) :: innerTriaID, innerQuadsID
+
+  ! OUTPUTS
+  integer(kind=intType), dimension(:,:), allocatable, intent(out) :: allTriaConn
+
+  ! WORKING
+  integer(kind=intType) :: nInnerTria, nInnerQuads, ii, node1, node2, node3, node4
+
+  ! EXECUTION
+  
+  ! Get number of interior elements
+  nInnerTria = size(innerTriaID)
+  nInnerQuads = size(innerQuadsID)
+
+  ! Allocate connectivity arrays for triangles split from quads
+  allocate(allTriaConn(3, nInnerTria + nInnerQuads*2))
+
+  ! Copy connectivities of the interior triangles
+  do ii = 1,nInnerTria
+
+     allTriaConn(:,ii) = triaConn(:, innerTriaID(ii))
+
+  end do
+
+  ! Loop over every interior element
+  do ii = 1,nInnerQuads
+
+     ! Get nodes of the current quad
+     node1 = quadsConn(1, innerQuadsID(ii))
+     node2 = quadsConn(2, innerQuadsID(ii))
+     node3 = quadsConn(3, innerQuadsID(ii))
+     node4 = quadsConn(4, innerQuadsID(ii))
+
+     ! Create two triangle elements
+     allTriaConn(:, nInnerTria + 2*ii-1) = [node1, node2, node3] 
+     allTriaConn(:, nInnerTria + 2*ii)   = [node3, node4, node1]
+
+  end do
+
+end subroutine getAllTrias
+
+!============================================================
+
+subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
 
   real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
   integer(kind=intType), intent(out) :: intersect
@@ -681,8 +730,11 @@ subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X
     ! If intersect == 1 after this test, there are an infinite number of curves
     ! that intersect between these two triangles.
     ! Should probably throw an warning for this case
-    intersect = coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
+    !intersect = coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
     coplanar = 1
+
+    ! For now, we are not interested in coplanar triangle intersections
+    intersect = 0
 
   end if
 

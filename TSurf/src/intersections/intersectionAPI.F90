@@ -54,15 +54,25 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   logical :: overlap
   integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A
   integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
+  integer(kind=intType), dimension(:,:), allocatable :: allTriaConnA, allTriaConnB
+  integer(kind=intType) :: nInnerTriaA, nInnerQuadsA, nInnerTriaB, nInnerQuadsB
+  integer(kind=intType) :: ii, jj, currElemA, currElemB
+  integer(kind=intType) :: intersect
+  integer(kind=intType) :: arraySize, nAllocations, nBarsConn
+  integer(kind=intType), dimension(:,:), allocatable :: extBarsConn, extTempInt
+  real(kind=realType), dimension(:,:), allocatable :: extCoor, extTempReal
+  real(kind=realType), dimension(3) :: node1A, node2A, node3A, node4A
+  real(kind=realType), dimension(3) :: node1B, node2B, node3B, node4B
+  real(kind=realType), dimension(3) :: vecStart, vecEnd
 
   ! EXECUTION
 
   ! Compute bounding boxes for each component
-  ! call computeBBox(coorA, BBoxA)
-  ! call computeBBox(coorB, BBoxB)
+  call computeBBox(coorA, BBoxA)
+  call computeBBox(coorB, BBoxB)
 
   ! Compute bounding boxes intersection
-  ! call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+  call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
@@ -73,22 +83,134 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   end if
 
   ! Filter elements that are inside the intersected bounding box
-  ! call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
-  !                     innerTriaID_A, innerQuadsID_A)
-  ! call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
-                      ! innerTriaID_B, innerQuadsID_B)
+  call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
+                      innerTriaID_A, innerQuadsID_A)
+  call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
+                      innerTriaID_B, innerQuadsID_B)
+  
+  ! Get number of inner elements
+  nInnerTriaA = size(innerTriaID_A)
+  nInnerQuadsA = size(innerQuadsID_A)
+  nInnerTriaB = size(innerTriaID_B)
+  nInnerQuadsB = size(innerQuadsID_B)
 
   ! Print log
   print *,'Number of interior elements in A:'
-  print *,size(innerTriaID_A) + size(innerQuadsID_A),'of',nTriaA + nQuadsA
+  print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
   print *,'Number of interior elements in B:'
-  print *,size(innerTriaID_B) + size(innerQuadsID_B),'of',nTriaB + nQuadsB
+  print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
 
-  ! ADD CODE TO COMPUTE TRIANGLE INTERSECTIONS HERE
+  ! Split quads into triangles
+  call getAllTrias(triaConnA, quadsConnA, innerTriaID_A, innerQuadsID_A, allTriaConnA)
+  call getAllTrias(triaConnB, quadsConnB, innerTriaID_B, innerQuadsID_B, allTriaConnB)
+
+  ! Update number of interior triangles
+  nInnerTriaA = size(allTriaConnA,2)
+  nInnerTriaB = size(allTriaConnB,2)
+
+  ! Initialize extended connectivity arrays for the intersection curves.
+  ! These arrays will be cropped to get the actual outputs.
+  ! For now we will allocate arrays of size arraySize. We will increase them
+  ! if necessary
+  arraySize = 1000
+  allocate(extCoor(3,arraySize), extBarsConn(2,arraySize))
+
+  ! For now, we had just one allocations
+  nAllocations = 1
+
+  ! Initialize the number of intersection connectivities known so far.
+  nBarsConn = 0
+
+  print *,'max'
+  print *,allTriaConnA(1,1:5)
+  print *,allTriaConnA(2,1:5)
+  print *,allTriaConnA(3,1:5)
+  print *,allTriaConnB(1,1:5)
+  print *,allTriaConnB(2,1:5)
+  print *,allTriaConnB(3,1:5)
+
+  ! Compute all triangle-triangle intersections.
+  ! We will call every pair between triangles in A and B
+  do ii = 1,nInnerTriaA
+
+     ! Get nodes of the element in A
+     node1A = coorA(:, allTriaConnA(1,ii))
+     node2A = coorA(:, allTriaConnA(2,ii))
+     node3A = coorA(:, allTriaConnA(3,ii))
+
+     ! Now loop over the triangles of the other component
+     do jj = 1,nInnerTriaB
+
+        ! Get nodes of the element in B
+        node1B = coorB(:, allTriaConnB(1,jj))
+        node2B = coorB(:, allTriaConnB(2,jj))
+        node3B = coorB(:, allTriaConnB(3,jj))
+
+        ! Call triangle-triangle intersection routine
+        call triTriIntersect(node1A, node2A, node3A, &
+                             node1B, node2B, node3B, &
+                             intersect, vecStart, vecEnd)
+
+        print
+
+        ! Check if the triangles actually intersect
+        if (intersect .eq. 1) then
+
+           ! Increase the number of intersections elements known so far
+           nBarsConn = nBarsConn + 1
+
+           ! Check if we already extrapolated the memory allocated so far
+           if ((nBarsConn .gt. size(extBarsConn,2)) .or. (2*nBarsConn .gt. size(extCoor,2))) then
+
+              ! We need to allocate more memory
+              nAllocations = nAllocations + 1
+
+              ! REALLOCATING extCoor
+
+              ! Create temporary array
+              allocate(extTempReal(3,nAllocations*arraySize))
+
+              ! Tranfer data from original array
+              extTempReal(:,:(nAllocations-1)*arraySize) = extCoor
+
+              ! Now move the new allocation back to extCoor.
+              ! extTemp is deallocated in this process.
+              call move_alloc(extTempReal, extCoor)
+
+              ! REALLOCATING extBarsConn
+
+              ! Create temporary array
+              allocate(extTempInt(2,nAllocations*arraySize))
+
+              ! Tranfer data from original array
+              extTempInt(:,:(nAllocations-1)*arraySize) = extBarsConn
+
+              ! Now move the new allocation back to extBarsConn.
+              ! extTemp is deallocated in this process.
+              call move_alloc(extTempInt, extBarsConn)
+
+           end if
+
+           ! Assign new nodes
+           extCoor(:,2*nBarsConn-1) = vecStart
+           extCoor(:,2*nBarsConn)   = vecEnd
+
+           ! Assign new connectivity
+           extBarsConn(:,nBarsConn) = [2*nBarsConn-1, 2*nBarsConn ]
+
+        end if
+
+     end do
+
+  end do
+
+  ! Crop the extended connectivity array
+  allocate(barsConn(2,nBarsConn))
+  barsConn(:,:) = extBarsConn(:,:nBarsConn)
 
   ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
   ! will be returned to Python.
-  ! call condenseBarFEs(distTol, intCoor, barsConn, coor)
+  call condenseBarFEs(distTol, extCoor, barsConn, coor)
 
 end subroutine computeIntersection
 
