@@ -52,17 +52,17 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! Working variables
   real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
   logical :: overlap
-  integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A 
+  integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A
   integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
 
   ! EXECUTION
 
   ! Compute bounding boxes for each component
-  call computeBBox(coorA, BBoxA)
-  call computeBBox(coorB, BBoxB)
+  ! call computeBBox(coorA, BBoxA)
+  ! call computeBBox(coorB, BBoxB)
 
   ! Compute bounding boxes intersection
-  call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+  ! call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
@@ -73,10 +73,10 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   end if
 
   ! Filter elements that are inside the intersected bounding box
-  call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
-                      innerTriaID_A, innerQuadsID_A)
-  call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
-                      innerTriaID_B, innerQuadsID_B)
+  ! call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
+  !                     innerTriaID_A, innerQuadsID_A)
+  ! call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
+                      ! innerTriaID_B, innerQuadsID_B)
 
   ! Print log
   print *,'Number of interior elements in A:'
@@ -91,5 +91,21 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! call condenseBarFEs(distTol, intCoor, barsConn, coor)
 
 end subroutine computeIntersection
+
+subroutine testTri(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
+
+  ! This function computes the intersection curve between two
+  ! triangulated surface components A and B.
+
+  use Intersection
+  implicit none
+
+  real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
+  integer(kind=intType), intent(out) :: intersect
+  real(kind=realType), dimension(3), intent(out) :: vecStart, vecEnd
+
+  call triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
+
+end subroutine testTri
 
 end module

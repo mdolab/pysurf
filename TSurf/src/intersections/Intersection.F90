@@ -448,16 +448,24 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
 
   real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
   integer(kind=intType), intent(out) :: intersect
+  real(kind=realType), dimension(3), intent(out) :: vecStart, vecEnd
 
   real(kind=realType), dimension(3) :: E1, E2, N1, N2, Dir
   real(kind=realType) :: d1, du0, du1, du2, du0du1, du0du2, epsilon
   real(kind=realType) :: d2, dv0, dv1, dv2, dv0dv1, dv0dv2, maxD, bb, cc
   real(kind=realType) :: up0, up1, up2, vp0, vp1, vp2
-  real(kind=realType) :: a, b, c, d, e, f, x0, x1, y0, y1
-
-  integer(kind=intType) :: index
+  real(kind=realType) :: tv1, tv2, tu1, tu2
+  real(kind=realType) :: a, b, c, d, e, f, x0, x1, y0, y1, minParam
+  real(kind=realType) :: xx, yy, xxyy, tmp, isect1(2), isect2(2)
+  real(kind=realType) :: largestMin
+  real(kind=realType) :: intersectStart, intersectEnd, dirMag(3), startPoint(3)
+  real(kind=realType) :: U_array(3, 3), V_array(3, 3), vec1(3), vec2(3)
+  integer(kind=intType) :: index, indtu1(2), indtu2(2), indtv1(2), indtv2(2)
+  integer(kind=intType) :: coplanar
 
   epsilon = 1.e-5
+  ! Initialize intersect value so the program does not stop prematurely
+  intersect = 2
 
   ! Compute plane of triangle (V0, V1, V2)
   E1 = V1 - V0
@@ -465,6 +473,7 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
   call cross_product(E1, E2, N1)
   d1 = -dot_product(N1, V0)
 
+  ! Get distances from U points to plane defined by V points
   du0 = dot_product(N1, U0) + d1
   du1 = dot_product(N1, U1) + d1
   du2 = dot_product(N1, U2) + d1
@@ -508,7 +517,7 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
 
   ! Compute and index the largest component of D
   maxD = abs(Dir(1))
-  index = 0
+  index = 1
   bb = abs(Dir(2))
   cc = abs(Dir(3))
   if (bb > maxD) then
@@ -516,7 +525,6 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
     index = 2
   end if
   if (cc > maxD) then
-    maxD = cc
     index = 3
   end if
 
@@ -529,48 +537,97 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect)
   up1 = U1(index)
   up2 = U2(index)
 
-  call newcomputeIntervals(vp0, vp1, vp2, dv0, dv1, dv2, dv0dv1, dv0dv2, a, b, c, x0, x1, N1, V0, V1, V2, U0, U1, U2)
+  call newcomputeIntervals(vp0, vp1, vp2, dv0, dv1, dv2, dv0dv1, dv0dv2,&
+    a, b, c, x0, x1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, tv1, tv2, indtv1, indtv2)
 
-  call newcomputeIntervals(up0, up1, up2, du0, du1, du2, du0du1, du0du2, d, e, f, y0, y1, N1, V0, V1, V2, U0, U1, U2)
+  if (intersect .eq. 0) return
 
-  ! xx = x0 * x1
-  ! yy = y0 * y1
-  ! xxyy = xx * yy
-  !
-  ! tmp = a * xxyy
-  ! isect1(1) = tmp + b * x1 * yy
-  ! isect1(2) = tmp + c * x0 * yy
-  !
-  ! tmp = d * xxyy
-  ! isect2(1) = tmp + e * xx * y1
-  ! isect2(2) = tmp + f * xx * y0
-  !
-  ! call sort(isect1(1), isect1(2))
-  ! call sort(isect2(1), isect2(2))
-  !
-  ! if(isect1(2) .lt. isect2(1) .or. isect2(2) .lt. isect1(1)) return 0
-  ! return 1
+  call newcomputeIntervals(up0, up1, up2, du0, du1, du2, du0du1, du0du2,&
+    d, e, f, y0, y1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, tu1, tu2, indtu1, indtu2)
 
-  intersect = 1
+  if (intersect .eq. 0) return
 
+  xx = x0 * x1
+  yy = y0 * y1
+  xxyy = xx * yy
+
+  tmp = a * xxyy
+  isect1(1) = tmp + b * x1 * yy
+  isect1(2) = tmp + c * x0 * yy
+
+  tmp = d * xxyy
+  isect2(1) = tmp + e * y1 * xx
+  isect2(2) = tmp + f * y0 * xx
+
+  ! isect is where on L the triangle intersects
+  ! isect1 is for the first triangle's projection onto L
+  if (maxval(isect1) .lt. minval(isect2) .or. maxval(isect2) .lt. minval(isect1)) then
+    intersect = 0
+  else if (coplanar .ne. 1) then
+    largestMin = max(minval(isect1), minval(isect2))
+
+    U_array(:, 1) = U0
+    U_array(:, 2) = U1
+    U_array(:, 3) = U2
+
+    V_array(:, 1) = V0
+    V_array(:, 2) = V1
+    V_array(:, 3) = V2
+
+    if (isect1(1) .eq. largestMin) then
+      vec1 = V_array(:, indtv2(1))
+      vec2 = V_array(:, indtv2(2))
+      startPoint = tv2 * (vec1 - vec2) + vec2
+    else if (isect1(2) .eq. largestMin) then
+      vec1 = V_array(:, indtv1(1))
+      vec2 = V_array(:, indtv1(2))
+      startPoint = tv1 * (vec1 - vec2) + vec2
+    else if (isect2(1) .eq. largestMin) then
+      vec1 = U_array(:, indtu2(1))
+      vec2 = U_array(:, indtu2(2))
+      startPoint = tu2 * (vec1 - vec2) + vec2
+    else if (isect2(2) .eq. largestMin) then
+      vec1 = U_array(:, indtu1(1))
+      vec2 = U_array(:, indtu1(2))
+      startPoint = tu1 * (vec1 - vec2) + vec2
+    end if
+
+    isect1 = isect1 / xxyy
+    isect2 = isect2 / xxyy
+    intersectStart = max(isect1(1), isect2(1))
+    intersectEnd = min(isect1(2), isect2(2))
+    Dir = Dir / sqrt(dot_product(Dir, Dir))
+    dirMag = Dir / Dir(index)
+    vecStart = startPoint
+    vecEnd = (intersectEnd - intersectStart) * dirMag + startPoint
+    intersect = 1
+  end if
 
 end subroutine triTriIntersect
 
-subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X0, X1, N1, V0, V1, V2, U0, U1, U2)
+subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X0,&
+  X1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, t1, t2, indt1, indt2)
 
   implicit none
 
   real(kind=realType), intent(in) :: VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2
   real(kind=realType), dimension(3), intent(in) :: N1, V0, V1, V2, U0, U1, U2
   real(kind=realType), intent(inout) :: A, B, C, X0, X1
-  integer(kind=intType) :: ans
+  integer(kind=intType), intent(out) :: intersect, coplanar, indt1(2), indt2(2)
+  real(kind=realType), intent(out) :: t1, t2
 
+  ! Test if d0 and d1 are on the same side
   if (D0D1 .gt. 0.0) then
     A = VV2
     B = (VV0 - VV2) * D2
     C = (VV1 - VV2) * D2
     X0 = D2 - D0
     X1 = D2 - D1
+
+    t1 = 1. / (1. + abs(D2) / abs(D1))
+    indt1 = [3, 2]
+    t2 = 1. / (1. + abs(D2) / abs(D0))
+    indt2 = [3, 1]
 
   else if (D0D2 .gt. 0.0) then
     A = VV1
@@ -579,12 +636,22 @@ subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X
     X0 = D1 - D0
     X1 = D1 - D2
 
+    t1 = 1. / (1. + abs(D1) / abs(D2))
+    indt1 = [2, 3]
+    t2 = 1. / (1. + abs(D1) / abs(D0))
+    indt2 = [2, 1]
+
   else if ((D1*D2 .gt. 0.0) .or. (D0 .ne. 0.0)) then
     A = VV0
     B = (VV1 - VV0) * D0
     C = (VV2 - VV0) * D0
     X0 = D0 - D1
     X1 = D0 - D2
+
+    t1 = 1. / (1. + abs(D0) / abs(D2))
+    indt1 = [1, 3]
+    t2 = 1. / (1. + abs(D0) / abs(D1))
+    indt2 = [1, 2]
 
   else if (D1 .ne. 0.0) then
     A = VV1
@@ -593,6 +660,11 @@ subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X
     X0 = D1 - D0
     X1 = D1 - D2
 
+    t1 = 1. / (1. + abs(D1) / abs(D2))
+    indt1 = [2, 3]
+    t2 = 1. / (1. + abs(D1) / abs(D0))
+    indt2 = [2, 1]
+
   else if (D2 .ne. 0.0) then
     A = VV2
     B = (VV0 - VV2) * D2
@@ -600,129 +672,159 @@ subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X
     X0 = D2 - D0
     X1 = D2 - D1
 
+    t1 = 1. / (1. + abs(D2) / abs(D1))
+    indt1 = [3, 2]
+    t2 = 1. / (1. + abs(D2) / abs(D0))
+    indt2 = [3, 1]
+
   else
-    print *,coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
+    ! If intersect == 1 after this test, there are an infinite number of curves
+    ! that intersect between these two triangles.
+    ! Should probably throw an warning for this case
+    intersect = coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
+    coplanar = 1
 
   end if
 
 end subroutine newcomputeIntervals
 
-function coplanarTriTri(N, V0, V1, V2, U0, U1, U2) result(ans)
+function coplanarTriTri(N, V0, V1, V2, U0, U1, U2) result(intersect)
 
   implicit none
 
   real(kind=realType), dimension(3), intent(in) :: N, V0, V1, V2, U0, U1, U2
-  integer(kind=intType) :: ans
+  integer(kind=intType) :: intersect
   real(kind=realType), dimension(3) :: A
   integer(kind=intType) :: i0, i1
 
-   ! First project onto an axis-aligned plane, that maximizes the area
-   ! of the triangles, compute indices: i0,i1.
+  ! First project onto an axis-aligned plane, that maximizes the area
+  ! of the triangles, compute indices: i0,i1.
 
-   A(1) = abs(N(1))
-   A(2) = abs(N(2))
-   A(3) = abs(N(3))
+  A(1) = abs(N(1))
+  A(2) = abs(N(2))
+  A(3) = abs(N(3))
 
-   if (A(1) .gt. A(2)) then
+  if (A(1) .gt. A(2)) then
     if (A(1) .gt. A(3)) then
-          i0 = 2
-          i1 = 3
-      else
-          i0 = 1
-          i1 = 2
-        end if
- else
-      if (A(3) .gt. A(2)) then
-          i0 = 1
-          i1 = 2
-      else
-          i0 = 1
-          i1 = 3
-        end if
-      end if
+      i0 = 2
+      i1 = 3
+    else
+      i0 = 1
+      i1 = 2
+    end if
+  else
+    if (A(3) .gt. A(2)) then
+      i0 = 1
+      i1 = 2
+    else
+      i0 = 1
+      i1 = 3
+    end if
+  end if
 
-    ! ! Test all edges of triangle 1 against the edges of triangle 2
-    ! call edgeAgainstTriEdges(V0, V1, U0, U1, U2)
-    ! call edgeAgainstTriEdges(V1, V2, U0, U1, U2)
-    ! call edgeAgainstTriEdges(V2, V0, U0, U1, U2)
-    !
-    ! ! Finally, test if tri1 is totally contained in tri2 or vice versa
-    ! call pointInTri(V0, U0, U1, U2)
-    ! call pointInTri(U0, V0, V1, V2)
+  ! Test all edges of triangle 1 against the edges of triangle 2
+  intersect = edgeAgainstTriEdges(V0, V1, U0, U1, U2, i0, i1)
+  if (intersect .eq. 1) return
+  intersect = edgeAgainstTriEdges(V1, V2, U0, U1, U2, i0, i1)
+  if (intersect .eq. 1) return
+  intersect = edgeAgainstTriEdges(V2, V0, U0, U1, U2, i0, i1)
+  if (intersect .eq. 1) return
 
-    ans = 0
+  ! Finally, test if tri1 is totally contained in tri2 or vice versa
+  intersect = pointInTri(V0, U0, U1, U2, i0, i1)
+  if (intersect .eq. 1) return
+  intersect = pointInTri(U0, V0, V1, V2, i0, i1)
+  if (intersect .eq. 1) return
 
 end function coplanarTriTri
 
-! subroutine edgeAgainstTriEdges(V0,V1,U0,U1,U2)
-!
-!   implicit none
-!
-!   real(kind=realType), dimension(3), intent(in) :: V0, V1, U0, U1, U2
-!
-!   float Ax,Ay,Bx,By,Cx,Cy,e,d,f;
-!
-!   Ax = V1(i0) - V0(i0)
-!   Ay = V1(i1) - V0(i1)
-!
-!   EDGE_EDGE_TEST(V0,U0,U1)
-!   EDGE_EDGE_TEST(V0,U1,U2)
-!   EDGE_EDGE_TEST(V0,U2,U0)
-!
-! end subroutine edgeAgainstTriEdges
-!
-! function EDGE_EDGE_TEST(V0, U0, U1)
-!
-!   implicit none
-!
-!   real(kind=realType), dimension(3), intent(in) :: V0, U0, U1
-!
-!   Bx = U0(i0) - U1(i0)
-!   By = U0(i1) - U1(i1)
-!   Cx = V0(i0) - U0(i0)
-!   Cy = V0(i1) - U0(i1)
-!   f = Ay * Bx - Ax * By
-!   d = By * Cx - Bx * Cy
-!
-!   if ((f .gt. 0 .and. d .ge. 0 .and. d .leq. f) .or. (f .lt. 0 .and. d .leq. 0 .and. d .geq. f))
-!
-!     e = Ax * Cy - Ay * Cx
-!     if (f>0) then
-!       if(e .geq. 0 .and. e .leq. f) return 1
-!     else
-!       if (e .leq. 0 .and. e .geq. f) return 1
-!     end if
-!   end if
-!
-!
-! end function EDGE_EDGE_TEST
-!
-! function POINT_IN_TRI(V0,U0,U1,U2)
-!
-!   implicit none
-!
-!   real(kind=realType), dimension(3), intent(in) :: V0, U0, U1, U2
-!
-!   a = U1(i1) - U0(i1)
-!   b = -(U1(i0) - U0(i0))
-!   c = -a * U0(i0) - b * U0(i1)
-!   d0 = a * V0(i0) + b * V0(i1) + c
-!
-!   a = U2(i1) - U1(i1)
-!   b = -(U2(i0) - U1(i0))
-!   c = -a * U1(i0) - b * U1(i1)
-!   d1 = a * V0(i0) + b * V0(i1) + c
-!
-!   a = U0(i1) - U2(i1)
-!   b = -(U0(i0) - U2(i0))
-!   c = -a * U2(i0) - b * U2(i1)
-!   d2 = a * V0(i0) + b * V0(i1) + c
-!
-!   if(d0 * d1 .gt. 0.0)
-!     if(d0 * d2 .gt. 0.0) return 1
-!   end if
-!
-! end function POINT_IN_TRI
+function pointInTri(V0, U0, U1, U2, i0, i1) result(intersect)
+
+  implicit none
+
+  real(kind=realType), dimension(3), intent(in) :: V0, U0, U1, U2
+  integer(kind=intType) :: intersect
+  real(kind=realType) :: a, b, c, d0, d1, d2
+  integer(kind=intType) :: i0, i1
+
+  intersect = 0
+  a = U1(i1) - U0(i1)
+  b = -(U1(i0) - U0(i0))
+  c = -a * U0(i0) - b * U0(i1)
+  d0 = a * V0(i0) + b * V0(i1) + c
+
+  a = U2(i1) - U1(i1)
+  b = -(U2(i0) - U1(i0))
+  c = -a * U1(i0) - b * U1(i1)
+  d1 = a * V0(i0) + b * V0(i1) + c
+
+  a = U0(i1) - U2(i1)
+  b = -(U0(i0) - U2(i0))
+  c = -a * U2(i0) - b * U2(i1)
+  d2 = a * V0(i0) + b * V0(i1) + c
+
+  if (d0 * d1 .gt. 0.) then
+    if (d0 * d2 .gt. 0.) intersect = 1
+    return
+  end if
+
+end function pointInTri
+
+
+function edgeAgainstTriEdges(V0,V1,U0,U1,U2, i0, i1) result(intersect)
+
+  implicit none
+
+  real(kind=realType), dimension(3), intent(in) :: V0, V1, U0, U1, U2
+  integer(kind=intType), intent(in) :: i0, i1
+  integer(kind=intType) :: intersect
+
+  real(kind=realType) :: Ax, Ay, Bx, By, Cx, Cy, e, d, f
+
+  Ax = V1(i0) - V0(i0)
+  Ay = V1(i1) - V0(i1)
+
+  intersect = EDGE_EDGE_TEST(V0, U0, U1, Ax, Ay, i0, i1)
+  if (intersect .eq. 1) return
+  intersect = EDGE_EDGE_TEST(V0, U1, U2, Ax, Ay, i0, i1)
+  if (intersect .eq. 1) return
+  intersect = EDGE_EDGE_TEST(V0, U2, U0, Ax, Ay, i0, i1)
+  if (intersect .eq. 1) return
+
+end function edgeAgainstTriEdges
+
+function EDGE_EDGE_TEST(V0, U0, U1, Ax, Ay, i0, i1) result(intersect)
+
+  implicit none
+
+  real(kind=realType), dimension(3), intent(in) :: V0, U0, U1
+  real(kind=realType), intent(in) :: Ax, Ay
+  integer(kind=intType), intent(in) :: i0, i1
+  real(kind=realType) :: Bx, By, Cx, Cy, f, d, e
+
+  integer(kind=intType) :: intersect
+
+  Bx = U0(i0) - U1(i0)
+  By = U0(i1) - U1(i1)
+  Cx = V0(i0) - U0(i0)
+  Cy = V0(i1) - U0(i1)
+  f = Ay * Bx - Ax * By
+  d = By * Cx - Bx * Cy
+
+  intersect = 0
+  if (((f .gt. 0) .and. (d .ge. 0) .and. (d .le. f)) .or. &
+    ((f .lt. 0) .and. (d .le. 0) .and. (d .ge. f))) then
+    e = Ax * Cy - Ay * Cx
+    if (f>0) then
+      if((e .ge. 0) .and. (e .le. f)) intersect = 1
+      return
+    else
+      if ((e .le. 0) .and. (e .ge. f)) intersect = 1
+      return
+    end if
+  end if
+
+end function EDGE_EDGE_TEST
 
 subroutine cross_product(A, B, C)
 
@@ -737,5 +839,19 @@ subroutine cross_product(A, B, C)
 
 end subroutine cross_product
 
+subroutine sort(a, b)
+
+  implicit none
+
+  real(kind=realType), intent(inout) :: a, b
+  real(kind=realType) :: c
+
+  if (a .gt. b) then
+    c = a
+    a = b
+    b = c
+  end if
+
+end subroutine sort
 
 end module Intersection
