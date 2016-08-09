@@ -51,5 +51,8 @@ def compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
     coor = np.array(iapi.intersectionapi.coor)
     barsConn = np.array(iapi.intersectionapi.barsconn)
 
+    print coor
+    print barsConn
+
     # Return intersection FE data
-    return coor, barsConn
+    # return coor, barsConn

@@ -498,6 +498,8 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   ! This subroutine computes the line vector of intersection between two triangles
   ! John Jasa - 2016-08
   !
+  ! Adapted from Moller's 1997 paper "A Fast Triangle-Triangle Intersection Test"
+  !
   ! INPUTS:
   !
   ! V0: real(3) -> coordinates (x,y,z) of the first node of triangle V
@@ -523,11 +525,9 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   real(kind=realType) :: tv1, tv2, tu1, tu2
   real(kind=realType) :: a, b, c, d, e, f, x0, x1, y0, y1, minParam
   real(kind=realType) :: xx, yy, xxyy, tmp, isect1(2), isect2(2)
-  real(kind=realType) :: largestMin
-  real(kind=realType) :: intersectStart, intersectEnd, dirMag(3), startPoint(3)
-  real(kind=realType) :: U_array(3, 3), V_array(3, 3), vec1(3), vec2(3)
-  integer(kind=intType) :: index, indtu1(2), indtu2(2), indtv1(2), indtv2(2)
-  integer(kind=intType) :: coplanar
+  real(kind=realType), dimension(3) :: isectpointA1, isectpointA2, isectpointB1, isectpointB2
+  integer(kind=intType) :: index
+  integer(kind=intType) :: coplanar, smallest1, smallest2
 
   epsilon = 1.e-5
 
@@ -605,145 +605,117 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   up1 = U1(index)
   up2 = U2(index)
 
-  call newcomputeIntervals(vp0, vp1, vp2, dv0, dv1, dv2, dv0dv1, dv0dv2,&
-    a, b, c, x0, x1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, tv1, tv2, indtv1, indtv2)
+  call compute_intervals_isectline(V0, V1, V2, vp0, vp1, vp2, dv0, dv1, dv2, &
+				       dv0dv1, dv0dv2, &
+               isect1(1), isect1(2), isectpointA1, isectpointA2, coplanar, intersect)
 
   if (intersect .eq. 0) return
 
-  call newcomputeIntervals(up0, up1, up2, du0, du1, du2, du0du1, du0du2,&
-    d, e, f, y0, y1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, tu1, tu2, indtu1, indtu2)
+  call compute_intervals_isectline(U0, U1, U2, up0, up1, up2, du0, du1, du2, &
+			      du0du1, du0du2, &
+            isect2(1), isect2(2), isectpointB1, isectpointB2, coplanar, intersect)
 
   if (intersect .eq. 0) return
 
-  xx = x0 * x1
-  yy = y0 * y1
-  xxyy = xx * yy
-
-  tmp = a * xxyy
-  isect1(1) = tmp + b * x1 * yy
-  isect1(2) = tmp + c * x0 * yy
-
-  tmp = d * xxyy
-  isect2(1) = tmp + e * y1 * xx
-  isect2(2) = tmp + f * y0 * xx
+  call sort(isect1(1), isect1(2), smallest1)
+  call sort(isect2(1), isect2(2), smallest2)
 
   ! isect is where on L the triangle intersects
   ! isect1 is for the first triangle's projection onto L
-  if (maxval(isect1) .lt. minval(isect2) .or. maxval(isect2) .lt. minval(isect1)) then
+  if ((isect1(2) .lt. isect2(1)) .or. (isect2(2) .lt. isect1(1))) then
     intersect = 0
   else if (coplanar .ne. 1) then
-    largestMin = max(minval(isect1), minval(isect2))
 
-    U_array(:, 1) = U0
-    U_array(:, 2) = U1
-    U_array(:, 3) = U2
+    if (isect2(1) .lt. isect1(1)) then
 
-    V_array(:, 1) = V0
-    V_array(:, 2) = V1
-    V_array(:, 3) = V2
+      if (smallest1 .eq. 0) then
+        vecStart = isectpointA1
+      else
+        vecStart = isectpointA2
+      end if
 
-    if (isect1(1) .eq. largestMin) then
-      vec1 = V_array(:, indtv2(1))
-      vec2 = V_array(:, indtv2(2))
-      startPoint = tv2 * (vec1 - vec2) + vec2
-    else if (isect1(2) .eq. largestMin) then
-      vec1 = V_array(:, indtv1(1))
-      vec2 = V_array(:, indtv1(2))
-      startPoint = tv1 * (vec1 - vec2) + vec2
-    else if (isect2(1) .eq. largestMin) then
-      vec1 = U_array(:, indtu2(1))
-      vec2 = U_array(:, indtu2(2))
-      startPoint = tu2 * (vec1 - vec2) + vec2
-    else if (isect2(2) .eq. largestMin) then
-      vec1 = U_array(:, indtu1(1))
-      vec2 = U_array(:, indtu1(2))
-      startPoint = tu1 * (vec1 - vec2) + vec2
+      if (isect2(2) .lt. isect1(2)) then
+
+        if (smallest2 .eq. 0) then
+          vecEnd = isectpointB2
+        else
+          vecEnd = isectpointB1
+        end if
+
+      else
+
+        if (smallest1 == 0) then
+          vecEnd = isectpointA2
+        else
+          vecEnd = isectpointA1
+        end if
+
+      end if
+
+    else
+
+      if (smallest2 .eq. 0) then
+        vecStart = isectpointB1
+      else
+        vecStart = isectpointB2
+      end if
+
+      if (isect2(2) .gt. isect1(2)) then
+
+        if (smallest1 .eq. 0) then
+          vecEnd = isectpointA2
+        else
+          vecEnd = isectpointA1
+        end if
+
+      else
+
+        if (smallest2 .eq. 0) then
+          vecEnd = isectpointB2
+        else
+          vecEnd = isectpointB1
+        end if
+
+      end if
+
     end if
 
-    isect1 = isect1 / xxyy
-    isect2 = isect2 / xxyy
-    intersectStart = max(isect1(1), isect2(1))
-    intersectEnd = min(isect1(2), isect2(2))
-    Dir = Dir / sqrt(dot_product(Dir, Dir))
-    dirMag = Dir / Dir(index)
-    vecStart = startPoint
-    vecEnd = (intersectEnd - intersectStart) * dirMag + startPoint
     intersect = 1
+
   end if
 
 end subroutine triTriIntersect
 
-subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X0,&
-  X1, N1, V0, V1, V2, U0, U1, U2, intersect, coplanar, t1, t2, indt1, indt2)
+subroutine compute_intervals_isectline(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D1, D2, &
+  			                           D0D1, D0D2, isect0, isect1, isectpoint0, isectpoint1, coplanar, intersect)
 
   implicit none
 
   real(kind=realType), intent(in) :: VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2
-  real(kind=realType), dimension(3), intent(in) :: N1, V0, V1, V2, U0, U1, U2
-  real(kind=realType), intent(inout) :: A, B, C, X0, X1
-  integer(kind=intType), intent(out) :: intersect, coplanar, indt1(2), indt2(2)
-  real(kind=realType), intent(out) :: t1, t2
+  real(kind=realType), dimension(3), intent(in) :: VERT0, VERT1, VERT2
+  real(kind=realType), intent(out) :: isectpoint0(3), isectpoint1(3), isect0, isect1
+  integer(kind=intType), intent(out) :: coplanar, intersect
 
   ! Test if d0 and d1 are on the same side
   if (D0D1 .gt. 0.0) then
-    A = VV2
-    B = (VV0 - VV2) * D2
-    C = (VV1 - VV2) * D2
-    X0 = D2 - D0
-    X1 = D2 - D1
-
-    t1 = 1. / (1. + abs(D2) / abs(D1))
-    indt1 = [3, 2]
-    t2 = 1. / (1. + abs(D2) / abs(D0))
-    indt2 = [3, 1]
+    call isect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
+      isect0, isect1, isectpoint0, isectpoint1)
 
   else if (D0D2 .gt. 0.0) then
-    A = VV1
-    B = (VV0 - VV1) * D1
-    C = (VV2 - VV1) * D1
-    X0 = D1 - D0
-    X1 = D1 - D2
-
-    t1 = 1. / (1. + abs(D1) / abs(D2))
-    indt1 = [2, 3]
-    t2 = 1. / (1. + abs(D1) / abs(D0))
-    indt2 = [2, 1]
+    call isect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
+      isect0, isect1, isectpoint0, isectpoint1)
 
   else if ((D1*D2 .gt. 0.0) .or. (D0 .ne. 0.0)) then
-    A = VV0
-    B = (VV1 - VV0) * D0
-    C = (VV2 - VV0) * D0
-    X0 = D0 - D1
-    X1 = D0 - D2
-
-    t1 = 1. / (1. + abs(D0) / abs(D2))
-    indt1 = [1, 3]
-    t2 = 1. / (1. + abs(D0) / abs(D1))
-    indt2 = [1, 2]
+    call isect2(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D1, D2, &
+      isect0, isect1, isectpoint0, isectpoint1)
 
   else if (D1 .ne. 0.0) then
-    A = VV1
-    B = (VV0 - VV1) * D1
-    C = (VV2 - VV1) * D1
-    X0 = D1 - D0
-    X1 = D1 - D2
-
-    t1 = 1. / (1. + abs(D1) / abs(D2))
-    indt1 = [2, 3]
-    t2 = 1. / (1. + abs(D1) / abs(D0))
-    indt2 = [2, 1]
+    call isect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
+      isect0, isect1, isectpoint0, isectpoint1)
 
   else if (D2 .ne. 0.0) then
-    A = VV2
-    B = (VV0 - VV2) * D2
-    C = (VV1 - VV2) * D2
-    X0 = D2 - D0
-    X1 = D2 - D1
-
-    t1 = 1. / (1. + abs(D2) / abs(D1))
-    indt1 = [3, 2]
-    t2 = 1. / (1. + abs(D2) / abs(D0))
-    indt2 = [3, 1]
+    call isect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
+      isect0, isect1, isectpoint0, isectpoint1)
 
   else
     ! If intersect == 1 after this test, there are an infinite number of curves
@@ -757,7 +729,33 @@ subroutine newcomputeIntervals(VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2, A, B, C, X
 
   end if
 
-end subroutine newcomputeIntervals
+end subroutine compute_intervals_isectline
+
+subroutine isect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
+	     D0, D1, D2, isect0, isect1, isectpoint0, isectpoint1)
+
+  implicit none
+
+  real(kind=realType), intent(in) :: VV0, VV1, VV2, D0, D1, D2
+  real(kind=realType), dimension(3), intent(in) :: VTX0, VTX1, VTX2
+  real(kind=realType), intent(out) :: isect0, isect1, isectpoint0(3), isectpoint1(3)
+
+  real(kind=realType) :: tmp
+  real(kind=realType), dimension(3) :: diff
+
+  tmp = D0 / (D0 - D1)
+  isect0 = VV0 + (VV1 - VV0) * tmp
+  diff = VTX1 - VTX0
+  diff = diff * tmp
+  isectpoint0 = diff + VTX0
+
+  tmp = D0 / (D0 - D2)
+  isect1 = VV0 + (VV2 - VV0) * tmp
+  diff = VTX2 - VTX0
+  diff = diff * tmp
+  isectpoint1 = diff + VTX0
+
+end subroutine isect2
 
 function coplanarTriTri(N, V0, V1, V2, U0, U1, U2) result(intersect)
 
@@ -910,17 +908,21 @@ subroutine cross_product(A, B, C)
 
 end subroutine cross_product
 
-subroutine sort(a, b)
+subroutine sort(a, b, smallest)
 
   implicit none
 
   real(kind=realType), intent(inout) :: a, b
+  integer(kind=intType), intent(out) :: smallest
   real(kind=realType) :: c
 
   if (a .gt. b) then
     c = a
     a = b
     b = c
+    smallest = 1
+  else
+    smallest = 0
   end if
 
 end subroutine sort

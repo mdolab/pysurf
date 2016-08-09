@@ -43,7 +43,7 @@ tri2 = np.array([[-.5, -.5, -.5],
                  [.5, .5, .5],
                  [1., 0., 0.]])
 
-find_int_and_plot(tri1, tri2)
+# find_int_and_plot(tri1, tri2)
 
 ###################################
 # Orthogonal and intersect
@@ -55,7 +55,7 @@ tri2 = np.array([[-2., 1., -1.],
                  [2., 1., -1.],
                  [0., 1., 2.]])
 
-find_int_and_plot(tri1, tri2)
+# find_int_and_plot(tri1, tri2)
 
 ###################################
 # Askew and intersect
@@ -67,8 +67,7 @@ tri2 = np.array([[-2., 1., -1.],
                  [2., 1., -1.],
                  [0., 1., 2.]])
 
-find_int_and_plot(tri1, tri2)
-
+# find_int_and_plot(tri1, tri2)
 
 ###################################
 # Coplanar and fully enclosed
@@ -80,7 +79,7 @@ tri2 = np.array([[-1., 1., 0.],
                  [1., 1., 0.],
                  [0., -1., 0.]])
 
-find_int_and_plot(tri1, tri2)
+# find_int_and_plot(tri1, tri2)
 
 ###################################
 # Coplanar and share a side
@@ -92,4 +91,13 @@ tri2 = np.array([[-1., 0., 0.],
                  [1., 0., 0.],
                  [0., 1., 0.]])
 
-find_int_and_plot(tri1, tri2)
+# find_int_and_plot(tri1, tri2)
+
+
+###################################
+for i in range(100):
+    tri1 = np.random.rand(3, 3)
+
+    tri2 = np.random.rand(3, 3)
+
+    find_int_and_plot(tri1, tri2)
