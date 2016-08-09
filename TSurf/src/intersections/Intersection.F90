@@ -534,9 +534,6 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   integer(kind=intType) :: index
   integer(kind=intType) :: coplanar, smallest1, smallest2
 
-  ! Small value to avoid numerical issues when comparing near-zero values
-  epsilon = 1.e-5
-
   ! Initialize intersect and coplanar values so the program does not stop prematurely
   intersect = 2
   coplanar = 0
@@ -551,11 +548,6 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   du0 = dot_product(N1, U0) + d1
   du1 = dot_product(N1, U1) + d1
   du2 = dot_product(N1, U2) + d1
-
-  ! If the distances are sufficiently small, set them to 0.
-  if (abs(du0)<EPSILON) du0 = 0.0
-  if (abs(du1)<EPSILON) du1 = 0.0
-  if (abs(du2)<EPSILON) du2 = 0.0
 
   ! Compute the signed distance product to see which side of the plane each point is on
   du0du1 = du0 * du1
@@ -578,11 +570,6 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   dv0 = dot_product(N2, V0) + d2
   dv1 = dot_product(N2, V1) + d2
   dv2 = dot_product(N2, V2) + d2
-
-  ! If the distances are sufficiently small, set them to 0.
-  if (abs(dv0)<EPSILON) dv0 = 0.0
-  if (abs(dv1)<EPSILON) dv1 = 0.0
-  if (abs(dv2)<EPSILON) dv2 = 0.0
 
   ! Compute the signed distance product to see which side of the plane each point is on
   dv0dv1 = dv0 * dv1
@@ -728,23 +715,27 @@ subroutine compute_intervals_isectline(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D
 
   ! Test if d0 and d1 are on the same side
   if (D0D1 .gt. 0.0) then
-    call isect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
+    call intersect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
       isect0, isect1, isectpoint0, isectpoint1)
 
+  ! Test if d0 and d2 are on the same side
   else if (D0D2 .gt. 0.0) then
-    call isect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
+    call intersect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
       isect0, isect1, isectpoint0, isectpoint1)
 
+  ! Test if d1 and d2 are on the same side or if d0 is not equal to 0
   else if ((D1*D2 .gt. 0.0) .or. (D0 .ne. 0.0)) then
-    call isect2(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D1, D2, &
+    call intersect2(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D1, D2, &
       isect0, isect1, isectpoint0, isectpoint1)
 
+  ! Called only if d0 is 0
   else if (D1 .ne. 0.0) then
-    call isect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
+    call intersect2(VERT1, VERT0, VERT2, VV1, VV0, VV2, D1, D0, D2, &
       isect0, isect1, isectpoint0, isectpoint1)
 
+  ! Called only if d1 and d0 is 0
   else if (D2 .ne. 0.0) then
-    call isect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
+    call intersect2(VERT2, VERT0, VERT1, VV2, VV0, VV1, D2, D0, D1, &
       isect0, isect1, isectpoint0, isectpoint1)
 
   else
@@ -757,7 +748,7 @@ subroutine compute_intervals_isectline(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D
 
 end subroutine compute_intervals_isectline
 
-subroutine isect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
+subroutine intersect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
 	     D0, D1, D2, isect0, isect1, isectpoint0, isectpoint1)
 
   implicit none
@@ -781,7 +772,7 @@ subroutine isect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
   diff = diff * tmp
   isectpoint1 = diff + VTX0
 
-end subroutine isect2
+end subroutine intersect2
 
 function coplanarTriTri(N, V0, V1, V2, U0, U1, U2) result(intersect)
 
