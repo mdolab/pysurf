@@ -44,8 +44,8 @@ python module adtAPI ! in
                 integer(kind=inttype) intent(in) :: ntria
                 integer(kind=inttype) intent(in) :: nquads
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
-                real(kind=realtype) dimension(3,ntria),intent(in) :: triaconn
-                real(kind=realtype) dimension(4,nquads),intent(in) :: quadsconn
+                integer(kind=inttype) dimension(3,ntria),intent(in) :: triaconn
+                integer(kind=inttype) dimension(4,nquads),intent(in) :: quadsconn
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormals
             end subroutine computenodalnormals
         end module adtapi
