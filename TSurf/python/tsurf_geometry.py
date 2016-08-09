@@ -75,10 +75,13 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
         iBarsEnd = curveBarsPtr[iCurve+1]-1
 
         # Take the bar connectivity slice and reorder it
+        print barsConn[:,iBarsStart:iBarsEnd]
         sortedConn = FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())
 
+        print sortedConn
+
         # Check for failures
-        if sortedConn is not None:
+        if (sortedConn is not None) and (len(sortedConn)==1):
             sortedConn = np.array(sortedConn).T
         else:
             # Just use the original connectivity
@@ -465,7 +468,7 @@ def FEsort(barsConn):
     # e.g. [[[2,3,4],[3,4,5]],[[1,7],[7,8]]]
 
     # Initialize FE array for each curve
-    newConnFE = [np.zeros((2,len(curve)-1)) for curve in newConn]
+    newConnFE = [np.zeros((2,len(curve)-1),dtype=int) for curve in newConn]
 
     # Fill FE data for each curve
     for curveID in range(len(newConn)):
