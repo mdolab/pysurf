@@ -11,7 +11,7 @@ python module curveSearch ! in
                 integer(kind=inttype) intent(in) :: nbars
                 real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
-                real(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
+                integer(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
                 real(kind=realtype) dimension(3,nxyz),intent(inout) :: allprojpoints
                 real(kind=realtype) dimension(3,nxyz),intent(inout) :: tangents
                 real(kind=realtype) dimension(nxyz),intent(inout) :: alldist
