@@ -33,6 +33,7 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
     for ii in range(numComponents):
         for jj in range(ii+1,numComponents):
 
+
             coor, barsConn = _compute_pair_intersection(TSurfComponentList[ii],
                                                        TSurfComponentList[jj],
                                                        distTol)
