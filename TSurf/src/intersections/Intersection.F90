@@ -646,6 +646,10 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   if ((isect1(2) .lt. isect2(1)) .or. (isect2(2) .lt. isect1(1))) then
     intersect = 0
 
+  ! If the intersection is only a point, we do not treat it as an intersection
+  else if (max(isect1(1), isect2(1)) .eq. min(isect1(2), isect2(2))) then
+    intersect = 0
+
   ! Only continue if the triangles are not coplanar.
   ! Choose the triangle edges that intersect the intersection line in the
   ! most restrictive interval.
