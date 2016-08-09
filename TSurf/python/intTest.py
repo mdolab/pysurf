@@ -17,44 +17,50 @@ def find_int_and_plot(tri1, tri2, ax):
 
     b, s, e = tt(u0, u1, u2, v0, v1, v2)
 
-    ax.plot([u0[0], u1[0]], [u0[1], u1[1]], [u0[2], u1[2]], color='b')
-    ax.plot([u1[0], u2[0]], [u1[1], u2[1]], [u1[2], u2[2]], color='b')
-    ax.plot([u2[0], u0[0]], [u2[1], u0[1]], [u2[2], u0[2]], color='b')
-
-    ax.plot([v0[0], v1[0]], [v0[1], v1[1]], [v0[2], v1[2]], color='b')
-    ax.plot([v1[0], v2[0]], [v1[1], v2[1]], [v1[2], v2[2]], color='b')
-    ax.plot([v2[0], v0[0]], [v2[1], v0[1]], [v2[2], v0[2]], color='b')
-
-    ax.plot([s[0], e[0]], [s[1], e[1]], [s[2], e[2]], color='r')
-
-    print s
-    print e
-
-    return ax
+    return s, e
 
 
 ###################################
 
-for j in range(5):
+for j in range(1):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.set_aspect('equal')
 
     tri_list = []
+    int_list = []
 
-    '''
-    for i in range(4):
-        tri_list.append(np.random.rand(3, 3))
-    '''
-    tri_list.append(np.array([[1.0, 0.5, 0.5],
-                              [1.0, 1.0, 0.5],
-                              [1.0, 1.0, 1.0]]))
-    tri_list.append(np.array([[1.02, 0.5, 0.75],
-                              [1.02, 0.75, 0.75],
-                              [0.77, 0.75, 0.75]]))
+    # for i in range(10):
+    #     tri_list.append(np.random.rand(3, 3))
 
+    tri_list.append(np.array([[1.0166, 0.3295, .6827],
+                              [1.006, .3446, .6956],
+                              [.9943, .3299, .6831]]))
+    tri_list.append(np.array([[1.000, 1.000, 1.0000],
+                              [.3322, .3588, .3094],
+                              [.6923, .6492, .6467]]).T)
     for tri1 in tri_list:
         for tri2 in tri_list:
-            ax = find_int_and_plot(tri1, tri2, ax)
+            s, e = find_int_and_plot(tri1, tri2, ax)
+            if np.any(s != 0.) and np.any(e != 0.):
+                int_list.append([s, e])
+            break
+
+    for tri in tri_list:
+        u0 = tri[0, :]
+        u1 = tri[1, :]
+        u2 = tri[2, :]
+
+        ax.plot([u0[0], u1[0]], [u0[1], u1[1]], [u0[2], u1[2]], color='b')
+        ax.plot([u1[0], u2[0]], [u1[1], u2[1]], [u1[2], u2[2]], color='b')
+        ax.plot([u2[0], u0[0]], [u2[1], u0[1]], [u2[2], u0[2]], color='b')
+
+    for row in int_list:
+        s = row[0]
+        e = row[1]
+        ax.plot([s[0], e[0]], [s[1], e[1]], [s[2], e[2]], color='r')
+
+    print s
+    print e
 
     plt.show()

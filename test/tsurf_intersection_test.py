@@ -27,6 +27,18 @@ cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 # coor[0,:] = coor[0,:] + 0.75
 # coor[1,:] = coor[1,:] + 0.25
 # coor[2,:] = coor[2,:] + 0.25
+#
+# rot = -28.5 * np.pi / 180.
+# mat = np.zeros((3, 3))
+# mat[1, 1] = np.cos(rot)
+# mat[1, 2] = np.sin(rot)
+# mat[0, 0] = 1
+# mat[2, 1] = -np.sin(rot)
+# mat[2, 2] = np.cos(rot)
+#
+# for ix in range(coor.shape[1]):
+#     coor[:, ix] = np.dot(mat, coor[:, ix])
+#
 # smallCube.update(coor)
 
 coor = cylinder.coor * .5
@@ -36,6 +48,7 @@ coor[2,:] = coor[2,:] + 0.5
 cylinder.update(coor)
 
 # Call intersection function
+# Intersections = pysurf.compute_intersections([bigCube, smallCube])
 Intersections = pysurf.compute_intersections([cube, cylinder])
 
 print Intersections[0].barsConn
