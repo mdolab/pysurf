@@ -27,6 +27,9 @@ def find_int_and_plot(tri1, tri2, ax):
 
     ax.plot([s[0], e[0]], [s[1], e[1]], [s[2], e[2]], color='r')
 
+    print s
+    print e
+
     return ax
 
 
@@ -39,8 +42,16 @@ for j in range(5):
 
     tri_list = []
 
+    '''
     for i in range(4):
         tri_list.append(np.random.rand(3, 3))
+    '''
+    tri_list.append(np.array([[1.0, 0.5, 0.5],
+                              [1.0, 1.0, 0.5],
+                              [1.0, 1.0, 1.0]]))
+    tri_list.append(np.array([[1.02, 0.5, 0.75],
+                              [1.02, 0.75, 0.75],
+                              [0.77, 0.75, 0.75]]))
 
     for tri1 in tri_list:
         for tri2 in tri_list:

@@ -74,6 +74,16 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! Compute bounding boxes intersection
   call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
+  !print *,'BBoxA'
+  !print *,BBoxA(:,1)
+  !print *,BBoxA(:,2)
+  !print *,'BBoxB'
+  !print *,BBoxB(:,1)
+  !print *,BBoxB(:,2)
+  !print *,'BBoxAB'
+  !print *,BBoxAB(:,1)
+  !print *,BBoxAB(:,2)
+
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
      print *,'Components do not overlap.'
@@ -114,6 +124,10 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! if necessary
   arraySize = 1000
   allocate(extCoor(3,arraySize), extBarsConn(2,arraySize))
+
+  ! Initialize values
+  extCoor = 0.0
+  extBarsConn = 0
 
   ! For now, we had just one allocations
   nAllocations = 1
@@ -157,8 +171,9 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
 
               ! REALLOCATING extCoor
 
-              ! Create temporary array
+              ! Create temporary array and initialize
               allocate(extTempReal(3,nAllocations*arraySize))
+              extTempReal = 0.0
 
               ! Tranfer data from original array
               extTempReal(:,:(nAllocations-1)*arraySize) = extCoor
@@ -171,6 +186,7 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
 
               ! Create temporary array
               allocate(extTempInt(2,nAllocations*arraySize))
+              extTempInt = 0
 
               ! Tranfer data from original array
               extTempInt(:,:(nAllocations-1)*arraySize) = extBarsConn

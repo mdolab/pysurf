@@ -1,0 +1,19 @@
+# Written by ICEM CFD 14.0, user ney, Tue Aug 09 12:51:22 PM EDT 2016
+
+begin family GEOM
+    begin solver "CGNS"
+        begin bctype color
+            active 1
+            color 16663900 1
+        end bctype color
+    end solver "CGNS"
+end family GEOM
+
+begin family DIAG
+    begin solver "CGNS"
+        begin bctype color
+            active 1
+            color 16663900 1
+        end bctype color
+    end solver "CGNS"
+end family DIAG

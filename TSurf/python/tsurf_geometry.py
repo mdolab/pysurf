@@ -347,7 +347,152 @@ def formatStringArray(fortranArray):
 
 #=============================================================
 
-def FEsort(barsConnIn):
+def FEsort(barsConn):
+
+    '''
+    This function can be used to sort connectivities coming from the CGNS file
+    It assumes that we only have one curve. It will crash if we have
+    multiple curves defined in the same FE set.
+
+    barsConnIn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
+
+    newConn will be set to None if the sorting algorithm fails.
+    '''
+
+    # We will solve this in an iterative process until the connectivities do not change
+    # anymore
+
+    # Initialize the newest connectivities as our current input.
+    newConn = barsConn
+
+    # Say that we still need to search
+    keep_searching = True
+
+    while keep_searching:
+
+        # If nothing happens, we will get out of the loop
+        keep_searching = False
+
+        # Update "old" connectivities
+        oldConn = newConn[:]
+
+        # Initialize list of new connectivities with the first element of the old ones.
+        # We will also pop this element from oldConn
+        newConn = [oldConn.pop(0)]
+
+        # We will keep sorting until all elements of oldConn are assigned and popped out
+    
+        while len(oldConn) > 0:
+
+            # Pop another element from oldConn
+            oldElement = oldConn.pop(0)
+
+            # We do not know if this element could be linked beforehand
+            linked_element = False
+
+            # Now we check if we can fit this element into any new connectivity
+            newElemCounter = 0
+            for newElement in newConn:
+
+                if oldElement[0] == newElement[0]:
+
+                    # We will flip the old element and place it at the beginning of the
+                    # new connectivity
+                    newConn[newElemCounter] = oldElement[::-1] + newElement[1:]
+
+                    # We need to keep searching as we are still making changes
+                    linked_element = True
+
+                    # We only need to keep searching if we have updates
+                    keep_searching = True
+
+                    # Jump out of the for loop
+                    break
+
+                elif oldElement[0] == newElement[-1]:
+
+                    # Just append the old element
+                    newConn[newElemCounter] = newElement[:-1] + oldElement
+
+                    # We need to keep searching as we are still making changes
+                    linked_element = True
+
+                    # We only need to keep searching if we have updates
+                    keep_searching = True
+
+                    # Jump out of the for loop
+                    break
+
+                elif oldElement[-1] == newElement[0]:
+
+                    # Place the old element at the beginning
+                    newConn[newElemCounter] = oldElement + newElement[1:]
+
+                    # We need to keep searching as we are still making changes
+                    linked_element = True
+
+                    # We only need to keep searching if we have updates
+                    keep_searching = True
+
+                    # Jump out of the for loop
+                    break
+
+                elif oldElement[-1] == newElement[-1]:
+
+                    # Flip and append the old element
+                    newConn[newElemCounter] = newElement[:-1] + oldElement[::-1]
+
+                    # We need to keep searching as we are still making changes
+                    linked_element = True
+
+                    # We only need to keep searching if we have updates
+                    keep_searching = True
+
+                    # Jump out of the for loop
+                    break
+
+                # Increment element counter
+                newElemCounter = newElemCounter + 1
+
+            if not linked_element: # We have an element that is not connected to anyone
+
+                    # Define a new curve in newConn
+                    newConn.append(oldElement)
+
+    # Right now, newConn represent each line by an 1D array of point IDs.
+    # e.g. [[2,3,4,5],[1,7,8]]
+    # We need to convert this back to FE format, represented by 2D arrays.
+    # e.g. [[[2,3,4],[3,4,5]],[[1,7],[7,8]]]
+
+    # Initialize FE array for each curve
+    newConnFE = [np.zeros((2,len(curve)-1)) for curve in newConn]
+
+    # Fill FE data for each curve
+    for curveID in range(len(newConn)):
+
+        # Get current curve
+        curve = newConn[curveID]
+
+        # Get FE list of the current curve
+        FEcurve = newConnFE[curveID]
+
+        # Assign FE connectivity
+        for pointID in range(1,len(curve)):
+
+            # Get point indices
+            prevPoint = curve[pointID-1]
+            currPoint = curve[pointID]
+
+            # Assign bar FE
+            FEcurve[0,pointID-1] = prevPoint
+            FEcurve[1,pointID-1] = currPoint
+
+    # Return the sorted array
+    return newConnFE
+
+#=============================================================
+
+def FEsort_dumb(barsConnIn):
 
     '''
     This function can be used to sort connectivities coming from the CGNS file

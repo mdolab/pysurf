@@ -404,6 +404,7 @@ subroutine condenseBarFEs(distTol, coor, barsConn, newCoor)
   ! Now that we know the number of unique nodes, we can allocate memory for the new
   ! coordinate array.
   allocate(newCoor(3,nUniqueNodes))
+  newCoor = 0.0
 
   ! Initialize number of nodes copied so far
   nCopies = 0
