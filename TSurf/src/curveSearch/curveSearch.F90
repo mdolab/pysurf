@@ -44,9 +44,8 @@
         real(kind=realType), dimension(nxyz), intent(inout) :: allDist
 
         ! Working
-        real(kind=realType), dimension(nxyz) :: connect_count
-        real(kind=realType) :: pt(3), dist, ppt(3), x21(3), vec(3)
-        real(kind=realType) :: x1(3), x2(3), p1(3), u, mag2, d(3)
+        real(kind=realType) :: pt(3), dist, x21(3), vec(3)
+        real(kind=realType) :: x1(3), x2(3), p1(3), u, mag2
         real(kind=realType) :: newProjPoint(3), newDist, projPoint(3)
         real(kind=realType) :: nodalTangents(3, nBars)
         integer(kind=intType) :: i, j, jj
