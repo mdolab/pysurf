@@ -72,6 +72,14 @@ class TSurfComponent(Component):
         # Initialize curves
         initialize_curves(self, sectionDict)
 
+    def add_curve(self, name, curve):
+
+        '''
+        Adds a given curve instance to the self.Curves dictionary.
+        '''
+
+        self.Curves['name'] = curve
+
     def update(self, coor):
 
         '''
@@ -202,4 +210,3 @@ class TSurfComponent(Component):
         return xyzProj, tanProj
 
 #=============================================================
-

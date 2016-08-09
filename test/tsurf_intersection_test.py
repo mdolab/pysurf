@@ -42,7 +42,7 @@ cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 # smallCube.update(coor)
 
 coor = cylinder.coor * .5
-coor[0,:] = coor[0,:] + 0.51
+coor[0,:] = coor[0,:] - 0.25
 coor[1,:] = coor[1,:] + 0.5
 coor[2,:] = coor[2,:] + 0.5
 cylinder.update(coor)
@@ -51,11 +51,20 @@ cylinder.update(coor)
 # Intersections = pysurf.compute_intersections([bigCube, smallCube])
 Intersections = pysurf.compute_intersections([cube, cylinder])
 
-print Intersections[0].barsConn
+# print 'FIRST'
+# print Intersections[0].barsConn
+# print 'second'
+# print Intersections[1].barsConn
+# print 'THIRD'
+# print Intersections[2].barsConn
+
 print len(Intersections)
 
 curve = pysurf.plot3d_interface.Curve(Intersections[0].coor, Intersections[0].barsConn)
-curve.export_plot3d()
+curve.export_plot3d('curve0')
+
+curve = pysurf.plot3d_interface.Curve(Intersections[1].coor, Intersections[1].barsConn)
+curve.export_plot3d('curve1')
 
 '''
 # Move the cube far away

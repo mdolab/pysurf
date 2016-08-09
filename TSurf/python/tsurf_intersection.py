@@ -77,12 +77,14 @@ def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
     coor = np.array(iapi.intersectionapi.coor)
     barsConn = np.array(iapi.intersectionapi.barsconn)
 
-    barsConn = np.sort(barsConn, axis=0)
-    barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
+    if len(coor) > 0:
 
-    # Sort FE data. After this step, barsConn may become a list if we
-    # have two disconnect intersection curves.
-    barsConn = tsurf_geometry.FEsort(barsConn.T.tolist())
+        barsConn = np.sort(barsConn, axis=0)
+        barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
+
+        # Sort FE data. After this step, barsConn may become a list if we
+        # have two disconnect intersection curves.
+        barsConn = tsurf_geometry.FEsort(barsConn.T.tolist())
 
     # Return intersection FE data
     return coor, barsConn
