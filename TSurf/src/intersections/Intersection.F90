@@ -748,14 +748,10 @@ subroutine compute_intervals_isectline(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D
       isect0, isect1, isectpoint0, isectpoint1)
 
   else
-    ! If intersect == 1 after this test, there are an infinite number of curves
-    ! that intersect between these two triangles.
-    ! Should probably throw an warning for this case
-    !intersect = coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
-    coplanar = 1
-
     ! For now, we are not interested in coplanar triangle intersections
+    !intersect = coplanarTriTri(N1, V0, V1, V2, U0, U1, U2)
     intersect = 0
+    coplanar = 1
 
   end if
 
