@@ -77,6 +77,7 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
      print *,'Components do not overlap.'
+     allocate(barsConn(0, 0), coor(0, 0))
      return
   else
      print *,'Components overlap.'

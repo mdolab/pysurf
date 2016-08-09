@@ -9,6 +9,7 @@ from pysurf import TSurfComponent
 import os
 from mpi4py import MPI
 import copy
+import pysurf
 
 # OPTIONS
 generate_wing = True
@@ -49,12 +50,19 @@ def generateMesh(curve, geom, output_name):
 #================================================
 
 
+# Read inputs from CGNS file
+wing = TSurfComponent('inputs/wingBody.cgns',['wing'])
+# Read inputs from CGNS file
+body = TSurfComponent('inputs/wingBody.cgns',['geom'])
+
+
 # GENERATE WING MESH
 
 if generate_wing:
 
-    # Read inputs from CGNS file
-    wing = TSurfComponent('inputs/wingBody.cgns',['wing'])
+
+    Intersections = pysurf.compute_intersections([wing, body])
+    print len(Intersections)
 
     # Flip BC curve
     #wing.Curves['intersection'].flip()
@@ -89,11 +97,10 @@ if generate_wing:
 
 if generate_body:
 
-    # Read inputs from CGNS file
-    body = TSurfComponent('inputs/wingBody.cgns',['geom'])
 
     # Flip BC curve
     body.Curves['intersection'].flip()
+
 
     # Set problem
     curve = 'intersection'
