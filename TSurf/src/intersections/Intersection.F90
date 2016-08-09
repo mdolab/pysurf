@@ -22,7 +22,7 @@ subroutine computeBBox(coor, BBox)
   !                     [xmin, xmax]
   !                     [ymin, ymax]
   !                     [zmin, zmax]
-  
+
 
   implicit none
 
@@ -74,7 +74,7 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   ! OUTPUTS
   real(kind=realType), dimension(3,2), intent(out) :: BBoxAB
   logical, intent(out) :: overlap
-  
+
   ! EXECUTION
 
   ! Check overlaps along each dimension
@@ -83,7 +83,7 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   ! X overlap
   call lineIntersectionInterval(BBoxA(1,1), BBoxA(1,2), BBoxB(1,1), BBoxB(1,2), &
                                 BBoxAB(1,1), BBoxAB(1,2), overlap)
- 
+
   if (overlap) then
      ! Y overlap
      call lineIntersectionInterval(BBoxA(2,1), BBoxA(2,2), BBoxB(2,1), BBoxB(2,2), &
@@ -221,7 +221,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! case, all elements would be inside, so we would need to store nTria and nQuads
   ! indices in total.
   allocate(extInnerTriaID(nTria), extInnerQuadsID(nQuads))
-  
+
   ! Now we check all elements.
   ! If one node is inside the bounding box, then we flag the element as "inside"
 
@@ -288,7 +288,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! Now that we know exactly how many elements are inside, we can
   ! allocate outputs arrays with the proper size
   allocate(innerTriaID(numInnerTria), innerQuadsID(numInnerQuads))
-  
+
   ! Transfer values from the extended arrays to the output arrays
   innerTriaID(:) = extInnerTriaID(1:numInnerTria)
   innerQuadsID(:) = extInnerQuadsID(1:numInnerQuads)
@@ -416,7 +416,7 @@ subroutine condenseBarFEs(distTol, coor, barsConn, newCoor)
 
      ! Get index of the current node in the new coordinate array
      link = linkOld2New(currNodeID)
-     
+
      ! Check if the new link is already used
      if (link .gt. nCopies) then
 
@@ -427,7 +427,7 @@ subroutine condenseBarFEs(distTol, coor, barsConn, newCoor)
         newCoor(:,nCopies) = currCoor
 
      end if
-        
+
   end do
 
   ! Now the last step is updating the bars connectivity.
@@ -459,7 +459,7 @@ subroutine getAllTrias(triaConn, quadsConn, innerTriaID, innerQuadsID, allTriaCo
   integer(kind=intType) :: nInnerTria, nInnerQuads, ii, node1, node2, node3, node4
 
   ! EXECUTION
-  
+
   ! Get number of interior elements
   nInnerTria = size(innerTriaID)
   nInnerQuads = size(innerQuadsID)
@@ -484,7 +484,7 @@ subroutine getAllTrias(triaConn, quadsConn, innerTriaID, innerQuadsID, allTriaCo
      node4 = quadsConn(4, innerQuadsID(ii))
 
      ! Create two triangle elements
-     allTriaConn(:, nInnerTria + 2*ii-1) = [node1, node2, node3] 
+     allTriaConn(:, nInnerTria + 2*ii-1) = [node1, node2, node3]
      allTriaConn(:, nInnerTria + 2*ii)   = [node3, node4, node1]
 
   end do
@@ -494,6 +494,23 @@ end subroutine getAllTrias
 !============================================================
 
 subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
+
+  ! This subroutine computes the line vector of intersection between two triangles
+  ! John Jasa - 2016-08
+  !
+  ! INPUTS:
+  !
+  ! V0: real(3) -> coordinates (x,y,z) of the first node of triangle V
+  ! V0: real(3) -> coordinates (x,y,z) of the second node of triangle V
+  ! V0: real(3) -> coordinates (x,y,z) of the third node of triangle V
+  !
+  ! U0: real(3) -> coordinates (x,y,z) of the first node of triangle U
+  ! U0: real(3) -> coordinates (x,y,z) of the second node of triangle U
+  ! U0: real(3) -> coordinates (x,y,z) of the third node of triangle U
+  !
+  ! OUTPUTS:
+  !
+  ! intersect: integer -> 1 if the triangles intersect, 0 if they do not
 
   real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
   integer(kind=intType), intent(out) :: intersect
@@ -513,8 +530,10 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   integer(kind=intType) :: coplanar
 
   epsilon = 1.e-5
+
   ! Initialize intersect value so the program does not stop prematurely
   intersect = 2
+  coplanar = 0
 
   ! Compute plane of triangle (V0, V1, V2)
   E1 = V1 - V0
