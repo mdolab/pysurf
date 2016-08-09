@@ -36,7 +36,7 @@
         integer(kind=intType), intent(in) :: nxyz, nCoor, nBars
         real(kind=realType), dimension(3,nxyz), intent(in) :: xyz
         real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        real(kind=intType), dimension(2,nBars), intent(in) :: barsConn
+        integer(kind=intType), dimension(2,nBars), intent(in) :: barsConn
 
         ! Output
         real(kind=realType), dimension(3,nxyz), intent(inout) :: allProjPoints

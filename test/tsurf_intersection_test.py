@@ -14,7 +14,7 @@ cube = pysurf.TSurfComponent('../inputs/cube.cgns', comm)
 cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 
 # Call intersection function
-coor, barsconn = pysurf.compute_intersections([cube, cylinder])
+pysurf.compute_intersections([cube, cylinder])
 
 '''
 # Move the cube far away
