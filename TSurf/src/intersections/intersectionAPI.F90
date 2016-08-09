@@ -74,16 +74,6 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! Compute bounding boxes intersection
   call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
-  !print *,'BBoxA'
-  !print *,BBoxA(:,1)
-  !print *,BBoxA(:,2)
-  !print *,'BBoxB'
-  !print *,BBoxB(:,1)
-  !print *,BBoxB(:,2)
-  !print *,'BBoxAB'
-  !print *,BBoxAB(:,1)
-  !print *,BBoxAB(:,2)
-
   ! We can stop if there is no bounding box intersection
   if (.not. overlap) then
      print *,'Components do not overlap.'

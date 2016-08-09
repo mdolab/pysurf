@@ -57,9 +57,9 @@ if generate_wing:
     wing = TSurfComponent('inputs/wingBody.cgns',['wing'])
 
     # Flip BC curve
-    wing.Curves['intersection'].flip()
-    wing.Curves['lower_te'].flip()
-    wing.Curves['upper_te'].flip()
+    #wing.Curves['intersection'].flip()
+    #wing.Curves['lower_te'].flip()
+    #wing.Curves['upper_te'].flip()
 
     # Set problem
     curve = 'intersection'
@@ -91,6 +91,9 @@ if generate_body:
 
     # Read inputs from CGNS file
     body = TSurfComponent('inputs/wingBody.cgns',['geom'])
+
+    # Flip BC curve
+    body.Curves['intersection'].flip()
 
     # Set problem
     curve = 'intersection'
