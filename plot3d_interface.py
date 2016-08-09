@@ -93,7 +93,7 @@ class Curve():
         self._file.write('Variables = ')
         var_names = ['X', 'Y', 'Z']
         for name in var_names:
-            self._file.write('\"' + name + '\" ')
+            self._file.write('\"Coordinate' + name + '\" ')
         self._file.write('\n')
 
         nNodes = self.coors.shape[1]
@@ -101,8 +101,8 @@ class Curve():
         self._file.write('Zone T= \"Curve_tec_data\"\n')
         self._file.write('Nodes=' + str(nNodes) + ', Elements=' + str(nBars) + ', ZONETYPE=FELineSeg\n')
 
-        np.savetxt(self._file, self.coors.T)
-        np.savetxt(self._file, self.barsConn.T)
+        np.savetxt(self._file, self.coors)
+        np.savetxt(self._file, self.barsConn.T, fmt='%i')
         self._file.close()
 
 #===========================================

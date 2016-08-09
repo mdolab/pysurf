@@ -46,7 +46,7 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
             # will initialize a Curve object to hold intersection FE data.
 
             for currConn in barsConn:
-                
+
                 # Create new curve object
                 newCurve = tsurf_geometry.Curve(coor, currConn)
 
@@ -76,6 +76,9 @@ def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
     # Retrieve results from Fortran
     coor = np.array(iapi.intersectionapi.coor)
     barsConn = np.array(iapi.intersectionapi.barsconn)
+
+    barsConn = np.sort(barsConn, axis=0)
+    barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
 
     # Sort FE data. After this step, barsConn may become a list if we
     # have two disconnect intersection curves.
