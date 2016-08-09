@@ -501,16 +501,16 @@
         ! Input
         integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
         real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        real(kind=realType), dimension(3,nTria), intent(in) :: triaConn
-        real(kind=realType), dimension(4,nQuads), intent(in) :: quadsConn
+        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
 
         ! Output
         real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
 
         ! Working
         real(kind=realType), dimension(nCoor) :: connect_count
-        real(kind=realType) :: norm, normal1(3), normal2(3), normal3(3), normal4(3)
-        integer(kind=intType) :: i, j, ind1, ind2, ind3, ind4
+        real(kind=realType) :: normal1(3), normal2(3), normal3(3), normal4(3)
+        integer(kind=intType) :: i, ind1, ind2, ind3, ind4
         real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
         real(kind=realType) :: x12(3), x23(3), x34(3), x41(3)
 

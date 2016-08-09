@@ -513,25 +513,30 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   ! OUTPUTS:
   !
   ! intersect: integer -> 1 if the triangles intersect, 0 if they do not
+  ! vecStart: real(3) -> coordinates (x,y,z) of the start point of the intersection line
+  ! vecEnd: real(3) -> coordinates (x,y,z) of the end point of the intersection line
 
+  ! INPUTS
   real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
+
+  ! OUTPUTS
   integer(kind=intType), intent(out) :: intersect
   real(kind=realType), dimension(3), intent(out) :: vecStart, vecEnd
 
+  ! WORKING
   real(kind=realType), dimension(3) :: E1, E2, N1, N2, Dir
   real(kind=realType) :: d1, du0, du1, du2, du0du1, du0du2, epsilon
   real(kind=realType) :: d2, dv0, dv1, dv2, dv0dv1, dv0dv2, maxD, bb, cc
   real(kind=realType) :: up0, up1, up2, vp0, vp1, vp2
-  real(kind=realType) :: tv1, tv2, tu1, tu2
-  real(kind=realType) :: a, b, c, d, e, f, x0, x1, y0, y1, minParam
-  real(kind=realType) :: xx, yy, xxyy, tmp, isect1(2), isect2(2)
+  real(kind=realType) :: isect1(2), isect2(2)
   real(kind=realType), dimension(3) :: isectpointA1, isectpointA2, isectpointB1, isectpointB2
   integer(kind=intType) :: index
   integer(kind=intType) :: coplanar, smallest1, smallest2
 
+  ! Small value to avoid numerical issues when comparing near-zero values
   epsilon = 1.e-5
 
-  ! Initialize intersect value so the program does not stop prematurely
+  ! Initialize intersect and coplanar values so the program does not stop prematurely
   intersect = 2
   coplanar = 0
 
@@ -546,13 +551,17 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   du1 = dot_product(N1, U1) + d1
   du2 = dot_product(N1, U2) + d1
 
+  ! If the distances are sufficiently small, set them to 0.
   if (abs(du0)<EPSILON) du0 = 0.0
   if (abs(du1)<EPSILON) du1 = 0.0
   if (abs(du2)<EPSILON) du2 = 0.0
 
+  ! Compute the signed distance product to see which side of the plane each point is on
   du0du1 = du0 * du1
   du0du2 = du0 * du2
 
+  ! If all the points of one triangle are on the same side of the other triangle,
+  ! there is no intersection
   if (du0du1 > 0.0 .and. du0du2 > 0.0) then
     intersect = 0
     return
@@ -564,17 +573,22 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   call cross_product(E1, E2, N2)
   d2 = -dot_product(N2, U0)
 
+  ! Get distances from V points to plane defined by U points
   dv0 = dot_product(N2, V0) + d2
   dv1 = dot_product(N2, V1) + d2
   dv2 = dot_product(N2, V2) + d2
 
+  ! If the distances are sufficiently small, set them to 0.
   if (abs(dv0)<EPSILON) dv0 = 0.0
   if (abs(dv1)<EPSILON) dv1 = 0.0
   if (abs(dv2)<EPSILON) dv2 = 0.0
 
+  ! Compute the signed distance product to see which side of the plane each point is on
   dv0dv1 = dv0 * dv1
   dv0dv2 = dv0 * dv2
 
+  ! If all the points of one triangle are on the same side of the other triangle,
+  ! there is no intersection
   if (dv0dv1 > 0.0 .and. dv0dv2 > 0.0) then
     intersect = 0
     return
@@ -583,7 +597,7 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   ! Compute the direction of the intersection line
   call cross_product(N1, N2, Dir)
 
-  ! Compute and index the largest component of D
+  ! Compute and index the largest component of Dir
   maxD = abs(Dir(1))
   index = 1
   bb = abs(Dir(2))
@@ -605,25 +619,36 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   up1 = U1(index)
   up2 = U2(index)
 
+  ! isect1 and isect2 are the projected intersections of triangles 1 and 2,
+  ! which are defined by the V and U points respectively.
+  ! These isect values show where each triangle edge intersects the
+  ! two triangle's intersection line
+
+  ! Compute the intersection interval for the V points
   call compute_intervals_isectline(V0, V1, V2, vp0, vp1, vp2, dv0, dv1, dv2, &
-				       dv0dv1, dv0dv2, &
-               isect1(1), isect1(2), isectpointA1, isectpointA2, coplanar, intersect)
+   dv0dv1, dv0dv2, isect1(1), isect1(2), isectpointA1, isectpointA2, coplanar, intersect)
 
   if (intersect .eq. 0) return
 
+  ! Compute the intersection interval for the U points
   call compute_intervals_isectline(U0, U1, U2, up0, up1, up2, du0, du1, du2, &
-			      du0du1, du0du2, &
-            isect2(1), isect2(2), isectpointB1, isectpointB2, coplanar, intersect)
+    du0du1, du0du2, isect2(1), isect2(2), isectpointB1, isectpointB2, coplanar, intersect)
 
   if (intersect .eq. 0) return
 
+  ! Sort the projected intersections so that the first index contains the
+  ! smallest value. Also index which case has the smallest max so we
+  ! can compute the actual intersection line
   call sort(isect1(1), isect1(2), smallest1)
   call sort(isect2(1), isect2(2), smallest2)
 
-  ! isect is where on L the triangle intersects
-  ! isect1 is for the first triangle's projection onto L
+  ! If there is no interval where the isects overlap, there there is no intersection
   if ((isect1(2) .lt. isect2(1)) .or. (isect2(2) .lt. isect1(1))) then
     intersect = 0
+
+  ! Only continue if the triangles are not coplanar.
+  ! Choose the triangle edges that intersect the intersection line in the
+  ! most restrictive interval.
   else if (coplanar .ne. 1) then
 
     if (isect2(1) .lt. isect1(1)) then
@@ -840,7 +865,7 @@ function pointInTri(V0, U0, U1, U2, i0, i1) result(intersect)
 end function pointInTri
 
 
-function edgeAgainstTriEdges(V0,V1,U0,U1,U2, i0, i1) result(intersect)
+function edgeAgainstTriEdges(V0, V1, U0, U1, U2, i0, i1) result(intersect)
 
   implicit none
 
@@ -848,7 +873,7 @@ function edgeAgainstTriEdges(V0,V1,U0,U1,U2, i0, i1) result(intersect)
   integer(kind=intType), intent(in) :: i0, i1
   integer(kind=intType) :: intersect
 
-  real(kind=realType) :: Ax, Ay, Bx, By, Cx, Cy, e, d, f
+  real(kind=realType) :: Ax, Ay
 
   Ax = V1(i0) - V0(i0)
   Ay = V1(i1) - V0(i1)

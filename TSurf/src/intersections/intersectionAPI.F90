@@ -56,13 +56,13 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
   integer(kind=intType), dimension(:,:), allocatable :: allTriaConnA, allTriaConnB
   integer(kind=intType) :: nInnerTriaA, nInnerQuadsA, nInnerTriaB, nInnerQuadsB
-  integer(kind=intType) :: ii, jj, currElemA, currElemB
+  integer(kind=intType) :: ii, jj
   integer(kind=intType) :: intersect
   integer(kind=intType) :: arraySize, nAllocations, nBarsConn
   integer(kind=intType), dimension(:,:), allocatable :: extBarsConn, extTempInt
   real(kind=realType), dimension(:,:), allocatable :: extCoor, extTempReal
-  real(kind=realType), dimension(3) :: node1A, node2A, node3A, node4A
-  real(kind=realType), dimension(3) :: node1B, node2B, node3B, node4B
+  real(kind=realType), dimension(3) :: node1A, node2A, node3A
+  real(kind=realType), dimension(3) :: node1B, node2B, node3B
   real(kind=realType), dimension(3) :: vecStart, vecEnd
 
   ! EXECUTION
