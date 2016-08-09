@@ -4,6 +4,8 @@
 # neysecco@umich.edu
 # Jan 2016
 
+import numpy as np
+
 # DEFINING CLASSES
 
 class Block():
@@ -51,18 +53,15 @@ class Grid():
         the Z coordinate.
         '''
 
-        # IMPORTS
-        from numpy import array, copy, ones, linspace
-
         # EXECUTION
         for iblock in range(self.num_blocks):
 
             # Expand the coordinate matrices
-            X3d = array([copy(self.blocks[iblock].X[0,:,:]) for dummy in range(num_i)])
-            Y3d = array([copy(self.blocks[iblock].Y[0,:,:]) for dummy in range(num_i)])
+            X3d = np.array([np.copy(self.blocks[iblock].X[0,:,:]) for dummy in range(num_i)])
+            Y3d = np.array([np.copy(self.blocks[iblock].Y[0,:,:]) for dummy in range(num_i)])
 
             # Create the span-wise coordinates
-            Z3d = array([z*ones((self.blocks[iblock].shape[1:])) for z in linspace(0,zSpan,num_i)])
+            Z3d = np.array([z*np.ones((self.blocks[iblock].shape[1:])) for z in np.linspace(0,zSpan,num_i)])
 
             # Update coordinates
             self.blocks[iblock].update(X3d, Y3d, Z3d)
@@ -81,6 +80,31 @@ class Grid():
             # Update values with flipped order
             self.blocks[iblock].update(X,Z,Y)
 
+class Curve():
+
+    def __init__(self, coors, barsConn):
+        self.coors = coors
+        self.barsConn = barsConn
+
+    def export_plot3d(self, name='curve'):
+        filename = name + '.plt'
+        self._file = open(filename, 'w')
+        self._file.write('Title = \"Curve FE output\" \n')
+        self._file.write('Variables = ')
+        var_names = ['X', 'Y', 'Z']
+        for name in var_names:
+            self._file.write('\"' + name + '\" ')
+        self._file.write('\n')
+
+        nNodes = self.coors.shape[1]
+        nBars = self.barsConn.shape[1]
+        self._file.write('Zone T= \"Curve_tec_data\"\n')
+        self._file.write('Nodes=' + str(nNodes) + ', Elements=' + str(nBars) + ', ZONETYPE=FELineSeg\n')
+
+        np.savetxt(self._file, self.coors.T)
+        np.savetxt(self._file, self.barsConn.T)
+        self._file.close()
+
 #===========================================
 
 # DEFINE FUNCTIONS
@@ -97,15 +121,12 @@ def read_plot3d(fileName,dimension):
     The function will return a Grid object containg the coordinates.
     dimension should be 2 or 3 depending on the dimension of the plot3d file.
     '''
-    
-    # IMPORTS
-    from numpy import zeros
-    
+
     # EXECUTION
-    
+
     # Open file
     fid = open(fileName,'r')
-    
+
     # Read all numbers and oppend to the same list
     data_list = []
     for line in fid:  #Line is a string
@@ -120,10 +141,10 @@ def read_plot3d(fileName,dimension):
 
     # Read the number of blocks
     num_blocks = int(data_list[0])
-    
+
     # Read dimensions of each block. Each entry will have I,J,K sizes for each block
     shape_block = [map(int, data_list[dimension*(block_id)+1:dimension*(block_id+1)+1]) for block_id in range(num_blocks)]
-    
+
     # Define index position from where we will start reading coordinates
     # NOTE: I define it as a list so I can change it inside the read_coord function
     reading_index = [dimension*(num_blocks)+1]
@@ -131,7 +152,7 @@ def read_plot3d(fileName,dimension):
     # Define coordinate reader function
     def read_coord(num_i,num_j,num_k):
         # Initialize array with coordinates
-        coord = zeros((num_i, num_j, num_k))
+        coord = np.zeros((num_i, num_j, num_k))
         # k is the outermost variable that should change
         for ind_k in range(num_k):
             # j should be the second variable to change
@@ -155,12 +176,12 @@ def read_plot3d(fileName,dimension):
         if dimension == 2:
             X = read_coord(1,shape_block[iblock][0],shape_block[iblock][1])
             Y = read_coord(1,shape_block[iblock][0],shape_block[iblock][1])
-            Z = zeros(Y.shape)
+            Z = np.zeros(Y.shape)
         elif dimension == 3:
             X = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
             Y = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
             Z = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
-            
+
         # Store new block
         newGrid.add_block(X,Y,Z)
 
@@ -202,7 +223,7 @@ def export_plot3d(grid, fileName):
 
     # Write coordinates of each block
     for iblock in range(grid.num_blocks):
-        
+
         # Get current block
         block = grid.blocks[iblock]
 
@@ -216,5 +237,3 @@ def export_plot3d(grid, fileName):
 
     # Close file
     fid.close()
-
-
