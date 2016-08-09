@@ -87,7 +87,7 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
                       innerTriaID_A, innerQuadsID_A)
   call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
                       innerTriaID_B, innerQuadsID_B)
-  
+
   ! Get number of inner elements
   nInnerTriaA = size(innerTriaID_A)
   nInnerQuadsA = size(innerQuadsID_A)
@@ -121,14 +121,6 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! Initialize the number of intersection connectivities known so far.
   nBarsConn = 0
 
-  print *,'max'
-  print *,allTriaConnA(1,1:5)
-  print *,allTriaConnA(2,1:5)
-  print *,allTriaConnA(3,1:5)
-  print *,allTriaConnB(1,1:5)
-  print *,allTriaConnB(2,1:5)
-  print *,allTriaConnB(3,1:5)
-
   ! Compute all triangle-triangle intersections.
   ! We will call every pair between triangles in A and B
   do ii = 1,nInnerTriaA
@@ -150,8 +142,6 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
         call triTriIntersect(node1A, node2A, node3A, &
                              node1B, node2B, node3B, &
                              intersect, vecStart, vecEnd)
-
-        print
 
         ! Check if the triangles actually intersect
         if (intersect .eq. 1) then
