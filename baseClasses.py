@@ -17,25 +17,12 @@ class Component(object):
         '''
 
         print 'SURFACES:'
-        for component in self.Surfaces:
-            print component
+        for surface in self.Surfaces:
+            print surface
 
         print 'CURVES:'
-        for component in self.Curves:
-            print component
-
-    def update_points(self, componentName, coor):
-
-        '''
-        This function will update nodal coordinates.
-        The connectivities will stay the same
-        '''
-
-        if componentName in self.Surfaces.keys():
-            self.Surfaces[componentName].update_points(coor)
-
-        if componentName in self.Curves.keys():
-            self.Curves[componentName].update_points(coor)
+        for curve in self.Curves:
+            print curve
 
     def project_on_surface():
         pass
