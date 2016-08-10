@@ -1,40 +1,40 @@
 # ICEM CFD Project Settings
-# Saved by ney on mdolabnrs on Tue Aug 02 11:05:53 AM EDT 2016
+# Saved by ney on mdolabnrs on Wed Aug 10 03:02:49 PM EDT 2016
 # ANSYS ICEM CFD Environment - version 14.0 - Release date: Oct 12 2011
 
 array set file_name {
-    catia_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
-    parts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    catia_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
+    parts_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     domain_loaded 0
     cart_file_loaded 0
     cart_file {}
     domain_saved wingBody.uns
     archive {}
     med_replay {}
-    topology_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
-    ugparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    topology_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
+    ugparts_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     icons {{$env(ICEM_ACN)/lib/ai_env/icons} {$env(ICEM_ACN)/lib/va/EZCAD/icons} {$env(ICEM_ACN)/lib/icons} {$env(ICEM_ACN)/lib/va/CABIN/icons}}
     tetin wingBody.tin
     family_boco wingBody.fbc
     prism_params wingBody.prism_params
-    iges_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    iges_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     solver_params_loaded 1
     attributes_loaded 1
     project_lock {}
     attributes wingBody.atr
     domain wingBody.uns
-    domains_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    domains_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     settings_loaded 0
     settings wingBody.prj
     blocking {}
     hexa_replay {}
-    transfer_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
-    mesh_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    transfer_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
+    mesh_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     family_topo {}
-    gemsparts_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    gemsparts_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     family_boco_loaded 1
     tetin_loaded 1
-    project_dir /home/ney/hg/pysurf/DiscreteSurf/examples/wingBody
+    project_dir /home/ney/hg/pysurf/TSurf/examples/wingBody
     topo_mulcad_out {}
     solver_params wingBody.par
 }
@@ -112,7 +112,7 @@ array set disp_options {
     uns_node_type None
     uns_icons_normals_vol 0
     uns_bcfield 0
-    backup Wire
+    backup Solid/wire
     uns_nodes 0
     uns_only_edges 0
     uns_surf_bounds 0
@@ -132,7 +132,7 @@ array set disp_options {
     uns_multiple_surfaces 0
     uns_no_inner 0
     uns_enums 0
-    uns_disp Wire
+    uns_disp Solid/wire
     uns_bcfield_name {}
     uns_color_by_quality 0
     uns_changes 0
@@ -185,7 +185,7 @@ array set vid_options {
     auxiliary 0
     show_name 0
     do_intersect_self_part 1
-    inherit 1
+    inherit 0
     default_part GEOM
     new_srf_topo 1
     DelPerFlag 0
@@ -225,31 +225,156 @@ array set saved_views {
 #------------- DEZ Data ------------------
 
 namespace eval ::AIEnv::GUIManagement::DEZ {
-    array set mszSurfDEZ_data {
-        this mszSurfDEZ
+    array set createCurvesDEZ_data {
+        this createCurvesDEZ
+        type param
+        PartList {"From screen" GEOM INTERSECTION LOWER_TE POINTS TE UPPER_TE WING}
+        __createCurvesFam_Last_Index 0
+        name crv.03
+        createCurvesEXGVal 7
+        pickList {}
+        createCrvArcMethodVal 0
+        pickArcList {}
+        RadiusArcGGVal 0
+        radius 0
+        keep_arc 0
+        RadiusGGVal 0
+        stangle 0
+        enangle 360
+        pickCircleList {}
+        creCurveEGVal 2
+        pickSurf {}
+        pickCurvCrePnt {}
+        pickEdgePnt {}
+        UVChoiceVal 0
+        isopar 0.5
+        creCrvIntSetRVal 0
+        diffPartsFlag 0
+        pickSetSurfs {}
+        createCurveIntCTVal 1
+        pickSet1Surfs {}
+        pickSet2Surfs {}
+        createCrvProjMethodVal 0
+        pickCurvesProj {}
+        pickSurfsProj {}
+        createCrvPrjEGVal 0
+        projpointsvec {}
+        prjOriginCurvFlag 1
+        prTrFlag 0
+        modifyCurveSegFRVal 0
+        pickCurveSeg {}
+        pickPointSeg {}
+        pickCurveSegWith {}
+        segBothFlag 0
+        modSegmCRVNormEGVal 0
+        SegPlanePntList {}
+        segVecList {}
+        keepOriginCurvFlag 0
+        seg_angle2 20
+        minSeg2 1
+        modifyReapproxCrvVal 0
+        pickCurveConcat {}
+        creCrvConcatTolGGVal 0
+        ctol 0.1
+        pickCurveReapp {}
+        ctol1 0.1
+        reappcrvfacetedFlag 0
+        pickCurveHull {}
+        hull_tol 0.001
+        shrink 0.2
+        four 0
+        pickCurveExtract {}
+        crvExtEGVal 0
+        extract_bsp_how 0
+        fangle 20
+        MinSeg {}
+        boundary {}
+        __facetedBoundaryOpt_Last_Index 0
+        modCrvEGVal 3
+        modCrv_crv0 {}
+        modCrv_crv1 {TE/0172 TE/0171}
+        modCrvExtEndEGVal 0
+        modCrvExtEndPnt {}
+        allowExtendTargetFlag 0
+        CrvExtTo {}
+        modCrvExtLen 1
+        modCrvExtMethod line
+        modCrv_crv2 {}
+        modCrvMatchAcc 1
+        modCrvMatchOneOrBoth 0
+        modCrvMatchMethodEGVal 2
+        modCrvKeepFlag 0
+        modCrv_crv3_1 {}
+        createCrvMidMethodVal 0
+        pickMidline_crv2 {}
+        midlineList {}
+        midlineList2 {}
+        pickSurfSect {}
+        sectCurvePlaneEGVal 0
+        sectCurvePlaneXYZEGVal 0
+        sectCurveplnpnt1 {}
+        sectCurveplnpnt2 {}
+        sectCurveplnpnt3 {}
+        pickcrvexist {}
+        numsect {}
+        sectCurveOffsetGGVal 0
+        mpsectdelta {}
+        mpsectstart {}
+        mpsectend {}
+    }
+    array set mszCurveDEZ_data {
+        this mszCurveDEZ
         type DEZ
-        surfList {}
-        emax 0.0015
-        ehgt 0
-        hrat 0
+        mszCurveTypeGGVal 0
+        curveList {}
+        emax 0.0
+        nmax 2
+        ehgt 0.0
+        hrat 0.0
         nlay 0
         ewid 0
-        erat 0
-        emin 0
-        edev 0
-        surfElemTypeList {
-	"All Tri"
-	"Quad w/one Tri"
-	"Quad Dominant"
-	"All Quad"
-        "NONE"
-    }
-        etyp2 NONE
-        __mszSurfType_Last_Index 0
-        surfElemMethodList {Autoblock {Patch Dependent} {Patch Independent} Delaunay NONE}
-        emethod2 NONE
-        __mszSurfMethod_Last_Index 0
-        remeshSurfFlag 0
+        emin 0.0
+        edev 0.0
+        LawList {BiGeometric Biexponential Curvature Exponential1 Exponential2 FullCosinus Geometric1 Geometric2 HalfCosinus1 HalfCosinus2 Hyperbolic Poisson Uniform}
+        law {}
+        __curveParamLaw_Last_Index 0
+        h1 {}
+        r1 {}
+        h2 {}
+        r2 {}
+        lmax {}
+        dirCurveFlag 1
+        adjustFlag 0
+        remeshFlag 0
+        brat 1.0
+        simpleLawList {BiGeometric Geometric1 Geometric2 Uniform}
+        blaw {}
+        __mszCurveBLaw_Last_Index 0
+        setSelectPropertiesVal 0
+        emax_incr 1.0
+        nmax_incr 1
+        brat_incr 0.1
+        ehgt_incr 0.1
+        hrat_incr 0.1
+        ewid_incr 1
+        emin_incr 0.1
+        edev_incr 0.1
+        copyCurveFrom {}
+        from_emax {}
+        from_nmax {}
+        from_ehgt {}
+        from_hrat {}
+        from_ewid {}
+        from_emin {}
+        from_edev {}
+        from_law {}
+        from_h1 {}
+        from_h2 {}
+        from_r1 {}
+        from_r2 {}
+        from_lmax {}
+        copyCurveTo {}
+        copy_absolute 0
     }
     array set mszGlobalDEZ_data {
         this mszGlobalDEZ
@@ -425,7 +550,7 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         meshTetUseExist2Val 0
         tetinFile {}
         loadFlag 1
-        PartList {{From screen} GEOM INTERSECTION LOWER_TE POINTS UPPER_TE WING inherited}
+        PartList {{From screen} GEOM INTERSECTION LOWER_TE POINTS TE UPPER_TE WING inherited}
         family CREATED_MATERIAL
         __meshDelRemeshMF_Last_Index 0
         loadmesh 1
@@ -441,5 +566,17 @@ namespace eval ::AIEnv::GUIManagement::DEZ {
         kpt_tol {}
         inf_method 0
         prism_input 0
+    }
+    array set reorientMeshDEZ_data {
+        this reorientMeshDEZ
+        type DEZ
+        reorientElemsEGVal 1
+        reorientOutwardFlag 0
+        elemList {}
+        reorientConsVis 0
+        filterflag 0
+        reorientDir {0 0 1}
+        reorientVolIJKHowVal 0
+        vert {}
     }
 }

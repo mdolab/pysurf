@@ -280,6 +280,9 @@ class Curve(object):
 
         The first and last nodes will remain at the same place.
 
+        Consider using self.shift_end_nodes first so you can preserve the start and end points
+        of a periodic curve.
+
         INPUTS:
 
         nNewNodes: integer -> Number of new nodes desired in the new curve definition.
@@ -317,8 +320,8 @@ class Curve(object):
             if prevNodeID != currNodeID:
 
                 # Print warning
-                print 'Could not remesh curve because it has unordered FE data.'
-                print 'Call FEsort first.'
+                print 'WARNING: Could not remesh curve because it has unordered FE data.'
+                print '         Call FEsort first.'
                 return
 
         # COMPUTE ARC-LENGTH
@@ -400,30 +403,115 @@ class Curve(object):
         # Set new nodes
         self.coor = newNodeCoor
 
+        # Check if the baseline curve is periodic
+        if barsConn[0,0] == barsConn[1,-1]:
+            periodic = True
+        else:
+            periodic = False
+
         # Generate new connectivity (the nodes are already in order so we just
         # need to assign an ordered set to barsConn).
         barsConn = np.zeros((2,nNewNodes-1), order='F')
         barsConn[0,:] = range(1,nNewNodes)
         barsConn[1,:] = range(2,nNewNodes+1)
 
+        # We still need to keep periodicity if the original curve is periodic
+        if periodic:
+            barsConn[1,-1] = barsConn[0,0]
+
         self.barsConn = barsConn
 
+    def shift_end_nodes(self, criteria='maxX'):
+
         '''
-        # OLD VERSION THAT DO NOT CHANGE CONNECITVITY
+        This method will shift the finite element ordering of 
+        a periodic curve so that the first and last elements
+        satisfy a given criteria.
+        This is useful when we want to set boundary conditions for
+        mesh generation in specific points of this periodic curve,
+        such as a trailing edge.
 
-        # Do this for the first node separately (the -1 is due Fortran indexing)
-        coor[:,barsConn[0,0]-1] = newNodeCoor[:,0]
+        This method only works for periodic curves with ordered FE.
 
-        # Now do the remaining nodes
-        for elemID in range(nElem):
+        INPUTS:
+       
+        criteria: string -> criteria used to reorder FE data. Available options are:
+                  ['maxX', 'maxY', 'maxZ']
 
-            # Get index of the next node (the -1 is due Fortran indexing)
-            nodeID = barsConn[1,elemID]-1
+        OUTPUTS:
+        This function has no explicit outputs. It changes self.barsConn.
 
-            # Assign new coordinate
-            coor[:,nodeID] = newNodeCoor[:,elemID+1]
+        Ney Secco 2016-08
         '''
-            
+        
+        # Get current coordinates and connectivities
+        coor = self.coor
+        barsConn = self.barsConn
+
+        # Get number of elements
+        nElem = barsConn.shape[1]
+
+        # CHECKING INPUTS
+
+        # First we check if the FE data is ordered and periodic
+        for elemID in range(2,nElem):
+
+            # Get node indices
+            prevNodeID = barsConn[1,elemID-1]
+            currNodeID = barsConn[0,elemID]
+
+            # Check if the FE data is ordered
+            if prevNodeID != currNodeID:
+
+                # Print warning
+                print 'WARNING: Could not shift curve because it has unordered FE data.'
+                print '         Call FEsort first.'
+                return
+
+        # The first and last nodes should be the same to have a periodic curve.
+        if barsConn[0,0] != barsConn[1,-1]:
+
+            # Print warning
+            print 'WARNING: Could not shift curve because it is not periodic.'
+            return
+
+        # REORDERING
+
+        # Reorder according to the given criteria. We need to find the
+        # reference node (startNodeID) to reorder the FE data
+
+        if criteria in ['maxX','maxY','maxZ']:
+
+            if criteria == 'maxX':
+                coorID = 0
+            elif criteria == 'maxY':
+                coorID = 1
+            elif criteria == 'maxZ':
+                coorID = 2
+
+            # Get maximum value of the desired coordinate.
+            # The +1 is to make it consistent with Fortran ordering.
+            startNodeID = np.argmax(coor[coorID,:]) + 1
+
+        elif criteria in ['minX','minY','minZ']:
+
+            if criteria == 'minX':
+                coorID = 0
+            elif criteria == 'minY':
+                coorID = 1
+            elif criteria == 'minZ':
+                coorID = 2
+
+            # Get maximum value of the desired coordinate.
+            # The +1 is to make it consistent with Fortran ordering.
+            startNodeID = np.argmin(coor[coorID,:]) + 1
+
+        # Now we look for an element that starts at the reference node
+        startElemID = np.where(barsConn[0,:] == startNodeID)[0][0]
+
+        # Then we shift the connectivity list so that startElemID becomes the first element
+        self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:], barsConn[:,:startElemID]])
+
 #=================================================================
 
 def initialize_curves(TSurfComponent, sectionDict, selectedSections):
@@ -440,6 +528,8 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
 
     OUTPUTS:
     This function has no explicit outputs. It assigns TSurfComponent.Curves
+
+    Ney Secco 2016-08
     '''
 
     # CURVE OBJECTS
@@ -465,8 +555,22 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
 
 #=================================================================
 
+def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
 
+    '''
+    This function will extract features from the surface of TSurfComponent and
+    return Curve objects.
 
+    Ney Secco 2016-08
+    '''
+
+    # Get points and connectivities
+    coor = TSurfComponent.coor
+    triaConn = TSurfComponent.triaConn
+    quadsConn = TSurfComponent.quadsConn
+
+    # We need to identify the neighbors of each element, so we can compute edge information
+    
 
 #=================================================================
 
