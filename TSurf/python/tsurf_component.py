@@ -6,6 +6,7 @@ import adtAPI, cgnsAPI, curveSearch
 from tsurf_geometry import getCGNSsections, merge_surface_sections, \
                            initialize_surface, initialize_curves, \
                            update_surface, remove_unused_points
+import copy
 
 # ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
 
@@ -81,7 +82,7 @@ class TSurfComponent(Component):
         Adds a given curve instance to the self.Curves dictionary.
         '''
 
-        self.Curves[name] = curve
+        self.Curves[name] = copy.deepcopy(curve)
 
     def update(self, coor):
 

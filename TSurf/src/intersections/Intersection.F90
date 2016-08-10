@@ -706,6 +706,8 @@ end subroutine triTriIntersect
 subroutine compute_intervals_isectline(VERT0, VERT1, VERT2, VV0, VV1, VV2, D0, D1, D2, &
   			                           D0D1, D0D2, isect0, isect1, isectpoint0, isectpoint1, coplanar, intersect)
 
+  ! John Jasa - 2016-08
+
   implicit none
 
   real(kind=realType), intent(in) :: VV0, VV1, VV2, D0, D1, D2, D0D1, D0D2
@@ -751,6 +753,8 @@ end subroutine compute_intervals_isectline
 subroutine intersect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
 	     D0, D1, D2, isect0, isect1, isectpoint0, isectpoint1)
 
+  ! John Jasa - 2016-08
+
   implicit none
 
   real(kind=realType), intent(in) :: VV0, VV1, VV2, D0, D1, D2
@@ -775,6 +779,8 @@ subroutine intersect2(VTX0, VTX1, VTX2, VV0, VV1, VV2, &
 end subroutine intersect2
 
 function coplanarTriTri(N, V0, V1, V2, U0, U1, U2) result(intersect)
+
+  ! John Jasa - 2016-08
 
   implicit none
 
@@ -826,6 +832,8 @@ end function coplanarTriTri
 
 function pointInTri(V0, U0, U1, U2, i0, i1) result(intersect)
 
+  ! John Jasa - 2016-08
+
   implicit none
 
   real(kind=realType), dimension(3), intent(in) :: V0, U0, U1, U2
@@ -859,6 +867,8 @@ end function pointInTri
 
 function edgeAgainstTriEdges(V0, V1, U0, U1, U2, i0, i1) result(intersect)
 
+  ! John Jasa - 2016-08
+
   implicit none
 
   real(kind=realType), dimension(3), intent(in) :: V0, V1, U0, U1, U2
@@ -880,6 +890,8 @@ function edgeAgainstTriEdges(V0, V1, U0, U1, U2, i0, i1) result(intersect)
 end function edgeAgainstTriEdges
 
 function EDGE_EDGE_TEST(V0, U0, U1, Ax, Ay, i0, i1) result(intersect)
+
+  ! John Jasa - 2016-08
 
   implicit none
 
@@ -914,6 +926,8 @@ end function EDGE_EDGE_TEST
 
 subroutine cross_product(A, B, C)
 
+  ! John Jasa - 2016-08
+
   implicit none
 
   real(kind=realType), intent(in) :: A(3), B(3)
@@ -926,6 +940,8 @@ subroutine cross_product(A, B, C)
 end subroutine cross_product
 
 subroutine sort(a, b, smallest)
+
+  ! John Jasa - 2016-08
 
   implicit none
 
