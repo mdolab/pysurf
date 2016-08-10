@@ -1,0 +1,16 @@
+#!MC 1410
+$!VarSet |MFBD| = '/home/ney/hg/pysurf/test/wingBody'
+$!PICK SETMOUSEMODE
+  MOUSEMODE = SELECT
+$!PAGE NAME = 'Untitled'
+$!PAGECONTROL CREATE
+$!PICK SETMOUSEMODE
+  MOUSEMODE = SELECT
+$!OPENLAYOUT  "/home/ney/hg/pysurf/test/wingBody/layout_wingBody_adt.lay"
+$!PRINTSETUP PALETTE = COLOR
+$!EXPORTSETUP IMAGEWIDTH = 1000
+$!EXPORTSETUP USESUPERSAMPLEANTIALIASING = YES
+$!EXPORTSETUP EXPORTFNAME = '/home/ney/hg/pysurf/test/wingBody/images/image.png'
+$!EXPORT 
+  EXPORTREGION = CURRENTFRAME
+$!RemoveVar |MFBD|

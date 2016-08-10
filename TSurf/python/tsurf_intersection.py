@@ -53,6 +53,9 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
                 # Initialize curve object and append it to the list
                 Intersections.append(newCurve)
 
+    # Print log
+    print 'Computed',len(Intersections),'intersection curves.'
+
     # Return all intersections
     return Intersections
 
@@ -76,6 +79,9 @@ def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
     # Retrieve results from Fortran
     coor = np.array(iapi.intersectionapi.coor)
     barsConn = np.array(iapi.intersectionapi.barsconn)
+
+    # Release memory used by Fortran so we run another intersection in the future
+    iapi.intersectionapi.releasememory()
 
     if len(coor) > 0:
 

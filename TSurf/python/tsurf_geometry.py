@@ -578,8 +578,38 @@ def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
     triaConn = TSurfComponent.triaConn
     quadsConn = TSurfComponent.quadsConn
 
+    # Get number of elements
+    nTria = triaConn.shape[1]
+    nQuads = quadsConn.shape[1]
+
     # We need to identify the neighbors of each element, so we can compute edge information
+
+    # We will create a dictionary whose keys represent edges and the values will
+    # be the two elements that share this edge. The key will always be sorted, so that
+    # The edges from the two elements will point to the same place in the dictionary.
+    # For instance, if we have triangle 43 with node connectivity [3,56,7], and quad
+    # 146 with connectivity [7,56,101,9], then the dictionary will get an entry
+    # that looks: {[7,65]:[43,-146]} (Edge 7,56 is shared between tria 43 and quad 146).
+    # Quads will be flagged by negative values.
+    # An edge that is connected to a single element will have 0 in its values
     
+    # Initialize dictionary
+    edge2Elem = {}
+
+    # Loop over all trias
+    for triaID in range(nTria):
+
+        # Get current element connectivity
+        currConn = triaConn[:,triaID]
+
+        # Determine the bars that define the element.
+        # We sort the node order so that they will point to the same
+        # place in the dictionary.
+        bar1 = [currConn[0], currConn[1]].sort
+        bar2 = [currConn[1], currConn[2]].sort
+        bar3 = [currConn[2], currConn[3]].sort
+        
+
 
 #=================================================================
 
