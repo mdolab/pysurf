@@ -100,12 +100,15 @@ class TSurfComponent(Component):
 
     def translate(self, x, y, z):
         translate(self, x, y, z)
+        update_surface(self)
 
     def scale(self, factor):
         scale(self, factor)
+        update_surface(self)
 
     def rotate(self, angle, axis):
         rotate(self, angle, axis)
+        update_surface(self)
 
     def project_on_surface(self, xyz):
 

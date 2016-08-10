@@ -23,6 +23,8 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(4,nquadsb),intent(in) :: quadsconnb
                 real(kind=realtype) intent(in) :: disttol
             end subroutine computeintersection
+            subroutine releasememory()
+            end subroutine releasememory
             subroutine testtri(v0,v1,v2,u0,u1,u2,intersect,vecstart,vecend) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection
                 real(kind=realtype) dimension(3),intent(in) :: v0

@@ -211,10 +211,28 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
 
 end subroutine computeIntersection
 
+!=============================================
+
+subroutine releaseMemory()
+
+  ! This subroutine just deallocates memory used by the intersection code.
+  ! Remember to call this function after you copy the outputs in Python.
+
+  implicit none
+
+  ! Deallocate output variables
+  if (allocated(coor)) then
+     deallocate(coor, barsConn)
+  end if
+
+end subroutine releaseMemory
+
+!=============================================
+
 subroutine testTri(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
 
   ! This function computes the intersection curve between two
-  ! triangulated surface components A and B.
+  ! triangles.
 
   use Intersection
   implicit none
