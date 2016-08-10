@@ -157,7 +157,7 @@ elif example == 'line_on_cubeAndCylinder':
 elif example == 'line_on_cube':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('inputs/cube.cgns') # mesh cube only
+    geom = TSurfComponent('inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
 
     # Set problem
     n = 40

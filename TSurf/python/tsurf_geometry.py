@@ -103,7 +103,6 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 #========================================
 
 
-
 #=================================================================
 # AUXILIARY SURFACE FUNCTIONS
 #=================================================================
@@ -268,14 +267,16 @@ class Curve(object):
         This function has no explicit outputs. It will just update dist2, xyzProj, and tangents
         '''
 
+        # Call fortran code
         curveSearch.curveproj.mindistancecurve(xyz.T, self.coor, self.barsConn, xyzProj.T, tangents.T, dist2)
 
 #=================================================================
 
-def initialize_curves(TSurfComponent, sectionDict):
+def initialize_curves(TSurfComponent, sectionDict, selectedSections):
 
     '''
-    This function initializes all curves given in sectionDict.
+    This function initializes all curves given in sectionDict that are
+    shown in selectedSections.
 
     INPUTS:
     sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
@@ -296,7 +297,8 @@ def initialize_curves(TSurfComponent, sectionDict):
     # Now we will initialize curve objects
     for sectionName in sectionDict:
 
-        if 'barsConn' in sectionDict[sectionName].keys(): # Then we have a curve section
+        if ('barsConn' in sectionDict[sectionName].keys()) and \
+           (sectionName in selectedSections): # Then we have a curve section that should be stored
 
             # Get data from current section
             barsConn = sectionDict[sectionName]['barsConn']
@@ -487,6 +489,25 @@ def FEsort(barsConn):
             FEcurve[0,pointID-1] = prevPoint
             FEcurve[1,pointID-1] = currPoint
 
+
+    # Now we do a final check to remove degenerate bars (bars that begin and end at the same point)
+    # Take every disconnect curve in newConnFE:
+    for curveID in range(len(newConnFE)):
+
+        # We convert the connectivity array to list so we can 'pop' elements
+        curveFE = newConnFE[curveID].T.tolist()
+
+        for FE in curveFE:
+
+            # Check if the start and end points are the same
+            if FE[0] == FE[1]:
+
+                # Remove FE
+                curveFE.remove(FE)
+                
+        # Convert connectivity back to numpy array
+        newConnFE[curveID] = np.array(curveFE, order='F').T
+
     # Return the sorted array
     return newConnFE
 
@@ -591,3 +612,109 @@ def FEsort_dumb(barsConnIn):
     return newConn
 
 #=============================================================
+
+def remove_unused_points(TSurfComponent):
+
+    '''
+    This function will removed unused points from coor and
+    also update all connectivities.
+    '''
+
+    # Gather data
+    coor = TSurfComponent.coor
+    triaConn = TSurfComponent.triaConn
+    quadsConn = TSurfComponent.quadsConn
+
+    # Get total number of points and elements
+    nPoints = coor.shape[1]
+    nTria = triaConn.shape[1]
+    nQuads = quadsConn.shape[1]
+
+    # Initialize mask to identify used points
+    usedPtsMask = np.zeros(nPoints)
+
+    # First we loop over all elements to create a mask that indicates used points
+    for triaID in range(nTria):
+        # Flag used points
+        usedPtsMask[triaConn[0,triaID]-1] = 1
+        usedPtsMask[triaConn[1,triaID]-1] = 1
+        usedPtsMask[triaConn[2,triaID]-1] = 1
+
+    for quadID in range(nQuads):
+        # Flag used points
+        usedPtsMask[quadsConn[0,quadID]-1] = 1
+        usedPtsMask[quadsConn[1,quadID]-1] = 1
+        usedPtsMask[quadsConn[2,quadID]-1] = 1
+        usedPtsMask[quadsConn[3,quadID]-1] = 1
+
+    for curve in TSurfComponent.Curves.itervalues():
+        # Get current connectivity
+        barsConn = curve.barsConn
+
+        # Get number of elements in this curve
+        nBars = barsConn.shape[1]
+
+        for barID in range(nBars):
+            # Flag used points
+            usedPtsMask[barsConn[0,barID]-1] = 1
+            usedPtsMask[barsConn[1,barID]-1] = 1
+
+    # Now we can compute the number of points actually used
+    nUsedPts = np.sum(usedPtsMask)
+
+    # Initialize new coordinate array
+    cropCoor = np.zeros((3,nUsedPts),order='F')
+
+    # Initialize counter to fill cropCoor
+    cropPointID = -1
+
+    # Now we fill the points of the cropped array
+    for pointID in range(nPoints):
+
+        # Check if the point is used
+        if usedPtsMask[pointID] == 1:
+
+            # Increment counter
+            cropPointID = cropPointID + 1
+
+            # Add point to the cropped array
+            cropCoor[:,cropPointID] = coor[:,pointID]
+
+            # Now we replace the value in the mask array so that we
+            # can use it as a pointer from coor to cropCoor when we
+            # update element connectivities.
+            # The +1 is necessary because Fortran use 1-based indexing
+            usedPtsMask[pointID] = cropPointID + 1
+
+    # Store the new set of points
+    TSurfComponent.coor = cropCoor
+
+    # Now we need to update connectivities so that they point to the the correct
+    # indices of the cropped array
+    for triaID in range(nTria):
+        # Use pointer to update connectivity
+        triaConn[0,triaID] = usedPtsMask[triaConn[0,triaID]-1]
+        triaConn[1,triaID] = usedPtsMask[triaConn[1,triaID]-1]
+        triaConn[2,triaID] = usedPtsMask[triaConn[2,triaID]-1]
+
+    for quadID in range(nQuads):
+        # Use pointer to update connectivity
+        quadsConn[0,quadID] = usedPtsMask[quadsConn[0,quadID]-1]
+        quadsConn[1,quadID] = usedPtsMask[quadsConn[1,quadID]-1]
+        quadsConn[2,quadID] = usedPtsMask[quadsConn[2,quadID]-1]
+        quadsConn[3,quadID] = usedPtsMask[quadsConn[3,quadID]-1]
+
+    for curve in TSurfComponent.Curves.itervalues():
+        # Update coordinates
+        curve.coor = cropCoor
+
+        # Get current connectivity
+        barsConn = curve.barsConn
+        
+        # Get number of elements in this curve
+        nBars = barsConn.shape[1]
+
+        for barID in range(nBars):
+            # Flag used points
+            barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
+            barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]

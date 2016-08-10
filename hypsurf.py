@@ -885,7 +885,7 @@ def findRatio(dMax, d0, numLayers, ratioGuess):
     s0: cell edge length at the wall
     numLayers: number of cells used to reach farfield
     '''
-
+    
     # Extra parameters
     nIters = 200 # Maximum number of iterations for Newton search
     q0 = ratioGuess # Initial ratio

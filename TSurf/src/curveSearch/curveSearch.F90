@@ -60,7 +60,7 @@
 
           ! Get the relative vectors for the bar element normalize
           x21 = x2 - x1
-          nodalTangents(:, j) = x21 / sqrt(dot_product(x21, x21))
+          nodalTangents(:, j) = x21 / norm2(x21)
         end do
 
         ! Loop over all points to be projected
@@ -70,6 +70,10 @@
           ! distance from a curve
           pt = xyz(:, i)
           dist = allDist(i)
+
+          ! Initialize jj, which should be the index of the element that is
+          ! best suited for the projection
+          jj = 0
 
           ! Loop over all individual bar elements that define the curve
           do j = 1,nBars
@@ -109,10 +113,17 @@
 
           end do
 
-          ! Store the saved projected point in the full array
-          allDist(i) = dist
-          allProjPoints(:, i) = projPoint
-          tangents(:, i) = nodalTangents(:, jj)
+          ! If we could not find a better candidate in this curve, then
+          ! jj still has its initial value. Otherwise, we found a better candidate
+          ! and we need to replace values.
+          if (jj .gt. 0) then
+
+             ! Store the saved projected point in the full array
+             allDist(i) = dist
+             allProjPoints(:, i) = projPoint
+             tangents(:, i) = nodalTangents(:, jj)
+
+          end if
 
         end do
 
