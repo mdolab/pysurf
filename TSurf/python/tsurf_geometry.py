@@ -117,7 +117,7 @@ def merge_surface_sections(sectionDict, selectedSections):
     sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
                   keys are section names, while the values are also dictionaries with the
                   following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
-                  for curve sections. 
+                  for curve sections.
     '''
 
     # Initialize global connectivities
@@ -126,13 +126,13 @@ def merge_surface_sections(sectionDict, selectedSections):
 
     # Loop over the selected surfaces to gather connectivities
     for sectionName in selectedSections:
-       
+
         if sectionName not in sectionDict.keys():
 
             # User wants a section that is not defined. Print a warning message:
             print 'ERROR: Surface',sectionName,'is not defined. Check surface names in your CGNS file.'
             quit()
- 
+
         elif 'triaConn' in sectionDict[sectionName].keys(): # Then we have a surface section
 
             # Assign connectivities
@@ -146,7 +146,7 @@ def merge_surface_sections(sectionDict, selectedSections):
                 quadsConn = np.hstack([quadsConn, sectionDict[sectionName]['quadsConn']])
 
         else:
-            
+
             # The user provided a name that is not a surface section
             print sectionName,'is not a surface section.'
 
@@ -194,7 +194,7 @@ def update_surface(TSurfComponent):
                                                                    TSurfComponent.quadsConn)
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(TSurfComponent.coor, 
+    adtAPI.adtapi.adtbuildsurfaceadt(TSurfComponent.coor,
                                      TSurfComponent.triaConn, TSurfComponent.quadsConn,
                                      BBox, useBBox,
                                      TSurfComponent.comm.py2f(),
@@ -437,7 +437,7 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
                  keys are section names, while the values are also dictionaries with the
                  following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
                  for curve sections.
-    
+
     OUTPUTS:
     This function has no explicit outputs. It assigns TSurfComponent.Curves
     '''
@@ -542,7 +542,7 @@ def FEsort(barsConn):
         newConn = [oldConn.pop(0)]
 
         # We will keep sorting until all elements of oldConn are assigned and popped out
-    
+
         while len(oldConn) > 0:
 
             # Pop another element from oldConn
@@ -663,7 +663,7 @@ def FEsort(barsConn):
 
                 # Remove FE
                 curveFE.remove(FE)
-                
+
         # Convert connectivity back to numpy array
         newConnFE[curveID] = np.array(curveFE, order='F').T
 
@@ -790,7 +790,7 @@ def remove_unused_points(TSurfComponent):
     nQuads = quadsConn.shape[1]
 
     # Initialize mask to identify used points
-    usedPtsMask = np.zeros(nPoints)
+    usedPtsMask = np.zeros(nPoints, dtype=int)
 
     # First we loop over all elements to create a mask that indicates used points
     for triaID in range(nTria):
@@ -869,7 +869,7 @@ def remove_unused_points(TSurfComponent):
 
         # Get current connectivity
         barsConn = curve.barsConn
-        
+
         # Get number of elements in this curve
         nBars = barsConn.shape[1]
 

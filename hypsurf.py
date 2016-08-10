@@ -124,11 +124,8 @@ class HypSurfMesh(object):
 
         # Issue a warning message if the projected points are far from the given points
         if max(abs(rNext - rStart)) > 1.0e-5:
-            print ''
-            print 'WARNING!:'
-            print 'The given points (rStart) might not belong to the given surface (surf)'
-            print 'These points were projected for the surface mesh generation'
-            print ''
+            warn('The given points (rStart) might not belong to the given surface (surf)\nThese points were projected for the surface mesh generation')
+
 
         # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
         # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
@@ -146,6 +143,7 @@ class HypSurfMesh(object):
         Sm1, maxStretch = self.areaFactor(rNext, d)
 
         maxRes = 0
+        fail = False
 
         # MARCH!!!
         for layerIndex in range(numLayers-1):
@@ -198,6 +196,16 @@ class HypSurfMesh(object):
             # Store grid points
             R[layerIndex+1,:] = rNext
 
+            # Check quality of the mesh
+            if layerIndex > 1:
+                fail = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
+
+            if fail:
+                # If the mesh is not valid, only save the mesh up until that point.
+                # Otherwise we'd see a bunch of points at 0,0,0.
+                R = R[:layerIndex+2, :]
+                break
+
             # Compute the total marched distance so far
             dTot = dTot + d
 
@@ -209,6 +217,7 @@ class HypSurfMesh(object):
         Y = R[:,1::3]
         Z = R[:,2::3]
 
+        self.mesh = np.zeros((3, self.numNodes, layerIndex+2))
         self.mesh[0, :, :] = X.T
         self.mesh[1, :, :] = Y.T
         self.mesh[2, :, :] = Z.T
@@ -746,6 +755,90 @@ class HypSurfMesh(object):
         # RETURNS
         return epsE, epsI
 
+    def qualityCheck(self, R, layerIndex=None):
+
+        # Convert the flattened array R into a 3 x nw1 x nw2 array.
+        # nw1 -> number of nodes in the direction of marching
+        # nw2 -> number of nodes in direction of curve
+        XYZ = np.array([R[:, ::3], R[:, 1::3], R[:, 2::3]])
+        nw1, nw2 = XYZ.shape[1:]
+
+        # Setup nodal normals
+        nodalNormals = np.empty((3, nw1, nw2))
+
+        # Get the panel normals from the interior points of the mesh.
+        # Here we take the cross product of the diagonals of each face
+        vec1 = XYZ[:, 1:, 1:] - XYZ[:, :-1, :-1]
+        vec2 = XYZ[:, 1:, :-1] - XYZ[:, :-1, 1:]
+        panelNormals = np.cross(vec2, vec1, axis=0)
+        panelNormals = panelNormals / np.linalg.norm(panelNormals, axis=0)
+
+        # Set the interior normals using an average of the panel normals
+        vec1 = panelNormals[:, 1:, 1:] + panelNormals[:, :-1, :-1]
+        vec2 = panelNormals[:, 1:, :-1] + panelNormals[:, :-1, 1:]
+        normals = vec1 + vec2
+        nodalNormals[:, 1:-1, 1:-1] = normals / np.linalg.norm(normals, axis=0)
+
+        # Set the boundary normals
+        nodalNormals[:, 1:, 0] = panelNormals[:, :, 0]
+        nodalNormals[:, 0, :-1] = panelNormals[:, 0, :]
+        nodalNormals[:, :-1, -1] = panelNormals[:, :, -1]
+        nodalNormals[:, -1, 1:] = panelNormals[:, -1, :]
+
+        # Setup nodal derivatives
+        nodalDerivs = np.zeros((3, 2, nw1, nw2))
+
+        # Compute interior derivatives using 2nd order central differencing
+        nodalDerivs[:, 0, 1:-1, 1:-1] = (XYZ[:, 2:, 1:-1] - XYZ[:, :-2, 1:-1]) / 2.
+        nodalDerivs[:, 1, 1:-1, 1:-1] = (XYZ[:, 1:-1, 2:] - XYZ[:, 1:-1, :-2]) / 2.
+
+        # Compute i derivatives using 1st order differencing
+        nodalDerivs[:, 0, 0, :] = XYZ[:, 1, :] - XYZ[:, 0, :]
+        nodalDerivs[:, 0, -1, :] = XYZ[:, -1, :] - XYZ[:, -2, :]
+
+        nodalDerivs[:, 0, 1:-1, 0] = (XYZ[:, 2:, 0] - XYZ[:, :-2, 0]) / 2.
+        nodalDerivs[:, 0, 1:-1, -1] = (XYZ[:, 2:, -1] - XYZ[:, :-2, -1]) / 2.
+
+        # Compute j derivatives using 1st order differencing
+        nodalDerivs[:, 1, :, 0] = XYZ[:, :, 1] - XYZ[:, :, 0]
+        nodalDerivs[:, 1, :, -1] = XYZ[:, :, -1] - XYZ[:, :, -2]
+
+        nodalDerivs[:, 1, 0, 1:-1] = (XYZ[:, 0, 2:] - XYZ[:, 0, :-2]) / 2.
+        nodalDerivs[:, 1, -1, 1:-1] = (XYZ[:, -1, 2:] - XYZ[:, -1, :-2]) / 2.
+
+        # Assemble nodal Jacobians
+        nodalJacs = np.zeros((3, 3, nw1, nw2))
+        nodalJacs[0, :, :, :] = nodalDerivs[:, 0, :, :]
+        nodalJacs[1, :, :, :] = nodalDerivs[:, 1, :, :]
+        nodalJacs[2, :, :, :] = nodalNormals[:, :, :]
+
+        # Compute determinants of Jacobians and find ratio of min to max per face
+        ratios = np.zeros((nw1-1, nw2-1))
+
+        # Compute the determinants of each nodal Jacobian
+        det = np.linalg.det(np.swapaxes(np.swapaxes(nodalJacs, 1, 3), 0, 2))
+
+        # Find the ratio of the minimum valued determinant to the maximum
+        # valued determinant.
+        # This is a measure of quality, with 1 being desirable and anything
+        # less than 0 meaning the mesh is no longer valid.
+        for i in range(nw1-1):
+            for j in range(nw2-1):
+                ratios[i, j] = np.min(det[i:i+2, j:j+2]) / np.max(det[i:i+2, j:j+2])
+
+        fail = False
+        # Throw an error and set the failure flag if the mesh is not valid
+        if np.any(np.isnan(ratios)) or np.min(ratios) <= 0.:
+            error("The mesh is not valid after step {}.".format(layerIndex+1))
+            fail = True
+
+        # Throw a warning if the mesh is low quality
+        elif np.min(ratios) <= .2:
+            warn("The mesh may be low quality after step {}.".format(layerIndex+1))
+
+        return fail
+
+
     def exportPlot3d(self, filename):
 
         '''
@@ -812,8 +905,8 @@ class HypSurfMesh(object):
                     self.optionsDict[defaultKeys] = options[userKeys]
                     break
             if unusedOption:
-                string = "Warning: {} key not in default options dictionary.".format(userKeys)
-                print string
+                message = "{} key not in default options dictionary.".format(userKeys)
+                warn(message)
 
 
 if __name__ == '__main__':
@@ -885,7 +978,7 @@ def findRatio(dMax, d0, numLayers, ratioGuess):
     s0: cell edge length at the wall
     numLayers: number of cells used to reach farfield
     '''
-    
+
     # Extra parameters
     nIters = 200 # Maximum number of iterations for Newton search
     q0 = ratioGuess # Initial ratio
@@ -906,10 +999,9 @@ def findRatio(dMax, d0, numLayers, ratioGuess):
 
     # Check if we got a reasonable value
     if (q <= 1) or (q >= q0):
-       print 'Ratio may be too large...'
-       print 'Increase number of cells or reduce extension'
-       from sys import exit
-       exit()
+        error('Ratio may be too large...\nIncrease number of cells or reduce extension')
+        from sys import exit
+        exit()
 
     # RETURNS
     return q
@@ -990,6 +1082,18 @@ def plotGrid(X,Y,Z,show=False):
 
     # Return the figure handle
     return fig
+
+def warn(message):
+    print ''
+    print 'WARNING!:'
+    print message
+    print ''
+
+def error(message):
+    print ''
+    print 'ERROR!:'
+    print message
+    print ''
 
 #=============================================
 #=============================================
