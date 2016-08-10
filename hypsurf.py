@@ -411,6 +411,7 @@ class HypSurfMesh(object):
                                       r0[3*(neighbor2_index):3*(neighbor2_index)+3],
                                       N0[:,curr_index])
 
+
             elif curr_index == self.numNodes - 1:  # backward case
                 neighbor1_index = curr_index - 1
                 neighbor2_index = curr_index - 2
@@ -469,7 +470,7 @@ class HypSurfMesh(object):
             dSensor = dnum/dden
 
             # Sharp convex corner detection
-            if angle > 240*np.pi/180: # Corner detected
+            if angle < 70*np.pi/180: # Corner detected
 
                 # Populate matrix with Eq 8.3
                 K[3*curr_index:3*curr_index+3,3*neighbor2_index:3*neighbor2_index+3] = -np.eye(3)
@@ -740,7 +741,7 @@ class HypSurfMesh(object):
         dbar = max([dSensor**(2/Sl), 0.1])
 
         # Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
-        if angle >= np.pi: # Convex corner
+        if angle <= np.pi: # Convex corner
             a = 1.0
         else:
             a = 1.0/(1.0 - np.cos(angle/2)*np.cos(angle/2))

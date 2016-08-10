@@ -183,7 +183,7 @@ elif example == 'line_on_cube':
     # Options
     sBaseline = 0.01
     numLayers = 60
-    extension = 5.015
+    extension = 5.1
 
     layout_file = 'layout_cube.lay'
 

@@ -1,4 +1,4 @@
-# Written by ICEM CFD 14.0, user ney, Tue Aug 02 11:05:53 AM EDT 2016
+# Written by ICEM CFD 14.0, user ney, Wed Aug 10 03:02:49 PM EDT 2016
 
 begin family WING
     begin solver "CGNS"
@@ -33,3 +33,12 @@ begin family LOWER_TE
     begin solver "CGNS"
     end solver "CGNS"
 end family LOWER_TE
+
+begin family TE
+    begin solver "CGNS"
+        begin bctype color
+            active 1
+            color 8187700 1
+        end bctype color
+    end solver "CGNS"
+end family TE
