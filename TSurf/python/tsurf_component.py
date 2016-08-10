@@ -5,7 +5,7 @@ from ...baseClasses import Component
 import adtAPI, cgnsAPI, curveSearch
 from tsurf_geometry import getCGNSsections, merge_surface_sections, \
                            initialize_surface, initialize_curves, \
-                           update_surface
+                           update_surface, remove_unused_points
 
 # ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
 
@@ -66,11 +66,14 @@ class TSurfComponent(Component):
         # connectivity array
         self.triaConn, self.quadsConn = merge_surface_sections(sectionDict, selectedSections)
 
-        # Create ADT for the current surface
-        initialize_surface(self)
-
         # Initialize curves
-        initialize_curves(self, sectionDict)
+        initialize_curves(self, sectionDict, selectedSections)
+
+        # Now we remove unused points
+        remove_unused_points(self)
+
+        # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
+        initialize_surface(self)
 
     def add_curve(self, name, curve):
 
@@ -78,7 +81,7 @@ class TSurfComponent(Component):
         Adds a given curve instance to the self.Curves dictionary.
         '''
 
-        self.Curves['name'] = curve
+        self.Curves[name] = curve
 
     def update(self, coor):
 
@@ -198,6 +201,7 @@ class TSurfComponent(Component):
         for curve in curveCandidates:
             if curve not in curveKeys:
                 print 'ERROR: Curve',curve,'is not defined. Check the curve names in your CGNS file.'
+                print '       Also check if you included this curve name when selecting CGNS sections.'
                 quit()
 
         # Call inverse_evaluate for each component in the list, so that we can update

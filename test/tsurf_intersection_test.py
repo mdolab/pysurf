@@ -10,14 +10,14 @@ import copy
 comm = MPI.COMM_WORLD
 
 # Define components
-cube = pysurf.TSurfComponent('../inputs/cube.cgns', comm)
-cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
+# cube = pysurf.TSurfComponent('../inputs/cube.cgns', comm)
+# cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 
 # bigCube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
 # smallCube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
 
-#cube = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['geom'], comm)
-#cylinder = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['cylinder'], comm)
+cube = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['geom'], comm)
+cylinder = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['cylinder'], comm)
 
 # # Reduce cube size
 # smallCube.update(smallCube.coor*0.5)
@@ -41,11 +41,13 @@ cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 #
 # smallCube.update(coor)
 
+'''
 coor = cylinder.coor * .5
 coor[0,:] = coor[0,:] - 0.25
 coor[1,:] = coor[1,:] + 0.5
 coor[2,:] = coor[2,:] + 0.5
 cylinder.update(coor)
+'''
 
 # Call intersection function
 # Intersections = pysurf.compute_intersections([bigCube, smallCube])
