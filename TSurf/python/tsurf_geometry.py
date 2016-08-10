@@ -242,6 +242,15 @@ class Curve(object):
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
 
+    def translate(self, x, y, z):
+        translate(self, x, y, z)
+
+    def scale(self, factor):
+        scale(self, factor)
+
+    def rotate(self, angle, axis):
+        rotate(self, angle, axis)
+
 
     def project(self, xyz, dist2, xyzProj, tangents):
 
@@ -981,3 +990,45 @@ def remove_unused_points(TSurfComponent):
             # Flag used points
             barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
             barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]
+
+def translate(Component, x, y, z):
+    ''' Translate coor based on given x, y, and z values. '''
+
+    Component.coor = Component.coor[:, :] + np.atleast_2d(np.array([x, y, z])).T
+
+def scale(Component, factor, point=None):
+    ''' Scale coor about a defined point or the center. '''
+
+    coor = Component.coor
+    if not point:
+        point = np.mean(coor)
+    relCoor = coor - point
+    relCoor *= factor
+    Component.coor = relCoor + point
+
+def rotate(Component, angle, axis, point=None):
+    ''' Rotate coor about an axis at a defined angle (in degrees). '''
+
+    coor = Component.coor
+    if not point:
+        point = np.mean(coor)
+    angle = angle * np.pi / 180.
+    rotationMat = np.zeros((3, 3))
+
+    if axis==0:
+        ind1 = 1
+        ind2 = 2
+    elif axis==1:
+        ind1 = 2
+        ind2 = 0
+    else:
+        ind1 = 0
+        ind2 = 1
+
+    rotationMat[ind1, ind1] = np.cos(angle)
+    rotationMat[ind1, ind2] = -np.sin(angle)
+    rotationMat[axis, axis] = 1
+    rotationMat[ind2, ind1] = np.sin(angle)
+    rotationMat[ind2, ind2] = np.cos(angle)
+
+    Component.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point
