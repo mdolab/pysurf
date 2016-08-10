@@ -5,7 +5,8 @@ from ...baseClasses import Component
 import adtAPI, cgnsAPI, curveSearch
 from tsurf_geometry import getCGNSsections, merge_surface_sections, \
                            initialize_surface, initialize_curves, \
-                           update_surface, remove_unused_points
+                           update_surface, remove_unused_points, \
+                           translate, scale, rotate
 import copy
 
 # ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
@@ -96,9 +97,15 @@ class TSurfComponent(Component):
         # Update surface definition
         update_surface(self)
 
-        # Update all curves
-        for curve in self.Curves.itervalues():
-            curve.update_points(coor)
+
+    def translate(self, x, y, z):
+        translate(self, x, y, z)
+
+    def scale(self, factor):
+        scale(self, factor)
+
+    def rotate(self, angle, axis):
+        rotate(self, angle, axis)
 
     def project_on_surface(self, xyz):
 

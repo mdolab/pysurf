@@ -198,7 +198,7 @@ class HypSurfMesh(object):
 
             # Check quality of the mesh
             if layerIndex > 1:
-                fail = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
+                fail, ratios = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
 
             if fail:
                 # If the mesh is not valid, only save the mesh up until that point.
@@ -211,6 +211,10 @@ class HypSurfMesh(object):
 
             # Update step size
             d = d*dGrowth
+
+        if self.optionsDict['plotQuality']:
+            fail, ratios = self.qualityCheck(R)
+            view_mat(ratios)
 
         # Convert to X, Y and Z
         X = R[:,::3]
@@ -756,6 +760,14 @@ class HypSurfMesh(object):
         return epsE, epsI
 
     def qualityCheck(self, R, layerIndex=None):
+        '''
+        This function checks the quality of a given mesh interval. This is done
+        by constructing the Jacobians at each node, taking its determinant,
+        and finding the ratio of the min over the max of each of the four
+        nodal Jacobians for each face. Values near 1 within ratios are
+        desirable while values near 0 point to bad mesh quality. Values below
+        0 mean that the mesh is no longer valid and we stop marching.
+        '''
 
         # Convert the flattened array R into a 3 x nw1 x nw2 array.
         # nw1 -> number of nodes in the direction of marching
@@ -828,15 +840,15 @@ class HypSurfMesh(object):
 
         fail = False
         # Throw an error and set the failure flag if the mesh is not valid
-        if np.any(np.isnan(ratios)) or np.min(ratios) <= 0.:
+        if (np.any(np.isnan(ratios)) or np.min(ratios) <= 0.) and layerIndex:
             error("The mesh is not valid after step {}.".format(layerIndex+1))
             fail = True
 
         # Throw a warning if the mesh is low quality
-        elif np.min(ratios) <= .2:
+        elif np.min(ratios) <= .2 and layerIndex:
             warn("The mesh may be low quality after step {}.".format(layerIndex+1))
 
-        return fail
+        return fail, ratios
 
 
     def exportPlot3d(self, filename):
@@ -892,7 +904,7 @@ class HypSurfMesh(object):
             'sigmaSplay' : 0.3,
             'cMax' : 3.0,
             'ratioGuess' : 20,
-
+            'plotQuality' : False,
             }
 
     def _applyUserOptions(self, options):
