@@ -161,11 +161,7 @@ def initialize_surface(TSurfComponent):
     on the initial connectivity and coordinates
     '''
 
-    # Assign an adtID for the current surface. This ID should be a
-    # unique string, so we select a name based on the number of trees
-    # defined so far
-    TSurfComponent.adtID = 'tree%08d'%adtAPI.adtapi.adtgetnumberoftrees()
-    print 'My ID is',TSurfComponent.adtID
+    print 'My ID is',TSurfComponent.name
 
     # Now call general function that sets ADT
     update_surface(TSurfComponent)
@@ -180,7 +176,7 @@ def update_surface(TSurfComponent):
     '''
 
     # Deallocate previous tree
-    adtAPI.adtapi.adtdeallocateadts(TSurfComponent.adtID)
+    adtAPI.adtapi.adtdeallocateadts(TSurfComponent.name)
 
     # Set bounding box for new tree
     BBox = np.zeros((3, 2))
@@ -198,7 +194,7 @@ def update_surface(TSurfComponent):
                                      TSurfComponent.triaConn, TSurfComponent.quadsConn,
                                      BBox, useBBox,
                                      TSurfComponent.comm.py2f(),
-                                     TSurfComponent.adtID)
+                                     TSurfComponent.name)
 
 #=================================================================
 
@@ -433,7 +429,7 @@ class Curve(object):
     def shift_end_nodes(self, criteria='maxX'):
 
         '''
-        This method will shift the finite element ordering of 
+        This method will shift the finite element ordering of
         a periodic curve so that the first and last elements
         satisfy a given criteria.
         This is useful when we want to set boundary conditions for
@@ -443,7 +439,7 @@ class Curve(object):
         This method only works for periodic curves with ordered FE.
 
         INPUTS:
-       
+
         criteria: string -> criteria used to reorder FE data. Available options are:
                   ['maxX', 'maxY', 'maxZ']
 
@@ -452,7 +448,7 @@ class Curve(object):
 
         Ney Secco 2016-08
         '''
-        
+
         # Get current coordinates and connectivities
         coor = self.coor
         barsConn = self.barsConn
@@ -592,7 +588,7 @@ def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
     # that looks: {[7,65]:[43,-146]} (Edge 7,56 is shared between tria 43 and quad 146).
     # Quads will be flagged by negative values.
     # An edge that is connected to a single element will have 0 in its values
-    
+
     # Initialize dictionary
     edge2Elem = {}
 
@@ -608,7 +604,7 @@ def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
         bar1 = [currConn[0], currConn[1]].sort
         bar2 = [currConn[1], currConn[2]].sort
         bar3 = [currConn[2], currConn[3]].sort
-        
+
 
 
 #=================================================================
