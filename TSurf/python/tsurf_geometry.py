@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
+from pysurf import plot3d_interface
 
 #===========================================
 # AUXILIARY READING FUNCTIONS
@@ -517,6 +518,18 @@ class Curve(object):
         # Then we shift the connectivity list so that startElemID becomes the first element
         self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:], barsConn[:,:startElemID]])
 
+    def export_plot3d(self,outputName='curve'):
+
+        '''
+        This function will export the current curve in plot3d format
+
+        Ney Secco 2016-08
+        '''
+
+        # Create plot3d curve object and export
+        p3dCurve = plot3d_interface.Curve(self.coor, self.barsConn)
+        p3dCurve.export_plot3d(outputName)
+
 #=================================================================
 
 def initialize_curves(TSurfComponent, sectionDict, selectedSections):
@@ -560,11 +573,14 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
 
 #=================================================================
 
-def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
+def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
 
     '''
     This function will extract features from the surface of TSurfComponent and
     return Curve objects.
+
+    This function is intended for pre-processing only, and should not be
+    called during an optimization as it might be slow.
 
     Ney Secco 2016-08
     '''
@@ -578,9 +594,46 @@ def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
     nTria = triaConn.shape[1]
     nQuads = quadsConn.shape[1]
 
+    # BUILDING EDGE-TO-ELEMENT CONNECTIVITY
+
     # We need to identify the neighbors of each element, so we can compute edge information
 
-    # We will create a dictionary whose keys represent edges and the values will
+    # Initialize array that will hold elements that share an edge.
+    # This array will have an initial size, and we will resize it
+    # if needed. Each column of the array will hold 4 elements, which will
+    # identify the edge and the two elements that share it:
+    #
+    # For instance, assume that we have a bar that connects nodes 14 and 52,
+    # And the elements that share this bar are quad 190 and tria 36. Then the entry
+    # associated with this bar will be:
+    #
+    # sharedBarInfo[:,ii] = [14 (start point ID),
+    #                        52 (end point ID),
+    #                        -190 (first element ID, negative because it is a quad),
+    #                        36 (second element ID)]
+
+    initSize = 10000
+    sharedBarInfo = np.zeros((4,initSize),order='F')
+
+    # Create function to reallocate sharedBarInfo if necessary
+    def reallocate_sharedBarInfo(sharedBarInfo):
+
+        # Get old size
+        oldSize = sharedBarInfo.shape[1]
+
+        # Allocate new array
+        newSharedBarInfo = np.zeros((4,oldSize+initSize),order='F',dtype=int)
+
+        # Copy values from the old array
+        newSharedBarInfo[:,:oldSize] = sharedBarInfo
+        
+        # Overwrite the old array
+        sharedBarInfo = newSharedBarInfo
+
+        # return new array
+        return sharedBarInfo
+
+    # Initially, we will create a dictionary whose keys represent edges and the values will
     # be the two elements that share this edge. The key will always be sorted, so that
     # The edges from the two elements will point to the same place in the dictionary.
     # For instance, if we have triangle 43 with node connectivity [3,56,7], and quad
@@ -588,24 +641,196 @@ def extract_curves_from_surface(TSurfComponent, criteria='sharpness'):
     # that looks: {[7,65]:[43,-146]} (Edge 7,56 is shared between tria 43 and quad 146).
     # Quads will be flagged by negative values.
     # An edge that is connected to a single element will have 0 in its values
+    #
+    # We will pop an entry from the dictionary as soon as it is complete, to avoid getting
+    # a big dictionary. In other words, as soon as we detect both elements that share an
+    # edge, we transfer that info from edge2Elem to sharedBarInfo (which is preallocated),
+    # and then pop the entry from edge2Elem (which can't be preallocated).
 
     # Initialize dictionary
     edge2Elem = {}
 
-    # Loop over all trias
-    for triaID in range(nTria):
+    # Initialize edge counter
+    nEdge = 0
+
+    # Loop over all trias (I start at 1 so I could use 0 if no element is detected)
+    for triaID in range(1,nTria+1):
+
+        if np.mod(triaID,200) == 0:
+            print 'Checking tria',triaID,'of',nTria
 
         # Get current element connectivity
-        currConn = triaConn[:,triaID]
+        currConn = triaConn[:,triaID-1]
 
         # Determine the bars that define the element.
         # We sort the node order so that they will point to the same
         # place in the dictionary.
-        bar1 = [currConn[0], currConn[1]].sort
-        bar2 = [currConn[1], currConn[2]].sort
-        bar3 = [currConn[2], currConn[3]].sort
+        bars = [tuple(np.sort([currConn[0], currConn[1]])),
+                tuple(np.sort([currConn[1], currConn[2]])),
+                tuple(np.sort([currConn[2], currConn[0]]))]
+
+        # Check each bar
+        for bar in bars:
+
+            # Check if the bar is not defined in the dictionary yet
+            if bar not in edge2Elem.keys():
+
+                # Then add a new entry for this bar, containing
+                # the first element we found
+                edge2Elem[bar] = [triaID, 0]
+
+            else:
+
+                # The entry already exists. This means we already found
+                # the first element that shares this edge and we just need
+                # to add the second one.
+                edge2Elem[bar][1] = triaID
+
+                # Now that the information is complete, we can transfer it to the pre-allocated array.
+                # But we need to check if we should increase the array size.
+
+                if nEdge == sharedBarInfo.shape[1]:
+                    sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
+            
+                # Assign new data
+                sharedBarInfo[:,nEdge] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+
+                # Increment number of edges detected
+                nEdge = nEdge + 1
+
+                # Pop entry from dictionary
+                edge2Elem.pop(bar)
+
+    # Loop over all quads (I start at 1 so I could use 0 if no element is detected)
+    for quadID in range(1,nQuads+1):
+
+        if np.mod(quadID,200) == 0:
+            print 'Checking quad',quadID,'of',nQuads
+
+        # Get current element connectivity
+        currConn = quadsConn[:,quadID-1]
+
+        # Determine the bars that define the element.
+        # We sort the node order so that they will point to the same
+        # place in the dictionary.
+        # We need to use tuples so that the connectivity can be used as
+        # a dictionary key. Lists are not accepted.
+        bars = [tuple(np.sort([currConn[0], currConn[1]])),
+                tuple(np.sort([currConn[1], currConn[2]])),
+                tuple(np.sort([currConn[2], currConn[3]])),
+                tuple(np.sort([currConn[3], currConn[0]]))]
+
+        # Check each bar
+        for bar in bars:
+
+            # Check if the bar is not defined in the dictionary yet
+            if bar not in edge2Elem.keys():
+
+                # Then add a new entry for this bar, containing
+                # the first element we found.
+                # Remember that quads are flagged with negative IDS.
+                edge2Elem[bar] = [-quadID, 0]
+
+            else:
+
+                # The entry already exists. This means we already found
+                # the first element that shares this edge and we just need
+                # to add the second one.
+                # Remember that quads are flagged with negative IDS.
+                edge2Elem[bar][1] = -quadID
+
+                # Now that the information is complete, we can transfer it to the pre-allocated array.
+                # But we need to check if we should increase the array size.
+                if nEdge == sharedBarInfo.shape[1]:
+                    sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
+            
+                # Assign new data
+                sharedBarInfo[:,nEdge] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+
+                # Increment number of edges detected
+                nEdge = nEdge + 1
+
+                # Pop entry from dictionary
+                edge2Elem.pop(bar)
+
+    # Now we transfer the remaining edged in edge2Elem to sharedBarInfo. These remaining bars
+    # are at domain boundaries, so they are linked to a single element only
+    for bar in edge2Elem.keys():
+
+        # Check if we should increase the array size.
+        if nEdge == sharedBarInfo.shape[1]:
+            sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
+
+        # Copy bar to sharedBarInfo
+        sharedBarInfo[:, nEdge] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+
+        # Increment number of edges detected
+        nEdge = nEdge + 1
+
+        # Pop entry from dictionary
+        edge2Elem.pop(bar)
+
+    # Now we crop sharedBarInfo to have the exact number of edges
+    sharedBarInfo = sharedBarInfo[:,:nEdge]
 
 
+    # CURVE DETECTION
+
+    # Phew! Now sharedBarInfo has all the information we need! It teels which elements
+    # share a given edge. Just to recap, here's the sharedBarInfo structure:
+    #
+    # For instance, assume that we have a bar that connects nodes 14 and 52,
+    # And the elements that share this bar are quad 190 and tria 36. Then the entry
+    # associated with this bar will be:
+    #
+    # sharedBarInfo[:,ii] = [14 (start point ID),
+    #                        52 (end point ID),
+    #                        -190 (first element ID, negative because it is a quad),
+    #                        36 (second element ID)]
+
+    # Initialize list of bars that satisfy the selection criteria
+    selectedBarsConn = []
+
+    # Loop over the bars to extract features
+
+    for barID in range(sharedBarInfo.shape[1]):
+
+        # Gather data from sharedBarInfo
+        node1 = sharedBarInfo[0,barID]
+        node2 = sharedBarInfo[1,barID]
+        element1 = sharedBarInfo[2,barID]
+        element2 = sharedBarInfo[3,barID]
+
+        # Run function to detect a given feature
+        featureIsPresent = detect_feature(node1, node2, element1, element2,
+                                          coor, triaConn, quadsConn,
+                                          feature)
+
+        # Store bar if feature is present
+        if featureIsPresent:
+            selectedBarsConn.append([node1,node2])
+
+    # Run sorting algorithm on the detected bars
+    # Remember that selectedBarsConn now will be a list containing
+    # connectivities of multiple disconnect curves
+    selectedBarsConn = FEsort(selectedBarsConn)
+
+    # GENERATE CURVE OBJECTS
+
+    # Initialize list of curve objects
+    featureCurves = []
+
+    # Now we initiliaze curve objects for each disconnect curve we detected
+    for currCurveConn in selectedBarsConn:
+
+        # Create new curve object
+        newCurve = Curve(coor, currCurveConn)
+
+        # Initialize curve object and append it to the list
+        featureCurves.append(newCurve)
+
+    # return new curves
+    return featureCurves
 
 #=================================================================
 
@@ -1058,3 +1283,134 @@ def rotate(Component, angle, axis, point=None):
     rotationMat[ind2, ind2] = np.cos(angle)
 
     Component.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point
+
+
+#=============================================================
+
+def detect_feature(node1, node2, element1, element2,
+                   coor, triaConn, quadsConn,
+                   feature):
+
+    '''
+    This function checks if the bar that connects node1 and node1, and
+    is shared between element1 and element2 has a desired feature.
+
+    INPUTS:
+
+    node1: integer -> node1 index in coor (1-based since this comes from Fortran)
+
+    node2: integer -> node2 index in coor (1-based since this comes from Fortran)
+
+    element1: integer -> element index in triaConn (if positive) or quadsConn
+              (if negative). (1-based since this comes from Fortran)
+
+    element2: integer -> element index in triaConn (if positive) or quadsConn
+              (if negative). (1-based since this comes from Fortran)
+
+    coor: float[3,nNodes] -> nodal coordinates
+
+    triaConn: integer[3,nTria] -> triangle connectivities. (1-based since this comes from Fortran)
+
+    quadsConn: integer[4,nQuads] -> quad connectivities. (1-based since this comes from Fortran)
+
+    feature: string -> feature that should be detected. Available options are:
+             ['sharpness']
+
+    OUTPUTS:
+
+    featureIsDetected: logical -> True if feature is detected in this edge. Otherwise it is False.
+
+    Ney Secco 2016-08
+    '''
+
+    # Check the criteria
+
+    if feature == 'sharpness':
+
+        # We need to compute the angle between the normals that share the bar
+
+        # Let's get two inplane vectors for each element first:
+        # v11 - first vector of the first element
+        # v21 - second vector of the first element
+        # v12 - first vector of the second element
+        # v22 - second vector of the second element
+
+        # We start with element 2 because if it is zero, then the bar is at the
+        # border of the domain and do not has a second element. So we cannot use
+        # it for sharpness detection.
+
+        # ELEMENT 2
+        if element2 == 0:
+            featureIsDetected = False
+            return featureIsDetected
+
+        elif element2 > 0: # We have a tria
+
+            # Get element nodes (The -1 is due 1-based indexing in Fortran)
+            node1Coor = coor[:,triaConn[0,element2-1]-1]
+            node2Coor = coor[:,triaConn[1,element2-1]-1]
+            node3Coor = coor[:,triaConn[2,element2-1]-1]
+
+            # Get inplane vectors so that the normal points outside
+            v12 = node2Coor - node1Coor
+            v22 = node3Coor - node1Coor
+
+        elif element2 < 0: # We have a quad
+
+            # Get element nodes (The -1 is due 1-based indexing in Fortran)
+            node1Coor = coor[:,quadsConn[0,-element2-1]-1]
+            node2Coor = coor[:,quadsConn[1,-element2-1]-1]
+            node3Coor = coor[:,quadsConn[2,-element2-1]-1]
+            node4Coor = coor[:,quadsConn[3,-element2-1]-1]
+
+            # Get inplane vectors so that the normal points outside
+            v12 = node3Coor - node1Coor
+            v22 = node4Coor - node2Coor
+
+        # ELEMENT 1
+        if element1 > 0: # We have a tria
+
+            # Get element nodes (The -1 is due 1-based indexing in Fortran)
+            node1Coor = coor[:,triaConn[0,element1-1]-1]
+            node2Coor = coor[:,triaConn[1,element1-1]-1]
+            node3Coor = coor[:,triaConn[2,element1-1]-1]
+
+            # Get inplane vectors so that the normal points outside
+            v11 = node2Coor - node1Coor
+            v21 = node3Coor - node1Coor
+
+        elif element1 < 0: # We have a quad
+
+            # Get element nodes (The -1 is due 1-based indexing in Fortran)
+            node1Coor = coor[:,quadsConn[0,-element1-1]-1]
+            node2Coor = coor[:,quadsConn[1,-element1-1]-1]
+            node3Coor = coor[:,quadsConn[2,-element1-1]-1]
+            node4Coor = coor[:,quadsConn[3,-element1-1]-1]
+
+            # Get inplane vectors so that the normal points outside
+            v11 = node3Coor - node1Coor
+            v21 = node4Coor - node2Coor
+
+        # Take the cross products to get normals and normalize the normals =P
+        # Element 1
+        n1 = np.cross(v11,v21)
+        n1 = n1/np.linalg.norm(n1)
+        # Element 2
+        n2 = np.cross(v12,v22)
+        n2 = n2/np.linalg.norm(n2)
+
+        # Use dot product to find the angle between the normals
+        angle = np.arccos(n1.dot(n2))
+
+        # We have a "sharp" edge if this angle is beyond a certaing threshold
+        if angle > 80*np.pi/180:
+            featureIsDetected = True
+            return featureIsDetected
+        else:
+            featureIsDetected = False
+            return featureIsDetected
+
+    else:
+
+        print 'ERROR: Feature',feature,'cannot be detected as it is not an option.'
+        quit()
