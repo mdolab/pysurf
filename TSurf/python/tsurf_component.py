@@ -1,4 +1,5 @@
 from __future__ import division
+import os
 import numpy as np
 from mpi4py import MPI
 from ...baseClasses import Component
@@ -59,10 +60,13 @@ class TSurfComponent(Component):
 
         # Read CGNS file
         self.coor, sectionDict = getCGNSsections(filename, self.comm)
+        self.name = os.path.splitext(os.path.basename(filename))[0]
 
         # Select all section names in case the user provided none
         if selectedSections is None:
             selectedSections = sectionDict.keys()
+        else:
+            self.name = self.name + "__" + "_".join(selectedSections)
 
         # Now we call an auxiliary function to merge selected surface sections in a single
         # connectivity array
@@ -152,7 +156,7 @@ class TSurfComponent(Component):
         normProj = np.zeros((numPts,3))
 
         # Call projection function
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.adtID,
+        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.name,
                                                                                  dist2, xyzProj.T,
                                                                                  self.nodal_normals, normProj.T)
 
