@@ -1,0 +1,30 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module hypsurf ! in
+    interface  ! in :hypsurf
+        module hypsurf ! in :hypsurf:hypsurf.F90
+            use precision
+            subroutine computematrices(r0,n0,s0,rm1,sm1,layerindex,theta,sigmasplay,bc1,bc2,numlayers,epse0,k,f,numnodes) ! in hypsurf.F90:hypsurf
+                real*8 dimension(3 * numnodes),intent(in) :: r0
+                real*8 dimension(3,numnodes),intent(in),depend(numnodes) :: n0
+                real*8 dimension(numnodes),intent(in),depend(numnodes) :: s0
+                real*8 dimension(3 * numnodes),intent(in),depend(numnodes) :: rm1
+                real*8 dimension(numnodes),intent(in),depend(numnodes) :: sm1
+                integer intent(in) :: layerindex
+                real*8 intent(in) :: theta
+                real*8 intent(in) :: sigmasplay
+                character*32 intent(in) :: bc1
+                character*32 intent(in) :: bc2
+                integer intent(in) :: numlayers
+                real*8 intent(in) :: epse0
+                real*8 dimension(3 * numnodes,3 * numnodes),intent(out),depend(numnodes,numnodes) :: k
+                real*8 dimension(3 * numnodes),intent(out),depend(numnodes) :: f
+                integer, optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+            end subroutine computematrices
+        end module hypsurf
+    end interface
+end python module hypsurf
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

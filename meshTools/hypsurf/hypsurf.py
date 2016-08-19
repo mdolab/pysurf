@@ -9,6 +9,7 @@ from __future__ import division
 from time import time
 import numpy as np
 import pdb
+import hypsurfAPI
 
 '''
 TO DO
@@ -83,6 +84,10 @@ class HypSurfMesh(object):
         surf: surface object -> surface object that should contain inverse_evaluate,
               get_points, and get_normals methods
         '''
+
+        from time import time
+        st = time()
+
 
         bc1 = self.optionsDict['bc1']
         bc2 = self.optionsDict['bc2']
@@ -225,6 +230,9 @@ class HypSurfMesh(object):
         self.mesh[0, :, :] = X.T
         self.mesh[1, :, :] = Y.T
         self.mesh[2, :, :] = Z.T
+
+        print time() - st, 'secs'
+        print
 
     def subIteration(self, r0, N0, S0, rm1, Sm1, layerIndex):
 
@@ -382,6 +390,13 @@ class HypSurfMesh(object):
         bc1 = self.optionsDict['bc1']
         bc2 = self.optionsDict['bc2']
         sigmaSplay = self.optionsDict['sigmaSplay']
+        numLayers = self.optionsDict['numLayers']
+        epsE0 = self.optionsDict['epsE0']
+
+        # CALL FORTRAN HERE
+        K_, f = hypsurfAPI.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
+
+        print 'SUM fo', np.sum(np.abs(K_))
 
         # Initialize arrays
         K = np.zeros((3*self.numNodes,3*self.numNodes))
@@ -391,7 +406,7 @@ class HypSurfMesh(object):
 
             if curr_index == 0:  # forward case
 
-                if self.optionsDict['bc1'] != 'continuous':
+                if bc1 != 'continuous':
 
                     neighbor1_index = 1
                     neighbor2_index = 2
@@ -552,8 +567,8 @@ class HypSurfMesh(object):
 
                     # Populate matrix
                     K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = L_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
+                    # K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
+                    # K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
                     f[3*(curr_index):3*(curr_index)+3] = f_block
 
         # Now loop over each node
@@ -601,7 +616,7 @@ class HypSurfMesh(object):
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
                 f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif self.optionsDict['bc1'].lower().startswith('curve'):
+            elif bc1.lower().startswith('curve'):
 
                 # Populate matrix
                 K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
@@ -612,7 +627,7 @@ class HypSurfMesh(object):
                 # Call assembly routine
                 matrixBuilder(index)
 
-        for index in xrange(1,self.numNodes-1):
+        for index in xrange(1,3):#self.numNodes-1):
 
             # Call assembly routine
             matrixBuilder(index)
@@ -677,8 +692,12 @@ class HypSurfMesh(object):
                 matrixBuilder(index)
 
 
-        # view_mat(K)
+        print 'SUM py', np.sum(np.abs(K))
+        diff = K - K_
+        view_mat(diff[:12, :12])
+        view_mat(diff[-12:, -12:])
 
+        exit()
         # RETURNS
         return K,f
 
@@ -736,6 +755,7 @@ class HypSurfMesh(object):
         # Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
         l = layerIndex+2
         ltrans = int(3/4*numLayers)
+
         if l <= ltrans:
             Sl = np.sqrt((l-1)/(ltrans-1))
         else:
