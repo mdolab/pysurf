@@ -22,7 +22,6 @@ python module hypsurf ! in
                 real*8 dimension(3 * numnodes),intent(out),depend(numnodes) :: f
                 integer, optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
             end subroutine computematrices
-        end module hypsurf
     end interface
 end python module hypsurf
 

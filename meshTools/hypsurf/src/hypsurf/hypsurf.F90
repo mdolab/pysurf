@@ -29,194 +29,196 @@
 
         subroutine computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, K, f, numNodes)
 
-          implicit none
+        implicit none
 
-          !f2py intent(in) numNodes, r0, N0, S0, rm1, Sm1, theta, sigmaSplay, numLayers, epsE0
-          !f2py intent(in) bc1, bc2, layerIndex
-          !f2py intent(out) K, f
-          !f2py depends(numNodes) r0, N0, S0, rm1, Sm1, K, f
+        !f2py intent(in) numNodes, r0, N0, S0, rm1, Sm1, theta, sigmaSplay, numLayers, epsE0
+        !f2py intent(in) bc1, bc2, layerIndex
+        !f2py intent(out) K, f
+        !f2py depends(numNodes) r0, N0, S0, rm1, Sm1, K, f
 
 
-          integer, intent(in) :: layerIndex, numNodes, numLayers
-          real*8, intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
-          real*8, intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
-          real*8, intent(in) :: sigmaSplay, epsE0
-          character*32, intent(in) :: bc1, bc2
-          real*8, intent(out) :: K(3*numNodes, 3*numNodes), f(3*numNodes)
+        integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
+        real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
+        real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
+        real(kind=realType), intent(in) :: sigmaSplay, epsE0
+        character*32, intent(in) :: bc1, bc2
+        real(kind=realType), intent(out) :: K(3*numNodes, 3*numNodes), f(3*numNodes)
 
-          real*8 :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
-          integer :: index, i
+        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
+        integer(kind=intType) :: index, i
 
-          ! Initialize arrays
-          K(:, :) = 0._8
-          f(:) = 0._8
-          eye(:, :) = 0._8
+        ! Initialize arrays
+        K(:, :) = 0.
+        f(:) = 0.
+        eye(:, :) = 0.
+        do i=1,3
+          eye(i, i) = 1.
+        end do
+
+        ! Now loop over each node
+
+        index = 1
+
+        if (bc1 .eq. 'splay') then
+
+          ! Get coordinates
+
+          r_curr = r0(:3)
+          r_next = r0(4:6)
+
+          ! Get vector that connects r_next to r_curr
+          d_vec = r_next - r_curr
+
+          ! Get marching direction vector (orthogonal to the curve and to the surface normal)
+          call cross(N0(:, 1), d_vec, d_vec_rot)
+
+          ! Populate matrix
+          K(1, :3) = d_vec_rot
+          K(2, :3) = N0(:,index)
+          K(3, :3) = d_vec
+
+          f(:3) = [S0(1) * (1-sigmaSplay), 0., 0.]
+
+        else if (bc1 .eq. 'constX') then
+
+          ! Populate matrix
+          K(2, 4:6) = [0, -1, 0]
+          K(3, 4:6) = [0, 0, -1]
           do i=1,3
-            eye(i, i) = 1.
+            K(i, i) = 1.
           end do
 
-          ! Now loop over each node
-
-          index = 1
-
-          if (bc1 .eq. 'splay') then
-
-            ! Get coordinates
-
-            r_curr = r0(:3)
-            r_next = r0(4:6)
-
-            ! Get vector that connects r_next to r_curr
-            d_vec = r_next - r_curr
-
-            ! Get marching direction vector (orthogonal to the curve and to the surface normal)
-            call cross(N0(:, 1), d_vec, d_vec_rot)
-
-            ! Populate matrix
-            K(1, :3) = d_vec_rot
-            K(2, :3) = N0(:,index)
-            K(3, :3) = d_vec
-
-            f(:3) = [S0(1) * (1-sigmaSplay), 0._8, 0._8]
-
-          else if (bc1 .eq. 'constX') then
-
-            ! Populate matrix
-            K(2, 4:6) = [0, -1, 0]
-            K(3, 4:6) = [0, 0, -1]
-            do i=1,3
-              K(i, i) = 1.
-            end do
-
-          else if (bc1 .eq. 'constY') then
-            ! Populate matrix
-            K(1, 4:6) = [-1, 0, 0]
-            K(3, 4:6) = [0, 0, -1]
-            do i=1,3
-              K(i, i) = 1.
-            end do
-
-          else if (bc1 .eq. 'constZ') then
-            ! Populate matrix
-            K(1, 4:6) = [-1, 0, 0]
-            K(2, 4:6) = [0, -1, 0]
-            do i=1,3
-              K(i, i) = 1.
-            end do
-
-          else if (bc1(:5) .eq. 'curve') then
-
-            ! Populate matrix
-            do i=1,3
-              K(i, i) = 1.
-            end do
-            f(:3) = S0(1) * N0(:,1)
-
-          else
-
-            ! Call assembly routine
-            call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
-
-          end if
-
-          do index=2,3!numNodes-1
-
-            ! Call assembly routine
-            call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
-
+        else if (bc1 .eq. 'constY') then
+          ! Populate matrix
+          K(1, 4:6) = [-1, 0, 0]
+          K(3, 4:6) = [0, 0, -1]
+          do i=1,3
+            K(i, i) = 1.
           end do
 
-          index = numNodes
+        else if (bc1 .eq. 'constZ') then
+          ! Populate matrix
+          K(1, 4:6) = [-1, 0, 0]
+          K(2, 4:6) = [0, -1, 0]
+          do i=1,3
+            K(i, i) = 1.
+          end do
 
-          if (bc2 .eq. 'continuous') then
-            ! Populate matrix (use same displacements of first node)
-            K(3*(index-1)+1:, 3*(index-1)+1:) = eye
-            K(3*(index-1)+1:, :3) = -eye
+        else if (bc1(:5) .eq. 'curve') then
 
-          else if (bc2 .eq. 'splay') then
+          ! Populate matrix
+          do i=1,3
+            K(i, i) = 1.
+          end do
+          f(:3) = S0(1) * N0(:,1)
 
-            ! Get coordinates
+        else
 
-            r_curr = r0(3*(index-1)+1:)
-            r_prev = r0(3*(index-2)+1:3*(index-2)+3)
+          ! Call assembly routine
+          call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
 
-            ! Get vector that connects r_next to r_curr
-            d_vec = r_curr - r_prev
+        end if
 
-            ! Get marching direction vector (orthogonal to the curve and to the surface normal)
-            call cross(N0(:, index), d_vec, d_vec_rot)
+        do index=2,numNodes-1
 
-            ! Populate matrix
-            K(3*index-2, 3*index-2:) = d_vec_rot
-            K(3*index-1, 3*index-2:) = N0(:,index)
-            K(3*index-0, 3*index-2:) = d_vec
+          ! Call assembly routine
+          call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
 
-            f(3*(index-1)+1:3*index) = [S0(1) * (1-sigmaSplay), 0._8, 0._8]
+        end do
 
-          else if (bc2 .eq. 'constX') then
+        index = numNodes
 
-            ! Populate matrix
-            K(3*index-1, 3*(index-2)+1:3*(index-1)+1) = [0, -1, 0]
-            K(3*index-0, 3*(index-2)+1:3*(index-1)+1) = [0, 0, -1]
-            do i=3*index-2, 3*index
-              K(i, i) = 1.
-            end do
+        if (bc2 .eq. 'continuous') then
+          ! Populate matrix (use same displacements of first node)
+          K(3*(index-1)+1:, 3*(index-1)+1:) = eye
+          K(3*(index-1)+1:, :3) = -eye
 
-          else if (bc2 .eq. 'constY') then
-            ! Populate matrix
-            K(3*index-2, 3*(index-2)+1:3*(index-1)+1) = [-1, 0, 0]
-            K(3*index-0, 3*(index-2)+1:3*(index-1)+1) = [0, 0, -1]
-            do i=3*index-2, 3*index
-              K(i, i) = 1.
-            end do
+        else if (bc2 .eq. 'splay') then
 
-          else if (bc2 .eq. 'constZ') then
-            ! Populate matrix
-            K(3*index-2, 3*(index-2)+1:3*(index-1)+1) = [-1, 0, 0]
-            K(3*index-1, 3*(index-2)+1:3*(index-1)+1) = [0, -1, 0]
-            do i=3*index-2, 3*index
-              K(i, i) = 1.
-            end do
+          ! Get coordinates
 
-          else if (bc2(:5) .eq. 'curve') then
+          r_curr = r0(3*(index-1)+1:)
+          r_prev = r0(3*(index-2)+1:3*(index-2)+3)
 
-            ! Populate matrix
-            do i=3*index-2, 3*index
-              K(i, i) = 1.
-            end do
-            f(3*index-2:) = S0(index) * N0(:, index)
+          ! Get vector that connects r_next to r_curr
+          d_vec = r_curr - r_prev
 
-          else
+          ! Get marching direction vector (orthogonal to the curve and to the surface normal)
+          call cross(N0(:, index), d_vec, d_vec_rot)
 
-            ! Call assembly routine
-            call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, index, K, f)
+          ! Populate matrix
+          K(3*index-2, 3*index-2:) = d_vec_rot
+          K(3*index-1, 3*index-2:) = N0(:,index)
+          K(3*index-0, 3*index-2:) = d_vec
 
-          end if
+          f(3*(index-1)+1:3*index) = [S0(1) * (1-sigmaSplay), 0., 0.]
+
+        else if (bc2 .eq. 'constX') then
+
+          ! Populate matrix
+          K(3*index-1, 3*(index-2)+1:3*(index-1)+1) = [0, -1, 0]
+          K(3*index-0, 3*(index-2)+1:3*(index-1)+1) = [0, 0, -1]
+          do i=3*index-2, 3*index
+            K(i, i) = 1.
+          end do
+
+        else if (bc2 .eq. 'constY') then
+          ! Populate matrix
+          K(3*index-2, 3*(index-2)+1:3*(index-1)+1) = [-1, 0, 0]
+          K(3*index-0, 3*(index-2)+1:3*(index-1)+1) = [0, 0, -1]
+          do i=3*index-2, 3*index
+            K(i, i) = 1.
+          end do
+
+        else if (bc2 .eq. 'constZ') then
+          ! Populate matrix
+          K(3*index-2, 3*(index-2)+1:3*(index-1)+1) = [-1, 0, 0]
+          K(3*index-1, 3*(index-2)+1:3*(index-1)+1) = [0, -1, 0]
+          do i=3*index-2, 3*index
+            K(i, i) = 1.
+          end do
+
+        else if (bc2(:5) .eq. 'curve') then
+
+          ! Populate matrix
+          do i=3*index-2, 3*index
+            K(i, i) = 1.
+          end do
+          f(3*index-2:) = S0(index) * N0(:, index)
+
+        else
+
+          ! Call assembly routine
+          call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, index, K, f)
+
+        end if
 
 
-          end subroutine computeMatrices
+        end subroutine computeMatrices
 
 
 
-          subroutine matrixBuilder(curr_index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
+        subroutine matrixBuilder(curr_index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
 
         implicit none
 
-        integer, intent(in) :: curr_index, numNodes, numLayers, layerIndex
-        real*8, intent(in) :: r0(3*numNodes), rm1(3*numNodes), N0(3, numNodes), Sm1(numNodes), epsE0, S0(numNodes), theta
+        integer(kind=intType), intent(in) :: curr_index, numNodes, numLayers, layerIndex
+        real(kind=realType), intent(in) :: r0(3*numNodes), rm1(3*numNodes), N0(3, numNodes)
+        real(kind=realType), intent(in) :: Sm1(numNodes), epsE0, S0(numNodes), theta
         character*32, intent(in) :: bc1, bc2
-        real*8, intent(out) :: K(3*numNodes, 3*numNodes), f(3*numNodes)
+        real(kind=realType), intent(inout) :: K(3*numNodes, 3*numNodes), f(3*numNodes)
 
-        real*8 :: r_curr(3), r_next(3), d_vec(3), d_vec_rot(3)
-        real*8 :: r0_xi(3), pi, angle, giveAngle, B0(3, 3), B0inv(3, 3)
-        real*8 :: r0_xi_n(3), point(3), neigh1_point(3), neigh2_point(3)
-        real*8 :: r0_eta_n(3), A0(3, 3), r0_eta(3), norm
-        real*8 :: dSensor, dnum, dden, eye(3, 3), B0invg(3), C0(3, 3)
-        real*8 :: epsE, epsI, De(3)
-        integer :: index, i, neighbor1_index, neighbor2_index
+        real(kind=realType) :: r_curr(3), r_next(3), d_vec(3), d_vec_rot(3)
+        real(kind=realType) :: r0_xi(3), pi, angle, B0(3, 3), B0inv(3, 3)
+        real(kind=realType) :: r0_xi_n(3), point(3), neigh1_point(3), neigh2_point(3)
+        real(kind=realType) :: r0_eta_n(3), A0(3, 3), r0_eta(3)
+        real(kind=realType) :: dSensor, dnum, dden, eye(3, 3), B0invg(3), C0(3, 3)
+        real(kind=realType) :: epsE, epsI, De(3), numnorm1, numnorm2, numnorm3, numnorm4
+        integer(kind=intType) :: index, i, neighbor1_index, neighbor2_index
 
 
         pi = 3.1415926535897932384626
+        eye(:, :) = 0.
         do i=1,3
           eye(i, i) = 1.
         end do
@@ -242,8 +244,8 @@
             r0_xi = 0.5*(r0(4:6) - r0(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3))
 
             ! Compute the local grid angle based on the neighbors
-            angle = giveAngle(r0(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3), &
-              r0(:3), r0(4:6), N0(:, 1))
+            call giveAngle(r0(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3), &
+              r0(:3), r0(4:6), N0(:, 1), angle)
 
           end if
 
@@ -271,10 +273,10 @@
           r0_xi = 0.5*(neigh2_point - neigh1_point)
 
           ! Compute the local grid angle based on the neighbors
-          angle = giveAngle(neigh1_point, &
+          call giveAngle(neigh1_point, &
                             r0(3*(curr_index-1)+1:3*(curr_index-1)+3), &
                             neigh2_point, &
-                            N0(:,curr_index))
+                            N0(:,curr_index), angle)
 
         end if
 
@@ -290,7 +292,7 @@
         call matinv3(B0, B0inv)
 
         ! Compute eta derivatives
-        r0_eta = matmul(B0inv, [0._8, Sm1(curr_index), 0._8])
+        r0_eta = matmul(B0inv, [0., Sm1(curr_index), 0.])
         call cross(N0(:,curr_index), r0_eta, r0_eta_n)
 
         ! Assemble A0 matrix
@@ -298,12 +300,13 @@
         A0(2, :) = r0_eta_n
         A0(3, :) = 0.
 
-
+        call norm(rm1(3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3)-rm1(3*(curr_index-1)+1:3*(curr_index-1)+3), numnorm1)
+        call norm(rm1(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3)-rm1(3*(curr_index-1)+1:3*(curr_index-1)+3), numnorm2)
+        call norm(r0(3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3)-r0(3*(curr_index-1)+1:3*(curr_index-1)+3), numnorm3)
+        call norm(r0(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3)-r0(3*(curr_index-1)+1:3*(curr_index-1)+3), numnorm4)
         ! Compute grid distribution sensor (Eq. 6.8a)
-        dnum = norm(rm1(3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3)-rm1(3*(curr_index-1)+1:3*(curr_index-1)+3)) + &
-        norm(rm1(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3)-rm1(3*(curr_index-1)+1:3*(curr_index-1)+3))
-        dden = norm(r0(3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3)-r0(3*(curr_index-1)+1:3*(curr_index-1)+3)) + &
-        norm(r0(3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3)-r0(3*(curr_index-1)+1:3*(curr_index-1)+3))
+        dnum = numnorm1 + numnorm2
+        dden = numnorm3 + numnorm4
         dSensor = dnum / dden
 
         ! Sharp convex corner detection
@@ -324,7 +327,7 @@
           call dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle, numLayers, epsE0, epsE, epsI)
 
           ! Compute RHS components
-          B0invg = matmul(B0inv, [0._8, S0(curr_index), 0._8])
+          B0invg = matmul(B0inv, [0., S0(curr_index), 0.])
 
           if (curr_index .eq. 1) then
 
@@ -380,10 +383,10 @@
             ! Populate matrix
             K(3*(curr_index-1)+1:3*(curr_index-1)+3,3*(neighbor1_index-1)+1:3*(neighbor1_index-1)+3) = &
             -0.5*(1+theta)*C0 - epsI*eye
-            ! K(3*(curr_index-1)+1:3*(curr_index-1)+3,3*(curr_index-1)+1:3*(curr_index-1)+3) = &
-            ! (1 + 2*epsI)*eye
-            ! K(3*(curr_index-1)+1:3*(curr_index-1)+3,3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3) = &
-            ! 0.5*(1+theta)*C0 - epsI*eye
+            K(3*(curr_index-1)+1:3*(curr_index-1)+3,3*(curr_index-1)+1:3*(curr_index-1)+3) = &
+            (1 + 2*epsI)*eye
+            K(3*(curr_index-1)+1:3*(curr_index-1)+3,3*(neighbor2_index-1)+1:3*(neighbor2_index-1)+3) = &
+            0.5*(1+theta)*C0 - epsI*eye
             f(3*(curr_index-1)+1:3*(curr_index-1)+3) = B0invg + De
           end if
 
@@ -395,18 +398,21 @@
 
         implicit none
 
-        integer, intent(in) :: layerIndex, numLayers
-        real*8, intent(in) :: dSensor, angle, epsE0, r0_xi(3), r0_eta(3)
-        real*8, intent(out) :: epsE, epsI
+        integer(kind=intType), intent(in) :: layerIndex, numLayers
+        real(kind=realType), intent(in) :: dSensor, angle, epsE0, r0_xi(3), r0_eta(3)
+        real(kind=realType), intent(out) :: epsE, epsI
 
 
-        real*8 :: norm, Sl, dbar, a, pi, N, R
-        integer :: l, ltrans
+        real(kind=realType) :: Sl, dbar, a, pi, N, R, normeta, normxi
+        integer(kind=intType) :: l, ltrans
 
         pi = 3.14159265358979323846264338
 
         ! Compute N (Eq. 6.3)
-        N = norm(r0_eta) / norm(r0_xi)
+        call norm(r0_eta, normeta)
+        call norm(r0_xi, normxi)
+
+        N = normeta / normxi
 
         ! Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
         l = layerIndex+2
@@ -419,7 +425,7 @@
         end if
 
         ! Compute adjusted grid distribution sensor (Eq. 6.7)
-        dbar = max(dSensor**(2/Sl), 0.1_8)
+        dbar = max(dSensor**(2./Sl), 0.1)
 
         ! Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
         if (angle .le. pi) then ! Convex corner
@@ -435,15 +441,16 @@
         epsE = epsE0*R*N
         epsI = 2*epsE
 
-
         end subroutine dissipationCoefficients
 
         subroutine matinv3(A, B)
 
+        implicit none
+
         !! Performs a direct calculation of the inverse of a 3×3 matrix.
-        real*8, intent(in)  :: A(3,3)   !! Matrix
-        real*8, intent(out) :: B(3,3)   !! Inverse matrix
-        real*8              :: detinv
+        real(kind=realType), intent(in)  :: A(3,3)   !! Matrix
+        real(kind=realType), intent(out) :: B(3,3)   !! Inverse matrix
+        real(kind=realType)              :: detinv
 
         !f2py intent(in) A
         !f2py intent(out) B
@@ -466,15 +473,18 @@
 
         end subroutine matinv3
 
-        real*8 function giveAngle(r0, r1, r2, N1) result(angle)
+        subroutine giveAngle(r0, r1, r2, N1, angle)
 
-        real*8, intent(in), dimension(3) :: r0, r1, r2, N1
+        implicit none
+
+        real(kind=realType), intent(in), dimension(3) :: r0, r1, r2, N1
 
         !f2py intent(in) r0, r1, r2, N1
         !f2py intent(out) angle
 
-        real*8, dimension(3) :: dr1, dr2, dr1crossdr2
-        real*8 :: dr1dotdr2, dot, norm, arccos_inside, pi, one
+        real(kind=realType), dimension(3) :: dr1, dr2, dr1crossdr2
+        real(kind=realType) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
+        real(kind=realType) :: normdr1, normdr2
 
         pi = 3.14159265358979323846264338
         one = 1.0
@@ -482,53 +492,54 @@
         dr1 = r1 - r0
         dr2 = r2 - r1
 
-        dr1dotdr2 = dot(dr1, dr2) ! dot product
+        call dot(dr1, dr2, dr1dotdr2) ! dot product
         call cross(dr1, dr2, dr1crossdr2) ! cross product
 
         ! Compute acute angle and ensure it's <= 1.0
-        arccos_inside = dr1dotdr2 / norm(dr1) / norm(dr2)
+        call norm(dr1, normdr1)
+        call norm(dr2, normdr2)
+
+        arccos_inside = dr1dotdr2 / normdr1 / normdr2
         angle = dacos(min(arccos_inside, one))
 
         ! If the cross product points in the same direction of the surface
         ! normal, we have an acute corner
-        if (dot(dr1crossdr2, N1) .gt. 0.) then
+        call dot(dr1crossdr2, N1, tmp)
+        if (tmp .gt. 0.) then
           angle = pi + angle
         else
           angle = pi - angle
         end if
 
-        return
-
-        end function giveAngle
+        end subroutine giveAngle
 
 
 
-        real*8 function norm(v)
+        subroutine norm(v, norm_out)
 
         implicit none
 
-        real*8, intent(in) :: v(3)
-        real*8 :: dot
+        real(kind=realType), intent(in) :: v(3)
+        real(kind=realType), intent(out) :: norm_out
+        real(kind=realType) :: dot_
 
-        norm = dot(v, v) ** 0.5
+        call dot(v, v, dot_)
+        norm_out = dot_ ** 0.5
 
-        return
-
-        end function norm
-
+        end subroutine norm
 
 
-        real*8 function dot(a, b)
+
+        subroutine dot(a, b, dot_out)
 
         implicit none
 
-        real*8, intent(in) :: a(3), b(3)
+        real(kind=realType), intent(in) :: a(3), b(3)
+        real(kind=realType), intent(out) :: dot_out
 
-        dot = a(1) * b(1) + a(2) * b(2) + a(3) * b(3)
+        dot_out = a(1) * b(1) + a(2) * b(2) + a(3) * b(3)
 
-        return
-
-        end function dot
+        end subroutine dot
 
 
 
@@ -536,8 +547,8 @@
 
         implicit none
 
-        real*8, intent(in) :: A(3), B(3)
-        real*8, intent(out) :: C(3)
+        real(kind=realType), intent(in) :: A(3), B(3)
+        real(kind=realType), intent(out) :: C(3)
 
         C(1) = A(2) * B(3) - A(3) * B(2)
         C(2) = A(3) * B(1) - A(1) * B(3)
