@@ -1,7 +1,7 @@
 # IMPORTS
 
 from __future__ import division
-import hypsurf
+from pysurf import hypsurf_py as hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 from pysurf import TSurfComponent
@@ -11,11 +11,11 @@ from mpi4py import MPI
 # OPTIONS
 
 # Select example
-# example = 'kink_on_plate'
+example = 'kink_on_plate'
 # example = 'line_on_cylinder'
 # example = 'cylinder_cap'
 # example = 'line_on_cubeAndCylinder'
-example = 'line_on_cube'
+# example = 'line_on_cube'
 
 # EXAMPLE SELECTION
 

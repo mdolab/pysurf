@@ -5,7 +5,7 @@ import numpy as np
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from pysurf import TSurfComponent, compute_intersections, plot3d_interface, hypsurf
+from pysurf import TSurfComponent, compute_intersections, plot3d_interface, hypsurf_py
 import os
 from mpi4py import MPI
 import copy
@@ -56,7 +56,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         }
 
-        mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
+        mesh = hypsurf_py.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
         mesh.createMesh()
 

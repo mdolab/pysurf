@@ -9,7 +9,9 @@ from __future__ import division
 from time import time
 import numpy as np
 import pdb
-import hypsurfAPI
+from pysurf import hypsurf
+
+fortran_flag = True
 
 '''
 TO DO
@@ -393,32 +395,55 @@ class HypSurfMesh(object):
         numLayers = self.optionsDict['numLayers']
         epsE0 = self.optionsDict['epsE0']
 
-        # CALL FORTRAN HERE
-        K_, f = hypsurfAPI.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
+        if fortran_flag:
+            # CALL FORTRAN HERE
+            K, f = hypsurf.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
 
-        print 'SUM fo', np.sum(np.abs(K_))
+        else:
+            # Initialize arrays
+            K = np.zeros((3*self.numNodes,3*self.numNodes))
+            f = np.zeros(3*self.numNodes)
 
-        # Initialize arrays
-        K = np.zeros((3*self.numNodes,3*self.numNodes))
-        f = np.zeros(3*self.numNodes)
+            def matrixBuilder(curr_index):
 
-        def matrixBuilder(curr_index):
+                if curr_index == 0:  # forward case
 
-            if curr_index == 0:  # forward case
+                    if bc1 != 'continuous':
 
-                if bc1 != 'continuous':
+                        neighbor1_index = 1
+                        neighbor2_index = 2
 
-                    neighbor1_index = 1
-                    neighbor2_index = 2
+                        # Using forward differencing for xi = 1
+                        r0_xi = 0.5*(-3*r0[3*(curr_index):3*(curr_index)+3] + 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] - r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
-                    # Using forward differencing for xi = 1
-                    r0_xi = 0.5*(-3*r0[3*(curr_index):3*(curr_index)+3] + 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] - r0[3*(neighbor2_index):3*(neighbor2_index)+3])
+                        angle = np.pi
+
+                    else:
+
+                        neighbor1_index = self.numNodes - 2
+                        neighbor2_index = curr_index + 1
+
+                        # Using central differencing for zeta = 2:numNodes-1
+                        r0_xi = 0.5*(r0[3*(neighbor2_index):3*(neighbor2_index)+3] - r0[3*(neighbor1_index):3*(neighbor1_index)+3])
+
+                        # Compute the local grid angle based on the neighbors
+                        angle = giveAngle(r0[3*(neighbor1_index):3*(neighbor1_index)+3],
+                                          r0[3*(curr_index):3*(curr_index)+3],
+                                          r0[3*(neighbor2_index):3*(neighbor2_index)+3],
+                                          N0[:,curr_index])
+
+
+                elif curr_index == self.numNodes - 1:  # backward case
+                    neighbor1_index = curr_index - 1
+                    neighbor2_index = curr_index - 2
+
+                    # Using backward differencing for xi = numNodes
+                    r0_xi = 0.5*(3*r0[3*(curr_index):3*(curr_index)+3] - 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
                     angle = np.pi
 
-                else:
-
-                    neighbor1_index = self.numNodes - 2
+                else:  # central case
+                    neighbor1_index = curr_index - 1
                     neighbor2_index = curr_index + 1
 
                     # Using central differencing for zeta = 2:numNodes-1
@@ -429,94 +454,102 @@ class HypSurfMesh(object):
                                       r0[3*(curr_index):3*(curr_index)+3],
                                       r0[3*(neighbor2_index):3*(neighbor2_index)+3],
                                       N0[:,curr_index])
+                    if np.isnan(angle):
+                        pdb.set_trace()
 
+                x0_xi = r0_xi[0]
+                y0_xi = r0_xi[1]
+                z0_xi = r0_xi[2]
 
-            elif curr_index == self.numNodes - 1:  # backward case
-                neighbor1_index = curr_index - 1
-                neighbor2_index = curr_index - 2
+                # Get current normal
+                nx = N0[0,curr_index]
+                ny = N0[1,curr_index]
+                nz = N0[2,curr_index]
 
-                # Using backward differencing for xi = numNodes
-                r0_xi = 0.5*(3*r0[3*(curr_index):3*(curr_index)+3] - 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
+                # Assemble B0 matrix
+                B0 = np.array([[x0_xi, y0_xi, z0_xi],
+                            [ny*z0_xi-nz*y0_xi, nz*x0_xi-nx*z0_xi, nx*y0_xi-ny*x0_xi],
+                            [nx, ny, nz]])
 
-                angle = np.pi
+                # Invert B0
+                B0inv = np.linalg.inv(B0)
 
-            else:  # central case
-                neighbor1_index = curr_index - 1
-                neighbor2_index = curr_index + 1
+                # Compute eta derivatives
+                r0_eta = B0inv.dot(np.array([0, Sm1[curr_index], 0]))
+                x0_eta = r0_eta[0]
+                y0_eta = r0_eta[1]
+                z0_eta = r0_eta[2]
 
-                # Using central differencing for zeta = 2:numNodes-1
-                r0_xi = 0.5*(r0[3*(neighbor2_index):3*(neighbor2_index)+3] - r0[3*(neighbor1_index):3*(neighbor1_index)+3])
+                # Assemble A0 matrix
+                A0 = np.array([[x0_eta, y0_eta, z0_eta],
+                            [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
+                            [0, 0, 0]])
 
-                # Compute the local grid angle based on the neighbors
-                angle = giveAngle(r0[3*(neighbor1_index):3*(neighbor1_index)+3],
-                                  r0[3*(curr_index):3*(curr_index)+3],
-                                  r0[3*(neighbor2_index):3*(neighbor2_index)+3],
-                                  N0[:,curr_index])
-                if np.isnan(angle):
-                    pdb.set_trace()
+                # Compute grid distribution sensor (Eq. 6.8a)
+                dnum = np.linalg.norm(rm1[3*(neighbor2_index):3*(neighbor2_index)+3]-rm1[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(rm1[3*(neighbor1_index):3*(neighbor1_index)+3]-rm1[3*(curr_index):3*(curr_index)+3])
+                dden = np.linalg.norm(r0[3*(neighbor2_index):3*(neighbor2_index)+3]-r0[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(r0[3*(neighbor1_index):3*(neighbor1_index)+3]-r0[3*(curr_index):3*(curr_index)+3])
+                dSensor = dnum/dden
 
-            x0_xi = r0_xi[0]
-            y0_xi = r0_xi[1]
-            z0_xi = r0_xi[2]
+                # Sharp convex corner detection
+                if angle < 70*np.pi/180: # Corner detected
 
-            # Get current normal
-            nx = N0[0,curr_index]
-            ny = N0[1,curr_index]
-            nz = N0[2,curr_index]
+                    # Populate matrix with Eq 8.3
+                    K[3*curr_index:3*curr_index+3,3*neighbor2_index:3*neighbor2_index+3] = -np.eye(3)
+                    K[3*curr_index:3*curr_index+3,3*curr_index:3*curr_index+3] = 2*np.eye(3)
+                    K[3*curr_index:3*curr_index+3,3*neighbor1_index:3*neighbor1_index+3] = -np.eye(3)
+                    f[3*curr_index:3*curr_index+3] = np.array([0,0,0])
 
-            # Assemble B0 matrix
-            B0 = np.array([[x0_xi, y0_xi, z0_xi],
-                        [ny*z0_xi-nz*y0_xi, nz*x0_xi-nx*z0_xi, nx*y0_xi-ny*x0_xi],
-                        [nx, ny, nz]])
+                else:
 
-            # Invert B0
-            B0inv = np.linalg.inv(B0)
+                    # Compute C0 = B0inv*A0
+                    C0 = B0inv.dot(A0)
 
-            # Compute eta derivatives
-            r0_eta = B0inv.dot(np.array([0, Sm1[curr_index], 0]))
-            x0_eta = r0_eta[0]
-            y0_eta = r0_eta[1]
-            z0_eta = r0_eta[2]
+                    # Compute smoothing coefficients
+                    epsE, epsI = self.dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
 
-            # Assemble A0 matrix
-            A0 = np.array([[x0_eta, y0_eta, z0_eta],
-                        [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
-                        [0, 0, 0]])
+                    # Compute RHS components
+                    B0invg = B0inv.dot(np.array([0, S0[curr_index], 0]))
 
-            # Compute grid distribution sensor (Eq. 6.8a)
-            dnum = np.linalg.norm(rm1[3*(neighbor2_index):3*(neighbor2_index)+3]-rm1[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(rm1[3*(neighbor1_index):3*(neighbor1_index)+3]-rm1[3*(curr_index):3*(curr_index)+3])
-            dden = np.linalg.norm(r0[3*(neighbor2_index):3*(neighbor2_index)+3]-r0[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(r0[3*(neighbor1_index):3*(neighbor1_index)+3]-r0[3*(curr_index):3*(curr_index)+3])
-            dSensor = dnum/dden
+                    if curr_index == 0:
 
-            # Sharp convex corner detection
-            if angle < 70*np.pi/180: # Corner detected
+                        if self.optionsDict['bc1'] != 'continuous':# forwards
+                            De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
-                # Populate matrix with Eq 8.3
-                K[3*curr_index:3*curr_index+3,3*neighbor2_index:3*neighbor2_index+3] = -np.eye(3)
-                K[3*curr_index:3*curr_index+3,3*curr_index:3*curr_index+3] = 2*np.eye(3)
-                K[3*curr_index:3*curr_index+3,3*neighbor1_index:3*neighbor1_index+3] = -np.eye(3)
-                f[3*curr_index:3*curr_index+3] = np.array([0,0,0])
+                            # Compute block matrices
+                            L_block = -0.5*(1+theta)*C0 - epsI*eye(3)
+                            M_block = 2*(1+theta)*C0 + 2*epsI*eye(3)
+                            N_block = -1.5*(1+theta)*C0 + (1-epsI)*eye(3)
+                            f_block = B0invg + De
 
-            else:
+                            # Populate matrix
+                            K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = L_block
+                            K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = M_block
+                            K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
+                            f[3*(curr_index):3*(curr_index)+3] = f_block
 
-                # Compute C0 = B0inv*A0
-                C0 = B0inv.dot(A0)
+                        else:
 
-                # Compute smoothing coefficients
-                epsE, epsI = self.dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
+                            De = epsE*(r0[3*(neighbor1_index):3*(neighbor1_index)+3] - 2*r0[3*(curr_index):3*(curr_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
-                # Compute RHS components
-                B0invg = B0inv.dot(np.array([0, S0[curr_index], 0]))
+                            # Compute block matrices
+                            L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
+                            M_block = (1 + 2*epsI)*np.eye(3)
+                            N_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
+                            f_block = B0invg + De
 
-                if curr_index == 0:
+                            # Populate matrix
+                            K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = L_block
+                            K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
+                            K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
+                            f[3*(curr_index):3*(curr_index)+3] = f_block
 
-                    if self.optionsDict['bc1'] != 'continuous':# forwards
+                    elif curr_index == self.numNodes - 1:  # backwards
                         De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
                         # Compute block matrices
-                        L_block = -0.5*(1+theta)*C0 - epsI*eye(3)
-                        M_block = 2*(1+theta)*C0 + 2*epsI*eye(3)
-                        N_block = -1.5*(1+theta)*C0 + (1-epsI)*eye(3)
+                        L_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
+                        M_block = -2*(1+theta)*C0 + 2*epsI*np.eye(3)
+                        N_block = 1.5*(1+theta)*C0 + (1-epsI)*np.eye(3)
                         f_block = B0invg + De
 
                         # Populate matrix
@@ -525,8 +558,7 @@ class HypSurfMesh(object):
                         K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
                         f[3*(curr_index):3*(curr_index)+3] = f_block
 
-                    else:
-
+                    else:  # central
                         De = epsE*(r0[3*(neighbor1_index):3*(neighbor1_index)+3] - 2*r0[3*(curr_index):3*(curr_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
                         # Compute block matrices
@@ -541,163 +573,128 @@ class HypSurfMesh(object):
                         K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
                         f[3*(curr_index):3*(curr_index)+3] = f_block
 
-                elif curr_index == self.numNodes - 1:  # backwards
-                    De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
+            # Now loop over each node
 
-                    # Compute block matrices
-                    L_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    M_block = -2*(1+theta)*C0 + 2*epsI*np.eye(3)
-                    N_block = 1.5*(1+theta)*C0 + (1-epsI)*np.eye(3)
-                    f_block = B0invg + De
+            for index in [0]:
 
-                    # Populate matrix
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = L_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = M_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
-                    f[3*(curr_index):3*(curr_index)+3] = f_block
+                if bc1 is 'splay':
 
-                else:  # central
-                    De = epsE*(r0[3*(neighbor1_index):3*(neighbor1_index)+3] - 2*r0[3*(curr_index):3*(curr_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
+                    # Get coordinates
 
-                    # Compute block matrices
-                    L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    M_block = (1 + 2*epsI)*np.eye(3)
-                    N_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    f_block = B0invg + De
+                    r_curr = r0[3*(index):3*(index)+3]
+                    r_next = r0[3*(index+1):3*(index+1)+3]
+
+                    # Get vector that connects r_next to r_curr
+                    d_vec = r_next - r_curr
+
+                    # Get marching direction vector (orthogonal to the curve and to the surface normal)
+                    d_vec_rot = np.cross(N0[:,index],d_vec)
 
                     # Populate matrix
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = L_block
-                    # K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
-                    # K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
-                    f[3*(curr_index):3*(curr_index)+3] = f_block
-
-        # Now loop over each node
-
-        for index in [0]:
-
-            if bc1 is 'splay':
-
-                # Get coordinates
-
-                r_curr = r0[3*(index):3*(index)+3]
-                r_next = r0[3*(index+1):3*(index+1)+3]
-
-                # Get vector that connects r_next to r_curr
-                d_vec = r_next - r_curr
-
-                # Get marching direction vector (orthogonal to the curve and to the surface normal)
-                d_vec_rot = np.cross(N0[:,index],d_vec)
-
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
-                                                                [N0[0,index], N0[1,index], N0[2,index]],
-                                                                [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
+                    K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
+                                                                    [N0[0,index], N0[1,index], N0[2,index]],
+                                                                    [d_vec[0], d_vec[1], d_vec[2]]])
+                    f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
 
 
-            elif bc1 is 'constX':
+                elif bc1 is 'constX':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1 is 'constY':
+                elif bc1 is 'constY':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1 is 'constZ':
+                elif bc1 is 'constZ':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc1.lower().startswith('curve'):
+                elif bc1.lower().startswith('curve'):
 
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] = S0[index] * N0[:,index]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] = S0[index] * N0[:,index]
 
-            else:
+                else:
+
+                    # Call assembly routine
+                    matrixBuilder(index)
+
+            for index in xrange(1,self.numNodes-1):
 
                 # Call assembly routine
                 matrixBuilder(index)
 
-        for index in xrange(1,3):#self.numNodes-1):
+            for index in [self.numNodes-1]:
 
-            # Call assembly routine
-            matrixBuilder(index)
+                if bc2 is 'continuous':
 
-        for index in [self.numNodes-1]:
+                    # Populate matrix (use same displacements of first node)
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    K[3*index:3*index+3,:3] = -np.eye(3)
+                    f[3*index:3*index+3] = [0, 0, 0]
 
-            if bc2 is 'continuous':
+                elif bc2 is 'splay':
 
-                # Populate matrix (use same displacements of first node)
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                K[3*index:3*index+3,:3] = -np.eye(3)
-                f[3*index:3*index+3] = [0, 0, 0]
+                    # Get coordinates
+                    r_curr = r0[3*(index):3*(index)+3]
+                    r_prev = r0[3*(index-1):3*(index-1)+3]
 
-            elif bc2 is 'splay':
+                    # Get vector that connects r_next to r_curr
+                    d_vec = r_curr - r_prev
 
-                # Get coordinates
-                r_curr = r0[3*(index):3*(index)+3]
-                r_prev = r0[3*(index-1):3*(index-1)+3]
+                    # Get marching direction vector (orthogonal to the curve and to the surface normal)
+                    d_vec_rot = np.cross(N0[:,index],d_vec)
 
-                # Get vector that connects r_next to r_curr
-                d_vec = r_curr - r_prev
+                    # Populate matrix
+                    K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
+                                                                    [N0[0,index], N0[1,index], N0[2,index]],
+                                                                    [d_vec[0], d_vec[1], d_vec[2]]])
+                    f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
 
-                # Get marching direction vector (orthogonal to the curve and to the surface normal)
-                d_vec_rot = np.cross(N0[:,index],d_vec)
+                elif bc2 is 'constX':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
-                                                                [N0[0,index], N0[1,index], N0[2,index]],
-                                                                [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc2 is 'constX':
+                elif bc2 is 'constY':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc2 is 'constY':
+                elif bc2 is 'constZ':
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] =  [0, 0, 0]
 
-            elif bc2 is 'constZ':
+                elif self.optionsDict['bc2'].lower().startswith('curve'):
 
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
+                    # Populate matrix
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
+                    f[3*index:3*index+3] = S0[index] * N0[:,index]
 
-            elif self.optionsDict['bc2'].lower().startswith('curve'):
+                else:
 
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] = S0[index] * N0[:,index]
-
-            else:
-
-                # Call assembly routine
-                matrixBuilder(index)
+                    # Call assembly routine
+                    matrixBuilder(index)
 
 
-        print 'SUM py', np.sum(np.abs(K))
-        diff = K - K_
-        view_mat(diff[:12, :12])
-        view_mat(diff[-12:, -12:])
 
-        exit()
         # RETURNS
         return K,f
 
