@@ -1,61 +1,69 @@
 # IMPORTS
+from __future__ import division
 import pysurf
 from mpi4py import MPI
 import numpy as np
 import copy
+import os
 
 # TESTING FUNCTION
+
+# Clean old curve files
+os.system('rm curve*')
 
 # Set communicator
 comm = MPI.COMM_WORLD
 
 # Define components
-# cube = pysurf.TSurfComponent('../inputs/cube.cgns', comm)
-# cylinder = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
 
-bigCube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
-smallCube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
+'''
+# Cube and cylinder example
+comp1 = pysurf.TSurfComponent('../inputs/cube.cgns', comm)
+comp2 = pysurf.TSurfComponent('../inputs/cylinder.cgns', comm)
+'''
 
-# cube = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['geom'], comm)
-# cylinder = pysurf.TSurfComponent('../inputs/cubeAndCylinder.cgns', ['cylinder'], comm)
+'''
+# Big cube and small cube example
+comp1 = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
+comp2 = pysurf.TSurfComponent('../inputs/simpleCube.cgns', comm)
+comp2.translate(.25, 0., 0.)
+comp2.rotate(30, 0)
+comp2.rotate(30, 1)
+comp2.rotate(30, 2)
+comp2.scale(1.5)
+'''
 
-
-smallCube.scale(1.5)
-smallCube.translate(.25, 0., 0.)
-smallCube.rotate(30, 0)
-smallCube.rotate(30, 1)
-smallCube.rotate(30, 2)
-
-# coor = cylinder.coor * .5
-# coor[0,:] = coor[0,:] - 0.25
-# coor[1,:] = coor[1,:] + 0.5
-# coor[2,:] = coor[2,:] + 0.5
-# cylinder.update(coor)
-
+# Wing-body example
+comp1 = pysurf.TSurfComponent('../inputs/crm.cgns', ['w_upp','w_low','w_ted'])
+comp2 = pysurf.TSurfComponent('../inputs/crm.cgns', ['b_fwd','b_cnt','b_rrf'])
+comp1.translate(0.0, -10.0, 0.0) # Move wing inboard so we have a well-defined intersection
 
 # Call intersection function
-Intersections = pysurf.compute_intersections([bigCube, smallCube])
-# Intersections = pysurf.compute_intersections([cube, cylinder])
+Intersections = pysurf.compute_intersections([comp1, comp2])
 
-# print 'FIRST'
-# print Intersections[0].barsConn
-# print 'second'
-# print Intersections[1].barsConn
-# print 'THIRD'
-# print Intersections[2].barsConn
+print Intersections[0].barsConn[:,:6]
+id1 = Intersections[0].barsConn[0,0]
+id2 = Intersections[0].barsConn[1,0]
+id3 = Intersections[0].barsConn[0,1]
+id4 = Intersections[0].barsConn[1,1]
+print Intersections[0].coor[:,id1]
+print Intersections[0].coor[:,id2]
+print Intersections[0].coor[:,id3]
+print Intersections[0].coor[:,id4]
 
-print ' Number of intersections found:\n          ', len(Intersections)
+# Convert from list to dict
+intersectionDict = {}
+for curveID in range(len(Intersections)):
+    curveName = 'curve_'+'%02d'%curveID
+    intersectionDict[curveName] = Intersections[curveID]
 
-curve = pysurf.plot3d_interface.Curve(Intersections[0].coor, Intersections[0].barsConn)
-curve.export_plot3d('curve0')
+# Split intersections
+#pysurf.tsurf_geometry.split_curves(intersectionDict)
 
-# curve = pysurf.plot3d_interface.Curve(Intersections[1].coor, Intersections[1].barsConn)
-# curve.export_plot3d('curve1')
+print ' Number of intersections found:\n          ', len(intersectionDict)
 
-'''
-# Move the cube far away
-cube.update(cube.coor + 5.0)
-
-# Recompute intersection
-pysurf.compute_intersections([cube, cylinder])
-'''
+# Export curves in plot3d format
+curveID = 0
+for curve in intersectionDict.itervalues():
+    curveID = curveID + 1 
+    curve.export_plot3d('curve_%03d'%curveID)

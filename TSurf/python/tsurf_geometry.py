@@ -4,6 +4,15 @@ import cgnsAPI, adtAPI, curveSearch
 from mpi4py import MPI
 from pysurf import plot3d_interface
 
+'''
+TODO:
+
+- Move Curve class to tsurf_component.pt
+- Add variable angle threshold to curve feature extraction and curve split
+- Add code to remove unused points from surfaces and curves
+
+'''
+
 #===========================================
 # AUXILIARY READING FUNCTIONS
 #===========================================
@@ -225,7 +234,7 @@ class Curve(object):
         # Get the last point
         pts[-1,:] = self.coor[:, self.barsConn[-1,-1]-1]
 
-        # Return coordiantes
+        # Return coordinates
         return pts
 
     def update_points(self, coor):
@@ -829,8 +838,35 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
         # Initialize curve object and append it to the list
         featureCurves.append(newCurve)
 
+    # Print log
+    print 'Number of extracted curves: ',len(selectedBarsConn)
+
     # return new curves
     return featureCurves
+
+#=================================================================
+
+def split_curves(curveDict, criteria='sharpness'):
+
+    '''
+    This function will loop over all TSurfComponent curves and split
+    these curves based on a given criteria. The available criteria are:
+    criteria=['sharpness']
+
+    Ney Secco 2016-08
+    '''
+
+    # Loop over every curve to check for splits
+    for curveName in curveDict.keys():
+
+        # First we remove the curve component from the dictionary
+        curve = curveDict.pop(curveName)
+
+        # Now we run the split function for this single curve
+        splitCurves = split_curve_single(curve, curveName, criteria)
+
+        # Now we add the split curves to the original curves dictionary
+        curveDict.update(splitCurves)
 
 #=================================================================
 
@@ -1292,7 +1328,7 @@ def detect_feature(node1, node2, element1, element2,
                    feature):
 
     '''
-    This function checks if the bar that connects node1 and node1, and
+    This function checks if the bar that connects node1 and node2, and
     is shared between element1 and element2 has a desired feature.
 
     INPUTS:
@@ -1403,14 +1439,230 @@ def detect_feature(node1, node2, element1, element2,
         angle = np.arccos(n1.dot(n2))
 
         # We have a "sharp" edge if this angle is beyond a certaing threshold
-        if angle > 80*np.pi/180:
+        if angle > 60*np.pi/180:
             featureIsDetected = True
             return featureIsDetected
         else:
             featureIsDetected = False
             return featureIsDetected
 
+    elif feature == 'open_ends':
+
+        # In this case we check if an edge is shared by a single element only,
+        # as this characterizes an open end.
+
+        # We only need to check element 2 because if it is zero, then the bar is at the
+        # border of the domain.
+
+        # ELEMENT 2
+        if element2 == 0:
+            featureIsDetected = True
+            return featureIsDetected
+        else:
+            featureIsDetected = False
+            return featureIsDetected            
+
     else:
 
         print 'ERROR: Feature',feature,'cannot be detected as it is not an option.'
         quit()
+
+#=============================================================
+
+def split_curve_single(curve, curveName, criteria):
+
+    '''
+    This function receives a single curve object, splits it according to a criteria,
+    and then return a new dictionary with split curves.
+
+    ATTENTION: This function assumes that the FE data is sorted.
+
+    INPUTS:
+    curve: Curve object -> Curve that will be split
+
+    curveName: string -> Name of the original curve. This name will be used
+               to name the split curves.
+
+    criteria: string -> Criteria that will be used to split curves. The options
+              available for now are: ['sharpness']
+
+    OUTPUTS:
+    splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
+
+    Ney Secco 2016-08
+    '''
+
+    # READING INPUTS
+
+    # Get coordinates and connectivities
+    coor = curve.coor
+    barsConn = curve.barsConn
+
+    # Get the number of elements
+    nElem = barsConn.shape[1]
+
+    # DETECT KINKS
+
+    # Initialize list of break elements. The break is considered to be
+    # at the first point of the element
+    breakList = []
+
+    # The next step will depend on the criteria
+
+    if criteria == 'sharpness':
+
+        # This criteria will split the curve if its sharpness (defined here
+        # as the change in tangential direction) is beyond a given threshold.
+
+        # Get the tangent direction of the first bar element
+        prevTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
+        prevTan = prevTan/np.linalg.norm(prevTan)
+
+        # Loop over the remaining bars to find sharp kinks
+        for elemID in range(1,nElem):
+
+            # Compute tangent direction of the current element
+            currTan = coor[:,barsConn[1,elemID]-1] - coor[:,barsConn[0,elemID]-1]
+            currTan = currTan/np.linalg.norm(currTan)
+
+            # Compute change in direction between consecutive tangents
+            angle = np.arccos(prevTan.dot(currTan))
+
+            # Check if the angle is beyond a certain threshold
+            if angle > 60*np.pi/180.0:
+
+                # Store the current element as a break position
+                breakList.append(elemID)
+
+            # Now the current tangent will become the previous tangent of
+            # the next iteration
+            prevTan = currTan.copy()
+
+    # CHECK IF BREAKS WERE DETECTED
+    # We can stop this function earlier if we detect no break points
+    if len(breakList) == 0:
+        
+        # In this case, we just create a dictionary with the original curve
+        
+        # Initialize dictionary that will contain the split curves
+        splitCurvesDict = {}
+
+        # For now copy the original set of nodes
+        splitCoor = coor.copy()
+
+        # Slice the original connectivity matrix
+        splitBarsConn = barsConn[:,:]
+
+        # Generate a name for this new curve
+        splitCurveName = curveName
+
+        # Create curve object
+        splitCurve = Curve(splitCoor, splitBarsConn)
+
+        # Append new curve object to the dictionary
+        splitCurvesDict[splitCurveName] = splitCurve
+
+        # Return dictionary with the single curve
+        return splitCurvesDict
+
+
+    # CREATE SPLIT CURVE OBJECTS
+
+    # Now that we have the list of split points (given in splitList), we can create multiple
+    # curve objects.
+
+    # Count the number of curves that should be between the first and last break point
+    nInnerCurves = len(breakList)-1
+
+    # Initialize dictionary that will contain the split curves
+    splitCurvesDict = {}
+
+    # First we will define all curves that are between the first and the last
+    # break point. The remaining part of the curve will be determined depending
+    # if the original curve is periodic or not.
+    for splitID in range(nInnerCurves):
+
+        # For now copy the original set of nodes
+        splitCoor = coor.copy()
+
+        # Slice the original connectivity matrix
+        splitBarsConn = barsConn[:,breakList[splitID]:breakList[splitID+1]]
+
+        # Generate a name for this new curve
+        splitCurveName = curveName + '_' + '%02d'%(splitID+1)
+
+        # Create curve object
+        splitCurve = Curve(splitCoor, splitBarsConn)
+
+        # TODO: Add code to remove unused points from coor
+
+        # Append new curve object to the dictionary
+        splitCurvesDict[splitCurveName] = splitCurve
+
+    # Now we need to create curves with elements that come before the first break point and after
+    # the last break point.
+    # We need to treat periodic curves differently. We use the same check to determine
+    # the number of split curves. The periodic case will have minus one curve compared
+    # to a non-periodic one.
+    if barsConn[0,0] == barsConn[1,-1]: # Curve is periodic, so we need to define one curve
+
+        # For now copy the original set of nodes
+        splitCoor = coor.copy()
+
+        # We need to wrap around connectivities
+        splitBarsConn = np.hstack([barsConn[:,breakList[-1]:],
+                                   barsConn[:,:breakList[0]]])
+
+        # Generate a name for this new curve
+        splitCurveName = curveName + '_' + '%02d'%0
+
+        # Create curve object
+        splitCurve = Curve(splitCoor, splitBarsConn)
+
+        # TODO: Add code to remove unused points from coor
+
+        # Append new curve object to the dictionary
+        splitCurvesDict[splitCurveName] = splitCurve
+
+    else: # Curve is not periodic, so we need to define two curves
+
+        # CURVE 0 : before the first break point
+
+        # For now copy the original set of nodes
+        splitCoor = coor.copy()
+
+        # We need to wrap around connectivities
+        splitBarsConn = barsConn[:,:breakList[0]]
+
+        # Generate a name for this new curve
+        splitCurveName = curveName + '_' + '%02d'%0
+
+        # Create curve object
+        splitCurve = Curve(splitCoor, splitBarsConn)
+
+        # TODO: Add code to remove unused points from coor
+
+        # Append new curve object to the dictionary
+        splitCurvesDict[splitCurveName] = splitCurve
+
+        # CURVE 1 : after the first break point
+
+        # For now copy the original set of nodes
+        splitCoor = coor.copy()
+
+        # We need to wrap around connectivities
+        splitBarsConn = barsConn[:,breakList[-1]:]
+
+        # Generate a name for this new curve
+        splitCurveName = curveName + '_' + '%02d'%(nInnerCurves+1)
+
+        # Create curve object
+        splitCurve = Curve(splitCoor, splitBarsConn)
+
+        # TODO: Add code to remove unused points from coor
+
+        # Append new curve object to the dictionary
+        splitCurvesDict[splitCurveName] = splitCurve
+
+    # Return the dictionary of new curves
+    return splitCurvesDict

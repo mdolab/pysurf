@@ -20,3 +20,4 @@ syntax: glob
 callgrind*
 *.uns
 *.uns.bak
+*.plt

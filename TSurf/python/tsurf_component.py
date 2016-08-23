@@ -10,8 +10,6 @@ from tsurf_geometry import getCGNSsections, merge_surface_sections, \
                            translate, scale, rotate
 import copy
 
-# ALL AUXILIARY FUNCTIONS AND CLASSES ARE DEFINED IN adt_geometry.py
-
 class TSurfComponent(Component):
 
     def _initialize(self, *arg):
@@ -76,7 +74,7 @@ class TSurfComponent(Component):
         initialize_curves(self, sectionDict, selectedSections)
 
         # Now we remove unused points
-        remove_unused_points(self)
+        #remove_unused_points(self)
 
         # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
         initialize_surface(self)
