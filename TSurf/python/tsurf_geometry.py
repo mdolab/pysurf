@@ -426,7 +426,7 @@ class Curve(object):
 
         # Generate new connectivity (the nodes are already in order so we just
         # need to assign an ordered set to barsConn).
-        barsConn = np.zeros((2,nNewNodes-1), order='F')
+        barsConn = np.zeros((2,nNewNodes-1), order='F', dtype=int)
         barsConn[0,:] = range(1,nNewNodes)
         barsConn[1,:] = range(2,nNewNodes+1)
 
@@ -635,7 +635,7 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
 
         # Copy values from the old array
         newSharedBarInfo[:,:oldSize] = sharedBarInfo
-        
+
         # Overwrite the old array
         sharedBarInfo = newSharedBarInfo
 
@@ -700,7 +700,7 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
 
                 if nEdge == sharedBarInfo.shape[1]:
                     sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
-            
+
                 # Assign new data
                 sharedBarInfo[:,nEdge] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
 
@@ -752,7 +752,7 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
                 # But we need to check if we should increase the array size.
                 if nEdge == sharedBarInfo.shape[1]:
                     sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
-            
+
                 # Assign new data
                 sharedBarInfo[:,nEdge] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
 

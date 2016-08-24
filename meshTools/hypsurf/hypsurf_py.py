@@ -147,9 +147,11 @@ class HypSurfMesh(object):
         # We will repeat the first curve areas for simplicity.
         # rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
         # But we still need to find Sm1
-        Sm1, maxStretch = self.areaFactor(rNext, d)
+        if fortran_flag:
+            Sm1, maxStretch = hypsurf.areafactor(rNext, d, self.optionsDict['nuArea'], self.optionsDict['numAreaPasses'], self.optionsDict['bc1'], self.optionsDict['bc2'])
+        else:
+            Sm1, maxStretch = self.areaFactor(rNext, d)
 
-        maxRes = 0
         fail = False
 
         # MARCH!!!
@@ -173,8 +175,6 @@ class HypSurfMesh(object):
             # Constrain the marching distance if the stretching ratio is too high
             dPseudo = d/cFactor
 
-            print cFactor, maxRes
-
             # Subiteration
             # The number of subiterations is the one required to meet the desired marching distance
             for indexSubIter in range(cFactor):
@@ -189,7 +189,7 @@ class HypSurfMesh(object):
                 N0 = NNext[:,:]
 
                 # March using the pseudo-marching distance
-                rNext, NNext, maxRes = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
+                rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
 
                 # Update Sm1 (Store the previous area factors)
                 Sm1 = S0[:]
@@ -205,7 +205,12 @@ class HypSurfMesh(object):
 
             # Check quality of the mesh
             if layerIndex > 1:
-                fail, ratios = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
+                if fortran_flag:
+                    fail, ratios = hypsurf.qualitycheck(R[layerIndex-2:layerIndex+2, :].T, layerIndex)
+                    ratios = ratios.T
+                else:
+                    fail, ratios = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
+
 
             if fail:
                 # If the mesh is not valid, only save the mesh up until that point.
@@ -219,8 +224,13 @@ class HypSurfMesh(object):
             # Update step size
             d = d*dGrowth
 
+
         if self.optionsDict['plotQuality']:
-            fail, ratios = self.qualityCheck(R)
+            if fortran_flag:
+                fail, ratios = hypsurf.qualitycheck(R.T)
+                ratios = ratios.T
+            else:
+                fail, ratios = self.qualityCheck(R)
             view_mat(ratios)
 
         # Convert to X, Y and Z
@@ -267,25 +277,22 @@ class HypSurfMesh(object):
         '''
 
         # Generate matrices of the linear system
-        K,f = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
+        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
 
-        # Solve the linear system
-        dr = np.linalg.solve(K,f)
-
-        # Get maximum residual
-        res = K.dot(dr) - f
-        maxRes = max(abs(res))
 
         # Update r
         rNext = r0 + dr
 
         # Smooth coordinates
-        rNext = self.smoothing(rNext,layerIndex+2)
+        if fortran_flag:
+            hypsurf.smoothing(rNext, layerIndex+2, self.optionsDict['alphaP0'], self.optionsDict['numSmoothingPasses'], self.optionsDict['numLayers'], self.numNodes)
+        else:
+            rNext_ = self.smoothing(rNext,layerIndex+2)
 
         rNext, NNext = self.projection(rNext)
 
         # RETURNS
-        return rNext, NNext, maxRes
+        return rNext, NNext
 
     def projection(self, rNext):
 
@@ -397,11 +404,11 @@ class HypSurfMesh(object):
 
         if fortran_flag:
             # CALL FORTRAN HERE
-            K, f = hypsurf.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
+            dr = hypsurf.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
 
         else:
             # Initialize arrays
-            K = np.zeros((3*self.numNodes,3*self.numNodes))
+            K = np.zeros((3*self.numNodes, 3*self.numNodes))
             f = np.zeros(3*self.numNodes)
 
             def matrixBuilder(curr_index):
@@ -516,9 +523,9 @@ class HypSurfMesh(object):
                             De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
 
                             # Compute block matrices
-                            L_block = -0.5*(1+theta)*C0 - epsI*eye(3)
-                            M_block = 2*(1+theta)*C0 + 2*epsI*eye(3)
-                            N_block = -1.5*(1+theta)*C0 + (1-epsI)*eye(3)
+                            L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
+                            M_block = 2*(1+theta)*C0 + 2*epsI*np.eye(3)
+                            N_block = -1.5*(1+theta)*C0 + (1-epsI)*np.eye(3)
                             f_block = B0invg + De
 
                             # Populate matrix
@@ -630,7 +637,6 @@ class HypSurfMesh(object):
                     matrixBuilder(index)
 
             for index in xrange(1,self.numNodes-1):
-
                 # Call assembly routine
                 matrixBuilder(index)
 
@@ -693,10 +699,11 @@ class HypSurfMesh(object):
                     # Call assembly routine
                     matrixBuilder(index)
 
-
+            # Solve the linear system
+            dr = np.linalg.solve(K,f)
 
         # RETURNS
-        return K,f
+        return dr
 
     def smoothing(self, r, eta):
 
