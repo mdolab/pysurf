@@ -139,7 +139,7 @@ class HypSurfMesh(object):
         rm1 = rNext[:]
 
         #===========================================================
-
+        # BEGIN FORTRAN HERE
         '''
         The marching function actually begins here
         '''
@@ -875,7 +875,6 @@ class HypSurfMesh(object):
 
         return fail, ratios
 
-
     def exportPlot3d(self, filename):
 
         '''
@@ -884,7 +883,7 @@ class HypSurfMesh(object):
         '''
 
         # IMPORTS
-        from plot3d_interface import Grid, export_plot3d
+        from pysurf import plot3d_interface
 
         # Get coordiantes
         X = self.mesh[0,:,:].T
@@ -892,7 +891,7 @@ class HypSurfMesh(object):
         Z = self.mesh[2,:,:].T
 
         # Initialize grid object
-        myGrid = Grid()
+        myGrid = plot3d_interface.Grid()
 
         # Expand the coordinate matrices
         X3d = np.array([X])
@@ -908,7 +907,7 @@ class HypSurfMesh(object):
                          np.array([[self.curve[:,2]]]))
 
         # Export grid
-        export_plot3d(myGrid, filename)
+        plot3d_interface.export_plot3d(myGrid, filename)
 
     def _getDefaultOptions(self):
         """ Define default options and pass back a dict. """

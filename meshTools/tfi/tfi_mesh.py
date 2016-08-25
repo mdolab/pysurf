@@ -9,7 +9,7 @@ from ..meshClass import Mesh
 import numpy as np
 from mpi4py import MPI
 import tfiMeshTools
-from ...plot3d_interface import Grid, export_plot3d
+from pysurf import plot3d_interface
 
 # OPTIONS
 
@@ -35,17 +35,17 @@ class TFIMesh(Mesh):
             V                   |
             |2      bottom     3|
             +------->-----------+
-    
+
         You can also use the function linkCurves defind in this same file to automatically
         order any set of curves acording to this criteria. Note however that you will not be able
         to amp derivatives anymore.
-        
-        Instead of Curve objects, the user can also provide 
+
+        Instead of Curve objects, the user can also provide
         arrays of size [numNodes,3] for each curve.
         '''
-        
+
         # CHECK INPUTS
-        
+
         # Check if curves are connected
         badCurves = False
 
@@ -65,7 +65,7 @@ class TFIMesh(Mesh):
             print 'linkCurves (defined in the same file) to get appropriate curves.'
 
         # INITIALIZE CLASS
-        
+
         self.leftCurve = leftCurve
         self.bottomCurve = bottomCurve
         self.rightCurve = rightCurve
@@ -127,7 +127,7 @@ class TFIMesh(Mesh):
             Ztop = coor[:,2]
 
         # FILL COORDINATES MATRIX
-        
+
         # Now we need to fill all [nu x nv] arrays that contains the mesh coordinates.
         # But first we get the mesh size
         nu = len(Xleft)
@@ -139,7 +139,7 @@ class TFIMesh(Mesh):
         Z = np.zeros((nu, nv))
 
         # Now we need to fill the border values
-        
+
         # Left curve
         X[:,0] = Xleft
         Y[:,0] = Yleft
@@ -190,7 +190,7 @@ class TFIMesh(Mesh):
         Z = self.coor[2,:,:].T
 
         # Initialize grid object
-        myGrid = Grid()
+        myGrid = plot3d_interface.Grid()
 
         # Expand the coordinate matrices
         X3d = np.array([X])
@@ -216,7 +216,7 @@ class TFIMesh(Mesh):
                              np.array([[self.topCurve[:,2]]]))
 
         # Export grid
-        export_plot3d(myGrid, filename)
+        plot3d_interface.export_plot3d(myGrid, filename)
 
     # ==================================================================
 
@@ -224,24 +224,24 @@ class TFIMesh(Mesh):
 
         '''
         This function will project the mesh coordinates into refComp.
-        
+
         OUTPUTS:
         This function has no explicit outputs. It modifies X, Y, and Z instead.
-        
+
         Ney Secco 2016-08
         '''
 
         # Get matrix sizes
         nu, nv = X.shape
-        
+
         # Flatten matrices to get an array of points
         coor = np.vstack([X.flatten(),
                           Y.flatten(),
                           Z.flatten()]).T
-        
+
         # Project all points
         coor, normals = self.refComp.project_on_surface(coor)
-        
+
         # Now we replace the old coordinates
         X[:,:] = coor[:,0].reshape((nu,nv))
         Y[:,:] = coor[:,1].reshape((nu,nv))
@@ -263,7 +263,7 @@ def link_curves(curveList):
     the another set of four curves which can be readily used to initialize
     a TFI mesh object.
 
-    Instead of Curve objects, the user can also provide 
+    Instead of Curve objects, the user can also provide
     arrays of size [numNodes,3] for each curve.
 
     INPUTS:
@@ -291,7 +291,7 @@ def link_curves(curveList):
     # Extract coordinates if the user provided curve Classes
     # rather than points
     for curve in curveList:
-        
+
         # Check if we need to extract nodal coordinates
         if type(curve) is not np.ndarray:
             curve = curve.extract_points()
@@ -381,7 +381,7 @@ def link_curves(curveList):
     # The last curve should be connected to corner 4
     curve = allCurves[0]
     startPt = curve[0,:]
-    endPt = curve[-1,:]        
+    endPt = curve[-1,:]
 
     # Check if the curve is connected and flip its
     # direction if necessary.
@@ -397,5 +397,3 @@ def link_curves(curveList):
     return leftCurve, bottomCurve, rightCurve, topCurve
 
 # ==================================================================
-
-
