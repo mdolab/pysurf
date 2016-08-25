@@ -41,16 +41,6 @@ comp1.translate(0.0, -10.0, 0.0) # Move wing inboard so we have a well-defined i
 # Call intersection function
 Intersections = pysurf.compute_intersections([comp1, comp2])
 
-print Intersections[0].barsConn[:,:6]
-id1 = Intersections[0].barsConn[0,0]
-id2 = Intersections[0].barsConn[1,0]
-id3 = Intersections[0].barsConn[0,1]
-id4 = Intersections[0].barsConn[1,1]
-print Intersections[0].coor[:,id1]
-print Intersections[0].coor[:,id2]
-print Intersections[0].coor[:,id3]
-print Intersections[0].coor[:,id4]
-
 # Convert from list to dict
 intersectionDict = {}
 for curveID in range(len(Intersections)):

@@ -35,8 +35,8 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
 
 
             coor, barsConn = _compute_pair_intersection(TSurfComponentList[ii],
-                                                       TSurfComponentList[jj],
-                                                       distTol)
+                                                        TSurfComponentList[jj],
+                                                        distTol)
 
             # barsConn is a list of curves. Each element of the list brings
             # FE data for a continuous curve. If the intersection generates
@@ -45,10 +45,22 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
             # For each curve (and therefore for each barsConn element), we
             # will initialize a Curve object to hold intersection FE data.
 
+            # Set intersection counter
+            intCounter = -1
+
             for currConn in barsConn:
 
+                intCounter = intCounter + 1
+
+                # Gather name of parent components
+                name1 = TSurfComponentList[ii].name
+                name2 = TSurfComponentList[jj].name
+
+                # Create a name for the curve
+                curveName = 'int_'+name1+'_'+name2+'_%02d'%intCounter
+
                 # Create new curve object
-                newCurve = tsurf_geometry.Curve(coor, currConn)
+                newCurve = tsurf_geometry.Curve(coor, currConn, curveName)
 
                 # Initialize curve object and append it to the list
                 Intersections.append(newCurve)

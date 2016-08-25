@@ -14,7 +14,7 @@ from ...plot3d_interface import Grid, export_plot3d
 # OPTIONS
 
 # Tolerance to state that two nodes are equal
-tol = 1e-7
+tol = 1e-2
 
 # Create a child class from the parent Mesh class defined in meshClass.py
 class TFIMesh(Mesh):

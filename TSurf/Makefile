@@ -9,6 +9,7 @@
 #      ******************************************************************
 
 SUBDIR_SRC    = src/common \
+	        src/utilities \
 		src/CGNSInterface \
 		src/ADT \
 		src/curveSearch \

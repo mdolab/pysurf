@@ -61,7 +61,7 @@ barsConn[1,:] = range(2,nNodes+1)
 
 # Create curve object
 from pysurf.TSurf.python.tsurf_geometry import Curve
-curve = Curve(coor, barsConn)
+curve = Curve(coor, barsConn, 'test')
 
 # Remesh curve
 curve.remesh(spacing='cosine')

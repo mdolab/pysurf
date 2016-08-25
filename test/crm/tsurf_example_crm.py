@@ -31,6 +31,9 @@ fps = 2
 wing = TSurfComponent('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
 body = TSurfComponent('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
+# Flip some curves
+wing.Curves['te_upp_curve'].flip()
+
 # Define function to generate a wing body mesh for a given wing position and angle
 
 def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
@@ -73,14 +76,13 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     #================================================
 
     # Apply transformations to the wing
+    print wingTranslation
     wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
     wing.Curves['te_low_curve'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
     wing.Curves['te_upp_curve'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
     # Compute intersection
     Intersections = compute_intersections([wing, body])
-
-    quit()
 
     # Reorder curve so that it starts at the trailing edge
     Intersections[0].shift_end_nodes(criteria='maxX')
