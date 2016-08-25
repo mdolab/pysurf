@@ -690,11 +690,30 @@
           end do
         end do
 
-        ! ! Throw a warning if the mesh is low quality
-        ! elif np.min(ratios) <= .2 and layerIndex:
-        !     warn("The mesh may be low quality after step {}.".format(layerIndex+1))
+        ! Throw a warning if the mesh is low quality
+        if ((minval(ratios) .le. .2) .and. (layerIndex .ge. 1)) then
+          print *,"The mesh may be low quality after step", layerIndex+1
+        end if
 
         end subroutine qualityCheck
+
+        ! subroutine projection(func, rNext, Nnext)
+        !
+        ! implicit none
+        !
+        ! ! Input variables
+        ! external func
+        ! real(kind=8), intent(inout) :: arg1, arg2
+        !
+        ! ! Output variables
+        ! real(kind=8), intent(out) :: res
+        !
+        ! ! EXECUTION
+        !
+        ! call func(arg1, arg2, res)
+        !
+        ! end subroutine applyfunc
+
 
         subroutine matinv3(A, B)
 
