@@ -1,0 +1,12 @@
+# family_boco file written by ICEM CFD by ney on Wed Aug 10 03:02:49 PM EDT 2016
+## solver CGNS
+"WING"
+"POINTS"
+"GEOM"
+"GEOM" "color" 16663900
+"INTERSECTION"
+"UPPER_TE"
+"LOWER_TE"
+"TE"
+"TE" "color" 8187699
+

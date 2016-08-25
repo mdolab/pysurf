@@ -1,0 +1,56 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module adtAPI ! in
+    interface  ! in :adtAPI
+        module adtapi ! in :adtAPI:adtAPI.F90
+            use adtsearch
+            use adtbuild
+            use adtutils
+            subroutine adtbuildsurfaceadt(ntria,nquads,nnodes,coor,triaconn,quadsconn,bbox,usebbox,comm,adtid) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ntria
+                integer(kind=inttype) intent(in) :: nquads
+                integer(kind=inttype) intent(in) :: nnodes
+                real(kind=realtype) dimension(3,nnodes),intent(in) :: coor
+                integer(kind=inttype) dimension(3,ntria),intent(in) :: triaconn
+                integer(kind=inttype) dimension(4,nquads),intent(in) :: quadsconn
+                real(kind=realtype) dimension(3,2),intent(in) :: bbox
+                logical intent(in) :: usebbox
+                integer intent(in) :: comm
+                character(32) intent(in) :: adtid
+            end subroutine adtbuildsurfaceadt
+            subroutine adtmindistancesearch(ncoor,nnodes,coor,adtid,procid,elementtype,elementid,uvw,dist2,allxfs,ninterpol,arrdonor,arrinterpol) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                character(32) intent(in) :: adtid
+                integer dimension(ncoor),intent(out) :: procid
+                integer(kind=adtelementtype) dimension(ncoor),intent(out) :: elementtype
+                integer(kind=inttype) dimension(ncoor),intent(out) :: elementid
+                real(kind=realtype) dimension(3,ncoor),intent(out) :: uvw
+                real(kind=realtype) dimension(ncoor),intent(inout) :: dist2
+                real(kind=realtype) dimension(3,ncoor),intent(inout) :: allxfs
+                real(kind=realtype) dimension(ninterpol,ncoor),intent(inout) :: arrinterpol
+                integer(kind=inttype) intent(in) :: ninterpol
+                real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
+            end subroutine adtmindistancesearch
+            subroutine adtgetnumberoftrees(nADT) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(out) :: nADT
+            end subroutine adtgetnumberoftrees
+            subroutine adtdeallocateadts(adtid) ! in :adtAPI:adtAPI.F90:adtapi
+                character(32) intent(in) :: adtid
+            end subroutine adtdeallocateadts
+            subroutine computenodalnormals(ncoor,ntria,nquads,coor,triaconn,quadsconn,nodalnormals) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                integer(kind=inttype) intent(in) :: ntria
+                integer(kind=inttype) intent(in) :: nquads
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                integer(kind=inttype) dimension(3,ntria),intent(in) :: triaconn
+                integer(kind=inttype) dimension(4,nquads),intent(in) :: quadsconn
+                real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormals
+            end subroutine computenodalnormals
+        end module adtapi
+    end interface
+end python module adtAPI
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
