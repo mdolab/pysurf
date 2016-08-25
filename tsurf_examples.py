@@ -22,7 +22,7 @@ example = 'kink_on_plate'
 if example == 'kink_on_plate':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('inputs/plate.cgns')
+    geom = TSurfComponent('examples/inputs/plate.cgns')
 
     # Set source curve
     curve = array([[0,0,0],
@@ -220,4 +220,4 @@ mesh.exportPlot3d('output.xyz')
 # EXPORT REFERENCE SURFACE
 
 # Open tecplot
-os.system('tec360 ' + layout_file)
+# os.system('tec360 ' + layout_file)

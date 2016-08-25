@@ -536,7 +536,6 @@
         real(kind=realType) :: r_next(3), r_curr(3), r_prev(3), lp, lm, alphaP
         real(kind=realType) :: r_smooth(3*n)
 
-
         integer(kind=intType) :: index, index_pass
 
         ! This function does the grid smoothing
@@ -697,22 +696,42 @@
 
         end subroutine qualityCheck
 
-        ! subroutine projection(func, rNext, Nnext)
-        !
-        ! implicit none
-        !
-        ! ! Input variables
-        ! external func
-        ! real(kind=8), intent(inout) :: arg1, arg2
-        !
-        ! ! Output variables
-        ! real(kind=8), intent(out) :: res
-        !
-        ! ! EXECUTION
-        !
-        ! call func(arg1, arg2, res)
-        !
-        ! end subroutine applyfunc
+
+        subroutine subIteration(py_projection, r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2,&
+        numLayers, epsE0, eta, alphaP0, numSmoothingPasses, numNodes, rNext, NNext)
+
+        implicit none
+
+        external py_projection
+        integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
+        real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
+        real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
+        real(kind=realType), intent(in) :: sigmaSplay, epsE0
+        character*32, intent(in) :: bc1, bc2
+        real(kind=realType), intent(in) :: eta, alphaP0
+        integer(kind=intType), intent(in) :: numSmoothingPasses
+
+        real(kind=realType), intent(out) :: rNext(3*numNodes), NNext(3, numNodes)
+
+
+        real(kind=realType) :: rNext_in(3*numNodes)
+        real(kind=realType) :: dr(3*numNodes)
+
+        ! Generate matrices of the linear system
+        call computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, dr, numNodes)
+
+        ! Update r
+        rNext = r0 + dr
+
+        ! Smooth coordinates
+        call smoothing(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes)
+
+        rNext_in = rNext
+
+        call py_projection(rNext_in, rNext, NNext, numNodes)
+
+        end subroutine subIteration
+
 
 
         subroutine matinv3(A, B)

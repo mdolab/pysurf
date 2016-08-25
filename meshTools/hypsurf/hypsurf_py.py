@@ -108,6 +108,8 @@ class HypSurfMesh(object):
         R = np.zeros((numLayers,len(rStart)))
 
         # Project onto the surface or curve (if applicable)
+        # rNext, NNext = hypsurf.projection(self.projection, rStart)
+        # rNext, NNext = hypsurf.projection(self.projection, rStart)
         rNext, NNext = self.projection(rStart)
 
         # Initialize step size and total marched distance
@@ -154,6 +156,16 @@ class HypSurfMesh(object):
 
         fail = False
 
+        theta = self.optionsDict['theta']
+        bc1 = self.optionsDict['bc1']
+        bc2 = self.optionsDict['bc2']
+        sigmaSplay = self.optionsDict['sigmaSplay']
+        numLayers = self.optionsDict['numLayers']
+        epsE0 = self.optionsDict['epsE0']
+        theta = self.optionsDict['theta']
+        alphaP0 = self.optionsDict['alphaP0']
+        numSmoothingPasses = self.optionsDict['numSmoothingPasses']
+
         # MARCH!!!
         for layerIndex in range(numLayers-1):
 
@@ -189,7 +201,11 @@ class HypSurfMesh(object):
                 N0 = NNext[:,:]
 
                 # March using the pseudo-marching distance
-                rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
+                eta = layerIndex+2
+                if fortran_flag:
+                    rNext_, NNext_ = hypsurf.subiteration(self.projection, r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, eta, alphaP0, numSmoothingPasses)
+                else:
+                    rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
 
                 # Update Sm1 (Store the previous area factors)
                 Sm1 = S0[:]
@@ -276,8 +292,24 @@ class HypSurfMesh(object):
 
         '''
 
-        # Generate matrices of the linear system
-        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
+
+        theta = self.optionsDict['theta']
+        bc1 = self.optionsDict['bc1']
+        bc2 = self.optionsDict['bc2']
+        sigmaSplay = self.optionsDict['sigmaSplay']
+        numLayers = self.optionsDict['numLayers']
+        epsE0 = self.optionsDict['epsE0']
+        theta = self.optionsDict['theta']
+        alphaP0 = self.optionsDict['alphaP0']
+        numSmoothingPasses = self.optionsDict['numSmoothingPasses']
+        eta = layerIndex+2
+
+        if fortran_flag:
+            # CALL FORTRAN HERE
+            dr = hypsurf.computematrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0)
+
+        else:
+            dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
 
 
         # Update r
