@@ -31,6 +31,7 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! which should be called from Python as attributes of the intersectionAPI module.
 
   use Intersection
+  use Utilities ! This will bring condenseBarNodes_main
   implicit none
 
   ! Input variables
@@ -64,6 +65,8 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   real(kind=realType), dimension(3) :: node1A, node2A, node3A
   real(kind=realType), dimension(3) :: node1B, node2B, node3B
   real(kind=realType), dimension(3) :: vecStart, vecEnd
+
+  integer(kind=intType) :: nNodesInt, nBarsInt, nUniqueNodes
 
   ! EXECUTION
 
@@ -207,7 +210,14 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
 
   ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
   ! will be returned to Python.
-  call condenseBarFEs(distTol, extCoor, barsConn, coor)
+  nNodesInt = size(extCoor,2)
+  nBarsInt = size(barsConn,2)
+  call condenseBarNodes_main(nNodesInt, nBarsInt, distTol, &
+                             extCoor, barsConn, nUniqueNodes) ! Defined in utilities.F90
+
+  ! Allocate array to hold only unique nodes
+  allocate(coor(3,nUniqueNodes))
+  coor(:,:) = extCoor(:,1:nUniqueNodes)
 
 end subroutine computeIntersection
 

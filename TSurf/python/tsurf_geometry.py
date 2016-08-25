@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import cgnsAPI, adtAPI, curveSearch
+import cgnsAPI, adtAPI, curveSearch, utilitiesAPI
 from mpi4py import MPI
 from pysurf import plot3d_interface
 
@@ -84,22 +84,11 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
         iBarsStart = curveBarsPtr[iCurve]-1
         iBarsEnd = curveBarsPtr[iCurve+1]-1
 
-        # Take the bar connectivity slice and reorder it
-        sortedConn = FEsort(barsConn[:,iBarsStart:iBarsEnd].T.tolist())
-
-        # Check for failures
-        if (sortedConn is not None) and (len(sortedConn)==1):
-            sortedConn = np.array(sortedConn[0])
-        else:
-            # Just use the original connectivity
-            sortedConn = barsConn[:,iBarsStart:iBarsEnd]
-            # Print message
-            print ''
-            print 'Curve','"'+curve+'"','could not be sorted. It might be composed by disconnect curves.'
-            print ''
+        # Slice barsConn to get current curve elements
+        slicedConn = barsConn[:,iBarsStart:iBarsEnd]
 
         # Initialize curve dictionary
-        currCurve = {'barsConn':sortedConn}
+        currCurve = {'barsConn':slicedConn}
 
         # Add this entry to the dictionary
         sectionDict[curve] = currCurve
@@ -214,10 +203,38 @@ def update_surface(TSurfComponent):
 
 class Curve(object):
 
-    def __init__(self, coor, barsConn):
+    def __init__(self, coor, barsConn, name, mergeTol=1e-2):
 
-        self.coor = coor
-        self.barsConn = barsConn
+        # Make copies of original inputs
+        coor = np.array(coor, order='F')
+        barsConn = np.array(barsConn, dtype='int32', order='F')
+
+        # Remove unused points (This will update coor and barsConn)
+        coor = remove_unused_points(coor, barsConn=barsConn)
+
+        # Call a Fortran code to merge close nodes (This will update coor and barsConn)
+        nUniqueNodes = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
+
+        # Take bar connectivity and reorder it
+        sortedConn = FEsort(barsConn.T.tolist())
+
+        # Check for failures
+        if (sortedConn is not None) and (len(sortedConn)==1):
+            # The sorting works just fine and it found a single curve!
+            # So we just store this single curve (sortedConn[0]).
+            sortedConn = np.array(sortedConn[0], dtype=type(barsConn[0,0]), order='F')
+        else:
+            # Just use the original connectivity
+            sortedConn = barsConn
+            # Print message
+            print ''
+            print 'Curve','"'+name+'"','could not be sorted. It might be composed by disconnect curves.'
+            print ''
+
+        # Assing coor and barsConn. Remember to crop coor to get unique nodes only
+        self.coor = coor[:,:nUniqueNodes]
+        self.barsConn = sortedConn
+        self.name = name
 
     def extract_points(self):
 
@@ -575,7 +592,7 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
             barsConn = sectionDict[sectionName]['barsConn']
 
             # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = Curve(TSurfComponent.coor, barsConn)
+            curveObjDict[sectionName] = Curve(TSurfComponent.coor, barsConn, sectionName)
 
     # Assign curve objects to ADT component
     TSurfComponent.Curves = curveObjDict
@@ -1172,22 +1189,28 @@ def FEsort_dumb(barsConnIn):
 
 #=============================================================
 
-def remove_unused_points(TSurfComponent):
+def remove_unused_points(coor,
+                         triaConn=np.zeros((0,0)),
+                         quadsConn=np.zeros((0,0)),
+                         barsConn=np.zeros((0,0))):
 
     '''
     This function will removed unused points from coor and
     also update all connectivities.
-    '''
 
-    # Gather data
-    coor = TSurfComponent.coor
-    triaConn = TSurfComponent.triaConn
-    quadsConn = TSurfComponent.quadsConn
+    ATTENTION:
+    All inputs must be arrays.
+
+    OUTPUTS:
+    This function returns cropCoor, which is the cropped set of nodes.
+    This function also updates triaConn, quadsConn and barsConn.
+    '''
 
     # Get total number of points and elements
     nPoints = coor.shape[1]
     nTria = triaConn.shape[1]
     nQuads = quadsConn.shape[1]
+    nBars = barsConn.shape[1]
 
     # Initialize mask to identify used points
     usedPtsMask = np.zeros(nPoints, dtype=int)
@@ -1206,17 +1229,10 @@ def remove_unused_points(TSurfComponent):
         usedPtsMask[quadsConn[2,quadID]-1] = 1
         usedPtsMask[quadsConn[3,quadID]-1] = 1
 
-    for curve in TSurfComponent.Curves.itervalues():
-        # Get current connectivity
-        barsConn = curve.barsConn
-
-        # Get number of elements in this curve
-        nBars = barsConn.shape[1]
-
-        for barID in range(nBars):
-            # Flag used points
-            usedPtsMask[barsConn[0,barID]-1] = 1
-            usedPtsMask[barsConn[1,barID]-1] = 1
+    for barID in range(nBars):
+        # Flag used points
+        usedPtsMask[barsConn[0,barID]-1] = 1
+        usedPtsMask[barsConn[1,barID]-1] = 1
 
     # Now we can compute the number of points actually used
     nUsedPts = np.sum(usedPtsMask)
@@ -1245,9 +1261,6 @@ def remove_unused_points(TSurfComponent):
             # The +1 is necessary because Fortran use 1-based indexing
             usedPtsMask[pointID] = cropPointID + 1
 
-    # Store the new set of points
-    TSurfComponent.coor = cropCoor
-
     # Now we need to update connectivities so that they point to the the correct
     # indices of the cropped array
     for triaID in range(nTria):
@@ -1263,20 +1276,13 @@ def remove_unused_points(TSurfComponent):
         quadsConn[2,quadID] = usedPtsMask[quadsConn[2,quadID]-1]
         quadsConn[3,quadID] = usedPtsMask[quadsConn[3,quadID]-1]
 
-    for curve in TSurfComponent.Curves.itervalues():
-        # Update coordinates
-        curve.coor = cropCoor
+    for barID in range(nBars):
+        # Use pointer to update connectivity
+        barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
+        barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]
 
-        # Get current connectivity
-        barsConn = curve.barsConn
-
-        # Get number of elements in this curve
-        nBars = barsConn.shape[1]
-
-        for barID in range(nBars):
-            # Flag used points
-            barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
-            barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]
+    # Return the new set of nodes
+    return cropCoor
 
 def translate(Component, x, y, z):
     ''' Translate coor based on given x, y, and z values. '''
@@ -1666,3 +1672,59 @@ def split_curve_single(curve, curveName, criteria):
 
     # Return the dictionary of new curves
     return splitCurvesDict
+
+#============================================================
+
+def print_arrows(filename,coor,barsConn):
+
+    variable_names = ['CoordinateX','CoordinateY','CoordinateZ','dX','dY','dZ']
+
+    title = 'FE_orientation'
+
+    data_points = []
+
+    for bar in barsConn.T.tolist():
+        X0 = coor[0,bar[0]-1]
+        Y0 = coor[1,bar[0]-1]
+        Z0 = coor[2,bar[0]-1]
+
+        X1 = coor[0,bar[1]-1]
+        Y1 = coor[1,bar[1]-1]
+        Z1 = coor[2,bar[1]-1]
+
+        dX = X1-X0
+        dY = Y1-Y0
+        dZ = Z1-Z0
+
+        data_points.append([X0,Y0,Z0,dX,dY,dZ])
+
+    write_tecplot_scatter(filename,title,variable_names,data_points)
+
+#============================================================
+
+def write_tecplot_scatter(filename,title,variable_names,data_points):
+
+    # Open the data file
+    fid = open(filename,'w')
+    
+    # Write the title
+    fid.write('title = '+title+'\n')
+
+    # Write tha variable names
+    varnames_commas = ','.join(variable_names) # Merge names in a single string separated by commas
+    fid.write('variables = '+varnames_commas+',\n') # Write to the file
+
+    # Write data points
+    if type(data_points) is list: # Check if user provided a list
+        for point in data_points:
+            str_points = [str(x) for x in point] # Covert each entry to string
+            str_points = ' '.join(str_points) # Merge all entries in a single string separated by whitespace
+            fid.write(str_points+'\n') # Write to file
+    else: # The user probably provided a numpy array
+        for index in range(data_points.shape[0]):
+            str_points = [str(x) for x in data_points[index,:]]
+            str_points = ' '.join(str_points) # Merge all entries in a single string separated by whitespace
+            fid.write(str_points+'\n') # Write to file
+    
+    # Close file
+    fid.close()

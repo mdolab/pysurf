@@ -2,7 +2,11 @@
 
 import sys
 
-modules = ['cgnsAPI', 'adtAPI', 'curveSearch', 'intersectionAPI']
+modules = ['cgnsAPI',
+           'adtAPI',
+           'curveSearch',
+           'intersectionAPI',
+           'utilitiesAPI']
 
 for name in modules:
     print ''

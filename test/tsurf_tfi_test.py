@@ -15,12 +15,15 @@ os.system('rm curve*')
 comm = MPI.COMM_WORLD
 
 # Wing example
-wing = pysurf.TSurfComponent('../inputs/crm.cgns', ['w_upp','w_low',
+wing = pysurf.TSurfComponent('../inputs/crm.cgns', ['w_upp',#'w_low',
                                                     'te_upp_curve','te_low_curve',
-                                                    'w_root_curve','w_tip_curve'])
+                                                    'w_root_upp_curve','w_tip_upp_curve',
+                                                    'w_root_low_curve','w_tip_low_curve',
+                                                    'w_root_te_curve','w_tip_te_curve',
+                                                    'w_le_curve'])
 
 # Split curves
-pysurf.tsurf_geometry.split_curves(wing.Curves)
+#pysurf.tsurf_geometry.split_curves(wing.Curves)
 
 '''
 # Convert from list to dict
@@ -36,7 +39,7 @@ for curve in curveDict.itervalues():
 '''
 
 # List relevant curves
-tfiCurves = ['te_upp_curve','w_tip_curve_00','te_low_curve','w_root_curve_00']
+tfiCurves = ['te_upp_curve','w_tip_upp_curve','w_le_curve','w_root_upp_curve']
 
 # Initialize list that will contain remeshed curves
 curveList = []
@@ -44,6 +47,8 @@ curveList = []
 # Remesh curves
 ii = 0 # Counter to use different refinement
 for curveName in tfiCurves:
+
+    print 'Remeshing curve:',curveName
 
     # Define refinement level
     if np.mod(ii,2) == 0:

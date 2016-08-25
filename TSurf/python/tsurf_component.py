@@ -74,7 +74,7 @@ class TSurfComponent(Component):
         initialize_curves(self, sectionDict, selectedSections)
 
         # Now we remove unused points
-        #remove_unused_points(self)
+        self.coor = remove_unused_points(self.coor, triaConn=self.triaConn, quadsConn=self.quadsConn)
 
         # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
         initialize_surface(self)
