@@ -202,6 +202,7 @@
         ldK = n  ! leading dimension of K (should be = n unless we work with submatrices)
         ldf = n  ! leading dimension of f (should be = n unless we work with submatrices)
 
+
         call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
 
         end subroutine computeMatrices
@@ -572,32 +573,31 @@
 
         end subroutine smoothing
 
-        subroutine qualityCheck(R, layerIndex, nw1, nw2, fail, ratios)
+        subroutine qualityCheck(R, layerIndex, numLayers, numNodes, fail, ratios)
 
         implicit none
 
-        integer(kind=intType), intent(in) :: nw1, nw2
+        integer(kind=intType), intent(in) :: numLayers, numNodes
         integer(kind=intType), intent(in), optional :: layerIndex
-        real(kind=realType), intent(in) :: R(3*nw2, nw1)
-        real(kind=realType), intent(out) :: ratios(nw2-1, nw1-1)
+        real(kind=realType), intent(in) :: R(numLayers, 3*numNodes)
+        real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
         integer(kind=intType), intent(out) :: fail
 
-
-        real(kind=realType) :: XYZ(3, nw2, nw1), nodalNormals(3, nw2, nw1)
-        real(kind=realType) :: panelNormals(3, nw2-1, nw1-1), norm_vec(3)
-        real(kind=realType) :: vec1(3, nw2-1, nw1-1), vec2(3, nw2-1, nw1-1)
-        real(kind=realType) :: vec3(3, nw2-2, nw1-2), vec4(3, nw2-2, nw1-2)
-        real(kind=realType) :: nodalDerivs(3, 2, nw2, nw1), det(nw2, nw1)
-        real(kind=realType) :: normals(3, nw2-2, nw1-2), nodalJacs(3, 3, nw2, nw1)
+        real(kind=realType) :: XYZ(3, numLayers, numNodes), nodalNormals(3, numLayers, numNodes)
+        real(kind=realType) :: panelNormals(3, numLayers-1, numNodes-1), norm_vec(3)
+        real(kind=realType) :: vec1(3, numLayers-1, numNodes-1), vec2(3, numLayers-1, numNodes-1)
+        real(kind=realType) :: vec3(3, numLayers-2, numNodes-2), vec4(3, numLayers-2, numNodes-2)
+        real(kind=realType) :: nodalDerivs(3, 2, numLayers, numNodes), det(numLayers, numNodes)
+        real(kind=realType) :: normals(3, numLayers-2, numNodes-2), nodalJacs(3, 3, numLayers, numNodes)
         integer(kind=intType) :: i, j
 
-        ! Convert the flattened array R into a 3 x nw2 x nw1 array.
-        ! nw1 -> number of nodes in the direction of marching
-        ! nw2 -> number of nodes in direction of curve
-        do i=1,nw2
-          XYZ(1, i, :) = R(3*(i-1)+1, :)
-          XYZ(2, i, :) = R(3*(i-1)+2, :)
-          XYZ(3, i, :) = R(3*(i-1)+3, :)
+        ! Convert the flattened array R into a 3 x numNodes x numLayers array.
+        ! numLayers -> number of layers in the marching direction
+        ! numNodes -> number of nodes in direction of curve
+        do i=1,numNodes
+          XYZ(1, :, i) = R(:, 3*(i-1)+1)
+          XYZ(2, :, i) = R(:, 3*(i-1)+2)
+          XYZ(3, :, i) = R(:, 3*(i-1)+3)
         end do
 
         ! Setup nodal normals
@@ -605,51 +605,51 @@
 
         ! Get the panel normals from the interior points of the mesh.
         ! Here we take the cross product of the diagonals of each face
-        vec1 = XYZ(:, 2:, 2:) - XYZ(:, :nw2-1, :nw1-1)
-        vec2 = XYZ(:, :nw2-1, 2:) - XYZ(:, 2:, :nw1-1)
-        do i=1,nw2-1
-          do j=1,nw1-1
-            call cross(vec2(:, i, j), vec1(:, i, j), norm_vec)
-            panelNormals(:, i, j) = norm_vec / norm2(norm_vec)
+        vec1 = XYZ(:, 2:, 2:) - XYZ(:, :numLayers-1, :numNodes-1)
+        vec2 = XYZ(:, 2:, :numNodes-1) - XYZ(:, :numLayers-1, 2:)
+        do i=1,numNodes-1
+          do j=1,numLayers-1
+            call cross(vec2(:, j, i), vec1(:, j, i), norm_vec)
+            panelNormals(:, j, i) = norm_vec / norm2(norm_vec)
           end do
         end do
 
         ! Set the interior normals using an average of the panel normals
-        vec3 = panelNormals(:, 2:, 2:) + panelNormals(:, :nw2-2, :nw1-2)
-        vec4 = panelNormals(:, :nw2-2, 2:) + panelNormals(:, 2:, :nw1-2)
+        vec3 = panelNormals(:, 2:, 2:) + panelNormals(:, :numLayers-2, :numNodes-2)
+        vec4 = panelNormals(:, 2:, :numNodes-2) + panelNormals(:, :numLayers-2, 2:)
         normals = vec3 + vec4
-        do i=2,nw2-1
-          do j=2,nw1-1
-            nodalNormals(:, i, j) = normals(:, i-1, j-1) / norm2(normals(:, i-1, j-1))
+        do i=2,numNodes-1
+          do j=2,numLayers-1
+            nodalNormals(:, j, i) = normals(:, j-1, i-1) / norm2(normals(:, j-1, i-1))
           end do
         end do
 
         ! Set the boundary normals
-        nodalNormals(:, 1, 2:) = panelNormals(:, 1, :)
-        nodalNormals(:, :nw2-1, 1) = panelNormals(:, :, 1)
-        nodalNormals(:, nw2, :nw1-1) = panelNormals(:, nw2-1, :)
-        nodalNormals(:, 2:, nw1) = panelNormals(:, :, nw1-1)
+        nodalNormals(:, 2:, 1) = panelNormals(:, :, 1)
+        nodalNormals(:, 1, :numNodes-1) = panelNormals(:, 1, :)
+        nodalNormals(:, :numLayers-1, numNodes) = panelNormals(:, :, numNodes-1)
+        nodalNormals(:, numLayers, 2:) = panelNormals(:, numLayers-1, :)
 
         ! Setup nodal derivatives
         nodalDerivs(:, :, :, :) = 0.
 
         ! Compute interior derivatives using 2nd order central differencing
-        nodalDerivs(:, 1, 2:nw2-1, 2:nw1-1) = (XYZ(:, 2:nw2-1, 3:) - XYZ(:, 2:nw2-1, :nw1-2)) / 2.
-        nodalDerivs(:, 2, 2:nw2-1, 2:nw1-1) = (XYZ(:, 3:, 2:nw1-1) - XYZ(:, :nw2-2, 2:nw1-1)) / 2.
+        nodalDerivs(:, 1, 2:numLayers-1, 2:numNodes-1) = (XYZ(:, 3:, 2:numNodes-1) - XYZ(:, :numLayers-2, 2:numNodes-1)) / 2.
+        nodalDerivs(:, 2, 2:numLayers-1, 2:numNodes-1) = (XYZ(:, 2:numLayers-1, 3:) - XYZ(:, 2:numLayers-1, :numNodes-2)) / 2.
 
         ! Compute i derivatives using 1st order differencing
-        nodalDerivs(:, 1, :, 1) = XYZ(:, :, 2) - XYZ(:, :, 1)
-        nodalDerivs(:, 1, :, nw1) = XYZ(:, :, nw1) - XYZ(:, :, nw1-1)
+        nodalDerivs(:, 1, 1, :) = XYZ(:, 2, :) - XYZ(:, 1, :)
+        nodalDerivs(:, 1, numLayers, :) = XYZ(:, numLayers, :) - XYZ(:, numLayers-1, :)
 
-        nodalDerivs(:, 1, 1, 2:nw1-1) = (XYZ(:, 1, 3:) - XYZ(:, 1, :nw1-2)) / 2.
-        nodalDerivs(:, 1, nw2, 2:nw1-1) = (XYZ(:, nw2, 3:) - XYZ(:, nw2, :nw1-2)) / 2.
+        nodalDerivs(:, 1, 2:numLayers-1, 1) = (XYZ(:, 3:, 1) - XYZ(:, :numLayers-2, 1)) / 2.
+        nodalDerivs(:, 1, 2:numLayers-1, numNodes) = (XYZ(:, 3:, numNodes) - XYZ(:, :numLayers-2, numNodes)) / 2.
 
         ! Compute j derivatives using 1st order differencing
-        nodalDerivs(:, 2, 1, :) = XYZ(:, 2, :) - XYZ(:, 1, :)
-        nodalDerivs(:, 2, nw2, :) = XYZ(:, nw2, :) - XYZ(:, nw2-1, :)
+        nodalDerivs(:, 2, :, 1) = XYZ(:, :, 2) - XYZ(:, :, 1)
+        nodalDerivs(:, 2, :, numNodes) = XYZ(:, :, numNodes) - XYZ(:, :, numNodes-1)
 
-        nodalDerivs(:, 2, 2:nw2-1, 1) = (XYZ(:, 3:, 1) - XYZ(:, :nw2-2, 1)) / 2.
-        nodalDerivs(:, 2, 2:nw2-1, nw1) = (XYZ(:, 3:, nw1) - XYZ(:, :nw2-2, nw1)) / 2.
+        nodalDerivs(:, 2, 1, 2:numNodes-1) = (XYZ(:, 1, 3:) - XYZ(:, 1, :numNodes-2)) / 2.
+        nodalDerivs(:, 2, numLayers, 2:numNodes-1) = (XYZ(:, numLayers, 3:) - XYZ(:, numLayers, :numNodes-2)) / 2.
 
 
         ! Assemble nodal Jacobians
@@ -662,9 +662,9 @@
         ratios(:, :) = 0.
 
         ! Compute the determinants of each nodal Jacobian
-        do i=1,nw2
-          do j=1,nw1
-            call m33det(nodalJacs(:, :, i, j), det(i, j))
+        do i=1,numNodes
+          do j=1,numLayers
+            call m33det(nodalJacs(:, :, j, i), det(j, i))
           end do
         end do
 
@@ -672,22 +672,24 @@
         ! valued determinant.
         ! This is a measure of quality, with 1 being desirable and anything
         ! less than 0 meaning the mesh is no longer valid.
-        do i=1,nw2-1
-          do j=1,nw1-1
-            ratios(i, j) = minval(det(i:i+1, j:j+1)) / maxval(det(i:i+1, j:j+1))
+        do i=1,numNodes-1
+          do j=1,numLayers-1
+            ratios(j, i) = minval(det(j:j+1, i:i+1)) / maxval(det(j:j+1, i:i+1))
           end do
         end do
 
         fail = 0
         ! Throw an error and set the failure flag if the mesh is not valid
-        do i=1,nw2-1
-          do j=1,nw1-1
-            if ((isnan(ratios(i, j)) .or. ratios(i, j) .le. 0.) .and. (layerIndex .ge. 1)) then
-              print *,"The mesh is not valid after step", layerIndex+1
+        do i=1,numNodes-1
+          do j=1,numLayers-1
+            if ((isnan(ratios(j, i)) .or. ratios(j, i) .le. 0.) .and. (layerIndex .ge. 1)) then
               fail = 1
             end if
           end do
         end do
+        if (fail .eq. 1) then
+          print *,"The mesh is not valid after step", layerIndex+1
+        end if
 
         ! Throw a warning if the mesh is low quality
         if ((minval(ratios) .le. .2) .and. (layerIndex .ge. 1)) then
@@ -697,40 +699,233 @@
         end subroutine qualityCheck
 
 
-        subroutine subIteration(py_projection, r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2,&
-        numLayers, epsE0, eta, alphaP0, numSmoothingPasses, numNodes, rNext, NNext)
+        subroutine march(py_projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality,&
+        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
+        numLayers, numNodes, R, fail, ratios)
 
         implicit none
 
         external py_projection
-        integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
-        real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
-        real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
-        real(kind=realType), intent(in) :: sigmaSplay, epsE0
+        real(kind=realType), intent(in) :: rStart(3*numNodes),dStart, theta, sigmaSplay
+        integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
+        real(kind=realType), intent(in) :: epsE0, extension, nuArea
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(in) :: eta, alphaP0
-        integer(kind=intType), intent(in) :: numSmoothingPasses
+        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
+        integer(kind=intType), intent(in) :: numSmoothingPasses, plotQuality
 
-        real(kind=realType), intent(out) :: rNext(3*numNodes), NNext(3, numNodes)
+        real(kind=realType), intent(out) :: R(numLayers, 3*numNodes)
+        integer(kind=intType), intent(out) :: fail
+        real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
 
-
+        real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
+        real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes)
+        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
         real(kind=realType) :: rNext_in(3*numNodes)
-        real(kind=realType) :: dr(3*numNodes)
+        real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
+        real(kind=realType) :: dPseudo, maxStretch, radius, eta
+        integer(kind=intType) :: layerIndex, indexSubIter, cFactor
 
-        ! Generate matrices of the linear system
-        call computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, dr, numNodes)
+        ! Project onto the surface or curve (if applicable)
+        call py_projection(rStart, rNext, NNext, numNodes)
 
-        ! Update r
-        rNext = r0 + dr
+        ! Initialize step size and total marched distance
+        d = dStart
+        dTot = 0
 
-        ! Smooth coordinates
-        call smoothing(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes)
+        ! Find the characteristic radius of the mesh
+        call findRadius(rNext, numNodes, radius)
 
-        rNext_in = rNext
+        ! Find the desired marching distance
+        dMax = radius * (extension-1.)
 
-        call py_projection(rNext_in, rNext, NNext, numNodes)
+        ! Compute the growth ratio necessary to match this distance
+        call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
 
-        end subroutine subIteration
+        ! Print growth ratio
+        print *, 'Growth ratio: ',dGrowth
+
+        ! Store the initial curve
+        R(1, :) = rNext
+
+        ! ! Issue a warning message if the projected points are far from the given points
+        ! if max(abs(rNext - rStart)) > 1.0e-5:
+        !     warn('The given points (rStart) might not belong to the given surface (surf)\nThese points were projected for the surface mesh generation')
+
+
+        ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
+        ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
+        rm1 = rNext
+
+        !===========================================================
+
+        ! Some functions require the area factors of the first-before-last curve
+        ! We will repeat the first curve areas for simplicity.
+        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
+        ! But we still need to find Sm1
+
+        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
+
+        fail = 0
+
+        do layerIndex=1,numLayers-1
+          ! Get the coordinates computed by the previous iteration
+          r0 = rNext
+
+          ! Compute the new area factor for the desired marching distance
+          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+
+          ! The subiterations will use pseudo marching steps.
+          ! If the required marching step is too large, the hyperbolic marching might become
+          ! unstable. So we subdivide the current marching step into multiple smaller pseudo-steps
+
+          ! Compute the factor between the current stretching ratio and the allowed one.
+          ! If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
+          ! The pseudo-step will be the same as the desired step.
+          cFactor = ceiling(maxStretch/cMax)
+
+          ! Constrain the marching distance if the stretching ratio is too high
+          dPseudo = d / cFactor
+
+          ! Subiteration
+          ! The number of subiterations is the one required to meet the desired marching distance
+          do indexSubIter=1,cFactor
+
+            ! Recompute areas with the pseudo-step
+            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+
+            ! Update the Normals with the values computed in the last iteration.
+            ! We do this because, the last iteration already projected the new
+            ! points to the surface and also computed the normals. So we don't
+            ! have to repeat the projection step
+            N0 = NNext
+
+            ! March using the pseudo-marching distance
+            eta = layerIndex+2
+
+            ! Generate matrices of the linear system
+            call computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex-1, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, dr, numNodes)
+
+            ! Update r
+            rNext = r0 + dr
+
+            ! Smooth coordinates
+            call smoothing(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes)
+
+            rNext_in = rNext
+
+            call py_projection(rNext_in, rNext, NNext, numNodes)
+
+            ! Update Sm1 (Store the previous area factors)
+            Sm1 = S0
+
+            ! Update rm1
+            rm1 = r0
+
+            ! Update r0
+            r0 = rNext
+
+          end do
+
+          ! Store grid points
+          R(layerIndex+1, :) = rNext
+
+          ! Check quality of the mesh
+          if (layerIndex .gt. 2) then
+            if (layerIndex .gt. numLayers - 2) then
+              call qualityCheck(R(layerIndex-3:layerIndex, :), layerIndex, 4, numNodes, fail, ratios)
+            else
+              call qualityCheck(R(layerIndex-2:layerIndex+1, :), layerIndex, 4, numNodes, fail, ratios)
+            end if
+          end if
+
+          ! Compute the total marched distance so far
+          dTot = dTot + d
+
+          ! Update step size
+          d = d*dGrowth
+        end do
+
+
+        if (plotQuality .eq. 1) then
+          call qualityCheck(R, 0, numLayers, numNodes, fail, ratios)
+        end if
+
+
+        end subroutine march
+
+        subroutine findRadius(r, numNodes, radius)
+
+        implicit none
+
+        real(kind=realType), intent(in) :: r(3*numNodes)
+        integer(kind=intType), intent(in) :: numNodes
+
+        real(kind=realType), intent(out) :: radius
+
+        real(kind=realType) :: x(numNodes), y(numNodes), z(numNodes)
+        real(kind=realType) :: minX, maxX, minY, maxY, minZ, maxZ
+        integer(kind=intType) :: i
+
+
+        ! Split coordinates
+        do i=1,numNodes
+          x(i) = r(3*(i-1)+1)
+          y(i) = r(3*(i-1)+2)
+          z(i) = r(3*(i-1)+3)
+        end do
+
+
+        ! Find bounds
+        minX = minval(x)
+        maxX = maxval(x)
+        minY = minval(y)
+        maxY = maxval(y)
+        minZ = minval(z)
+        maxZ = maxval(z)
+
+        ! Find longest radius (we give only half of the largest side to be considered as radius)
+        radius = max(maxX-minX, maxY-minY, maxZ-minZ) / 2.
+
+        end subroutine findRadius
+
+
+        subroutine findRatio(dMax, d0, numLayers, ratioGuess, q)
+
+        implicit none
+
+        real(kind=realType), intent(in) :: dMax, d0, ratioGuess
+        integer(kind=intType), intent(in) :: numLayers
+
+        real(kind=realType), intent(out) :: q
+
+        real(kind=realType) :: Rdot, R
+        integer(kind=intType) :: nIters, i
+
+
+        ! Extra parameters
+        nIters = 200 ! Maximum number of iterations for Newton search
+
+        ! Initialize ratio
+        q = ratioGuess
+
+        ! Newton search loop
+        do i=1,nIters
+          ! Residual function
+          R = d0 * (1. - q**(numLayers-1)) - dMax * (1. - q)
+
+          ! Residual derivative
+          Rdot = -(numLayers-1)*d0*q**(numLayers-2) + dMax
+          ! Update ratio with Newton search
+          q = q - R/Rdot
+        end do
+
+        ! Check if we got a reasonable value
+        ! if (q <= 1) or (q >= q0):
+        !     error('Ratio may be too large...\nIncrease number of cells or reduce extension')
+        !     from sys import exit
+        !     exit()
+
+        end subroutine findRatio
 
 
 
