@@ -11,11 +11,11 @@ from mpi4py import MPI
 # OPTIONS
 
 # Select example
-example = 'kink_on_plate'
+# example = 'kink_on_plate'
 # example = 'line_on_cylinder'
 # example = 'cylinder_cap'
 # example = 'line_on_cubeAndCylinder'
-# example = 'line_on_cube'
+example = 'line_on_cube'
 
 # EXAMPLE SELECTION
 
@@ -36,8 +36,8 @@ if example == 'kink_on_plate':
     curve = curve[::-1,:]
 
     # Define boundary conditions
-    bc1 = 'splay'
-    bc2 = 'splay'
+    bc1 = 'constX'
+    bc2 = 'constX'
 
     # Set parameters
     epsE0 = 1.0
@@ -157,7 +157,7 @@ elif example == 'line_on_cubeAndCylinder':
 elif example == 'line_on_cube':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
+    geom = TSurfComponent('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
 
     # Set problem
     n = 40
