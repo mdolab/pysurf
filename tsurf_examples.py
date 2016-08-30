@@ -52,8 +52,8 @@ if example == 'kink_on_plate':
 
     # Options
     sBaseline = 0.15
-    numLayers = 20
-    extension = 3.5
+    numLayers = 5
+    extension = 1.5
 
     # Give layout file
     layout_file = 'layout_plate.lay'
@@ -61,7 +61,7 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('inputs/cylinder.cgns')
+    geom = TSurfComponent('examples/inputs/cylinder.cgns')
 
     # Flip BC curve
     geom.Curves['bc1'].flip()
@@ -92,7 +92,7 @@ elif example == 'line_on_cylinder':
 elif example == 'cylinder_cap':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('inputs/cylinder.cgns')
+    geom = TSurfComponent('examples/inputs/cylinder.cgns')
 
     # Set reference curve
     n1 = 7
@@ -129,7 +129,7 @@ elif example == 'line_on_cubeAndCylinder':
 
     # Read inputs from CGNS file
     #geom = TSurfComponent('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
-    geom = TSurfComponent('inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
+    geom = TSurfComponent('examples/inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
 
     # Set problem
     curve = 'diag'

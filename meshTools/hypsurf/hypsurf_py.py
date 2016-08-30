@@ -11,7 +11,7 @@ import numpy as np
 import pdb
 from pysurf import hypsurf
 
-fortran_flag = False
+fortran_flag = True
 
 '''
 TO DO
@@ -116,7 +116,6 @@ class HypSurfMesh(object):
         rStart = self.curve.flatten().astype(float)
 
         if fortran_flag:
-            # BEGIN FORTRAN HERE
             R, fail, ratios = hypsurf.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
 
         else:
@@ -313,7 +312,7 @@ class HypSurfMesh(object):
         # Smooth coordinates
         rNext_ = self.smoothing(rNext,layerIndex+2)
 
-        rNext, NNext = self.projection(rNext)
+        rNext, NNext = self.projection(rNext_)
 
         # RETURNS
         return rNext, NNext

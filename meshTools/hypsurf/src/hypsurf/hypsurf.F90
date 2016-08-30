@@ -525,10 +525,6 @@
 
         implicit none
 
-        !f2py intent(in) eta, alphaP0, numSmoothingPasses, numLayers, n
-        !f2py intent(inout) r
-        !f2py depends(n) r
-
         integer(kind=intType), intent(in) :: n
         real(kind=realType), intent(in) :: eta, alphaP0
         integer(kind=intType), intent(in) :: numSmoothingPasses, numLayers
@@ -539,37 +535,38 @@
 
         integer(kind=intType) :: index, index_pass
 
+        ! Compute alpha'
+        alphaP = min(alphaP0, alphaP0 * (eta - 3) / numLayers)
+
         ! This function does the grid smoothing
 
-            ! Loop over the desired number of smoothing passes
-            do index_pass=1,numSmoothingPasses
+        ! Loop over the desired number of smoothing passes
+        do index_pass=1,numSmoothingPasses
 
-              ! Copy nodes
-              r_smooth = r
+          ! Copy nodes
+          r_smooth = r
 
-              ! Smooth every node
-              do index=2,n-1
+          ! Smooth every node
+          do index=2,n-1
 
-                ! Get coordinates
-                r_curr = r(3*(index-1)+1:3*(index-1)+3)
-                r_next = r(3*(index)+1:3*(index)+3)
-                r_prev = r(3*(index-2)+1:3*(index-2)+3)
+            ! Get coordinates
+            r_curr = r(3*(index-1)+1:3*(index-1)+3)
+            r_next = r(3*(index)+1:3*(index)+3)
+            r_prev = r(3*(index-2)+1:3*(index-2)+3)
 
-                ! Compute distances
-                lp = norm2(r_next - r_curr)
-                lm = norm2(r_curr - r_prev)
+            ! Compute distances
+            lp = norm2(r_next - r_curr)
+            lm = norm2(r_curr - r_prev)
 
-                ! Compute alpha'
-                alphaP = min(alphaP0, alphaP0 * (eta - 2) / numLayers)
+            ! Compute smoothed coordinates
+            r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphaP)*r_curr + alphaP*(lm*r_next + lp*r_prev)/(lp + lm)
 
-                ! Compute smoothed coordinates
-                r_smooth(3*(index-1)+1:3*(index-1)+3) = (1-alphaP)*r_curr + alphaP*(lm*r_next + lp*r_prev)/(lp + lm)
-              end do
+          end do
 
-              ! Copy coordinates to allow next pass
-              r = r_smooth
-            end do
+          ! Copy coordinates to allow next pass
+          r = r_smooth
 
+        end do
 
         end subroutine smoothing
 
