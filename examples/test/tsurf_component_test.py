@@ -5,7 +5,7 @@ import numpy as np
 
 # TESTING FUNCTION
 
-cube = pysurf.TSurfComponent('../inputs/cube.cgns', MPI.COMM_WORLD)
+cube = pysurf.TSurfGeometry('../inputs/cube.cgns', MPI.COMM_WORLD)
 
 pts = np.array([[.6, .5, 1.0],
                 [.6, .5, 0.1]], order='F')

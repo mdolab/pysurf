@@ -5,7 +5,7 @@ import numpy as np
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from pysurf import TSurfComponent, compute_intersections, plot3d_interface, hypsurf_py
+from pysurf import TSurfGeometry, compute_intersections, plot3d_interface, hypsurf_py
 import os
 from mpi4py import MPI
 import copy
@@ -66,12 +66,12 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     #================================================
 
     # Load components
-    wing = TSurfComponent('../../inputs/wingBody.cgns',['wing','upper_te','lower_te', 'te'])
-    body = TSurfComponent('../../inputs/wingBody.cgns',['geom'])
+    wing = TSurfGeometry('../../inputs/wingBody.cgns',['wing','upper_te','lower_te', 'te'])
+    body = TSurfGeometry('../../inputs/wingBody.cgns',['geom'])
 
     # Apply transformations to the wing
     wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
-    wing.Curves['te'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
+    wing.curves['te'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
     # Compute intersection
     Intersections = compute_intersections([wing, body])
@@ -94,8 +94,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     if generate_wing:
 
         # Flip BC curve
-        wing.Curves['intersection'].flip()
-        wing.Curves['te'].flip()
+        wing.curves['intersection'].flip()
+        wing.curves['te'].flip()
 
         # Set problem
         curve = 'intersection'

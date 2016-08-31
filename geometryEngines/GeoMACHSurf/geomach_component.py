@@ -1,22 +1,22 @@
 from __future__ import division
 import numpy as np
 from mpi4py import MPI
-from ..baseClasses import Component
+from ..baseClasses import Geometry
 from geomach_geometry import Surface, Curve
 
-class GeoMACHComponent(Component):
+class GeoMACHGeometry(Geometry):
 
     '''
-    This GeoMACHComponent class inherits from the base Component
+    This GeoMACHGeometry class inherits from the base Geometry
     class defined in classes.py, at the top level pysurf directory
     '''
 
     def _initialize(self, *arg, **kwargs):
 
         '''
-        The expected arguments for a GeoMACHComponent initialization are:
+        The expected arguments for a GeoMACHGeometry initialization are:
 
-        GeoMACHComponent(comm, pointsDict)
+        GeoMACHGeometry(comm, pointsDict)
         INPUTS:
         pointsDict: dictionary(name,pts) --> name is a string that
                     defines the subcomponent (curve or surface) name.
@@ -35,7 +35,7 @@ class GeoMACHComponent(Component):
             if len(pts.shape) == 3:
                 self.Surfaces[name] = Surface(name, pts)
             else:
-                self.Curves[name] = Curve(name, pts)
+                self.curves[name] = Curve(name, pts)
 
     def project_on_surface(self, xyz, surfCandidates=None):
 
@@ -134,7 +134,7 @@ class GeoMACHComponent(Component):
 
         # Use all curves if None is provided by the user
         if curveCandidates is None:
-            curveCandidates = self.Curves.keys()
+            curveCandidates = self.curves.keys()
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
@@ -144,7 +144,7 @@ class GeoMACHComponent(Component):
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
-        for curve in self.Curves.itervalues():
+        for curve in self.curves.itervalues():
             if curve.name in curveCandidates:
                 curve.project(xyz, dist2, xyzProj, tanProj)
 

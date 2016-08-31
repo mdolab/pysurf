@@ -42,6 +42,7 @@ clean:
 		done
 	rm -f *~ config.mk;
 	rm -f lib/lib* mod/* obj/*
+	(cd python && rm *.so) || exit 1;
 
 discretesurf:
 	mkdir -p obj

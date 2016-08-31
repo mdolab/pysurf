@@ -36,7 +36,7 @@ class TFIMesh(Mesh):
             |2      bottom     3|
             +------->-----------+
 
-        You can also use the function linkCurves defind in this same file to automatically
+        You can also use the function linkcurves defind in this same file to automatically
         order any set of curves acording to this criteria. Note however that you will not be able
         to amp derivatives anymore.
 
@@ -47,22 +47,22 @@ class TFIMesh(Mesh):
         # CHECK INPUTS
 
         # Check if curves are connected
-        badCurves = False
+        badcurves = False
 
         if np.linalg.norm(leftCurve[-1,:] - bottomCurve[0,:]) > tol:
-            badCurves = True
+            badcurves = True
         elif np.linalg.norm(bottomCurve[-1,:] - rightCurve[0,:]) > tol:
-            badCurves = True
+            badcurves = True
         elif np.linalg.norm(rightCurve[-1,:] - topCurve[0,:]) > tol:
-            badCurves = True
+            badcurves = True
         elif np.linalg.norm(topCurve[-1,:] - leftCurve[0,:]) > tol:
-            badCurves = True
+            badcurves = True
 
-        if badCurves:
+        if badcurves:
             print 'TFI Mesh ERROR:'
-            print 'Curves are disconnected or are not following the TFIMesh convention.'
+            print 'curves are disconnected or are not following the TFIMesh convention.'
             print 'Check the documentation in the tfi_mesh.py file, or use the function'
-            print 'linkCurves (defined in the same file) to get appropriate curves.'
+            print 'linkcurves (defined in the same file) to get appropriate curves.'
 
         # INITIALIZE CLASS
 
@@ -174,14 +174,14 @@ class TFIMesh(Mesh):
         self.coor[1,:,:] = Y
         self.coor[2,:,:] = Z
 
-    def export(self, filename, addCurves=False):
+    def export(self, filename, addcurves=False):
 
         '''
         This function exports a 3D mesh in plot3d format.
         The user specifies the span and number of nodes in the z direction.
 
         INPUTS
-        addCurves: logical -> Export separate zones for bounding curves if True
+        addcurves: logical -> Export separate zones for bounding curves if True
         '''
 
         # Get coordiantes
@@ -200,7 +200,7 @@ class TFIMesh(Mesh):
         # Add mesh to the grid
         myGrid.add_block(X3d, Y3d, Z3d)
 
-        if addCurves:
+        if addcurves:
             # Add initial curves as a separate zone
             myGrid.add_block(np.array([[self.leftCurve[:,0]]]),
                              np.array([[self.leftCurve[:,1]]]),
@@ -286,7 +286,7 @@ def link_curves(curveList):
     # CHECKING INPUTS
 
     # Initialize list that will have nodal coordinates for all 4 curves
-    allCurves = []
+    allcurves = []
 
     # Extract coordinates if the user provided curve Classes
     # rather than points
@@ -297,7 +297,7 @@ def link_curves(curveList):
             curve = curve.extract_points()
 
         # Store coordinates
-        allCurves.append(curve)
+        allcurves.append(curve)
 
     # We need to check which curves can be concatenated so that we can
     # form an ordered set of curves just as shown below:
@@ -324,15 +324,15 @@ def link_curves(curveList):
     # We arbitralily select the first point of the first curve as the first corner,
     # and the last point of the first curve as the second corner. Thus the first curve
     # corresponds to the left curve.
-    corner1 = allCurves[0][0,:]
-    corner2 = allCurves[0][-1,:]
-    leftCurve = allCurves.pop(0) # This will remove curve1 from allCurves
+    corner1 = allcurves[0][0,:]
+    corner2 = allcurves[0][-1,:]
+    leftCurve = allcurves.pop(0) # This will remove curve1 from allcurves
 
     # Now we find which curve is connected to corner2
-    for curveID in range(len(allCurves)):
+    for curveID in range(len(allcurves)):
 
         # Get first and last points of the current curve:
-        curve = allCurves[curveID]
+        curve = allcurves[curveID]
         startPt = curve[0,:]
         endPt = curve[-1,:]
 
@@ -340,24 +340,24 @@ def link_curves(curveList):
         # direction if necessary.
         if np.linalg.norm(corner2 - startPt) < tol:
             corner3 = endPt
-            bottomCurve = allCurves.pop(curveID)
+            bottomCurve = allcurves.pop(curveID)
             break
         elif np.linalg.norm(corner2 - endPt) < tol:
             corner3 = startPt
-            bottomCurve = allCurves.pop(curveID)[::-1]
+            bottomCurve = allcurves.pop(curveID)[::-1]
             break
 
     # Stop if we did not find any curve
     if bottomCurve is None:
         print 'TFI Mesh ERROR:'
-        print 'Curves are not connected.'
+        print 'curves are not connected.'
         quit()
 
     # Now we find which curve is connected to corner3
-    for curveID in range(len(allCurves)):
+    for curveID in range(len(allcurves)):
 
         # Get first and last points of the current curve:
-        curve = allCurves[curveID]
+        curve = allcurves[curveID]
         startPt = curve[0,:]
         endPt = curve[-1,:]
 
@@ -365,30 +365,30 @@ def link_curves(curveList):
         # direction if necessary.
         if np.linalg.norm(corner3 - startPt) < tol:
             corner4 = endPt
-            rightCurve = allCurves.pop(curveID)
+            rightCurve = allcurves.pop(curveID)
             break
         elif np.linalg.norm(corner3 - endPt) < tol:
             corner4 = startPt
-            rightCurve = allCurves.pop(curveID)[::-1]
+            rightCurve = allcurves.pop(curveID)[::-1]
             break
 
     # Stop if we did not find any curve
     if rightCurve is None:
         print 'TFI Mesh ERROR:'
-        print 'Curves are not connected.'
+        print 'curves are not connected.'
         quit()
 
     # The last curve should be connected to corner 4
-    curve = allCurves[0]
+    curve = allcurves[0]
     startPt = curve[0,:]
     endPt = curve[-1,:]
 
     # Check if the curve is connected and flip its
     # direction if necessary.
     if max(np.linalg.norm(corner4 - startPt), np.linalg.norm(corner1 - endPt)) < tol:
-        topCurve = allCurves.pop(0)
+        topCurve = allcurves.pop(0)
     elif max(np.linalg.norm(corner4 - endPt), np.linalg.norm(corner1 - startPt)) < tol:
-        topCurve = allCurves.pop(0)[::-1]
+        topCurve = allcurves.pop(0)[::-1]
     else:
         print 'TFI Mesh ERROR:'
         print 'The four given curves do not define a closed quad.'

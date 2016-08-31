@@ -2,24 +2,24 @@ from __future__ import division
 import os
 import numpy as np
 from mpi4py import MPI
-from ...baseClasses import Component, Curve
+from ...baseClasses import Geometry, Curve
 from ....utilities import plot3d_interface
 import utilitiesAPI, curveSearch
 import tsurf_tools as tst
 import adtAPI
 import copy
 
-class TSurfComponent(Component):
+class TSurfGeometry(Geometry):
 
     def _initialize(self, *arg, **kwargs):
 
         '''
-        This function initializes and TSurfComponent.
-        It is called by the __init__ method of the parent Component
+        This function initializes and TSurfGeometry.
+        It is called by the __init__ method of the parent Geometry
         class defined in classes.py.
 
         The expected arguments for the initialization function are:
-        TSurfComponent(fileName, sectionsList, comm)
+        TSurfGeometry(fileName, sectionsList, comm)
 
         REQUIRED INPUTS:
         fileName: string -> Name of the CGNS file that contains the
@@ -28,7 +28,7 @@ class TSurfComponent(Component):
         OPTIONAL INPUTS:
         sectionsList: list of strings -> List of strings containing
                   the names of the sections in the CGNS file that
-                  should be included in the current ADTComponent.
+                  should be included in the current ADTGeometry.
                   If nothing is provided, or if sectionList is None
                   or an empty list, then all sections will be included.
 
@@ -54,7 +54,7 @@ class TSurfComponent(Component):
                 selectedSections = optarg
 
             elif optarg in (None, []):
-                print 'Reading all CGNS sections in ADTComponent assigment.'
+                print 'Reading all CGNS sections in ADTGeometry assigment.'
 
             elif type(optarg) == str:
                 # Get filename
@@ -62,7 +62,7 @@ class TSurfComponent(Component):
 
         # Check if the user provided no input file
         if filename == None:
-            print ' ERROR: Cannot initialize TSurf Component as no input file'
+            print ' ERROR: Cannot initialize TSurf Geometry as no input file'
             print ' was specified.'
             quit()
 
@@ -92,10 +92,10 @@ class TSurfComponent(Component):
     def add_curve(self, name, curve):
 
         '''
-        Adds a given curve instance to the self.Curves dictionary.
+        Adds a given curve instance to the self.curves dictionary.
         '''
 
-        self.Curves[name] = copy.deepcopy(curve)
+        self.curves[name] = copy.deepcopy(curve)
 
     def update(self, coor):
 
@@ -113,7 +113,7 @@ class TSurfComponent(Component):
     def translate(self, x, y, z):
         tst.translate(self, x, y, z)
         tst.update_surface(self)
-        for curve in self.Curves.itervalues():
+        for curve in self.curves.itervalues():
             curve.translate(x, y, z)
 
     def scale(self, factor):
@@ -213,7 +213,7 @@ class TSurfComponent(Component):
 
         # Use all curves if None is provided by the user
         if curveCandidates is None:
-            curveCandidates = self.Curves.keys()
+            curveCandidates = self.curves.keys()
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
@@ -222,7 +222,7 @@ class TSurfComponent(Component):
         tanProj = np.zeros((numPts,3))
 
         # Check if the candidates are actually defined
-        curveKeys = self.Curves.keys()
+        curveKeys = self.curves.keys()
         for curve in curveCandidates:
             if curve not in curveKeys:
                 print 'ERROR: Curve',curve,'is not defined. Check the curve names in your CGNS file.'
@@ -231,9 +231,9 @@ class TSurfComponent(Component):
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
-        for curveName in self.Curves:
+        for curveName in self.curves:
             if curveName in curveCandidates:
-                self.Curves[curveName].project(xyz, dist2, xyzProj, tanProj)
+                self.curves[curveName].project(xyz, dist2, xyzProj, tanProj)
 
         # Return projections
         return xyzProj, tanProj
@@ -241,28 +241,28 @@ class TSurfComponent(Component):
     def extract_curves(self, feature='sharpness'):
         '''
         This function will define new curves in this component based on
-        surface features. The new curves will be stored in self.Curves
+        surface features. The new curves will be stored in self.curves
         '''
         tst.extract_curves_from_surface(self, feature)
 
-    def intersect(self, otherComponent, distTol=1e-7, flip=False):
+    def intersect(self, otherGeometry, distTol=1e-7, flip=False):
         '''
         This method will intersect the current component (self) with the provided
-        TSurfComponent. The new curves will be stored in each component.
+        TSurfGeometry. The new curves will be stored in each component.
 
         INPUTS:
-        otherComponent: Component object -> Other object that we want to intersect with.
+        otherGeometry: Geometry object -> Other object that we want to intersect with.
 
         distTol: float -> Tolerance used to merge close nodes when joining bar elements generated
                  by the intersection.
 
         OUTPUTS:
         This function has no explicit outputs. However, the new curves will be added to
-        self.Curves and otherComponent.Curves.
+        self.curves and otherGeometry.curves.
         '''
 
         # Call the intersection function defined in tsurf_tools.py
-        Intersection = tst._compute_pair_intersection(self, otherComponent, distTol)
+        Intersection = tst._compute_pair_intersection(self, otherGeometry, distTol)
 
         # Add new curves to both components
         for curve in Intersection:
@@ -280,10 +280,10 @@ class TSurfComponent(Component):
             # Add flipped curve to the second component
             # We do this so that the mesh grows in the correct direction when
             # calling hypsurf.
-            otherComponent.add_curve(curve.name,curve)
+            otherGeometry.add_curve(curve.name,curve)
 
         # Print the number of intersections
-        print 'Number of intersections between',self.name,'and',otherComponent.name,'is',len(Intersection)
+        print 'Number of intersections between',self.name,'and',otherGeometry.name,'is',len(Intersection)
 
 #=============================================================
 

@@ -8,14 +8,14 @@ import os
 
 os.system('rm curve*')
 
-cube = pysurf.TSurfComponent('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD)
-#cube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
-#cube = pysurf.TSurfComponent('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
+cube = pysurf.TSurfGeometry('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD)
+#cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
+#cube = pysurf.TSurfGeometry('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
 
 cube.extract_curves()
 
 curveID = 0
-for curve in cube.Curves.itervalues():
+for curve in cube.curves.itervalues():
     curveID = curveID + 1 
     curve.export_plot3d('curve_%03d'%curveID)
 

@@ -30,11 +30,11 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = pysurf.TSurfComponent('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
-body = pysurf.TSurfComponent('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
+body = pysurf.TSurfGeometry('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 # Flip some curves
-wing.Curves['te_upp_curve'].flip()
+wing.curves['te_upp_curve'].flip()
 
 # Define function to generate a wing body mesh for a given wing position and angle
 
@@ -107,8 +107,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         print 'Generating wing mesh'
 
         # Flip BC curve
-        #wing.Curves['intersection'].flip()
-        #wing.Curves['te'].flip()
+        #wing.curves['intersection'].flip()
+        #wing.curves['te'].flip()
 
         # Set problem
         curve = 'intersection'
@@ -141,7 +141,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         print 'Generating body mesh'
 
         # Flip BC curve
-        body.Curves['intersection'].flip()
+        body.curves['intersection'].flip()
 
         # Set problem
         curve = 'intersection'
@@ -177,8 +177,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # Revert transformations to the wing
     wing.translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    #wing.Curves['te_low_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    #wing.Curves['te_upp_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
+    #wing.curves['te_low_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
+    #wing.curves['te_upp_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
 
 # end of genereteWingBodyMesh
     ###########################################

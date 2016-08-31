@@ -2,21 +2,21 @@ from __future__ import division
 import numpy as np
 from mpi4py import MPI
 
-class Component(object):
+class Geometry(object):
 
     '''
-    This is the base Component class.
+    This is the base Geometry class.
     All geometry engines should have their own
-    derived Component classes that contains the
+    derived Geometry classes that contains the
     same attributes and methods defined here.
 
-    The required attributes for a Component object are:
+    The required attributes for a Geometry object are:
 
-    self.name : string -> Component name.
+    self.name : string -> Geometry name.
 
     self.comm : MPI communicator.
 
-    self.Curves : dictionary{curveName:curveObject} -> Dictionary with component curves.
+    self.curves : dictionary{curveName:curveObject} -> Dictionary with component curves.
     '''
 
 
@@ -28,7 +28,7 @@ class Component(object):
 
         self.name = ''
         self.comm = None
-        self.Curves = {}
+        self.curves = {}
 
         if 'comm' in kwargs:
             self.comm = kwargs['comm'].py2f()
@@ -94,13 +94,13 @@ class Curve(object):
     '''
     This is the base Curve class.
     All geometry engines should have their own
-    derived Component classes that contains the
+    derived Geometry classes that contains the
     same attributes and methods defined here.
-    Remember that a Component object may hold Curve objects.
+    Remember that a Geometry object may hold Curve objects.
 
     The required attributes for a Curve object are:
 
-    self.name : string -> Component name.
+    self.name : string -> Geometry name.
 
     self.comm : MPI communicator.
     '''
