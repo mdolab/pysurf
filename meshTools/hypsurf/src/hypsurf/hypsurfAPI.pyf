@@ -1,21 +1,21 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module march__user__routines
-    interface march_user_interface
-        subroutine py_projection(rstart,rnext,nnext,numnodes) ! in :hypsurf:hypsurf.F90:hypsurf:march:unknown_interface
+python module march__user__routines 
+    interface march_user_interface 
+        subroutine py_projection(rstart,rnext,nnext,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march:unknown_interface
             real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
-            real(kind=realtype) dimension(3 * numnodes),intent(out),depend(numnodes) :: rnext
-            real(kind=realtype) dimension(3,numnodes),intent(out),depend(numnodes) :: nnext
+            real(kind=realtype) dimension(3 * numnodes),depend(numnodes) :: rnext
+            real(kind=realtype) dimension(3,numnodes),depend(numnodes) :: nnext
             integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
         end subroutine py_projection
     end interface march_user_interface
 end python module march__user__routines
-python module hypsurfAPI ! in
-    interface  ! in :hypsurf
-        module hypsurf ! in :hypsurf:hypsurfAPI.F90
+python module hypsurfAPI ! in 
+    interface  ! in :hypsurfAPI
+        module hypsurfapi ! in :hypsurfAPI:hypsurfAPI.F90
             use precision
-            subroutine computematrices(r0,n0,s0,rm1,sm1,layerindex,theta,sigmasplay,bc1,bc2,numlayers,epse0,f,numnodes) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine computematrices(r0,n0,s0,rm1,sm1,layerindex,theta,sigmasplay,bc1,bc2,numlayers,epse0,f,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
                 real(kind=realtype) dimension(3,numnodes),intent(in),depend(numnodes) :: n0
                 real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: s0
@@ -31,7 +31,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(3 * numnodes),intent(out),depend(numnodes) :: f
                 integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
             end subroutine computematrices
-            subroutine matrixbuilder(curr_index,bc1,bc2,r0,rm1,n0,s0,sm1,numlayers,epse0,layerindex,theta,numnodes,k,f) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine matrixbuilder(curr_index,bc1,bc2,r0,rm1,n0,s0,sm1,numlayers,epse0,layerindex,theta,numnodes,k,f) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 integer(kind=inttype) intent(in) :: curr_index
                 character*32 intent(in) :: bc1
                 character*32 intent(in) :: bc2
@@ -48,7 +48,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(3 * numnodes,3 * numnodes),intent(inout),depend(numnodes,numnodes) :: k
                 real(kind=realtype) dimension(3 * numnodes),intent(inout),depend(numnodes) :: f
             end subroutine matrixbuilder
-            subroutine dissipationcoefficients(layerindex,r0_xi,r0_eta,dsensor,angle,numlayers,epse0,epse,epsi) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine dissipationcoefficients(layerindex,r0_xi,r0_eta,dsensor,angle,numlayers,epse0,epse,epsi) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 integer(kind=inttype) intent(in) :: layerindex
                 real(kind=realtype) dimension(3),intent(in) :: r0_xi
                 real(kind=realtype) dimension(3),intent(in) :: r0_eta
@@ -59,7 +59,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) intent(out) :: epse
                 real(kind=realtype) intent(out) :: epsi
             end subroutine dissipationcoefficients
-            subroutine areafactor(r0,d,nuarea,numareapasses,bc1,bc2,n,s,maxstretch) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine areafactor(r0,d,nuarea,numareapasses,bc1,bc2,n,s,maxstretch) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3 * n),intent(in) :: r0
                 real(kind=realtype) intent(in) :: d
                 real(kind=realtype) intent(in) :: nuarea
@@ -70,7 +70,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(n),intent(out),depend(n) :: s
                 real(kind=realtype) intent(out) :: maxstretch
             end subroutine areafactor
-            subroutine smoothing(r,eta,alphap0,numsmoothingpasses,numlayers,n) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine smoothing(r,eta,alphap0,numsmoothingpasses,numlayers,n) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3 * n),intent(inout) :: r
                 real(kind=realtype) intent(in) :: eta
                 real(kind=realtype) intent(in) :: alphap0
@@ -78,7 +78,7 @@ python module hypsurfAPI ! in
                 integer(kind=inttype) intent(in) :: numlayers
                 integer(kind=inttype), optional,intent(in),check((len(r))/(3)>=n),depend(r) :: n=(len(r))/(3)
             end subroutine smoothing
-            subroutine qualitycheck(r,layerindex,numlayers,numnodes,fail,ratios) ! in hypsurf.F90:hypsurf
+            subroutine qualitycheck(r,layerindex,numlayers,numnodes,fail,ratios) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(in) :: r
                 integer(kind=inttype), optional,intent(in) :: layerindex
                 integer(kind=inttype), optional,intent(in),check(shape(r,0)==numlayers),depend(r) :: numlayers=shape(r,0)
@@ -86,7 +86,7 @@ python module hypsurfAPI ! in
                 integer(kind=inttype) intent(out) :: fail
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
             end subroutine qualitycheck
-            subroutine march(py_projection,rstart,dstart,theta,sigmasplay,bc1,bc2,plotquality,epse0,alphap0,extension,nuarea,ratioguess,cmax,numsmoothingpasses,numareapasses,numlayers,numnodes,r,fail,ratios) ! in hypsurf.F90:hypsurf
+            subroutine march(py_projection,rstart,dstart,theta,sigmasplay,bc1,bc2,plotquality,epse0,alphap0,extension,nuarea,ratioguess,cmax,numsmoothingpasses,numareapasses,numlayers,numnodes,r,fail,ratios) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march__user__routines
                 external py_projection
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
@@ -108,42 +108,42 @@ python module hypsurfAPI ! in
                 integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(out),depend(numlayers,numnodes) :: r
                 integer(kind=inttype) intent(out) :: fail
-                real(kind=realtype) dimension(numlayers-1,numnodes-1),intent(out),depend(numlayers,numnodes) :: ratios
+                real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
             end subroutine march
-            subroutine findradius(r,numnodes,radius) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine findradius(r,numnodes,radius) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: r
                 integer(kind=inttype), optional,intent(in),check((len(r))/(3)>=numnodes),depend(r) :: numnodes=(len(r))/(3)
                 real(kind=realtype) intent(out) :: radius
             end subroutine findradius
-            subroutine findratio(dmax,d0,numlayers,ratioguess,q) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine findratio(dmax,d0,numlayers,ratioguess,q) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) intent(in) :: dmax
                 real(kind=realtype) intent(in) :: d0
                 integer(kind=inttype) intent(in) :: numlayers
                 real(kind=realtype) intent(in) :: ratioguess
                 real(kind=realtype) intent(out) :: q
             end subroutine findratio
-            subroutine matinv3(a,b) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine matinv3(a,b) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3,3),intent(in) :: a
                 real(kind=realtype) dimension(3,3),intent(out) :: b
             end subroutine matinv3
-            subroutine giveangle(r0,r1,r2,n1,angle) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine giveangle(r0,r1,r2,n1,angle) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3),intent(in) :: r0
                 real(kind=realtype) dimension(3),intent(in) :: r1
                 real(kind=realtype) dimension(3),intent(in) :: r2
                 real(kind=realtype) dimension(3),intent(in) :: n1
                 real(kind=realtype) intent(out) :: angle
             end subroutine giveangle
-            subroutine cross(a,b,c) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine cross(a,b,c) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3),intent(in) :: a
                 real(kind=realtype) dimension(3),intent(in) :: b
                 real(kind=realtype) dimension(3),intent(out) :: c
             end subroutine cross
-            subroutine m33det(a,det) ! in :hypsurf:hypsurf.F90:hypsurf
+            subroutine m33det(a,det) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 real(kind=realtype) dimension(3,3),intent(in) :: a
                 real(kind=realtype) intent(out) :: det
             end subroutine m33det
-        end module hypsurf
-    end interface
+        end module hypsurfapi
+    end interface 
 end python module hypsurfAPI
 
 ! This file was auto-generated with f2py (version:2).

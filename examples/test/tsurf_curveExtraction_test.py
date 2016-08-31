@@ -12,10 +12,10 @@ cube = pysurf.TSurfComponent('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD
 #cube = pysurf.TSurfComponent('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
 #cube = pysurf.TSurfComponent('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
 
-featureCurves = pysurf.tsurf_geometry.extract_curves_from_surface(cube)
+cube.extract_curves()
 
 curveID = 0
-for curve in featureCurves:
+for curve in cube.Curves.itervalues():
     curveID = curveID + 1 
     curve.export_plot3d('curve_%03d'%curveID)
 

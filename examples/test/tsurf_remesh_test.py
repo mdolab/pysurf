@@ -2,6 +2,7 @@
 import pysurf
 from mpi4py import MPI
 import numpy as np
+import pysurf
 
 # TESTING FUNCTION
 '''
@@ -60,8 +61,7 @@ barsConn[0,:] = range(1,nNodes)
 barsConn[1,:] = range(2,nNodes+1)
 
 # Create curve object
-from pysurf.TSurf.python.tsurf_geometry import Curve
-curve = Curve(coor, barsConn, 'test')
+curve = pysurf.TSurfCurve(coor, barsConn, 'test')
 
 # Remesh curve
 curve.remesh(spacing='cosine')

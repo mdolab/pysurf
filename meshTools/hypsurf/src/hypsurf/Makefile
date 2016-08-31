@@ -15,7 +15,7 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS = hypsurf.o
+FF90_OBJECTS = hypsurfAPI.o
 
 default: all
 
