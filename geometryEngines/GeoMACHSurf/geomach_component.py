@@ -11,7 +11,7 @@ class GeoMACHComponent(Component):
     class defined in classes.py, at the top level pysurf directory
     '''
 
-    def _initialize(self, comm=MPI.COMM_WORLD.py2f(), *arg):
+    def _initialize(self, *arg, **kwargs):
 
         '''
         The expected arguments for a GeoMACHComponent initialization are:
@@ -25,12 +25,9 @@ class GeoMACHComponent(Component):
                     and size [nu,3] for curves.
         '''
 
-        pointsDict = arg[0]
-
-        self.comm = comm
+        list_bsp_surfs = arg[0]
 
         self.Surfaces = {}
-        self.Curves = {}
 
         for pair in pointsDict.iteritems():
             name = pair[0]

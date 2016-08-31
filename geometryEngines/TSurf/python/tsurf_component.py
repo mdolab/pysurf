@@ -11,7 +11,7 @@ import copy
 
 class TSurfComponent(Component):
 
-    def _initialize(self, *arg):
+    def _initialize(self, *arg, **kwargs):
 
         '''
         This function initializes and TSurfComponent.
@@ -273,7 +273,7 @@ class TSurfComponent(Component):
 
             # Add curve to the current component
             self.add_curve(curve.name,curve)
-            
+
             # Flip the curve
             curve.flip()
 
@@ -356,7 +356,7 @@ class TSurfCurve(Curve):
             else:
                     print ' ERROR: Could not recognize inputs when initializing TSurfCurve.'
                     quit()
- 
+
         # Remove unused points (This will update coor and barsConn)
         coor = tst.remove_unused_points(coor, barsConn=barsConn)
 

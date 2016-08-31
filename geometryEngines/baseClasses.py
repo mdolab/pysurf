@@ -18,28 +18,30 @@ class Component(object):
 
     self.Curves : dictionary{curveName:curveObject} -> Dictionary with component curves.
     '''
-    
+
 
     def __init__(self, *arg, **kwargs):
         '''
         Call the initialization method defined in each
         derived class
         '''
-        self._initialize(*arg)
 
-    def get_names(self):
+        self.name = ''
+        self.comm = None
+        self.Curves = {}
 
+        if 'comm' in kwargs:
+            self.comm = kwargs['comm'].py2f()
+        else:
+            self.comm = MPI.COMM_WORLD.py2f()
+
+        self._initialize(*arg, **kwargs)
+
+    def _initialize(self, *arg):
         '''
-        This function will give the names of all components in the geometry object
+        Virtual method
         '''
-
-        print 'SURFACES:'
-        for surface in self.Surfaces:
-            print surface
-
-        print 'CURVES:'
-        for curve in self.Curves:
-            print curve
+        pass
 
     def translate(self, xyz):
         '''
