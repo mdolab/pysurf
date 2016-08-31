@@ -31,7 +31,7 @@ leftCurve, bottomCurve, rightCurve, topCurve = pysurf.tfi_mesh.link_curves(curve
                                                                            curve3,
                                                                            curve4)
 
-refComp = pysurf.TSurfComponent('../inputs/plate.cgns')
+refComp = pysurf.TSurfGeometry('../inputs/plate.cgns')
 
 mesh = pysurf.tfi_mesh.TFIMesh(leftCurve, bottomCurve, rightCurve, topCurve, refComp)
 

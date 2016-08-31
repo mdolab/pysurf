@@ -106,21 +106,21 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 # AUXILIARY COMPONENT FUNCTIONS
 #=================================================================
 
-def initialize_surface(TSurfComponent):
+def initialize_surface(TSurfGeometry):
 
     '''
     This function receives a TSurf component and initializes its surface based
     on the initial connectivity and coordinates
     '''
 
-    print 'My ID is',TSurfComponent.name
+    print 'My ID is',TSurfGeometry.name
 
     # Now call general function that sets ADT
-    update_surface(TSurfComponent)
+    update_surface(TSurfGeometry)
 
 #=================================================================
 
-def update_surface(TSurfComponent):
+def update_surface(TSurfGeometry):
 
     '''
     This function receives a TSurf component and initializes its surface
@@ -128,7 +128,7 @@ def update_surface(TSurfComponent):
     '''
 
     # Deallocate previous tree
-    adtAPI.adtapi.adtdeallocateadts(TSurfComponent.name)
+    adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
 
     # Set bounding box for new tree
     BBox = np.zeros((3, 2))
@@ -137,20 +137,20 @@ def update_surface(TSurfComponent):
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    TSurfComponent.nodal_normals = adtAPI.adtapi.computenodalnormals(TSurfComponent.coor,
-                                                                   TSurfComponent.triaConn,
-                                                                   TSurfComponent.quadsConn)
+    TSurfGeometry.nodal_normals = adtAPI.adtapi.computenodalnormals(TSurfGeometry.coor,
+                                                                   TSurfGeometry.triaConn,
+                                                                   TSurfGeometry.quadsConn)
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(TSurfComponent.coor,
-                                     TSurfComponent.triaConn, TSurfComponent.quadsConn,
+    adtAPI.adtapi.adtbuildsurfaceadt(TSurfGeometry.coor,
+                                     TSurfGeometry.triaConn, TSurfGeometry.quadsConn,
                                      BBox, useBBox,
-                                     TSurfComponent.comm.py2f(),
-                                     TSurfComponent.name)
+                                     TSurfGeometry.comm.py2f(),
+                                     TSurfGeometry.name)
 
 #=================================================================
 
-def initialize_curves(TSurfComponent, sectionDict, selectedSections):
+def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
 
     '''
     This function initializes all curves given in sectionDict that are
@@ -163,7 +163,7 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
                  for curve sections.
 
     OUTPUTS:
-    This function has no explicit outputs. It assigns TSurfComponent.Curves
+    This function has no explicit outputs. It assigns TSurfGeometry.curves
 
     Ney Secco 2016-08
     '''
@@ -184,17 +184,17 @@ def initialize_curves(TSurfComponent, sectionDict, selectedSections):
             barsConn = sectionDict[sectionName]['barsConn']
 
             # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = tsurf_component.TSurfCurve(TSurfComponent.coor, barsConn, sectionName)
+            curveObjDict[sectionName] = tsurf_component.TSurfCurve(TSurfGeometry.coor, barsConn, sectionName)
 
     # Assign curve objects to ADT component
-    TSurfComponent.Curves = curveObjDict
+    TSurfGeometry.curves = curveObjDict
 
 #=================================================================
 
-def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
+def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
 
     '''
-    This function will extract features from the surface of TSurfComponent and
+    This function will extract features from the surface of TSurfGeometry and
     return Curve objects.
 
     This function is intended for pre-processing only, and should not be
@@ -204,9 +204,9 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
     '''
 
     # Get points and connectivities
-    coor = TSurfComponent.coor
-    triaConn = TSurfComponent.triaConn
-    quadsConn = TSurfComponent.quadsConn
+    coor = TSurfGeometry.coor
+    triaConn = TSurfGeometry.triaConn
+    quadsConn = TSurfGeometry.quadsConn
 
     # Get number of elements
     nTria = triaConn.shape[1]
@@ -436,7 +436,7 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
     # GENERATE CURVE OBJECTS
 
     # Initialize list of curve objects
-    featureCurves = []
+    featurecurves = []
 
     # Initialize curve counter
     curveID = -1
@@ -454,7 +454,7 @@ def extract_curves_from_surface(TSurfComponent, feature='sharpness'):
         newCurve = tsurf_component.TSurfCurve(coor, currCurveConn, curveName)
 
         # Initialize curve object and append it to the list
-        TSurfComponent.add_curve(curveName, newCurve)
+        TSurfGeometry.add_curve(curveName, newCurve)
 
     # Print log
     print 'Number of extracted curves: ',len(selectedBarsConn)
@@ -535,10 +535,10 @@ def split_curves(curveDict, criteria='sharpness'):
         curve = curveDict.pop(curveName)
 
         # Now we run the split function for this single curve
-        splitCurves = split_curve_single(curve, curveName, criteria)
+        splitcurves = split_curve_single(curve, curveName, criteria)
 
         # Now we add the split curves to the original curves dictionary
-        curveDict.update(splitCurves)
+        curveDict.update(splitcurves)
 
 #=============================================================
 
@@ -618,7 +618,7 @@ def split_curve_single(curve, curveName, criteria):
         # In this case, we just create a dictionary with the original curve
         
         # Initialize dictionary that will contain the split curves
-        splitCurvesDict = {}
+        splitcurvesDict = {}
 
         # For now copy the original set of nodes
         splitCoor = coor.copy()
@@ -633,10 +633,10 @@ def split_curve_single(curve, curveName, criteria):
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
 
         # Append new curve object to the dictionary
-        splitCurvesDict[splitCurveName] = splitCurve
+        splitcurvesDict[splitCurveName] = splitCurve
 
         # Return dictionary with the single curve
-        return splitCurvesDict
+        return splitcurvesDict
 
 
     # CREATE SPLIT CURVE OBJECTS
@@ -645,15 +645,15 @@ def split_curve_single(curve, curveName, criteria):
     # curve objects.
 
     # Count the number of curves that should be between the first and last break point
-    nInnerCurves = len(breakList)-1
+    nInnercurves = len(breakList)-1
 
     # Initialize dictionary that will contain the split curves
-    splitCurvesDict = {}
+    splitcurvesDict = {}
 
     # First we will define all curves that are between the first and the last
     # break point. The remaining part of the curve will be determined depending
     # if the original curve is periodic or not.
-    for splitID in range(nInnerCurves):
+    for splitID in range(nInnercurves):
 
         # For now copy the original set of nodes
         splitCoor = coor.copy()
@@ -670,7 +670,7 @@ def split_curve_single(curve, curveName, criteria):
         # TODO: Add code to remove unused points from coor
 
         # Append new curve object to the dictionary
-        splitCurvesDict[splitCurveName] = splitCurve
+        splitcurvesDict[splitCurveName] = splitCurve
 
     # Now we need to create curves with elements that come before the first break point and after
     # the last break point.
@@ -695,7 +695,7 @@ def split_curve_single(curve, curveName, criteria):
         # TODO: Add code to remove unused points from coor
 
         # Append new curve object to the dictionary
-        splitCurvesDict[splitCurveName] = splitCurve
+        splitcurvesDict[splitCurveName] = splitCurve
 
     else: # Curve is not periodic, so we need to define two curves
 
@@ -716,7 +716,7 @@ def split_curve_single(curve, curveName, criteria):
         # TODO: Add code to remove unused points from coor
 
         # Append new curve object to the dictionary
-        splitCurvesDict[splitCurveName] = splitCurve
+        splitcurvesDict[splitCurveName] = splitCurve
 
         # CURVE 1 : after the first break point
 
@@ -727,7 +727,7 @@ def split_curve_single(curve, curveName, criteria):
         splitBarsConn = barsConn[:,breakList[-1]:]
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_' + '%02d'%(nInnerCurves+1)
+        splitCurveName = curveName + '_' + '%02d'%(nInnercurves+1)
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -735,10 +735,10 @@ def split_curve_single(curve, curveName, criteria):
         # TODO: Add code to remove unused points from coor
 
         # Append new curve object to the dictionary
-        splitCurvesDict[splitCurveName] = splitCurve
+        splitcurvesDict[splitCurveName] = splitCurve
 
     # Return the dictionary of new curves
-    return splitCurvesDict
+    return splitcurvesDict
 
 #=================================================================
 
@@ -746,21 +746,21 @@ def split_curve_single(curve, curveName, criteria):
 # INTERSECTION FUNCTIONS
 #===================================
 
-def compute_intersections(TSurfComponentList,distTol=1e-7):
+def compute_intersections(TSurfGeometryList,distTol=1e-7):
 
     '''
     This function will just compute pair-wise intersections
-    for all components given in TSurfComponentList.
+    for all components given in TSurfGeometryList.
 
     distTol is a distance tolerance used to merge nearby nodes when
     generating the intersection finite element data.
     '''
 
     # Get number of components
-    numComponents = len(TSurfComponentList)
+    numGeometrys = len(TSurfGeometryList)
 
     # Stop if user gives only one component
-    if numComponents < 2:
+    if numGeometrys < 2:
         print 'ERROR: Cannot compute intersections with just one component'
         quit()
 
@@ -768,12 +768,12 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
     Intersections = []
 
     # Call intersection function for each pair
-    for ii in range(numComponents):
-        for jj in range(ii+1,numComponents):
+    for ii in range(numGeometrys):
+        for jj in range(ii+1,numGeometrys):
 
             # Compute new intersections for the current pair
-            newIntersections = _compute_pair_intersection(TSurfComponentList[ii],
-                                                         TSurfComponentList[jj],
+            newIntersections = _compute_pair_intersection(TSurfGeometryList[ii],
+                                                         TSurfGeometryList[jj],
                                                          distTol)
 
             # Append new curve objects to the list
@@ -787,7 +787,7 @@ def compute_intersections(TSurfComponentList,distTol=1e-7):
 
 #=================================================================
 
-def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
+def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
     '''
     This function finds intersection curves between components A and B
@@ -795,12 +795,12 @@ def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
     '''
 
     # Call Fortran code to find intersections
-    intersectionAPI.intersectionapi.computeintersection(TSurfComponentA.coor,
-                                                        TSurfComponentA.triaConn,
-                                                        TSurfComponentA.quadsConn,
-                                                        TSurfComponentB.coor,
-                                                        TSurfComponentB.triaConn,
-                                                        TSurfComponentB.quadsConn,
+    intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor,
+                                                        TSurfGeometryA.triaConn,
+                                                        TSurfGeometryA.quadsConn,
+                                                        TSurfGeometryB.coor,
+                                                        TSurfGeometryB.triaConn,
+                                                        TSurfGeometryB.quadsConn,
                                                         distTol)
 
     # Retrieve results from Fortran
@@ -837,8 +837,8 @@ def _compute_pair_intersection(TSurfComponentA, TSurfComponentB, distTol):
             intCounter = intCounter + 1
             
             # Gather name of parent components
-            name1 = TSurfComponentA.name
-            name2 = TSurfComponentB.name
+            name1 = TSurfGeometryA.name
+            name2 = TSurfGeometryB.name
             
             # Create a name for the curve
             curveName = 'int_'+name1+'_'+name2+'_%02d'%intCounter
@@ -1362,35 +1362,35 @@ def write_tecplot_scatter(filename,title,variable_names,data_points):
 #============================================================
 
 
-def translate(Component, x, y, z):
+def translate(Geometry, x, y, z):
     '''
     Translate coor based on given x, y, and z values.
     John Jasa 2016-08
     '''
 
-    Component.coor = Component.coor[:, :] + np.atleast_2d(np.array([x, y, z])).T
+    Geometry.coor = Geometry.coor[:, :] + np.atleast_2d(np.array([x, y, z])).T
 
-def scale(Component, factor, point=None):
+def scale(Geometry, factor, point=None):
     '''
     Scale coor about a defined point or the center.
     John Jasa 2016-08
     '''
 
-    coor = Component.coor
+    coor = Geometry.coor
     if not point:
         point = np.mean(coor)
     relCoor = coor - point
     relCoor *= factor
-    Component.coor = relCoor + point
+    Geometry.coor = relCoor + point
 
-def rotate(Component, angle, axis, point=None):
+def rotate(Geometry, angle, axis, point=None):
     '''
     Rotate coor about an axis at a defined angle (in degrees).
     John Jasa 2016-08
     '''
 
 
-    coor = Component.coor
+    coor = Geometry.coor
     if not point:
         point = np.mean(coor)
     angle = angle * np.pi / 180.
@@ -1412,4 +1412,4 @@ def rotate(Component, angle, axis, point=None):
     rotationMat[ind2, ind1] = np.sin(angle)
     rotationMat[ind2, ind2] = np.cos(angle)
 
-    Component.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point
+    Geometry.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point

@@ -5,7 +5,7 @@ import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from pysurf import TSurfComponent
+from pysurf import TSurfGeometry
 import os
 from mpi4py import MPI
 import copy
@@ -54,12 +54,12 @@ def generateMesh(curve, geom, output_name):
 if generate_wing:
 
     # Read inputs from CGNS file
-    wing = TSurfComponent('inputs/wingBody.cgns',['wing','intersection','upper_te','lower_te'])
+    wing = TSurfGeometry('inputs/wingBody.cgns',['wing','intersection','upper_te','lower_te'])
 
     # Flip BC curve
-    #wing.Curves['intersection'].flip()
-    #wing.Curves['lower_te'].flip()
-    #wing.Curves['upper_te'].flip()
+    #wing.curves['intersection'].flip()
+    #wing.curves['lower_te'].flip()
+    #wing.curves['upper_te'].flip()
 
     # Set problem
     curve = 'intersection'
@@ -90,10 +90,10 @@ if generate_wing:
 if generate_body:
 
     # Read inputs from CGNS file
-    body = TSurfComponent('inputs/wingBody.cgns',['geom','intersection'])
+    body = TSurfGeometry('inputs/wingBody.cgns',['geom','intersection'])
 
     # Flip BC curve
-    body.Curves['intersection'].flip()
+    body.curves['intersection'].flip()
 
     # Set problem
     curve = 'intersection'

@@ -38,6 +38,7 @@ clean:
 		done
 	rm -f *~ config.mk;
 	rm -f mod/* obj/*
+	(cd python && rm *.so) || exit 1;
 
 hypsurf:
 	mkdir -p obj

@@ -4,7 +4,7 @@ from __future__ import division
 from pysurf import hypsurf_py as hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
-from pysurf import TSurfComponent
+from pysurf import TSurfGeometry
 import os
 from mpi4py import MPI
 
@@ -22,7 +22,7 @@ example = 'line_on_cube'
 if example == 'kink_on_plate':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('examples/inputs/plate.cgns')
+    geom = TSurfGeometry('examples/inputs/plate.cgns')
 
     # Set source curve
     curve = array([[0,0,0],
@@ -61,10 +61,10 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('examples/inputs/cylinder.cgns')
+    geom = TSurfGeometry('examples/inputs/cylinder.cgns')
 
     # Flip BC curve
-    geom.Curves['bc1'].flip()
+    geom.curves['bc1'].flip()
 
     # Set problem
     curve = 'source'
@@ -92,7 +92,7 @@ elif example == 'line_on_cylinder':
 elif example == 'cylinder_cap':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('examples/inputs/cylinder.cgns')
+    geom = TSurfGeometry('examples/inputs/cylinder.cgns')
 
     # Set reference curve
     n1 = 7
@@ -128,8 +128,8 @@ elif example == 'cylinder_cap':
 elif example == 'line_on_cubeAndCylinder':
 
     # Read inputs from CGNS file
-    #geom = TSurfComponent('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
-    geom = TSurfComponent('examples/inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
+    #geom = TSurfGeometry('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
+    geom = TSurfGeometry('examples/inputs/cubeAndCylinder.cgns',['geom']) # mesh cube only
 
     # Set problem
     curve = 'diag'
@@ -157,7 +157,7 @@ elif example == 'line_on_cubeAndCylinder':
 elif example == 'line_on_cube':
 
     # Read inputs from CGNS file
-    geom = TSurfComponent('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
+    geom = TSurfGeometry('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
 
     # Set problem
     n = 40

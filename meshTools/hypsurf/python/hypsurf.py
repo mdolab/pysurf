@@ -38,7 +38,7 @@ class HypSurfMesh(object):
             self.curve = curve
         else:
             # We assume that curve is a string that defines a curve name
-            self.curve = ref_geom.Curves[curve].extract_points()
+            self.curve = ref_geom.curves[curve].extract_points()
 
         self.ref_geom = ref_geom
 
