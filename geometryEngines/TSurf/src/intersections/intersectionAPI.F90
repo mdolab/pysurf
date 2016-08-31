@@ -29,6 +29,8 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   ! OUTPUTS
   ! This subroutine has no explicit outputs. It updates the variables coor, and barsConn,
   ! which should be called from Python as attributes of the intersectionAPI module.
+  !
+  ! Ney Secco 2016-08
 
   use Intersection
   use Utilities ! This will bring condenseBarNodes_main
@@ -243,6 +245,8 @@ subroutine testTri(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
 
   ! This function computes the intersection curve between two
   ! triangles.
+  !
+  ! John Jasa 2016-08
 
   use Intersection
   implicit none

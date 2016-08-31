@@ -15,7 +15,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      module hypsurf
+      module hypsurfAPI
 
       use precision
       implicit none

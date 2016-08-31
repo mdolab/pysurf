@@ -5,8 +5,7 @@ import numpy as np
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
-from pysurf import TSurfComponent, compute_intersections, plot3d_interface
-from pysurf import hypsurf_py as hypsurf
+import pysurf
 import os
 from mpi4py import MPI
 import copy
@@ -14,7 +13,7 @@ import copy
 # USER INPUTS
 
 # Define translation cases for the wing
-nStates = 20
+nStates = 4
 
 #wingTranslation = [[0.0, -3.0, s] for s in np.hstack([np.linspace(0,0.25,nStates),np.linspace(0.25,0,nStates)])]
 #wingTranslation = [[0.0, -100.0, 145.0]]
@@ -23,7 +22,7 @@ wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
 wingTranslation[:,2] = np.linspace(0.0, 140.0, nStates)
 
-wingTranslation = [wingTranslation[0,:]]
+#wingTranslation = [wingTranslation[0,:]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -31,8 +30,8 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = TSurfComponent('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
-body = TSurfComponent('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+wing = pysurf.TSurfComponent('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
+body = pysurf.TSurfComponent('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 # Flip some curves
 wing.Curves['te_upp_curve'].flip()
@@ -69,7 +68,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         }
 
-        mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
+        mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
         mesh.createMesh()
 
@@ -81,11 +80,9 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     # Apply transformations to the wing
     print wingTranslation
     wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
-    wing.Curves['te_low_curve'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
-    wing.Curves['te_upp_curve'].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
     # Compute intersection
-    Intersections = compute_intersections([wing, body])
+    Intersections = pysurf.tsurf_tools.compute_intersections([wing,body])
 
     # Reorder curve so that it starts at the trailing edge
     Intersections[0].shift_end_nodes(criteria='maxX')
@@ -97,8 +94,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     if Intersections[0].coor[2,0] > Intersections[0].coor[2,-1]:
         Intersections[0].flip()
 
-    curve = plot3d_interface.Curve(Intersections[0].coor, Intersections[0].barsConn)
-    curve.export_plot3d('curve')
+    Intersections[0].export_plot3d('curve')
 
     # Add intersection curve to each component
     wing.add_curve('intersection',Intersections[0])
@@ -181,8 +177,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # Revert transformations to the wing
     wing.translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    wing.Curves['te_low_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    wing.Curves['te_upp_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
+    #wing.Curves['te_low_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
+    #wing.Curves['te_upp_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
 
 # end of genereteWingBodyMesh
     ###########################################

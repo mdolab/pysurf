@@ -30,8 +30,7 @@ barsConn[1,:] = range(2,nNodes+1)
 barsConn[1,-1] = barsConn[0,0]
 
 # Create curve object
-from pysurf.TSurf.python.tsurf_geometry import Curve
-curve = Curve(coor, barsConn)
+curve = pysurf.TSurfCurve(coor, barsConn, 'test')
 
 print curve.coor
 print curve.barsConn

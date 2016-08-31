@@ -1,10 +1,11 @@
 from utilities import plot3d_interface
+
 from geometryEngines.baseClasses import Component
-from geometryEngines.TSurf.python import tsurf_geometry
-from geometryEngines.TSurf.python.tsurf_component import TSurfComponent
-from geometryEngines.TSurf.python.tsurf_intersection import compute_intersections
-# import hypsurf # Remember to add meshTools.hypSurf.python
-from meshTools.hypsurf.python.hypsurf import hypsurf
-from meshTools.hypsurf import hypsurf_py
+from geometryEngines.TSurf.python import tsurf_tools
+from geometryEngines.TSurf.python.tsurf_component import TSurfComponent, TSurfCurve
+
 from geometryEngines.GeoMACHSurf.geomach_component import GeoMACHComponent
+
+from meshTools.hypsurf.python import hypsurf
+
 from meshTools.tfi import tfi_mesh

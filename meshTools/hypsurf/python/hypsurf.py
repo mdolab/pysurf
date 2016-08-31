@@ -9,7 +9,7 @@ from __future__ import division
 from time import time
 import numpy as np
 import pdb
-from pysurf import hypsurf
+import hypsurfAPI
 
 fortran_flag = True
 
@@ -116,7 +116,7 @@ class HypSurfMesh(object):
         rStart = self.curve.flatten().astype(float)
 
         if fortran_flag:
-            R, fail, ratios = hypsurf.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
 
         else:
 
@@ -124,8 +124,6 @@ class HypSurfMesh(object):
             R = np.zeros((numLayers,len(rStart)))
 
             # Project onto the surface or curve (if applicable)
-            # rNext, NNext = hypsurf.projection(self.projection, rStart)
-            # rNext, NNext = hypsurf.projection(self.projection, rStart)
             rNext, NNext = self.projection(rStart)
 
             # Initialize step size and total marched distance
@@ -207,10 +205,7 @@ class HypSurfMesh(object):
 
                     # March using the pseudo-marching distance
                     eta = layerIndex+2
-                    if 0:
-                        rNext_, NNext_ = hypsurf.subiteration(self.projection, r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, eta, alphaP0, numSmoothingPasses)
-                    else:
-                        rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
+                    rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
 
                     # Update Sm1 (Store the previous area factors)
                     Sm1 = S0[:]

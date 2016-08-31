@@ -7,11 +7,10 @@ import numpy as np
 
 cube = pysurf.TSurfComponent('../inputs/cube.cgns', MPI.COMM_WORLD)
 
-'''
 pts = np.array([[.6, .5, 1.0],
                 [.6, .5, 0.1]], order='F')
-'''
 
+'''
 pts = np.array([[ 0.75      ,  0.75      ,  0.        ],
                 [ 0.73717949,  0.73717949,  0.        ],
                 [ 0.72435897,  0.72435897,  0.        ],
@@ -52,7 +51,7 @@ pts = np.array([[ 0.75      ,  0.75      ,  0.        ],
                 [ 0.27564103,  0.27564103,  0.        ],
                 [ 0.26282051,  0.26282051,  0.        ],
                 [ 0.25      ,  0.25      ,  0.        ]])
-
+'''
 xyzProj, normProj = cube.project_on_surface(pts)
 
 print 'Original cube projection:'
@@ -66,9 +65,7 @@ print xyzProj
 print normProj
 
 # Change cube and update points
-coor = cube.coor.copy()
-coor[2,:] = coor[2,:] + 3.0
-cube.update(coor)
+cube.translate(0,0,3)
 
 # Repeat projections
 
