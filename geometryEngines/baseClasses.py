@@ -31,9 +31,9 @@ class Geometry(object):
         self.curves = {}
 
         if 'comm' in kwargs:
-            self.comm = kwargs['comm'].py2f()
+            self.comm = kwargs['comm']
         else:
-            self.comm = MPI.COMM_WORLD.py2f()
+            self.comm = MPI.COMM_WORLD
 
         self._initialize(*arg, **kwargs)
 
