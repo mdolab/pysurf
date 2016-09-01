@@ -1303,60 +1303,6 @@ def detect_feature(node1, node2, element1, element2,
 
 #============================================================
 
-def print_arrows(filename,coor,barsConn):
-
-    variable_names = ['CoordinateX','CoordinateY','CoordinateZ','dX','dY','dZ']
-
-    title = 'FE_orientation'
-
-    data_points = []
-
-    for bar in barsConn.T.tolist():
-        X0 = coor[0,bar[0]-1]
-        Y0 = coor[1,bar[0]-1]
-        Z0 = coor[2,bar[0]-1]
-
-        X1 = coor[0,bar[1]-1]
-        Y1 = coor[1,bar[1]-1]
-        Z1 = coor[2,bar[1]-1]
-
-        dX = X1-X0
-        dY = Y1-Y0
-        dZ = Z1-Z0
-
-        data_points.append([X0,Y0,Z0,dX,dY,dZ])
-
-    write_tecplot_scatter(filename,title,variable_names,data_points)
-
-#============================================================
-
-def write_tecplot_scatter(filename,title,variable_names,data_points):
-
-    # Open the data file
-    fid = open(filename,'w')
-    
-    # Write the title
-    fid.write('title = '+title+'\n')
-
-    # Write tha variable names
-    varnames_commas = ','.join(variable_names) # Merge names in a single string separated by commas
-    fid.write('variables = '+varnames_commas+',\n') # Write to the file
-
-    # Write data points
-    if type(data_points) is list: # Check if user provided a list
-        for point in data_points:
-            str_points = [str(x) for x in point] # Covert each entry to string
-            str_points = ' '.join(str_points) # Merge all entries in a single string separated by whitespace
-            fid.write(str_points+'\n') # Write to file
-    else: # The user probably provided a numpy array
-        for index in range(data_points.shape[0]):
-            str_points = [str(x) for x in data_points[index,:]]
-            str_points = ' '.join(str_points) # Merge all entries in a single string separated by whitespace
-            fid.write(str_points+'\n') # Write to file
-    
-    # Close file
-    fid.close()
-
 #============================================================
 #============================================================
 #============================================================

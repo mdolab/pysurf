@@ -13,7 +13,7 @@ import copy
 # USER INPUTS
 
 # Define translation cases for the wing
-nStates = 4
+nStates = 1
 
 #wingTranslation = [[0.0, -3.0, s] for s in np.hstack([np.linspace(0,0.25,nStates),np.linspace(0.25,0,nStates)])]
 #wingTranslation = [[0.0, -100.0, 145.0]]

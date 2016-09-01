@@ -72,6 +72,9 @@ all:
 # Link everything to make python modules
 	$(FF90) -shared $(HYPSURF_OBJECTS) $(LINKER_ALL_FLAGS) -o hypsurfAPI.so
 
+# Test if modules can be imported
+	python importTest.py
+
 # Move python modules to the main python folder
 	mv *.so ../../../python
 # Clean up temporary files
