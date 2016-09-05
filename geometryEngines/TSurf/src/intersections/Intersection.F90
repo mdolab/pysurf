@@ -60,7 +60,7 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   !
   ! BBoxAB: real(3,2) -> coordinates of the A-B intersection bounding box.
   !         ATTENTION: This variable may still have meaningless values if
-  !         ovelap = .false.
+  !         overlap = .false.
   !
   ! overlap: logical -> logical indicating if there is an intersection
   !          between boxes A and B. If overlap = .false., disregard all
@@ -176,9 +176,11 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! WORKING
   integer(kind=intType), dimension(:), allocatable :: extInnerTriaID, extInnerQuadsID
   logical, dimension(:), allocatable :: nodeLocation
+  integer(kind=intType), dimension(:, :), allocatable :: nodeOnTop
   integer(kind=intType) :: nNodes, nTria, nQuads
   integer(kind=intType) :: elemID, nodeID
-  integer(kind=intType) :: numInnerTria, numInnerQuads
+  integer(kind=intType) :: numInnerTria, numInnerQuads, i
+  integer(kind=intType), dimension(3) :: onTop
   real(kind=realType) :: nodeX, nodeY, nodeZ
   logical :: nodeIsInside
 
@@ -193,26 +195,44 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! nodeLocation(nodeID) = .false. -> node is outside the BBox
   ! nodeLocation(nodeID) = .true.  -> node is inside the BBox
   allocate(nodeLocation(nNodes))
+  allocate(nodeOnTop(nNodes, 3))
 
-  ! Initialize array
+  ! Initialize arrays
   nodeLocation = .false.
+  nodeOnTop = 0
 
   ! Now check each node
   nodeLoop: do nodeID = 1,nNodes
 
-     ! Get current node coordinates
-     nodeX = coor(1,nodeID)
-     nodeY = coor(2,nodeID)
-     nodeZ = coor(3,nodeID)
+    ! Get current node coordinates
+    nodeX = coor(1,nodeID)
+    nodeY = coor(2,nodeID)
+    nodeZ = coor(3,nodeID)
 
-     ! Check each dimension
-     if ((nodeX .ge. BBox(1,1)) .and. (nodeX .le. BBox(1,2))) then
-        if ((nodeY .ge. BBox(2,1)) .and. (nodeY .le. BBox(2,2))) then
-           if ((nodeZ .ge. BBox(3,1)) .and. (nodeZ .le. BBox(3,2))) then
-              nodeLocation(nodeID) = .true.
-           end if
-        end if
-     end if
+    ! Check each dimension
+    if ((nodeX .ge. BBox(1,1)) .and. (nodeX .le. BBox(1,2))) then
+      if ((nodeY .ge. BBox(2,1)) .and. (nodeY .le. BBox(2,2))) then
+         if ((nodeZ .ge. BBox(3,1)) .and. (nodeZ .le. BBox(3,2))) then
+            nodeLocation(nodeID) = .true.
+         end if
+      end if
+    end if
+
+    ! Check to see if all of the nodes are on the same side of the bounding box
+    ! Check X dimension
+    if (nodeX .ge. BBox(1,2)) then
+      nodeOnTop(nodeID, 1) = 1
+    end if
+
+    ! Check Y dimension
+    if (nodeY .ge. BBox(2,2)) then
+      nodeOnTop(nodeID, 2) = 1
+    end if
+
+    ! Check Z dimension
+    if (nodeZ .ge. BBox(3,2)) then
+      nodeOnTop(nodeID, 3) = 1
+    end if
 
   end do nodeLoop
 
@@ -232,56 +252,94 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! First we check triangles
   triaLoop: do elemID = 1,nTria
 
-     ! Loop over all the nodes of the element
-     do nodeID = 1,3
+    onTop = 0
 
-        ! Get location flag of the current node
-        nodeIsInside = nodeLocation(triaConn(nodeID, elemID))
+    ! Loop over all the nodes of the element
+    do nodeID = 1,3
 
-        ! Flag the element if any node is inside
-        if (nodeIsInside) then
+      ! Get location flag of the current node
+      nodeIsInside = nodeLocation(triaConn(nodeID, elemID))
 
-           ! Increment number of inside elements
-           numInnerTria = numInnerTria + 1
+      ! Flag the element if any node is inside
+      if (nodeIsInside) then
 
-           ! Store element index in the extended array
-           extInnerTriaID(numInnerTria) = elemID
+        ! We do not need to check other nodes, so
+        ! we jump out of the do loop
+        exit
 
-           ! We do not need to check other nodes, so
-           ! we jump out of the do loop
-           exit
+      end if
 
+      ! Get a running sum of which nodes are on one side of the bounding box
+      onTop = onTop + nodeOnTop(nodeID, :)
+
+    end do
+
+    ! Check to see if all nodes are on the same side of the bounding box
+    ! If any node is not on the same side as all the others, flag the element
+    ! to check for intersections
+    if (nodeIsInside .neqv. .true.) then
+      do i=1,3
+        if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 3)) then
+          nodeIsInside = .true.
+          exit
         end if
+      end do
+    end if
 
-     end do
+    if (nodeIsInside) then
+      ! Increment number of inside elements
+      numInnerTria = numInnerTria + 1
+
+      ! Store element index in the extended array
+      extInnerTriaID(numInnerTria) = elemID
+    end if
 
   end do triaLoop
 
   ! Now we check quads
   quadsLoop: do elemID = 1,nQuads
 
-     ! Loop over all the nodes of the element
-     do nodeID = 1,4
+    onTop = 0
 
-        ! Get location flag of the current node
-        nodeIsInside = nodeLocation(quadsConn(nodeID, elemID))
+    ! Loop over all the nodes of the element
+    do nodeID = 1,4
 
-        ! Flag the element if any node is inside
-        if (nodeIsInside) then
+      ! Get location flag of the current node
+      nodeIsInside = nodeLocation(quadsConn(nodeID, elemID))
 
-           ! Increment number of inside elements
-           numInnerQuads = numInnerQuads + 1
+      ! Flag the element if any node is inside
+      if (nodeIsInside) then
 
-           ! Store element index in the extended array
-           extInnerQuadsID(numInnerQuads) = elemID
+        ! We do not need to check other nodes, so
+        ! we jump out of the do loop
+        exit
 
-           ! We do not need to check other nodes, so
-           ! we jump out of the do loop
-           exit
+      end if
 
+      ! Get a running sum of which nodes are on one side of the bounding box
+      onTop = onTop + nodeOnTop(nodeID, :)
+    end do
+
+    ! Check to see if all nodes are on the same side of the bounding box
+    ! If any node is not on the same side as all the others, flag the element
+    ! to check for intersections
+    if (nodeIsInside .neqv. .true.) then
+      do i=1,3
+        if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 4)) then
+          nodeIsInside = .true.
+          exit
         end if
+      end do
+    end if
 
-     end do
+    if (nodeIsInside) then
+
+     ! Increment number of inside elements
+     numInnerQuads = numInnerQuads + 1
+
+     ! Store element index in the extended array
+     extInnerQuadsID(numInnerQuads) = elemID
+    end if
 
   end do quadsLoop
 
