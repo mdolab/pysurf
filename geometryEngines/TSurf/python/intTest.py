@@ -33,12 +33,25 @@ for j in range(1):
     # for i in range(10):
     #     tri_list.append(np.random.rand(3, 3))
 
-    tri_list.append(np.array([[1.0166, 0.3295, .6827],
-                              [1.006, .3446, .6956],
-                              [.9943, .3299, .6831]]))
-    tri_list.append(np.array([[1.000, 1.000, 1.0000],
-                              [.3322, .3588, .3094],
-                              [.6923, .6492, .6467]]).T)
+    #tri_list.append(np.array([[1.0166, 0.3295, .6827],
+    #                          [1.006, .3446, .6956],
+    #                          [.9943, .3299, .6831]]))
+    #tri_list.append(np.array([[1.000, 1.000, 1.0000],
+    #                          [.3322, .3588, .3094],
+    #                          [.6923, .6492, .6467]]).T)
+
+    V0 = [-2.0, 0.0, 0.0] 
+    V1 = [2.0, 0.0, 0.0]
+    V2 = [0.0, 2.0, 0.0]
+    
+    U0 = [-2.0, 1.0, -1.0] 
+    U1 = [2.0, 1.0, -1.0]
+    U2 = [0.0, 1.0, 2.0]
+    
+    tri_list.append(np.array([V0,V1,V2]))
+    tri_list.append(np.array([U0,U1,U2]))
+
+
     for tri1 in tri_list:
         for tri2 in tri_list:
             s, e = find_int_and_plot(tri1, tri2, ax)
