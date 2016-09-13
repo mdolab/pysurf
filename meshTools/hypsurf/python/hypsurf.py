@@ -941,7 +941,7 @@ class HypSurfMesh(object):
             'sigmaSplay' : 0.3,
             'cMax' : 3.0,
             'ratioGuess' : 20,
-            'plotQuality' : True,
+            'plotQuality' : False,
             }
 
     def _applyUserOptions(self, options):

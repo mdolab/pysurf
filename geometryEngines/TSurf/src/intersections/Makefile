@@ -18,7 +18,7 @@ vpath %.o $(OBJDIR)
 FF90_OBJECTS_1 = Intersection.o \
 
 FF90_OBJECTS_2 = intersectionAPI.o \
-                 test.o
+                 main.o
 
 default: all
 

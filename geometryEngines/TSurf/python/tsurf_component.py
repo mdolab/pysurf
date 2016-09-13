@@ -456,13 +456,13 @@ class TSurfCurve(Curve):
         nPoints = xyz.shape[0]
 
         # Initialize references if user provided none
-        if dist2 == None:
+        if dist2 is None:
             dist2 = np.ones(nPoints)*1e10
 
-        if xyzProj==None:
+        if xyzProj is None:
             xyzProj = np.zeros((nPoints,3))
 
-        if tangents==None:
+        if tangents is None:
             tangents = np.zeros((nPoints,3))
 
         # Call fortran code
