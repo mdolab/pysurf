@@ -1,4 +1,4 @@
 reset
 make
-gfortran ../../obj/Intersection.o ../../obj/test.o -o test.exe
-./test.exe
+gfortran ../../obj/Intersection.o ../../obj/main.o -o main.exe
+./main.exe
