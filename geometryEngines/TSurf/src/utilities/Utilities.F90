@@ -222,7 +222,7 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
       ! Print warning
       print *, 'WARNING: Could not remesh curve because it has unordered FE data.'
       print *, '         Call FEsort first.'
-      print *,'boopily'
+      return
     end if
   end do
 
