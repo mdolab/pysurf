@@ -1,7 +1,7 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module utilitiesAPI ! in 
+python module utilitiesAPI ! in
     interface  ! in :utilitiesAPI
         module utilitiesapi ! in :utilitiesAPI:utilitiesAPI.F90
             use utilities
@@ -14,8 +14,18 @@ python module utilitiesAPI ! in
                 integer(kind=inttype) dimension(2,nbars),intent(inout) :: barsconn
                 integer(kind=inttype) intent(out) :: nuniquenodes
             end subroutine condensebarnodes
+            subroutine remesh(nnodes,nnewnodes,coor,barsconn,method,spacing,newcoor,newbarsconn) ! in utilitiesAPI.F90:utilitiesapi
+                integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
+                integer(kind=inttype) intent(in) :: nnewnodes
+                real(kind=realtype) dimension(3,nnodes),intent(in) :: coor
+                integer(kind=inttype) dimension(2,nnodes - 1),intent(in),depend(nnodes) :: barsconn
+                character*32 intent(in) :: method
+                character*32 intent(in) :: spacing
+                real(kind=realtype) dimension(3,nnewnodes),intent(out),depend(nnewnodes) :: newcoor
+                integer(kind=inttype) dimension(2,nnewnodes - 1),intent(out),depend(nnewnodes) :: newbarsconn
+            end subroutine remesh
         end module utilitiesapi
-    end interface 
+    end interface
 end python module utilitiesAPI
 
 ! This file was auto-generated with f2py (version:2).

@@ -11,7 +11,7 @@ class TestRemesh(unittest.TestCase):
         coor = np.array([[0.0, 0.0, 0.9],
                          [0.1, 0.0, 0.7],
                          [0.5, 0.0, 0.5],
-                         [0.9, 0.0, 0.4],
+                         [0.8, 0.0, 0.4],
                          [1.0, 0.0, 0.2]],order='F').T
 
         # Generate connectivity
@@ -24,10 +24,11 @@ class TestRemesh(unittest.TestCase):
         curve = pysurf.TSurfCurve(coor, barsConn, 'test')
 
         # Remesh curve
-        curve.remesh(spacing='cosine')
-        master_curve = np.array([[ 0., 0.0855821, 0.4843909, 0.9144179, 1.],
-                                 [ 0., 0., 0., 0., 0.],
-                                 [ 0.9, .72883587, .50780456, .37116413, .2]])
+        # curve.remesh(spacing='cosine')
+        curve.remesh(spacing='linear')
+        master_curve = np.array([[ 0., 0.1839562, 0.4679125, 0.7671471, 1.],
+                                 [0., 0., 0., 0., 0.],
+                                 [0.9, 0.6580219, 0.5160438, 0.410951, 0.2]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
 if __name__ == "__main__":
