@@ -514,4 +514,34 @@ subroutine r8vec_bracket ( n, x, xval, left, right )
   return
 end
 
+!============================================================
+
+function dot(A, B)
+
+  ! John Jasa - 2016-08
+  
+  implicit none
+    
+  real(kind=realType), intent(in) :: A(3), B(3)
+  real(kind=realType) :: dot
+
+  dot = A(1)*B(1) + A(2)*B(2) + A(3)*B(3)
+
+end function dot
+
+!============================================================
+
+function norm(A)
+
+  ! John Jasa - 2016-08
+  
+  implicit none
+    
+  real(kind=realType), intent(in) :: A(3)
+  real(kind=realType) :: norm
+
+  norm = sqrt(dot(A,A))
+
+end function norm
+
 end module Utilities
