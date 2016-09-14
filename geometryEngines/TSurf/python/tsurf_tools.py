@@ -431,7 +431,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     # Run sorting algorithm on the detected bars
     # Remember that selectedBarsConn now will be a list containing
     # connectivities of multiple disconnect curves
-    selectedBarsConn = FEsort(selectedBarsConn)
+    selectedBarsConn, dummy_map = FEsort(selectedBarsConn)
 
     # GENERATE CURVE OBJECTS
 
@@ -806,8 +806,9 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Retrieve results from Fortran
     coor = np.array(intersectionAPI.intersectionapi.coor)
     barsConn = np.array(intersectionAPI.intersectionapi.barsconn)
+    parentTria = np.array(intersectionAPI.intersectionapi.parenttria)
 
-    # Release memory used by Fortran so we run another intersection in the future
+    # Release memory used by Fortran so we can run another intersection in the future
     intersectionAPI.intersectionapi.releasememory()
 
     # Initialize list to hold all intersection curves
@@ -820,7 +821,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
         # Sort FE data. After this step, barsConn may become a list if we
         # have two disconnect intersection curves.
-        barsConn = FEsort(barsConn.T.tolist())
+        barsConn, newMap = FEsort(barsConn.T.tolist())
 
         # barsConn is a list of curves. Each element of the list brings
         # FE data for a continuous curve. If the intersection generates
@@ -832,7 +833,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         # Set intersection counter
         intCounter = -1
 
-        for currConn in barsConn:
+        for (currConn, currMap) in zip(barsConn, newMap):
 
             intCounter = intCounter + 1
             
@@ -843,8 +844,14 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
             # Create a name for the curve
             curveName = 'int_'+name1+'_'+name2+'_%02d'%intCounter
             
+            # Slice the parent triangles array using the sorted mapping
+            currParents = parentTria[:,currMap]
+            
             # Create new curve object
             newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
+
+            # Store parent triangles as extra data
+            newCurve.extra_data = np.array(currParents)
 
             # Initialize curve object and append it to the list
             Intersections.append(newCurve)
@@ -852,6 +859,30 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Return intersection FE data
     return Intersections
 
+#=================================================================
+
+def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, intCoorb):
+
+    '''
+    This function is the backward mode of the intersection computation.
+    This can only be called when we already have the intersection curve.
+    intCoorb are the derivative seeds
+    '''
+
+    # Call Fortran code to find derivatives
+    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(TSurfGeometryA.coor,
+                                                                           TSurfGeometryA.triaConn,
+                                                                           TSurfGeometryA.quadsConn,
+                                                                           TSurfGeometryB.coor,
+                                                                           TSurfGeometryB.triaConn,
+                                                                           TSurfGeometryB.quadsConn,
+                                                                           intCurve.coor,
+                                                                           intCoorb,
+                                                                           intCurve.barsConn,
+                                                                           intCurve.extra_data)
+
+    # Return derivatives
+    return coorAb, coorBb
 
 #=================================================================
 
@@ -897,10 +928,8 @@ def FEsort(barsConn):
 
     '''
     This function can be used to sort connectivities coming from the CGNS file
-    It assumes that we only have one curve. It will crash if we have
-    multiple curves defined in the same FE set.
 
-    barsConnIn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
+    barsConn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
 
     newConn will be set to None if the sorting algorithm fails.
     '''
@@ -914,37 +943,51 @@ def FEsort(barsConn):
     # Say that we still need to search
     keep_searching = True
 
+    # Get the number of bars
+    nBars = len(barsConn)
+
+    # Initialize mapping that will link indices of the given FE data to the sorted one.
+    newMap = [[i] for i in range(nBars)]
+
     while keep_searching:
 
         # If nothing happens, we will get out of the loop
         keep_searching = False
 
-        # Update "old" connectivities
+        # Update "old" connectivities and mapping
         oldConn = newConn[:]
+        oldMap = newMap[:]
 
-        # Initialize list of new connectivities with the first element of the old ones.
-        # We will also pop this element from oldConn
+        # Initialize list of new connectivities and mapping with the first element of the old ones.
+        # We will also pop this element from oldConn. Remember that in subsequent iterations, each
+        # element of oldConn represents in fact a concatenation of bar elements.
         newConn = [oldConn.pop(0)]
+        newMap = [oldMap.pop(0)]
 
         # We will keep sorting until all elements of oldConn are assigned and popped out
+        # NOTE: An "Element" here may be a concatenation of several bar elements
 
         while len(oldConn) > 0:
 
             # Pop another element from oldConn
             oldElement = oldConn.pop(0)
+            oldElemMap = oldMap.pop(0)
 
             # We do not know if this element could be linked beforehand
             linked_element = False
 
             # Now we check if we can fit this element into any new connectivity
             newElemCounter = 0
-            for newElement in newConn:
+            for (newElement,newElemMap) in zip(newConn,newMap):
 
                 if oldElement[0] == newElement[0]:
 
                     # We will flip the old element and place it at the beginning of the
                     # new connectivity
                     newConn[newElemCounter] = oldElement[::-1] + newElement[1:]
+
+                    # Also assign ID the beginning of the map
+                    newMap[newElemCounter] = oldElemMap[::-1] + newElemMap[:]
 
                     # We need to keep searching as we are still making changes
                     linked_element = True
@@ -960,6 +1003,9 @@ def FEsort(barsConn):
                     # Just append the old element
                     newConn[newElemCounter] = newElement[:-1] + oldElement
 
+                    # Also assign mapping
+                    newMap[newElemCounter] = newElemMap[:] + oldElemMap
+
                     # We need to keep searching as we are still making changes
                     linked_element = True
 
@@ -974,6 +1020,9 @@ def FEsort(barsConn):
                     # Place the old element at the beginning
                     newConn[newElemCounter] = oldElement + newElement[1:]
 
+                    # Also assign mapping
+                    newMap[newElemCounter] = oldElemMap + newElemMap[:]
+
                     # We need to keep searching as we are still making changes
                     linked_element = True
 
@@ -987,6 +1036,9 @@ def FEsort(barsConn):
 
                     # Flip and append the old element
                     newConn[newElemCounter] = newElement[:-1] + oldElement[::-1]
+
+                    # Also assign mapping
+                    newMap[newElemCounter] = newElemMap[:] + oldElemMap[::-1]
 
                     # We need to keep searching as we are still making changes
                     linked_element = True
@@ -1004,6 +1056,11 @@ def FEsort(barsConn):
 
                     # Define a new curve in newConn
                     newConn.append(oldElement)
+
+                    # Define a new mapping in newMap
+                    newMap.append(oldElemMap)
+
+            
 
     # Right now, newConn represent each line by an 1D array of point IDs.
     # e.g. [[2,3,4,5],[1,7,8]]
@@ -1033,6 +1090,9 @@ def FEsort(barsConn):
             FEcurve[0,pointID-1] = prevPoint
             FEcurve[1,pointID-1] = currPoint
 
+    # We just need to crop the last index of the mapping arrays because it has a repeated
+    # number
+
 
     # Now we do a final check to remove degenerate bars (bars that begin and end at the same point)
     # Take every disconnect curve in newConnFE:
@@ -1040,6 +1100,12 @@ def FEsort(barsConn):
 
         # We convert the connectivity array to list so we can 'pop' elements
         curveFE = newConnFE[curveID].T.tolist()
+
+        # Get the mapping as well
+        currMap = newMap[curveID]
+
+        # Define FE counter
+        FEcounter = 0
 
         for FE in curveFE:
 
@@ -1049,11 +1115,17 @@ def FEsort(barsConn):
                 # Remove FE
                 curveFE.remove(FE)
 
+                # Remove mapping
+                currMap.pop(FEcounter)
+
+            # Increment counter
+            FEcounter = FEcounter + 1
+
         # Convert connectivity back to numpy array
         newConnFE[curveID] = np.array(curveFE, order='F').T
 
-    # Return the sorted array
-    return newConnFE
+    # Return the sorted array and the mapping
+    return newConnFE, newMap
 
 #=============================================================
 

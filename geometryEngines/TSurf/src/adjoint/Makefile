@@ -15,10 +15,11 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_1 = Intersection.o \
+FF90_OBJECTS_1 = adBuffer.o \
+		 adStack.o \
+		 utilities_b.o
 
-FF90_OBJECTS_2 = intersectionAPI.o \
-                 test.o
+FF90_OBJECTS_2 = intersection_b.o
 
 default: all
 

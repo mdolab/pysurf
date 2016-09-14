@@ -75,7 +75,7 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
         prevCoor = coor(:,prevNodeID)
 
         ! Compute distance between nodes
-        dist = norm2(currCoor - prevCoor)
+        dist = norm(currCoor - prevCoor)
 
         ! Check if the distance is below the merging tolerance
         if (dist .le. distTol) then
@@ -149,5 +149,33 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
 end subroutine condenseBarNodes_main
 
 !============================================================
+
+function dot(A, B)
+
+  ! John Jasa - 2016-08
+  
+  implicit none
+    
+  real(kind=realType), intent(in) :: A(3), B(3)
+  real(kind=realType) :: dot
+
+  dot = A(1)*B(1) + A(2)*B(2) + A(3)*B(3)
+
+end function dot
+
+!============================================================
+
+function norm(A)
+
+  ! John Jasa - 2016-08
+  
+  implicit none
+    
+  real(kind=realType), intent(in) :: A(3)
+  real(kind=realType) :: norm
+
+  norm = sqrt(dot(A,A))
+
+end function norm
 
 end module Utilities

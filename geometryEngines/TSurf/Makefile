@@ -13,7 +13,8 @@ SUBDIR_SRC    = src/common \
 		src/CGNSInterface \
 		src/ADT \
 		src/curveSearch \
-		src/intersections
+		src/adjoint \
+		src/intersections \
 
 default:
 # Check if the config.mk file is in the config dir.

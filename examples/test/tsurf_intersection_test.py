@@ -66,7 +66,18 @@ class TestCurveIntersection(unittest.TestCase):
         #     pickle.dump(master_dict, f)
 
 
-
+        # Testing derivatives
+        
+        # Get intersection curve
+        for curve in comp1.curves:
+            if 'int' in curve:
+                intCurve = comp1.curves[curve]
+                coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
+                                                                                 comp2,
+                                                                                 intCurve,
+                                                                                 np.ones(intCurve.coor.shape))
+                print 'boo'
+                print np.min(coorAb)
 
 
 if __name__ == "__main__":
