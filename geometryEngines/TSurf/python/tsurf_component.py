@@ -364,7 +364,7 @@ class TSurfCurve(Curve):
         nUniqueNodes = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
 
         # Take bar connectivity and reorder it
-        sortedConn = tst.FEsort(barsConn.T.tolist())
+        sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
 
         # Check for failures
         if len(sortedConn)==1:
@@ -383,6 +383,7 @@ class TSurfCurve(Curve):
         self.coor = coor[:,:nUniqueNodes]
         self.barsConn = sortedConn
         self.name = name
+        self.extra_data = []
 
     def extract_points(self):
 
@@ -417,6 +418,8 @@ class TSurfCurve(Curve):
         # Flip nodes
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
+        # Flip the extra data
+        self.extra_data = self.extra_data[:,::-1]
 
     def translate(self, x, y, z):
         tst.translate(self, x, y, z)
