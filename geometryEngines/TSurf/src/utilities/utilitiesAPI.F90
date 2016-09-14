@@ -16,7 +16,7 @@ subroutine condenseBarNodes(nNodes, nBars, distTol, &
   ! This subroutine receives a list of bar FE which may have repeated points and
   ! Then condenses (merges) points that are closer than a given tolerance.
   ! This helps us getting a continuous line from the intersection algorithm results.
-  ! Ney Secco 2016-08
+  !
   ! This is just an interface that allows us to call condenseBarFEs
   ! from Python when necessary.
   ! Remember to crop coorOut using nNodesOut in Python, because coorOut will
@@ -48,6 +48,37 @@ subroutine condenseBarNodes(nNodes, nBars, distTol, &
                              coor, barsConn, nUniqueNodes)
 
 end subroutine condenseBarNodes
+
+subroutine remesh(nNodes, nNewNodes, coor, barsConn, method, spacing, newCoor, newBarsConn)
+
+  ! Remesh the given curve based on user-set options to obtain a better spacing
+  ! John Jasa 2016-09
+
+  implicit none
+
+  ! Input variables
+  integer(kind=intType), intent(in) :: nNodes, nNewNodes
+  character(32), intent(in) :: method, spacing
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+  integer(kind=intType), dimension(2,nNodes-1), intent(in) :: barsConn
+
+  ! Output variables
+  real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoor
+  integer(kind=intType), dimension(2,nNewNodes-1), intent(out) :: newBarsConn
+
+  !!@!!!!! FIX THIS RIGHT HERE
+
+  !f2py intent(in) nNodes, nNewNodes
+  !f2py intent(in) coor, barsConn
+  !f2py intent(out) newCoor, newBarsConn
+
+  ! EXECUTION
+
+  ! Just call the main routine that will do the actual job
+  call remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCoor, newBarsConn)
+
+
+end subroutine remesh
 
 !=============================================
 

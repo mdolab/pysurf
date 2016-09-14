@@ -9,6 +9,8 @@ import tsurf_tools as tst
 import adtAPI
 import copy
 
+fortran_flag = True
+
 class TSurfGeometry(Geometry):
 
     def _initialize(self, *arg, **kwargs):
@@ -504,119 +506,128 @@ class TSurfCurve(Curve):
         nElem = barsConn.shape[1]
         nNodes = nElem + 1
 
-        # CHECKING INPUTS
-
-        # First we check if the FE data is ordered
-        for elemID in range(2,nElem):
-
-            # Get node indices
-            prevNodeID = barsConn[1,elemID-1]
-            currNodeID = barsConn[0,elemID]
-
-            # Check if the FE data is ordered
-            if prevNodeID != currNodeID:
-
-                # Print warning
-                print 'WARNING: Could not remesh curve because it has unordered FE data.'
-                print '         Call FEsort first.'
-                return
-
-        # COMPUTE ARC-LENGTH
-
-        # We can proceed if FE data is ordered
-
-        # Initialize an array that will store the arclength of each node.
-        # That is, the distance, along the curve from the current node to
-        # the first node of the curve.
-        arcLength = np.zeros(nNodes)
-
-        # Also initialize an array to store nodal coordinates in the curve order
-        nodeCoor = np.zeros((3,nNodes))
-
-        # Store position of the first node (the other nodes will be covered in the loop)
-        # (the -1 is due Fortran indexing)
-        nodeCoor[:,0] = coor[:,barsConn[0,0]-1]
-
-        # Loop over each element to increment arcLength
-        for elemID in range(nElem):
-
-            # Get node positions (the -1 is due Fortran indexing)
-            node1 = coor[:,barsConn[0,elemID]-1]
-            node2 = coor[:,barsConn[1,elemID]-1]
-
-            # Compute distance between nodes
-            dist = np.linalg.norm(node1 - node2)
-
-            # Store nodal arc-length
-            arcLength[elemID+1] = arcLength[elemID] + dist
-
-            # Store coordinates of the next node
-            nodeCoor[:,elemID+1] = node2
-
-        # SAMPLING POSITION FOR NEW NODES
-
         # Use the original number of nodes if the user did not specify any
         if nNewNodes is None:
             nNewNodes = nNodes
 
-        # The arcLength will be used as our parametric coordinate to sample the new nodes.
+        if fortran_flag:
+            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing)
+            self.coor = newCoor
+            self.barsConn = newBarsConn
 
-        # First we will initialize arrays for the new coordinates and arclengths
-        newNodeCoor = np.zeros((3,nNewNodes), order='F')
-        newArcLength = np.zeros(nNewNodes, order='F')
-
-        # Now that we know the initial and final arcLength, we can redistribute the
-        # parametric coordinates based on the used defined spacing criteria.
-        # These statements should initially create parametric coordinates in the interval
-        # [0.0, 1.0]. We will rescale it after the if statements.
-        if spacing == 'linear':
-            newArcLength = np.linspace(0.0, 1.0, nNewNodes)
-
-        elif spacing == 'cosine':
-            newArcLength = 0.5*(1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
-
-        # Rescale newArcLength based on the final distance
-        newArcLength = arcLength[-1]*newArcLength
-
-        # INTERPOLATE NEW NODES
-
-        # Now we sample the new coordinates based on the interpolation method given by the user
-
-        # Import interpolation function
-        from scipy.interpolate import interp1d
-
-        # Create interpolants for x, y, and z
-        fX = interp1d(arcLength, nodeCoor[0,:], kind=method)
-        fY = interp1d(arcLength, nodeCoor[1,:], kind=method)
-        fZ = interp1d(arcLength, nodeCoor[2,:], kind=method)
-
-        # Sample new points using the interpolation functions
-        newNodeCoor[0,:] = fX(newArcLength)
-        newNodeCoor[1,:] = fY(newArcLength)
-        newNodeCoor[2,:] = fZ(newArcLength)
-
-        # ASSIGN NEW COORDINATES AND CONNECTIVITIES
-
-        # Set new nodes
-        self.coor = newNodeCoor
-
-        # Check if the baseline curve is periodic
-        if barsConn[0,0] == barsConn[1,-1]:
-            periodic = True
         else:
-            periodic = False
 
-        # Generate new connectivity (the nodes are already in order so we just
-        # need to assign an ordered set to barsConn).
-        barsConn = np.zeros((2,nNewNodes-1), order='F', dtype=int)
-        barsConn[0,:] = range(1,nNewNodes)
-        barsConn[1,:] = range(2,nNewNodes+1)
+            # CHECKING INPUTS
 
-        # We still need to keep periodicity if the original curve is periodic
-        if periodic:
-            barsConn[1,-1] = barsConn[0,0]
+            # First we check if the FE data is ordered
+            for elemID in range(2,nElem):
 
-        self.barsConn = barsConn
+                # Get node indices
+                prevNodeID = barsConn[1,elemID-1]
+                currNodeID = barsConn[0,elemID]
+
+                # Check if the FE data is ordered
+                if prevNodeID != currNodeID:
+
+                    # Print warning
+                    print 'WARNING: Could not remesh curve because it has unordered FE data.'
+                    print '         Call FEsort first.'
+                    return
+
+            # COMPUTE ARC-LENGTH
+
+            # We can proceed if FE data is ordered
+
+            # Initialize an array that will store the arclength of each node.
+            # That is, the distance, along the curve from the current node to
+            # the first node of the curve.
+            arcLength = np.zeros(nNodes)
+
+            # Also initialize an array to store nodal coordinates in the curve order
+            nodeCoor = np.zeros((3,nNodes))
+
+            # Store position of the first node (the other nodes will be covered in the loop)
+            # (the -1 is due Fortran indexing)
+            nodeCoor[:,0] = coor[:,barsConn[0,0]-1]
+
+            # Loop over each element to increment arcLength
+            for elemID in range(nElem):
+
+                # Get node positions (the -1 is due Fortran indexing)
+                node1 = coor[:,barsConn[0,elemID]-1]
+                node2 = coor[:,barsConn[1,elemID]-1]
+
+                # Compute distance between nodes
+                dist = np.linalg.norm(node1 - node2)
+
+                # Store nodal arc-length
+                arcLength[elemID+1] = arcLength[elemID] + dist
+
+                # Store coordinates of the next node
+                nodeCoor[:,elemID+1] = node2
+
+            # SAMPLING POSITION FOR NEW NODES
+
+
+            # The arcLength will be used as our parametric coordinate to sample the new nodes.
+
+            # First we will initialize arrays for the new coordinates and arclengths
+            newNodeCoor = np.zeros((3,nNewNodes), order='F')
+            newArcLength = np.zeros(nNewNodes, order='F')
+
+            # Now that we know the initial and final arcLength, we can redistribute the
+            # parametric coordinates based on the used defined spacing criteria.
+            # These statements should initially create parametric coordinates in the interval
+            # [0.0, 1.0]. We will rescale it after the if statements.
+            if spacing == 'linear':
+                newArcLength = np.linspace(0.0, 1.0, nNewNodes)
+
+            elif spacing == 'cosine':
+                newArcLength = 0.5*(1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
+
+            # Rescale newArcLength based on the final distance
+            newArcLength = arcLength[-1]*newArcLength
+
+            # INTERPOLATE NEW NODES
+
+            # Now we sample the new coordinates based on the interpolation method given by the user
+
+            # Import interpolation function
+            from scipy.interpolate import interp1d
+
+            # Create interpolants for x, y, and z
+            fX = interp1d(arcLength, nodeCoor[0,:], kind=method)
+            fY = interp1d(arcLength, nodeCoor[1,:], kind=method)
+            fZ = interp1d(arcLength, nodeCoor[2,:], kind=method)
+
+            # Sample new points using the interpolation functions
+            newNodeCoor[0,:] = fX(newArcLength)
+            newNodeCoor[1,:] = fY(newArcLength)
+            newNodeCoor[2,:] = fZ(newArcLength)
+
+            # ASSIGN NEW COORDINATES AND CONNECTIVITIES
+
+            # Set new nodes
+            self.coor = newNodeCoor
+
+            # Check if the baseline curve is periodic
+            if barsConn[0,0] == barsConn[1,-1]:
+                periodic = True
+            else:
+                periodic = False
+
+            # Generate new connectivity (the nodes are already in order so we just
+            # need to assign an ordered set to barsConn).
+            barsConn = np.zeros((2,nNewNodes-1), order='F', dtype=int)
+            barsConn[0,:] = range(1,nNewNodes)
+            barsConn[1,:] = range(2,nNewNodes+1)
+
+            # We still need to keep periodicity if the original curve is periodic
+            if periodic:
+                barsConn[1,-1] = barsConn[0,0]
+
+            self.barsConn = barsConn
+
 
     def shift_end_nodes(self, criteria='maxX'):
 
