@@ -861,7 +861,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
 #=================================================================
 
-def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, intCoorb):
+def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb):
 
     '''
     This function is the backward mode of the intersection computation.
@@ -877,12 +877,38 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, intCo
                                                                            TSurfGeometryB.triaConn,
                                                                            TSurfGeometryB.quadsConn,
                                                                            intCurve.coor,
-                                                                           intCoorb,
+                                                                           coorIntb,
                                                                            intCurve.barsConn,
                                                                            intCurve.extra_data)
 
     # Return derivatives
     return coorAb, coorBb
+
+#=================================================================
+
+def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd):
+
+    '''
+    This function is the backward mode of the intersection computation.
+    This can only be called when we already have the intersection curve.
+    intCoorb are the derivative seeds
+    '''
+
+    # Call Fortran code to find derivatives
+    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(TSurfGeometryA.coor,
+                                                                     coorAd,
+                                                                     TSurfGeometryA.triaConn,
+                                                                     TSurfGeometryA.quadsConn,
+                                                                     TSurfGeometryB.coor,
+                                                                     coorBd,
+                                                                     TSurfGeometryB.triaConn,
+                                                                     TSurfGeometryB.quadsConn,
+                                                                     intCurve.coor,
+                                                                     intCurve.barsConn,
+                                                                     intCurve.extra_data)
+
+    # Return derivatives
+    return coorIntd
 
 #=================================================================
 

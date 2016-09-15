@@ -318,7 +318,7 @@ class TSurfCurve(Curve):
         '''
 
         # Optional inputs
-        mergeTol = 1e-4
+        mergeTol = 1e-7
 
         # Parse inputs
         for currArg in arg:

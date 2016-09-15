@@ -429,6 +429,179 @@ end subroutine computeIntersection_b
 
 !=============================================
 
+subroutine computeIntersection_d(nNodesA, nTriaA, nQuadsA, &
+                                 nNodesB, nTriaB, nQuadsB, &
+                                 nNodesInt, nBarsInt, &
+                                 coorA, coorAd, triaConnA, quadsConnA, &
+                                 coorB, coorBd, triaConnB, quadsConnB, &
+                                 coorInt, coorIntd, barsConnInt, &
+                                 parentTria)
+
+  ! This function computes the forward derivatives of the intersection curve between two
+  ! triangulated surface components A and B. This function should not be used for optimization.
+  ! It exists just for debug purposes.
+  !
+  ! INPUTS
+  !
+  ! distTol: real -> distance tolerance to merge nearby nodes in
+  !          the intersection curve.
+  !
+  ! OUTPUTS
+  ! This subroutine has no explicit outputs. It updates the variables coor, and barsConn,
+  ! which should be called from Python as attributes of the intersectionAPI module.
+  !
+  ! Ney Secco 2016-09
+
+  use Intersection
+  use Intersection_d, only: triTriIntersect_d
+  use Utilities ! This will bring condenseBarNodes_main
+  implicit none
+
+  ! Input variables
+  integer(kind=intType), intent(in) :: nNodesA, nTriaA, nQuadsA
+  integer(kind=intType), intent(in) :: nNodesB, nTriaB, nQuadsB
+  integer(kind=intType), intent(in) :: nNodesInt, nBarsInt
+  real(kind=realType), dimension(3,nNodesA), intent(in) :: coorA
+  real(kind=realType), dimension(3,nNodesA), intent(in) :: coorAd
+  integer(kind=intType), dimension(3,nTriaA), intent(in) :: triaConnA
+  integer(kind=intType), dimension(4,nQuadsA), intent(in) :: quadsConnA
+  real(kind=realType), dimension(3,nNodesB), intent(in) :: coorB
+  real(kind=realType), dimension(3,nNodesB), intent(in) :: coorBd
+  integer(kind=intType), dimension(3,nTriaB), intent(in) :: triaConnB
+  integer(kind=intType), dimension(4,nQuadsB), intent(in) :: quadsConnB
+  real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorInt ! Intersection nodes
+  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: barsConnInt ! Intersection bar connectivities
+  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTria ! Pair of triangles from A and B that generates each bar
+  !f2py intent(in) nNodesA, nTriaA, nQuadsA
+  !f2py intent(in) nNodesB, nTriaB, nQuadsB
+  !f2py intent(in) nNodesInt, nBarsInt
+  !f2py intent(in) coorA, triaConnA, quadsConnA
+  !f2py intent(in) coorB, triaConnB, quadsConnB
+  !f2py intent(in) coorAd, coorBd
+  !f2py intent(in) coorInt, barsConnInt
+  !f2py intent(in) parentTria
+
+  ! Output variables
+  real(kind=realType), dimension(3,nNodesInt), intent(out) :: coorIntd ! Intersection nodes
+  !f2py intent(out) coorIntd
+
+  ! Working variables
+  real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
+  logical :: overlap
+  integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A
+  integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
+  integer(kind=intType), dimension(:,:), allocatable :: allTriaConnA, allTriaConnB
+  integer(kind=intType) :: nInnerTriaA, nInnerQuadsA, nInnerTriaB, nInnerQuadsB
+  integer(kind=intType) :: intersect
+  integer(kind=intType) :: nBarsConn
+  real(kind=realType), dimension(3) :: node1A, node2A, node3A
+  real(kind=realType), dimension(3) :: node1Ad, node2Ad, node3Ad
+  real(kind=realType), dimension(3) :: node1B, node2B, node3B
+  real(kind=realType), dimension(3) :: node1Bd, node2Bd, node3Bd
+  real(kind=realType), dimension(3) :: vecStart, vecEnd
+  real(kind=realType), dimension(3) :: vecStartd, vecEndd
+  integer(kind=intType) :: barID, parentA, parentB
+
+  ! EXECUTION
+
+  ! Compute bounding boxes for each component
+  call computeBBox(coorA, BBoxA)
+  call computeBBox(coorB, BBoxB)
+
+  ! Compute bounding boxes intersection
+  call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+  ! We can stop if there is no bounding box intersection
+  if (.not. overlap) then
+     print *,'Geometry objects do not overlap.'
+     return
+  else
+     print *,'Geometry objects overlap.'
+  end if
+
+  ! Filter elements that are inside the intersected bounding box
+  call filterElements(coorA, triaConnA, quadsConnA, BBoxAB, &
+                      innerTriaID_A, innerQuadsID_A)
+  call filterElements(coorB, triaConnB, quadsConnB, BBoxAB, &
+                      innerTriaID_B, innerQuadsID_B)
+
+  ! Get number of inner elements
+  nInnerTriaA = size(innerTriaID_A)
+  nInnerQuadsA = size(innerQuadsID_A)
+  nInnerTriaB = size(innerTriaID_B)
+  nInnerQuadsB = size(innerQuadsID_B)
+
+  ! Print log
+  print *,'Number of interior elements in A:'
+  print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
+  print *,'Number of interior elements in B:'
+  print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
+
+  ! Split quads into triangles
+  call getAllTrias(triaConnA, quadsConnA, innerTriaID_A, innerQuadsID_A, allTriaConnA)
+  call getAllTrias(triaConnB, quadsConnB, innerTriaID_B, innerQuadsID_B, allTriaConnB)
+
+  ! Update number of interior triangles
+  nInnerTriaA = size(allTriaConnA,2)
+  nInnerTriaB = size(allTriaConnB,2)
+
+  ! BACKWARD PASS
+
+  ! Initialize derivatives
+  coorIntd = 0.0
+
+  ! Compute intersection point derivatives
+  do barID = 1,nBarsInt
+
+     ! Get parent triangles
+     parentA = parentTria(1,barID)
+     parentB = parentTria(2,barID)
+
+     ! Get nodal coordinates of triangle in A
+     node1A = coorA(:, allTriaConnA(1,parentA))
+     node2A = coorA(:, allTriaConnA(2,parentA))
+     node3A = coorA(:, allTriaConnA(3,parentA))
+
+     ! Get nodal coordinates of triangle in B
+     node1B = coorB(:, allTriaConnB(1,parentB))
+     node2B = coorB(:, allTriaConnB(2,parentB))
+     node3B = coorB(:, allTriaConnB(3,parentB))
+
+     ! Get bar nodes
+     vecStart = coorInt(:,barsConnInt(1,barID))
+     vecEnd = coorInt(:,barsConnInt(2,barID))
+
+     ! We always detect intersections
+     intersect = 1
+
+     ! Assign derivatives to coorAb
+     node1Ad = coorAd(:, allTriaConnA(1,parentA))
+     node2Ad = coorAd(:, allTriaConnA(2,parentA))
+     node3Ad = coorAd(:, allTriaConnA(3,parentA))
+
+     ! Assign derivatives to coorBb
+     node1Bd = coorBd(:, allTriaConnB(1,parentB))
+     node2Bd = coorBd(:, allTriaConnB(2,parentB))
+     node3Bd = coorBd(:, allTriaConnB(3,parentB))
+
+     ! Initialize derivatives
+     vecStartd = 0.0
+     vecEndd = 0.0
+
+     call triTriIntersect_d(node1A, node1Ad, node2A, node2Ad, node3A, node3Ad, &
+                            node1B, node1Bd, node2B, node2Bd, node3B, node3Bd, &
+                            intersect, vecStart, vecStartd, vecEnd, vecEndd)
+
+     ! Get bar node seeds
+     coorIntd(:,barsConnInt(1,barID)) = coorIntd(:,barsConnInt(1,barID)) + vecStartd
+     coorIntd(:,barsConnInt(2,barID)) = coorIntd(:,barsConnInt(2,barID)) + vecEndd
+
+  end do
+
+end subroutine computeIntersection_d
+
+!=============================================
+
 subroutine releaseMemory()
 
   ! This subroutine just deallocates memory used by the intersection code.
