@@ -75,7 +75,7 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
         prevCoor = coor(:,prevNodeID)
 
         ! Compute distance between nodes
-        call norm(currCoor - prevCoor, dist)
+        dist = norm(currCoor - prevCoor)
 
         ! Check if the distance is below the merging tolerance
         if (dist .le. distTol) then
@@ -242,7 +242,7 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
     node2 = coor(:,barsConn(2,elemID))
 
     ! Compute distance between nodes
-    call norm(node1 - node2, dist)
+    dist = norm(node1 - node2)
 
     ! Store nodal arc-length
     arcLength(elemID+1) = arcLength(elemID) + dist
@@ -302,32 +302,6 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
 end subroutine
 
 !============================================================
-
-subroutine norm(v, norm_)
-
-  implicit none
-
-  real(kind=realType), intent(in) :: v(3)
-  real(kind=realType), intent(out) :: norm_
-  real(kind=realType) :: dot_prod
-
-
-  !norm = sqrt(dot_product(v, v))
-  call dot(v, v, dot_prod)
-  norm_ = dot_prod ** 0.5
-
-end subroutine norm
-
-subroutine dot(a, b, dot_prod)
-
-  implicit none
-
-  real(kind=realType), intent(in) :: a(3), b(3)
-  real(kind=realType), intent(out) :: dot_prod
-
-  dot_prod = a(1) * b(1) + a(2) * b(2) + a(3) * b(3)
-
-end subroutine dot
 
 subroutine linspace(l, k, n, z)
 
