@@ -17,9 +17,11 @@ vpath %.o $(OBJDIR)
 
 FF90_OBJECTS_1 = adBuffer.o \
 		 adStack.o \
-		 utilities_b.o
+		 utilities_b.o \
+		 utilities_d.o
 
-FF90_OBJECTS_2 = intersection_b.o
+FF90_OBJECTS_2 = intersection_b.o \
+                 intersection_d.o
 
 default: all
 

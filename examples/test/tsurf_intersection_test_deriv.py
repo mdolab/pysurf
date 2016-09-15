@@ -42,6 +42,7 @@ class TestCurveIntersection(unittest.TestCase):
         # Call intersection function
         comp1.intersect(comp2)
 
+        '''
         # Split intersections
         pysurf.tsurf_tools.split_curves(comp2.curves)
 
@@ -64,7 +65,7 @@ class TestCurveIntersection(unittest.TestCase):
         # Save the intersection curves for comparison
         # with open('intersection_dict.pickle', 'w') as f:
         #     pickle.dump(master_dict, f)
-
+        '''
 
         # Testing derivatives
         
@@ -72,12 +73,37 @@ class TestCurveIntersection(unittest.TestCase):
         for curve in comp1.curves:
             if 'int' in curve:
                 intCurve = comp1.curves[curve]
+
+                # Running backward mode
+
+                coorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
+
                 coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                                  comp2,
                                                                                  intCurve,
-                                                                                 np.ones(intCurve.coor.shape))
-                print 'boo'
-                print np.min(coorAb)
+                                                                                 coorIntb)
+
+                # Running forward mode
+
+                coorAd = np.array(np.random.rand(comp1.coor.shape[0],comp1.coor.shape[1]),order='F')
+                coorBd = np.array(np.random.rand(comp2.coor.shape[0],comp2.coor.shape[1]),order='F')
+
+                coorIntd = pysurf.tsurf_tools._compute_pair_intersection_d(comp1,
+                                                                           comp2,
+                                                                           intCurve,
+                                                                           coorAd,
+                                                                           coorBd)
+
+                # Dot product test
+                dotProd = 0.0
+                dotProd = dotProd + np.sum(coorIntb*coorIntd)
+                dotProd = dotProd - np.sum(coorAb*coorAd)
+                dotProd = dotProd - np.sum(coorBb*coorBd)
+
+                # Print results
+                print 'dotProd test'
+                print dotProd
+            
 
 
 if __name__ == "__main__":

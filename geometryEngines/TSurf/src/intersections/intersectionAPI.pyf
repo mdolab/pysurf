@@ -50,6 +50,31 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(2,nbarsint),intent(in) :: barsconnint
                 integer(kind=inttype) dimension(2,nbarsint),intent(in),depend(nbarsint) :: parenttria
             end subroutine computeintersection_b
+            subroutine computeintersection_d(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,nnodesint,nbarsint,coora,coorad,triaconna,quadsconna,coorb,coorbd,triaconnb,quadsconnb,coorint,coorintd,barsconnint,parenttria) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
+                use intersection
+                use intersection_d, only: tritriintersect_d
+                use utilities
+                integer(kind=inttype), optional,intent(in),check(shape(coora,1)==nnodesa),depend(coora) :: nnodesa=shape(coora,1)
+                integer(kind=inttype), optional,intent(in),check(shape(triaconna,1)==ntriaa),depend(triaconna) :: ntriaa=shape(triaconna,1)
+                integer(kind=inttype), optional,intent(in),check(shape(quadsconna,1)==nquadsa),depend(quadsconna) :: nquadsa=shape(quadsconna,1)
+                integer(kind=inttype), optional,intent(in),check(shape(coorb,1)==nnodesb),depend(coorb) :: nnodesb=shape(coorb,1)
+                integer(kind=inttype), optional,intent(in),check(shape(triaconnb,1)==ntriab),depend(triaconnb) :: ntriab=shape(triaconnb,1)
+                integer(kind=inttype), optional,intent(in),check(shape(quadsconnb,1)==nquadsb),depend(quadsconnb) :: nquadsb=shape(quadsconnb,1)
+                integer(kind=inttype), optional,intent(in),check(shape(coorint,1)==nnodesint),depend(coorint) :: nnodesint=shape(coorint,1)
+                integer(kind=inttype), optional,intent(in),check(shape(barsconnint,1)==nbarsint),depend(barsconnint) :: nbarsint=shape(barsconnint,1)
+                real(kind=realtype) dimension(3,nnodesa),intent(in) :: coora
+                real(kind=realtype) dimension(3,nnodesa),intent(in),depend(nnodesa) :: coorad
+                integer(kind=inttype) dimension(3,ntriaa),intent(in) :: triaconna
+                integer(kind=inttype) dimension(4,nquadsa),intent(in) :: quadsconna
+                real(kind=realtype) dimension(3,nnodesb),intent(in) :: coorb
+                real(kind=realtype) dimension(3,nnodesb),intent(in),depend(nnodesb) :: coorbd
+                integer(kind=inttype) dimension(3,ntriab),intent(in) :: triaconnb
+                integer(kind=inttype) dimension(4,nquadsb),intent(in) :: quadsconnb
+                real(kind=realtype) dimension(3,nnodesint),intent(in) :: coorint
+                real(kind=realtype) dimension(3,nnodesint),intent(out),depend(nnodesint) :: coorintd
+                integer(kind=inttype) dimension(2,nbarsint),intent(in) :: barsconnint
+                integer(kind=inttype) dimension(2,nbarsint),intent(in),depend(nbarsint) :: parenttria
+            end subroutine computeintersection_d
             subroutine releasememory ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
             end subroutine releasememory
             subroutine testtri(v0,v1,v2,u0,u1,u2,intersect,vecstart,vecend) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
