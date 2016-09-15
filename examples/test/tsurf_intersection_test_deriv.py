@@ -8,103 +8,82 @@ import os
 import pickle
 
 # TESTING FUNCTION
-'''
-# Big cube and small cube example
-comp1 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
-comp2 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
-comp2.translate(.25, 0., 0.)
-comp2.rotate(30, 0)
-comp2.rotate(30, 1)
-comp2.rotate(30, 2)
-comp2.scale(1.5)
-'''
 
-'''
-# Wing-body example
-comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns', ['w_upp','w_low','w_ted'])
-comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns', ['b_fwd','b_cnt','b_rrf'])
-comp1.translate(0.0, -10.0, 0.0) # Move wing inboard so we have a well-defined intersection
-'''
+# Load components
+wing = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
+body = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
-class TestCurveIntersection(unittest.TestCase):
+comp1 = wing
+comp2 = body
 
-    def test_curve_intersection(self):
+#========================================================
 
-        os.system('rm curve*')
+def test_curve_intersection(deltaZ):
 
-        # Set communicator
-        comm = MPI.COMM_WORLD
+    # Set communicator
+    comm = MPI.COMM_WORLD
 
-        # Cube and cylinder example
-        comp1 = pysurf.TSurfGeometry('../inputs/cube.cgns', comm)
-        comp2 = pysurf.TSurfGeometry('../inputs/cylinder.cgns', comm)
+    # Apply translation
+    wing.translate(0,-10.0,deltaZ)
 
-        # Call intersection function
-        comp1.intersect(comp2)
+    # Call intersection function
+    wing.intersect(body)
 
-        '''
-        # Split intersections
-        pysurf.tsurf_tools.split_curves(comp2.curves)
-
-        with open('intersection_dict.pickle', 'r') as f:
-            master_dict = pickle.load(f)
-
-        # Export curves in plot3d format
-        curveID = 0
-        # master_dict = {}
-        for curve in comp2.curves.itervalues():
-            # Save only intersection curves
-            if 'int' in curve.name:
-                curveID = curveID + 1
-                #curve.export_plot3d('curve_%03d'%curveID)
-
-                # master_dict.update({curveID : curve.coor})
-                coor_master = master_dict[curveID]
-                np.testing.assert_almost_equal(coor_master, curve.coor)
-
-        # Save the intersection curves for comparison
-        # with open('intersection_dict.pickle', 'w') as f:
-        #     pickle.dump(master_dict, f)
-        '''
-
-        # Testing derivatives
+    # Testing derivatives
         
-        # Get intersection curve
-        for curve in comp1.curves:
-            if 'int' in curve:
-                intCurve = comp1.curves[curve]
+    # Get intersection curve
+    for curve in comp1.curves:
+        if 'int' in curve:
+            intCurve = comp1.curves[curve]
 
-                # Running backward mode
+            # Running backward mode
 
-                coorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
+            coorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
 
-                coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
-                                                                                 comp2,
-                                                                                 intCurve,
-                                                                                 coorIntb)
+            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
+                                                                             comp2,
+                                                                             intCurve,
+                                                                             coorIntb)
 
-                # Running forward mode
+            # Running forward mode
 
-                coorAd = np.array(np.random.rand(comp1.coor.shape[0],comp1.coor.shape[1]),order='F')
-                coorBd = np.array(np.random.rand(comp2.coor.shape[0],comp2.coor.shape[1]),order='F')
+            coorAd = np.array(np.random.rand(comp1.coor.shape[0],comp1.coor.shape[1]),order='F')
+            coorBd = np.array(np.random.rand(comp2.coor.shape[0],comp2.coor.shape[1]),order='F')
 
-                coorIntd = pysurf.tsurf_tools._compute_pair_intersection_d(comp1,
-                                                                           comp2,
-                                                                           intCurve,
-                                                                           coorAd,
-                                                                           coorBd)
+            coorIntd = pysurf.tsurf_tools._compute_pair_intersection_d(comp1,
+                                                                       comp2,
+                                                                       intCurve,
+                                                                       coorAd,
+                                                                       coorBd)
 
-                # Dot product test
-                dotProd = 0.0
-                dotProd = dotProd + np.sum(coorIntb*coorIntd)
-                dotProd = dotProd - np.sum(coorAb*coorAd)
-                dotProd = dotProd - np.sum(coorBb*coorBd)
+            # Dot product test
+            dotProd = 0.0
+            dotProd = dotProd + np.sum(coorIntb*coorIntd)
+            dotProd = dotProd - np.sum(coorAb*coorAd)
+            dotProd = dotProd - np.sum(coorBb*coorBd)
 
-                # Print results
-                print 'dotProd test'
-                print dotProd
-            
+            # Print results
+            print 'dotProd test'
+            print dotProd
 
+            # Now compute the derivative for the Y coordinate of the first point of the intersection
+            Y = intCurve.coor[1,0]
+            coorIntb[:,:] = 0.0
+            coorIntb[1,0] = 1.0
+            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
+                                                                             comp2,
+                                                                             intCurve,
+                                                                             coorIntb)
+            dYdZ = np.sum(coorAb[2,:])
 
-if __name__ == "__main__":
-    unittest.main()
+    # Remove translation
+    comp1.translate(0,+10.0,-deltaZ)
+
+    # Return results
+    return Y, dYdZ
+
+#========================================================
+
+Y, dYdZ = test_curve_intersection(0.0)
+print Y
+print dYdZ
