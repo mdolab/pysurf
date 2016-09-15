@@ -421,7 +421,7 @@ class TSurfCurve(Curve):
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
         # Flip the extra data
-        self.extra_data = self.extra_data[:,::-1]
+        self.extra_data = self.extra_data[::-1]
 
     def translate(self, x, y, z):
         tst.translate(self, x, y, z)
