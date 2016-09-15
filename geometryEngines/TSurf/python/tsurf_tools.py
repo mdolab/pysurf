@@ -1457,3 +1457,15 @@ def rotate(Geometry, angle, axis, point=None):
     rotationMat[ind2, ind2] = np.cos(angle)
 
     Geometry.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point
+
+def compute_intersection_derivatives(geom1, geom2, int_curve):
+
+    # get the int_curve here
+    # select a point on the int_curve and set the seed
+    # introduce int_curveb as newcoorb to the remesh_main_b
+
+    # get coorb from remesh_main_b
+    # send coorb to intersection_b
+
+    # get coorAb from intersection (the one for the actual geometry)
+    # apply translation derivative (0, 0, 1) on coorAb and dot to get the scalar

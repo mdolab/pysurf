@@ -210,7 +210,7 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   nElem = nNodes - 1
 
   ! First we check if the FE data is ordered
-  do elemID=3,nElem
+  do elemID=2,nElem
 
     ! Get node indices
     prevNodeID = barsConn(2, elemID-1)
@@ -259,10 +259,9 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   ! These statements should initially create parametric coordinates in the interval
   ! [0.0, 1.0]. We will rescale it after the if statements.
   if (spacing .eq. 'linear') then
-    call linspace(0.0, 1.0, nNewNodes, newArcLength)
-
+    call linspace(0.0_8, 1.0_8, nNewNodes, newArcLength)
   else if (spacing .eq. 'cosine') then
-    call linspace(0.0, 3.141592653589793, nNewNodes, newArcLength)
+    call linspace(0.0_8, 3.141592653589793_8, nNewNodes, newArcLength)
     newArcLength = 0.5 * (1.0 - cos(newArcLength))
   end if
 
