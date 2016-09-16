@@ -43,7 +43,7 @@ CONTAINS
         prevcoor = coor(:, prevnodeid)
 ! Compute distance between nodes
         arg1(:) = currcoor - prevcoor
-        dist = NORM(arg1(:))
+        CALL NORM(arg1(:), dist)
 ! Check if the distance is below the merging tolerance
         IF (dist .LE. disttol) THEN
 ! Update link array.
@@ -91,38 +91,380 @@ CONTAINS
       barsconn(2, elemid) = linkold2new(barsconn(2, elemid))
     END DO
   END SUBROUTINE CONDENSEBARNODES_MAIN
-!  Differentiation of dot in reverse (adjoint) mode:
-!   gradient     of useful results: dot a b
-!   with respect to varying inputs: a b
+!  Differentiation of remesh_main in reverse (adjoint) mode:
+!   gradient     of useful results: coor newcoor
+!   with respect to varying inputs: coor newcoor
+!   RW status of diff variables: coor:incr newcoor:in-out
+  SUBROUTINE REMESH_MAIN_B(nnodes, nnewnodes, coor, coorb, barsconn, &
+&   method, spacing, newcoor, newcoorb, newbarsconn)
+    IMPLICIT NONE
+! Input variables
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes, nnewnodes
+    CHARACTER(len=32), INTENT(IN) :: method, spacing
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: coor
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: coorb
+    INTEGER(kind=inttype), DIMENSION(2, nnodes - 1) :: barsconn
+! Output variables
+    REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
+    REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoorb
+    INTEGER(kind=inttype), DIMENSION(2, nnewnodes - 1) :: newbarsconn
+! Working variables
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoor
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoorb
+    REAL(kind=realtype), DIMENSION(nnodes) :: arclength
+    REAL(kind=realtype), DIMENSION(nnodes) :: arclengthb
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, nelem
+    REAL(kind=realtype) :: dist
+    REAL(kind=realtype) :: distb
+    REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
+    REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclengthb
+    REAL(kind=realtype), DIMENSION(3) :: node1, node2
+    REAL(kind=realtype), DIMENSION(3) :: node1b, node2b
+    LOGICAL :: periodic
+    INTRINSIC COS
+    REAL(kind=realtype), DIMENSION(3) :: arg1
+    REAL(kind=realtype), DIMENSION(3) :: arg1b
+    INTEGER :: ad_count
+    INTEGER :: i
+    INTEGER :: branch
+    nelem = nnodes - 1
+    ad_count = 1
+! First we check if the FE data is ordered
+    DO elemid=2,nelem
+! Get node indices
+      prevnodeid = barsconn(2, elemid-1)
+      currnodeid = barsconn(1, elemid)
+! Check if the FE data is ordered
+      IF (prevnodeid .NE. currnodeid) THEN
+        GOTO 100
+      ELSE
+        ad_count = ad_count + 1
+      END IF
+    END DO
+    CALL PUSHCONTROL1B(0)
+    CALL PUSHINTEGER4(ad_count)
+! COMPUTE ARC-LENGTH
+! We can proceed if FE data is ordered
+! Store position of the first node (the other nodes will be covered in the loop)
+! (the -1 is due Fortran indexing)
+    nodecoor(:, 1) = coor(:, barsconn(1, 1))
+! Loop over each element to increment arcLength
+    DO elemid=1,nelem
+! Get node positions (the -1 is due Fortran indexing)
+      node1 = coor(:, barsconn(1, elemid))
+      node2 = coor(:, barsconn(2, elemid))
+! Compute distance between nodes
+      arg1(:) = node1 - node2
+      CALL NORM(arg1(:), dist)
+! Store nodal arc-length
+      arclength(elemid+1) = arclength(elemid) + dist
+! Store coordinates of the next node
+      nodecoor(:, elemid+1) = node2
+    END DO
+! SAMPLING POSITION FOR NEW NODES
+! Now that we know the initial and final arcLength, we can redistribute the
+! parametric coordinates based on the used defined spacing criteria.
+! These statements should initially create parametric coordinates in the interval
+! [0.0, 1.0]. We will rescale it after the if statements.
+    IF (spacing .EQ. 'linear') THEN
+      CALL LINSPACE(0.0_8, 1.0_8, nnewnodes, newarclength)
+    ELSE IF (spacing .EQ. 'cosine') THEN
+      CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
+      newarclength = 0.5*(1.0-COS(newarclength))
+    END IF
+! Rescale newArcLength based on the final distance
+    CALL PUSHREAL4ARRAY(newarclength, realtype*nnewnodes/4)
+    newarclength = arclength(nnodes)*newarclength
+! INTERPOLATE NEW NODES
+! Now we sample the new coordinates based on the interpolation method given by the user
+! Create interpolants for x, y, and z
+! ASSIGN NEW COORDINATES AND CONNECTIVITIES
+! Check if the baseline curve is periodic
+    arclengthb = 0.0
+    nodecoorb = 0.0
+    newarclengthb = 0.0
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, nodecoor(3, :), &
+&             nodecoorb(3, :), nnewnodes, newarclength, newarclengthb, &
+&             newcoor(3, :), newcoorb(3, :))
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, nodecoor(2, :), &
+&             nodecoorb(2, :), nnewnodes, newarclength, newarclengthb, &
+&             newcoor(2, :), newcoorb(2, :))
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, nodecoor(1, :), &
+&             nodecoorb(1, :), nnewnodes, newarclength, newarclengthb, &
+&             newcoor(1, :), newcoorb(1, :))
+    CALL POPREAL4ARRAY(newarclength, realtype*nnewnodes/4)
+    arclengthb(nnodes) = arclengthb(nnodes) + SUM(newarclength*&
+&     newarclengthb)
+    DO elemid=nelem,1,-1
+      node2 = coor(:, barsconn(2, elemid))
+      node2b = 0.0
+      arclengthb(elemid) = arclengthb(elemid) + arclengthb(elemid+1)
+      distb = arclengthb(elemid+1)
+      arclengthb(elemid+1) = 0.0
+      node1 = coor(:, barsconn(1, elemid))
+      arg1(:) = node1 - node2
+      CALL NORM_B0(arg1(:), arg1b(:), dist, distb)
+      node2b = nodecoorb(:, elemid+1) - arg1b(:)
+      nodecoorb(:, elemid+1) = 0.0
+      node1b = 0.0
+      node1b = arg1b(:)
+      coorb(:, barsconn(2, elemid)) = coorb(:, barsconn(2, elemid)) + &
+&       node2b
+      coorb(:, barsconn(1, elemid)) = coorb(:, barsconn(1, elemid)) + &
+&       node1b
+    END DO
+    coorb(:, barsconn(1, 1)) = coorb(:, barsconn(1, 1)) + nodecoorb(:, 1&
+&     )
+    GOTO 110
+ 100 CALL PUSHCONTROL1B(1)
+    CALL PUSHINTEGER4(ad_count)
+ 110 CALL POPINTEGER4(ad_count)
+    DO i=1,ad_count
+      IF (i .EQ. 1) CALL POPCONTROL1B(branch)
+    END DO
+  END SUBROUTINE REMESH_MAIN_B
+  SUBROUTINE REMESH_MAIN(nnodes, nnewnodes, coor, barsconn, method, &
+&   spacing, newcoor, newbarsconn)
+    IMPLICIT NONE
+! Input variables
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes, nnewnodes
+    CHARACTER(len=32), INTENT(IN) :: method, spacing
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: coor
+    INTEGER(kind=inttype), DIMENSION(2, nnodes - 1) :: barsconn
+! Output variables
+    REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
+    INTEGER(kind=inttype), DIMENSION(2, nnewnodes - 1) :: newbarsconn
+! Working variables
+    REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoor
+    REAL(kind=realtype), DIMENSION(nnodes) :: arclength
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, nelem
+    REAL(kind=realtype) :: dist
+    REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
+    REAL(kind=realtype), DIMENSION(3) :: node1, node2
+    LOGICAL :: periodic
+    INTRINSIC COS
+    REAL(kind=realtype), DIMENSION(3) :: arg1
+    nelem = nnodes - 1
+! First we check if the FE data is ordered
+    DO elemid=2,nelem
+! Get node indices
+      prevnodeid = barsconn(2, elemid-1)
+      currnodeid = barsconn(1, elemid)
+! Check if the FE data is ordered
+      IF (prevnodeid .NE. currnodeid) THEN
+! Print warning
+        PRINT*, &
+&    'WARNING: Could not remesh curve because it has unordered FE data.'
+        PRINT*, '         Call FEsort first.'
+        RETURN
+      END IF
+    END DO
+! COMPUTE ARC-LENGTH
+! We can proceed if FE data is ordered
+! Store position of the first node (the other nodes will be covered in the loop)
+! (the -1 is due Fortran indexing)
+    nodecoor(:, 1) = coor(:, barsconn(1, 1))
+! Loop over each element to increment arcLength
+    DO elemid=1,nelem
+! Get node positions (the -1 is due Fortran indexing)
+      node1 = coor(:, barsconn(1, elemid))
+      node2 = coor(:, barsconn(2, elemid))
+! Compute distance between nodes
+      arg1(:) = node1 - node2
+      CALL NORM(arg1(:), dist)
+! Store nodal arc-length
+      arclength(elemid+1) = arclength(elemid) + dist
+! Store coordinates of the next node
+      nodecoor(:, elemid+1) = node2
+    END DO
+! SAMPLING POSITION FOR NEW NODES
+! Now that we know the initial and final arcLength, we can redistribute the
+! parametric coordinates based on the used defined spacing criteria.
+! These statements should initially create parametric coordinates in the interval
+! [0.0, 1.0]. We will rescale it after the if statements.
+    IF (spacing .EQ. 'linear') THEN
+      CALL LINSPACE(0.0_8, 1.0_8, nnewnodes, newarclength)
+    ELSE IF (spacing .EQ. 'cosine') THEN
+      CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
+      newarclength = 0.5*(1.0-COS(newarclength))
+    END IF
+! Rescale newArcLength based on the final distance
+    newarclength = arclength(nnodes)*newarclength
+! INTERPOLATE NEW NODES
+! Now we sample the new coordinates based on the interpolation method given by the user
+! Create interpolants for x, y, and z
+    CALL INTERP1D(1, nnodes, arclength, nodecoor(1, :), nnewnodes, &
+&           newarclength, newcoor(1, :))
+    CALL INTERP1D(1, nnodes, arclength, nodecoor(2, :), nnewnodes, &
+&           newarclength, newcoor(2, :))
+    CALL INTERP1D(1, nnodes, arclength, nodecoor(3, :), nnewnodes, &
+&           newarclength, newcoor(3, :))
+! ASSIGN NEW COORDINATES AND CONNECTIVITIES
+! Check if the baseline curve is periodic
+    IF (barsconn(1, 1) .EQ. barsconn(2, nnodes-1)) THEN
+      periodic = .true.
+    ELSE
+      periodic = .false.
+    END IF
+! Generate new connectivity (the nodes are already in order so we just
+! need to assign an ordered set to barsConn).
+    DO elemid=1,nnewnodes-1
+      newbarsconn(1, elemid) = elemid
+      newbarsconn(2, elemid) = elemid + 1
+    END DO
+! We still need to keep periodicity if the original curve is periodic
+    IF (periodic) newbarsconn(2, nnewnodes-1) = newbarsconn(1, 1)
+  END SUBROUTINE REMESH_MAIN
 !============================================================
-  SUBROUTINE DOT_B(a, ab, b, bb, dotb)
+  SUBROUTINE LINSPACE(l, k, n, z)
+    IMPLICIT NONE
+!// Argument declarations
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), DIMENSION(n), INTENT(OUT) :: z
+    REAL(kind=realtype), INTENT(IN) :: l
+    REAL(kind=realtype), INTENT(IN) :: k
+!// local variables
+    INTEGER(kind=inttype) :: i
+    REAL(kind=realtype) :: d
+    d = (k-l)/(n-1)
+    z(1) = l
+    DO i=2,n-1
+      z(i) = z(i-1) + d
+    END DO
+    z(1) = l
+    z(n) = k
+    RETURN
+  END SUBROUTINE LINSPACE
+!  Differentiation of interp1d in reverse (adjoint) mode:
+!   gradient     of useful results: p_interp p_data t_data t_interp
+!   with respect to varying inputs: p_interp p_data t_data t_interp
+  SUBROUTINE INTERP1D_B(m, data_num, t_data, t_datab, p_data, p_datab, &
+&   interp_num, t_interp, t_interpb, p_interp, p_interpb)
+    IMPLICIT NONE
+    INTEGER(kind=inttype) :: data_num
+    INTEGER(kind=inttype) :: m
+    INTEGER(kind=inttype) :: interp_num
+    INTEGER(kind=inttype) :: interp
+    INTEGER(kind=inttype) :: left
+    REAL(kind=realtype) :: p_data(data_num)
+    REAL(kind=realtype) :: p_datab(data_num)
+    REAL(kind=realtype) :: p_interp(interp_num)
+    REAL(kind=realtype) :: p_interpb(interp_num)
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: t
+    REAL(kind=realtype) :: tb
+    REAL(kind=realtype) :: t_data(data_num)
+    REAL(kind=realtype) :: t_datab(data_num)
+    REAL(kind=realtype) :: t_interp(interp_num)
+    REAL(kind=realtype) :: t_interpb(interp_num)
+    REAL(kind=realtype) :: tempb0
+    REAL(kind=realtype) :: tempb
+    DO interp=1,interp_num
+      t = t_interp(interp)
+!
+!  Find the interval [ TDATA(LEFT), TDATA(RIGHT) ] that contains, or is
+!  nearest to, TVAL.
+!
+      CALL PUSHINTEGER4ARRAY(right, inttype/4)
+      CALL PUSHINTEGER4ARRAY(left, inttype/4)
+      CALL R8VEC_BRACKET(data_num, t_data, t, left, right)
+    END DO
+    DO interp=interp_num,1,-1
+      t = t_interp(interp)
+      tempb = p_interpb(interp)/(t_data(right)-t_data(left))
+      tempb0 = -(((t_data(right)-t)*p_data(left)+(t-t_data(left))*p_data&
+&       (right))*tempb/(t_data(right)-t_data(left)))
+      t_datab(right) = t_datab(right) + tempb0 + p_data(left)*tempb
+      tb = (p_data(right)-p_data(left))*tempb
+      p_datab(left) = p_datab(left) + (t_data(right)-t)*tempb
+      t_datab(left) = t_datab(left) - tempb0 - p_data(right)*tempb
+      p_datab(right) = p_datab(right) + (t-t_data(left))*tempb
+      p_interpb(interp) = 0.0
+      CALL POPINTEGER4ARRAY(left, inttype/4)
+      CALL POPINTEGER4ARRAY(right, inttype/4)
+      t_interpb(interp) = t_interpb(interp) + tb
+    END DO
+  END SUBROUTINE INTERP1D_B
+  SUBROUTINE INTERP1D(m, data_num, t_data, p_data, interp_num, t_interp&
+&   , p_interp)
+    IMPLICIT NONE
+    INTEGER(kind=inttype) :: data_num
+    INTEGER(kind=inttype) :: m
+    INTEGER(kind=inttype) :: interp_num
+    INTEGER(kind=inttype) :: interp
+    INTEGER(kind=inttype) :: left
+    REAL(kind=realtype) :: p_data(data_num)
+    REAL(kind=realtype) :: p_interp(interp_num)
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: t
+    REAL(kind=realtype) :: t_data(data_num)
+    REAL(kind=realtype) :: t_interp(interp_num)
+    DO interp=1,interp_num
+      t = t_interp(interp)
+!
+!  Find the interval [ TDATA(LEFT), TDATA(RIGHT) ] that contains, or is
+!  nearest to, TVAL.
+!
+      CALL R8VEC_BRACKET(data_num, t_data, t, left, right)
+      p_interp(interp) = ((t_data(right)-t)*p_data(left)+(t-t_data(left)&
+&       )*p_data(right))/(t_data(right)-t_data(left))
+    END DO
+    RETURN
+  END SUBROUTINE INTERP1D
+  SUBROUTINE R8VEC_BRACKET(n, x, xval, left, right)
+    IMPLICIT NONE
+    INTEGER(kind=inttype) :: n
+    INTEGER(kind=inttype) :: i
+    INTEGER(kind=inttype) :: left
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: x(n)
+    REAL(kind=realtype) :: xval
+    DO i=2,n-1
+      IF (xval .LT. x(i)) THEN
+        left = i - 1
+        right = i
+        RETURN
+      END IF
+    END DO
+    left = n - 1
+    right = n
+    RETURN
+  END SUBROUTINE R8VEC_BRACKET
+!============================================================
+  SUBROUTINE DOT(a, b, dot_)
     IMPLICIT NONE
     REAL(kind=realtype), INTENT(IN) :: a(3), b(3)
-    REAL(kind=realtype) :: ab(3), bb(3)
-    REAL(kind=realtype) :: dot
-    REAL(kind=realtype) :: dotb
-    ab(1) = ab(1) + b(1)*dotb
-    bb(1) = bb(1) + a(1)*dotb
-    ab(2) = ab(2) + b(2)*dotb
-    bb(2) = bb(2) + a(2)*dotb
-    ab(3) = ab(3) + b(3)*dotb
-    bb(3) = bb(3) + a(3)*dotb
-  END SUBROUTINE DOT_B
+    REAL(kind=realtype), INTENT(OUT) :: dot_
+    dot_ = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
+  END SUBROUTINE DOT
+!  Differentiation of norm in reverse (adjoint) mode:
+!   gradient     of useful results: norm_
+!   with respect to varying inputs: a
 !============================================================
-  FUNCTION NORM(a)
+  SUBROUTINE NORM_B0(a, ab, norm_, norm_b)
     IMPLICIT NONE
     REAL(kind=realtype), INTENT(IN) :: a(3)
-    REAL(kind=realtype) :: norm
+    REAL(kind=realtype) :: ab(3)
+    REAL(kind=realtype) :: norm_
+    REAL(kind=realtype) :: norm_b
     INTRINSIC SQRT
-    REAL(kind=realtype) :: result1
-    result1 = DOT(a, a)
-    norm = SQRT(result1)
-  END FUNCTION NORM
+    REAL(kind=realtype) :: tempb
+    ab = 0.0
+    IF (a(1)**2 + a(2)**2 + a(3)**2 .EQ. 0.0) THEN
+      tempb = 0.0
+    ELSE
+      tempb = norm_b/(2.0*SQRT(a(1)**2+a(2)**2+a(3)**2))
+    END IF
+    ab(1) = ab(1) + 2*a(1)*tempb
+    ab(2) = ab(2) + 2*a(2)*tempb
+    ab(3) = ab(3) + 2*a(3)*tempb
+  END SUBROUTINE NORM_B0
 !============================================================
-  FUNCTION DOT(a, b)
+  SUBROUTINE NORM(a, norm_)
     IMPLICIT NONE
-    REAL(kind=realtype), INTENT(IN) :: a(3), b(3)
-    REAL(kind=realtype) :: dot
-    dot = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
-  END FUNCTION DOT
+    REAL(kind=realtype), INTENT(IN) :: a(3)
+    REAL(kind=realtype), INTENT(OUT) :: norm_
+    INTRINSIC SQRT
+    norm_ = SQRT(a(1)*a(1) + a(2)*a(2) + a(3)*a(3))
+  END SUBROUTINE NORM
 END MODULE UTILITIES_B

@@ -9,11 +9,11 @@
 #      ******************************************************************
 
 SUBDIR_SRC    = src/common \
+						src/adjoint \
 	        src/utilities \
 		src/CGNSInterface \
 		src/ADT \
 		src/curveSearch \
-		src/adjoint \
 		src/intersections \
 
 default:

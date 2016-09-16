@@ -66,8 +66,6 @@ subroutine remesh(nNodes, nNewNodes, coor, barsConn, method, spacing, newCoor, n
   real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoor
   integer(kind=intType), dimension(2,nNewNodes-1), intent(out) :: newBarsConn
 
-  !!@!!!!! FIX THIS RIGHT HERE
-
   !f2py intent(in) nNodes, nNewNodes
   !f2py intent(in) coor, barsConn
   !f2py intent(out) newCoor, newBarsConn
@@ -79,6 +77,75 @@ subroutine remesh(nNodes, nNewNodes, coor, barsConn, method, spacing, newCoor, n
 
 
 end subroutine remesh
+
+subroutine remesh_b(nNodes, nNewNodes, coor, newCoorb, barsConn, method, spacing, newCoor, newBarsConn, coorb)
+
+  ! Remesh the given curve based on user-set options to obtain a better spacing
+  ! John Jasa 2016-09
+
+  use utilities_b, only: remesh_main_b
+  implicit none
+
+  ! Input variables
+  integer(kind=intType), intent(in) :: nNodes, nNewNodes
+  character(32), intent(in) :: method, spacing
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+  real(kind=realType), dimension(3,nNewNodes), intent(in) :: newCoorb
+  integer(kind=intType), dimension(2,nNodes-1), intent(in) :: barsConn
+
+  ! Output variables
+  real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoor
+  real(kind=realType), dimension(3,nNodes), intent(out) :: coorb
+  integer(kind=intType), dimension(2,nNewNodes-1), intent(out) :: newBarsConn
+
+  integer(kind=intType) :: i
+
+  !f2py intent(in) nNodes, nNewNodes
+  !f2py intent(in) coor, barsConn, newCoorb
+  !f2py intent(out) newCoor, newBarsConn, coorb
+
+  ! EXECUTION
+
+  ! Just call the main routine that will do the actual job
+  call remesh_main_b(nNodes, nNewNodes, coor, coorb, barsConn, method, spacing, newCoor, newCoorb, newBarsConn)
+
+  ! print *, 'newCoor:'
+  ! do i=1,3
+  !   print *, newCoor(i, :)
+  ! end do
+
+end subroutine remesh_b
+
+subroutine remesh_d(nNodes, nNewNodes, coor, coord, barsConn, method, spacing, newCoor, newCoord, newBarsConn)
+
+  ! Remesh the given curve based on user-set options to obtain a better spacing
+  ! John Jasa 2016-09
+
+  use utilities_d, only: remesh_main_d
+  implicit none
+
+  ! Input variables
+  integer(kind=intType), intent(in) :: nNodes, nNewNodes
+  character(32), intent(in) :: method, spacing
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coord
+  integer(kind=intType), dimension(2,nNodes-1), intent(in) :: barsConn
+
+  ! Output variables
+  real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoor
+  real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoord
+  integer(kind=intType), dimension(2,nNewNodes-1), intent(out) :: newBarsConn
+
+  !f2py intent(in) nNodes, nNewNodes
+  !f2py intent(in) coor, barsConn, coord
+  !f2py intent(out) newCoor, newBarsConn, newCoord
+
+  ! EXECUTION
+
+  ! Just call the main routine that will do the actual job
+  call remesh_main_d(nNodes, nNewNodes, coor, coord, barsConn, method, spacing, newCoor, newCoord, newBarsConn)
+
+end subroutine remesh_d
 
 !=============================================
 

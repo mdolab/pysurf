@@ -30,7 +30,7 @@ def test_curve_intersection(deltaZ):
     wing.intersect(body)
 
     # Testing derivatives
-        
+
     # Get intersection curve
     for curve in comp1.curves:
         if 'int' in curve:
@@ -65,6 +65,11 @@ def test_curve_intersection(deltaZ):
             # Print results
             print 'dotProd test'
             print dotProd
+
+
+            # Remesh here
+            # wing._remesh_b(np.zeros(wing.coor.shape)+1.)
+
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection
             Y = intCurve.coor[1,0]
