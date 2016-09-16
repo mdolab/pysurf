@@ -7,9 +7,15 @@ implicit none
 ! can read them from Python
 
 ! Intersection FE data
-real(kind=realType), dimension(:,:), allocatable :: coor ! Intersection nodes
-integer(kind=intType), dimension(:,:), allocatable :: barsConn ! Intersection bar connectivities
-integer(kind=intType), dimension(:,:), allocatable :: parentTria ! Pairs of triangles that generated the intersection
+! coor: real(3,nNodesInt) -> Coordinates of the nodes that define the intersection.
+real(kind=realType), dimension(:,:), allocatable :: coor
+
+! barsConn: integer(2,nBarsInt) -> Connectivities of the bar elements that define the intersection.
+integer(kind=intType), dimension(:,:), allocatable :: barsConn
+
+! parentTria: integer(2,nBarsInt) -> Triangle pairs (from component A and component B) that
+!                                    generated each intersection bar element.
+integer(kind=intType), dimension(:,:), allocatable :: parentTria
 
 contains
 
@@ -24,11 +30,35 @@ subroutine computeIntersection(nNodesA, nTriaA, nQuadsA, &
   !
   ! INPUTS
   !
+  ! nNodesA: integer -> number of nodes in component A
+  !
+  ! nTriaA: integer -> number of triangle elements in component A
+  !
+  ! nQuadsA: integer -> number of quad elements in component A
+  !
+  ! nNodesB: integer -> number of nodes in component B
+  !
+  ! nTriaB: integer -> number of triangle elements in component B
+  !
+  ! nQuadsB: integer -> number of quad elements in component B
+  !
+  ! coorA: real(3,nNodesA) -> Nodal coordinates used by component A
+  !
+  ! triaConnA: integer(3,nTriaA) -> Connectivities of triangle elements in component A
+  !
+  ! quadsConnA : integer(4,nQuadsA) -> Connectivities of quad elements in component A
+  !
+  ! coorB: real(3,nNodesB) -> Nodal coordinates used by component B
+  !
+  ! triaConnB: integer(3,nTriaB) -> Connectivities of triangle elements in component B
+  !
+  ! quadsConnB : integer(4,nQuadsB) -> Connectivities of quad elements in component B
+  !
   ! distTol: real -> distance tolerance to merge nearby nodes in
   !          the intersection curve.
   !
   ! OUTPUTS
-  ! This subroutine has no explicit outputs. It updates the variables coor, and barsConn,
+  ! This subroutine has no explicit outputs. It updates the variables coor, barsConn, and parentTria
   ! which should be called from Python as attributes of the intersectionAPI module.
   !
   ! Ney Secco 2016-08
@@ -259,19 +289,51 @@ subroutine computeIntersection_b(nNodesA, nTriaA, nQuadsA, &
                                  coorA, coorAb, triaConnA, quadsConnA, &
                                  coorB, coorBb, triaConnB, quadsConnB, &
                                  coorInt, coorIntb, barsConnInt, &
-                                 parentTria)
+                                 parentTriaInt)
 
-  ! This function computes the intersection curve between two
+  ! This function computes the backward derivatives of the intersection curve between two
   ! triangulated surface components A and B.
+  ! This functions receives the seeds of the intersection points (coorIntb) and returns the
+  ! derivatives of the component points (coorAb, and coorBb)
   !
   ! INPUTS
   !
-  ! distTol: real -> distance tolerance to merge nearby nodes in
-  !          the intersection curve.
+  ! nNodesA: integer -> number of nodes in component A
+  !
+  ! nTriaA: integer -> number of triangle elements in component A
+  !
+  ! nQuadsA: integer -> number of quad elements in component A
+  !
+  ! nNodesB: integer -> number of nodes in component B
+  !
+  ! nTriaB: integer -> number of triangle elements in component B
+  !
+  ! nQuadsB: integer -> number of quad elements in component B
+  !
+  ! nNodesInt: integer -> number of nodes in the intersection curve
+  !
+  ! nBarsInt: integer -> number of bar elements in the intersection curve
+  !
+  ! coorA: real(3,nNodesA) -> Nodal coordinates used by component A
+  !
+  ! triaConnA: integer(3,nTriaA) -> Connectivities of triangle elements in component A
+  !
+  ! quadsConnA : integer(4,nQuadsA) -> Connectivities of quad elements in component A
+  !
+  ! coorB: real(3,nNodesB) -> Nodal coordinates used by component B
+  !
+  ! triaConnB: integer(3,nTriaB) -> Connectivities of triangle elements in component B
+  !
+  ! quadsConnB : integer(4,nQuadsB) -> Connectivities of quad elements in component B
+  !
+  ! coorInt: real(3,nNodesInt) -> Nodal coordinates used by the intersection curve
+  !
+  ! barsConnInt: integer(2,nBarsInt) -> Connectivities of bar elements in the intersection curve
+  !
+  ! parentTriaInt: integer(2,nBarsInt) -> Triangle pairs (from component A and component B) that
+  !                                       generated each intersection bar element.
   !
   ! OUTPUTS
-  ! This subroutine has no explicit outputs. It updates the variables coor, and barsConn,
-  ! which should be called from Python as attributes of the intersectionAPI module.
   !
   ! Ney Secco 2016-08
 
@@ -293,14 +355,14 @@ subroutine computeIntersection_b(nNodesA, nTriaA, nQuadsA, &
   real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorInt ! Intersection nodes
   real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorIntb ! Intersection nodes
   integer(kind=intType), dimension(2,nBarsInt), intent(in) :: barsConnInt ! Intersection bar connectivities
-  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTria ! Pair of triangles from A and B that generates each bar
+  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTriaInt ! Pair of triangles from A and B that generates each bar
   !f2py intent(in) nNodesA, nTriaA, nQuadsA
   !f2py intent(in) nNodesB, nTriaB, nQuadsB
   !f2py intent(in) nNodesInt, nBarsInt
   !f2py intent(in) coorA, triaConnA, quadsConnA
   !f2py intent(in) coorB, triaConnB, quadsConnB
   !f2py intent(in) coorInt, coorIntb, barsConnInt
-  !f2py intent(in) parentTria
+  !f2py intent(in) parentTriaInt
 
   ! Output variables
   real(kind=realType), dimension(3,nNodesA), intent(out) :: coorAb
@@ -377,8 +439,8 @@ subroutine computeIntersection_b(nNodesA, nTriaA, nQuadsA, &
   do barID = 1,nBarsInt
 
      ! Get parent triangles
-     parentA = parentTria(1,barID)
-     parentB = parentTria(2,barID)
+     parentA = parentTriaInt(1,barID)
+     parentB = parentTriaInt(2,barID)
 
      ! Get nodal coordinates of triangle in A
      node1A = coorA(:, allTriaConnA(1,parentA))
@@ -435,7 +497,7 @@ subroutine computeIntersection_d(nNodesA, nTriaA, nQuadsA, &
                                  coorA, coorAd, triaConnA, quadsConnA, &
                                  coorB, coorBd, triaConnB, quadsConnB, &
                                  coorInt, coorIntd, barsConnInt, &
-                                 parentTria)
+                                 parentTriaInt)
 
   ! This function computes the forward derivatives of the intersection curve between two
   ! triangulated surface components A and B. This function should not be used for optimization.
@@ -471,7 +533,7 @@ subroutine computeIntersection_d(nNodesA, nTriaA, nQuadsA, &
   integer(kind=intType), dimension(4,nQuadsB), intent(in) :: quadsConnB
   real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorInt ! Intersection nodes
   integer(kind=intType), dimension(2,nBarsInt), intent(in) :: barsConnInt ! Intersection bar connectivities
-  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTria ! Pair of triangles from A and B that generates each bar
+  integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTriaInt ! Pair of triangles from A and B that generates each bar
   !f2py intent(in) nNodesA, nTriaA, nQuadsA
   !f2py intent(in) nNodesB, nTriaB, nQuadsB
   !f2py intent(in) nNodesInt, nBarsInt
@@ -479,7 +541,7 @@ subroutine computeIntersection_d(nNodesA, nTriaA, nQuadsA, &
   !f2py intent(in) coorB, triaConnB, quadsConnB
   !f2py intent(in) coorAd, coorBd
   !f2py intent(in) coorInt, barsConnInt
-  !f2py intent(in) parentTria
+  !f2py intent(in) parentTriaInt
 
   ! Output variables
   real(kind=realType), dimension(3,nNodesInt), intent(out) :: coorIntd ! Intersection nodes
@@ -554,8 +616,8 @@ subroutine computeIntersection_d(nNodesA, nTriaA, nQuadsA, &
   do barID = 1,nBarsInt
 
      ! Get parent triangles
-     parentA = parentTria(1,barID)
-     parentB = parentTria(2,barID)
+     parentA = parentTriaInt(1,barID)
+     parentB = parentTriaInt(2,barID)
 
      ! Get nodal coordinates of triangle in A
      node1A = coorA(:, allTriaConnA(1,parentA))
@@ -611,7 +673,7 @@ subroutine releaseMemory()
 
   ! Deallocate output variables
   if (allocated(coor)) then
-     deallocate(coor, barsConn)
+     deallocate(coor, barsConn, parentTria)
   end if
 
 end subroutine releaseMemory

@@ -1,5 +1,6 @@
 module Intersection
 
+use Utilities
 use precision
 implicit none
 
@@ -280,7 +281,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     if (nodeIsInside .neqv. .true.) then
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 3)) then
-          nodeIsInside = .true.
+          nodeIsInside = .false. ! Turned off for testing purposes .true.
           exit
         end if
       end do
@@ -326,7 +327,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     if (nodeIsInside .neqv. .true.) then
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 4)) then
-          nodeIsInside = .true.
+          nodeIsInside = .false. ! Option deactivated for tests .true.
           exit
         end if
       end do
@@ -426,7 +427,7 @@ subroutine condenseBarFEs(distTol, coor, barsConn, newCoor)
         prevCoor = coor(:,prevNodeID)
 
         ! Compute distance between nodes
-        dist = norm2(currCoor - prevCoor)
+        call norm(currCoor-prevCoor, dist)
 
         ! Check if the distance is below the merging tolerance
         if (dist .le. distTol) then
@@ -600,12 +601,16 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   E1 = V1 - V0
   E2 = V2 - V0
   call cross_product(E1, E2, N1)
-  d1 = -dot_product(N1, V0)
+  call dot(N1, V0, d1)
+  d1 = -d1
 
   ! Get distances from U points to plane defined by V points
-  du0 = dot_product(N1, U0) + d1
-  du1 = dot_product(N1, U1) + d1
-  du2 = dot_product(N1, U2) + d1
+  call dot(N1, U0, du0)
+  du0 = du0 + d1
+  call dot(N1, U1, du1)
+  du1 = du1 + d1
+  call dot(N1, U2, du2)
+  du2 = du2 + d1
 
   ! Compute the signed distance product to see which side of the plane each point is on
   du0du1 = du0 * du1
@@ -622,12 +627,16 @@ subroutine triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
   E1 = U1 - U0
   E2 = U2 - U0
   call cross_product(E1, E2, N2)
-  d2 = -dot_product(N2, U0)
+  call dot(N2, U0, d2)
+  d2 = -d2
 
   ! Get distances from V points to plane defined by U points
-  dv0 = dot_product(N2, V0) + d2
-  dv1 = dot_product(N2, V1) + d2
-  dv2 = dot_product(N2, V2) + d2
+  call dot(N2, V0, dv0)
+  dv0 = dv0 + d2
+  call dot(N2, V1, dv1)
+  dv1 = dv1 + d2
+  call dot(N2, V2, dv2)
+  dv2 = dv2 + d2
 
   ! Compute the signed distance product to see which side of the plane each point is on
   dv0dv1 = dv0 * dv1

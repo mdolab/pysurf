@@ -823,7 +823,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         # have two disconnect intersection curves.
         barsConn, newMap = FEsort(barsConn.T.tolist())
 
-        # barsConn is a list of curves. Each element of the list brings
+        # Now barsConn is a list of curves. Each element of the list brings
         # FE data for a continuous curve. If the intersection generates
         # multiple disconnect curves, barsConn will be a list with
         # multiple elements.
@@ -835,6 +835,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
         for (currConn, currMap) in zip(barsConn, newMap):
 
+            # Increment counter
             intCounter = intCounter + 1
 
             # Gather name of parent components
@@ -851,7 +852,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
             newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
 
             # Store parent triangles as extra data
-            newCurve.extra_data = np.array(currParents)
+            newCurve.extra_data['parentTria'] = np.array(currParents)
 
             # Initialize curve object and append it to the list
             Intersections.append(newCurve)
@@ -879,7 +880,7 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
                                                                            intCurve.coor,
                                                                            coorIntb,
                                                                            intCurve.barsConn,
-                                                                           intCurve.extra_data)
+                                                                           intCurve.extra_data['parentTria'])
 
     # Return derivatives
     return coorAb, coorBb
@@ -889,7 +890,7 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd):
 
     '''
-    This function is the backward mode of the intersection computation.
+    This function is the forward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
     intCoorb are the derivative seeds
     '''
@@ -905,7 +906,7 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
                                                                      TSurfGeometryB.quadsConn,
                                                                      intCurve.coor,
                                                                      intCurve.barsConn,
-                                                                     intCurve.extra_data)
+                                                                     intCurve.extra_data['parentTria'])
 
     # Return derivatives
     return coorIntd
@@ -1422,10 +1423,17 @@ def scale(Geometry, factor, point=None):
 
     coor = Geometry.coor
     if not point:
-        point = np.mean(coor)
-    relCoor = coor - point
+        point = [0.0, 0.0, 0.0]
+
+    relCoor = coor
+    relCoor[0,:] = relCoor[0,:] - point[0]
+    relCoor[1,:] = relCoor[1,:] - point[1]
+    relCoor[2,:] = relCoor[2,:] - point[2]
     relCoor *= factor
-    Geometry.coor = relCoor + point
+    relCoor[0,:] = relCoor[0,:] + point[0]
+    relCoor[1,:] = relCoor[1,:] + point[1]
+    relCoor[2,:] = relCoor[2,:] + point[2]
+    Geometry.coor = relCoor
 
 def rotate(Geometry, angle, axis, point=None):
     '''
@@ -1436,7 +1444,7 @@ def rotate(Geometry, angle, axis, point=None):
 
     coor = Geometry.coor
     if not point:
-        point = np.mean(coor)
+        point = [0.0, 0.0, 0.0]
     angle = angle * np.pi / 180.
     rotationMat = np.zeros((3, 3))
 
@@ -1456,8 +1464,19 @@ def rotate(Geometry, angle, axis, point=None):
     rotationMat[ind2, ind1] = np.sin(angle)
     rotationMat[ind2, ind2] = np.cos(angle)
 
-    Geometry.coor = np.einsum('ij, jk -> ik', rotationMat, coor-point) + point
+    relCoor = coor
+    relCoor[0,:] = relCoor[0,:] - point[0]
+    relCoor[1,:] = relCoor[1,:] - point[1]
+    relCoor[2,:] = relCoor[2,:] - point[2]
 
+    relCoor = np.einsum('ij, jk -> ik', rotationMat, relCoor)
+
+    relCoor[0,:] = relCoor[0,:] + point[0]
+    relCoor[1,:] = relCoor[1,:] + point[1]
+    relCoor[2,:] = relCoor[2,:] + point[2]
+    Geometry.coor = relCoor
+
+'''
 def compute_intersection_derivatives(geom1, geom2, int_curve):
 
     # get the int_curve here
@@ -1469,4 +1488,4 @@ def compute_intersection_derivatives(geom1, geom2, int_curve):
 
     # get coorAb from intersection (the one for the actual geometry)
     # apply translation derivative (0, 0, 1) on coorAb and dot to get the scalar
-    print 'boop'
+'''

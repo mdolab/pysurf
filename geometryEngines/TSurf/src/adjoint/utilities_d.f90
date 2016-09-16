@@ -397,6 +397,20 @@ CONTAINS
     right = n
     RETURN
   END SUBROUTINE R8VEC_BRACKET
+!  Differentiation of dot in forward (tangent) mode:
+!   variations   of useful results: dot_
+!   with respect to varying inputs: a b
+!============================================================
+  SUBROUTINE DOT_D0(a, ad, b, bd, dot_, dot_d)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: a(3), b(3)
+    REAL(kind=realtype), INTENT(IN) :: ad(3), bd(3)
+    REAL(kind=realtype), INTENT(OUT) :: dot_
+    REAL(kind=realtype), INTENT(OUT) :: dot_d
+    dot_d = ad(1)*b(1) + a(1)*bd(1) + ad(2)*b(2) + a(2)*bd(2) + ad(3)*b(&
+&     3) + a(3)*bd(3)
+    dot_ = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
+  END SUBROUTINE DOT_D0
 !============================================================
   SUBROUTINE DOT(a, b, dot_)
     IMPLICIT NONE
