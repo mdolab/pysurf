@@ -913,7 +913,44 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
 
 #=================================================================
 
+
+def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear'):
+
+    # Get connectivities and coordinates of the current Curve object
+    coor = origCurve.coor
+    barsConn = origCurve.barsConn
+
+    # Get the number of nodes and elements in the curve
+    nElem = barsConn.shape[1]
+    nNodes = nElem + 1
+
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
+    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
+
+    return coorb
+
 #=================================================================
+
+def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear'):
+
+    # Get connectivities and coordinates of the current Curve object
+    coor = origCurve.coor
+    barsConn = origCurve.barsConn
+
+    # Get the number of nodes and elements in the curve
+    nElem = barsConn.shape[1]
+    nNodes = nElem + 1
+
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
+    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
+
+    return newCoord
 
 #=================================================================
 
