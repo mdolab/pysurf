@@ -20,7 +20,7 @@ plate.scale(1.0/200.0)
 plate.rotate(5.0,1)
 plate.translate(1.5, 0.8, -0.3)
 '''
-cylinder.translate(-0.5, -0.25, -0.5) 
+cylinder.translate(-0.5, -0.25, -0.5)
 cylinder.scale(2.0)
 cylinder.rotate(-90,2)
 '''
@@ -45,25 +45,17 @@ def test_curve_intersection(deltaZ,ii):
     comp1.intersect(comp2)
 
     # Testing derivatives
-        
+
     # Get intersection curve
     for curve in comp1.curves:
         if 'int' in curve:
             intCurve = comp1.curves[curve]
 
-            # Running backward mode
-
-            coorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
-
-            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
-                                                                             comp2,
-                                                                             intCurve,
-                                                                             coorIntb)
-
             # Running forward mode
 
             coorAd = np.array(np.random.rand(comp1.coor.shape[0],comp1.coor.shape[1]),order='F')
             coorBd = np.array(np.random.rand(comp2.coor.shape[0],comp2.coor.shape[1]),order='F')
+
 
             coorIntd = pysurf.tsurf_tools._compute_pair_intersection_d(comp1,
                                                                        comp2,
@@ -71,18 +63,35 @@ def test_curve_intersection(deltaZ,ii):
                                                                        coorAd,
                                                                        coorBd)
 
+            newCoorIntd = pysurf.tsurf_tools._remesh_d(intCurve, coorIntd)
+
+
+            # Running backward mode
+
+            newCoorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
+
+            coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
+
+            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
+                                                                             comp2,
+                                                                             intCurve,
+                                                                             coorIntb)
+
             # Dot product test
             dotProd = 0.0
-            dotProd = dotProd + np.sum(coorIntb*coorIntd)
+            dotProd = dotProd + np.sum(newCoorIntb*newCoorIntd)
             dotProd = dotProd - np.sum(coorAb*coorAd)
             dotProd = dotProd - np.sum(coorBb*coorBd)
 
-            # Print results
+            # Print results; should be 0
             print 'dotProd test'
             print dotProd
 
+            # Remesh the curve in a linear spacing
+            newIntCurve = intCurve.remesh()
+
             # Save the curve
-            intCurve.export_plot3d('curve_%03d'%ii)
+            newIntCurve.export_plot3d('curve_%03d'%ii)
 
             '''
             # Check which side of the curve we should pick
@@ -92,12 +101,16 @@ def test_curve_intersection(deltaZ,ii):
                 pointID = intCurve.barsConn[-1,-1]-1
             '''
             # Find the trailing edge
-            pointID = np.argmax(intCurve.coor[0,:])
+            pointID = np.argmax(newIntCurve.coor[0,:])
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection
-            Y = intCurve.coor[1,pointID]
-            coorIntb[:,:] = 0.0
-            coorIntb[1,pointID] = 1.0
+            Y = newIntCurve.coor[1,pointID]
+            newCoorIntb[:,:] = 0.0
+            newCoorIntb[1,pointID] = 1.0
+
+            # Compute the remesh derivatives
+            coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
+
             coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                              comp2,
                                                                              intCurve,

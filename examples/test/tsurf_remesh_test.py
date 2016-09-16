@@ -5,8 +5,6 @@ import numpy as np
 import pysurf
 import unittest
 
-np.random.seed(1222223)
-
 class TestRemesh(unittest.TestCase):
 
     def test_remesh(self):
@@ -25,29 +23,33 @@ class TestRemesh(unittest.TestCase):
         # Create curve object
         curve = pysurf.TSurfCurve(coor, barsConn, 'test')
 
-        ###### copying from fortran
-        # coord = np.random.rand(curve.coor.shape[0], curve.coor.shape[1])
+        # Forward mode
 
-        coord = coor * coor
+        # Get random input seeds
+        coord = np.random.random_sample(coor.shape)
         coord_copy = coord.copy()
 
-        newCoord = curve._remesh_d(coord)
+        # Get output seeds
+        newCoord = pysurf.tsurf_tools._remesh_d(curve, coord)
 
-        # newCoorb = np.random.rand(curve.coor.shape[0], curve.coor.shape[1])
 
-        newCoorb = coor * .5 + 1.
+        # Backward mode
+
+        # Get random input seeds
+        newCoorb = np.random.random_sample(newCoord.shape)
         newCoorb_copy = newCoorb.copy()
-        coorb = curve._remesh_b(newCoorb)
 
+        # Get output seeds
+        coorb = pysurf.tsurf_tools._remesh_b(curve, newCoorb)
+
+        # Compute dot product and make sure it's equal to 0
         lhs = np.sum(coord_copy * coorb)
         rhs = np.sum(newCoorb_copy * newCoord)
 
-        print
-        print 'THIS SHOULD BE ZERO:'
-        print lhs-rhs
-        curve.remesh(spacing='linear')
+        np.testing.assert_almost_equal(rhs-lhs, 0.)
 
-
+        # Remesh and ensure values are as expected
+        curve = curve.remesh()
         master_curve = np.array([[ 0., 0.1839562, 0.4679125, 0.7671471, 1.],
                                  [0., 0., 0., 0., 0.],
                                  [0.9, 0.6580219, 0.5160438, 0.410951, 0.2]])

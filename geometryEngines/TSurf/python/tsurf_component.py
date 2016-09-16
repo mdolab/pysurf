@@ -520,8 +520,6 @@ class TSurfCurve(Curve):
 
         if fortran_flag:
             newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing)
-            self.coor = newCoor
-            self.barsConn = newBarsConn
 
         else:
 
@@ -616,7 +614,7 @@ class TSurfCurve(Curve):
             # ASSIGN NEW COORDINATES AND CONNECTIVITIES
 
             # Set new nodes
-            self.coor = newNodeCoor
+            newCoor = newNodeCoor
 
             # Check if the baseline curve is periodic
             if barsConn[0,0] == barsConn[1,-1]:
@@ -634,84 +632,15 @@ class TSurfCurve(Curve):
             if periodic:
                 barsConn[1,-1] = barsConn[0,0]
 
-            self.barsConn = barsConn
+            newBarsConn = barsConn
 
-    def _remesh_b(self, newCoorb, nNewNodes=None, method='linear', spacing='linear'):
+        # Create a new curve object and return it
+        # This way the original curve coordinates and connectivities remain the same
+        newCurve = copy.deepcopy(self)
+        newCurve.coor = newCoor
+        newCurve.barsConn = newBarsConn
 
-        # Get connectivities and coordinates of the current Curve object
-        # coor = self.orig_coor.copy()
-        # barsConn = self.orig_barsConn.copy()
-        # newCoor = self.new_coor.copy()
-        # newBarsConn = self.new_barsConn.copy()
-        coor = self.coor.copy()
-        barsConn = self.barsConn.copy()
-        newCoor = self.newCoor.copy()
-        newBarsConn = self.newBarsConn.copy()
-
-        # Get the number of nodes and elements in the curve
-        nElem = barsConn.shape[1]
-        nNodes = nElem + 1
-
-        # Use the original number of nodes if the user did not specify any
-        if nNewNodes is None:
-            nNewNodes = nNodes
-
-        print
-        print 'BACKWARD'
-        print newCoor
-        print 'input seeds:'
-        print newCoorb
-
-        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
-
-        print
-        print 'output seeds:'
-        print coorb
-        print
-        # print newCoor
-        # print newBarsConn
-        # self.coor = newCoor
-        # self.barsConn = newBarsConn
-
-        return coorb
-
-    def _remesh_d(self, coord, nNewNodes=None, method='linear', spacing='linear'):
-
-        # Get connectivities and coordinates of the current Curve object
-        # coor = self.orig_coor.copy()
-        # barsConn = self.orig_barsConn.copy()
-        # newCoor = self.new_coor.copy()
-        # newBarsConn = self.new_barsConn.copy()
-        coor = self.coor.copy()
-        barsConn = self.barsConn.copy()
-
-        # Get the number of nodes and elements in the curve
-        nElem = barsConn.shape[1]
-        nNodes = nElem + 1
-
-        # Use the original number of nodes if the user did not specify any
-        if nNewNodes is None:
-            nNewNodes = nNodes
-
-        print
-        # print 'FORWARD'
-        # print 'input seeds:'
-        # print coord
-
-        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
-
-        # print
-        # print 'output seeds:'
-        # print newCoord
-        # print
-        # print newCoor
-        self.newCoor = newCoor
-        self.newBarsConn = newBarsConn
-        # print newBarsConn
-        # self.coor = newCoor
-        # self.barsConn = newBarsConn
-
-        return newCoord
+        return newCurve
 
 
     def shift_end_nodes(self, criteria='maxX'):
