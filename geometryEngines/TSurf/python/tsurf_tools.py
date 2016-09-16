@@ -614,9 +614,9 @@ def split_curve_single(curve, curveName, criteria):
     # CHECK IF BREAKS WERE DETECTED
     # We can stop this function earlier if we detect no break points
     if len(breakList) == 0:
-        
+
         # In this case, we just create a dictionary with the original curve
-        
+
         # Initialize dictionary that will contain the split curves
         splitcurvesDict = {}
 
@@ -836,17 +836,17 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         for (currConn, currMap) in zip(barsConn, newMap):
 
             intCounter = intCounter + 1
-            
+
             # Gather name of parent components
             name1 = TSurfGeometryA.name
             name2 = TSurfGeometryB.name
-            
+
             # Create a name for the curve
             curveName = 'int_'+name1+'_'+name2+'_%02d'%intCounter
-            
+
             # Slice the parent triangles array using the sorted mapping
             currParents = parentTria[:,currMap]
-            
+
             # Create new curve object
             newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
 
@@ -1086,7 +1086,7 @@ def FEsort(barsConn):
                     # Define a new mapping in newMap
                     newMap.append(oldElemMap)
 
-            
+
 
     # Right now, newConn represent each line by an 1D array of point IDs.
     # e.g. [[2,3,4,5],[1,7,8]]
@@ -1390,7 +1390,7 @@ def detect_feature(node1, node2, element1, element2,
             return featureIsDetected
         else:
             featureIsDetected = False
-            return featureIsDetected            
+            return featureIsDetected
 
     else:
 
@@ -1469,3 +1469,4 @@ def compute_intersection_derivatives(geom1, geom2, int_curve):
 
     # get coorAb from intersection (the one for the actual geometry)
     # apply translation derivative (0, 0, 1) on coorAb and dot to get the scalar
+    print 'boop'

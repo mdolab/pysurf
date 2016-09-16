@@ -75,7 +75,7 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
         prevCoor = coor(:,prevNodeID)
 
         ! Compute distance between nodes
-        dist = norm(currCoor - prevCoor)
+        call norm(currCoor - prevCoor, dist)
 
         ! Check if the distance is below the merging tolerance
         if (dist .le. distTol) then
@@ -190,12 +190,12 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   ! Input variables
   integer(kind=intType), intent(in) :: nNodes, nNewNodes
   character(32), intent(in) :: method, spacing
-  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
-  integer(kind=intType), dimension(2,nNodes-1), intent(in) :: barsConn
+  real(kind=realType), dimension(3,nNodes) :: coor
+  integer(kind=intType), dimension(2,nNodes-1) :: barsConn
 
   ! Output variables
-  real(kind=realType), dimension(3,nNewNodes), intent(out) :: newCoor
-  integer(kind=intType), dimension(2,nNewNodes-1), intent(out) :: newBarsConn
+  real(kind=realType), dimension(3,nNewNodes) :: newCoor
+  integer(kind=intType), dimension(2,nNewNodes-1) :: newBarsConn
 
   ! Working variables
   real(kind=realType), dimension(3,nNodes) :: nodeCoor
@@ -242,7 +242,7 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
     node2 = coor(:,barsConn(2,elemID))
 
     ! Compute distance between nodes
-    dist = norm(node1 - node2)
+    call norm(node1 - node2, dist)
 
     ! Store nodal arc-length
     arcLength(elemID+1) = arcLength(elemID) + dist
@@ -489,32 +489,32 @@ end
 
 !============================================================
 
-function dot(A, B)
+subroutine dot(A, B, dot_)
 
   ! John Jasa - 2016-08
-  
+
   implicit none
-    
+
   real(kind=realType), intent(in) :: A(3), B(3)
-  real(kind=realType) :: dot
+  real(kind=realType), intent(out) :: dot_
 
-  dot = A(1)*B(1) + A(2)*B(2) + A(3)*B(3)
+  dot_ = A(1)*B(1) + A(2)*B(2) + A(3)*B(3)
 
-end function dot
+end subroutine dot
 
 !============================================================
 
-function norm(A)
+subroutine norm(A, norm_)
 
   ! John Jasa - 2016-08
-  
+
   implicit none
-    
+
   real(kind=realType), intent(in) :: A(3)
-  real(kind=realType) :: norm
+  real(kind=realType), intent(out) :: norm_
 
-  norm = sqrt(dot(A,A))
+  norm_ = sqrt(A(1)*A(1) + A(2)*A(2) + A(3)*A(3))
 
-end function norm
+end subroutine norm
 
 end module Utilities
