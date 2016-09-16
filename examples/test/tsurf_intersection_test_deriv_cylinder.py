@@ -12,11 +12,24 @@ import pickle
 os.system('rm curve_*')
 
 # Load components
-wing = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
-body = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+plate = pysurf.TSurfGeometry('../inputs/plate.cgns',['geom','geom_1d'])
+cylinder = pysurf.TSurfGeometry('../inputs/cylinder.cgns',['geom'])
+#cylinder = pysurf.TSurfGeometry('../inputs/cubeAndCylinder.cgns',['cylinder','cylinder_1d'])
 
-comp1 = wing
-comp2 = body
+plate.scale(1.0/200.0)
+plate.rotate(5.0,1)
+plate.translate(1.5, 0.8, -0.3)
+'''
+cylinder.translate(-0.5, -0.25, -0.5) 
+cylinder.scale(2.0)
+cylinder.rotate(-90,2)
+'''
+comp1 = plate
+comp2 = cylinder
+'''
+comp1.curves['geom_1d'].export_plot3d('plate_outline')
+comp2.curves['cylinder_1d'].export_plot3d('cyl_outline')
+'''
 
 #========================================================
 
@@ -26,10 +39,10 @@ def test_curve_intersection(deltaZ,ii):
     comm = MPI.COMM_WORLD
 
     # Apply translation
-    wing.translate(0,-100.0,deltaZ)
+    comp1.translate(0.0,0.0,deltaZ)
 
     # Call intersection function
-    wing.intersect(body)
+    comp1.intersect(comp2)
 
     # Testing derivatives
         
@@ -71,19 +84,20 @@ def test_curve_intersection(deltaZ,ii):
             # Save the curve
             intCurve.export_plot3d('curve_%03d'%ii)
 
-            # Find the upper skin trailing edge point
-            pt0 = intCurve.barsConn[0,0]
-            pt1 = intCurve.barsConn[-1,-1]
-            Z0 = intCurve.coor[2,pt0-1]
-            Z1 = intCurve.coor[2,pt1-1]
-            if Z0 > Z1:
-                pointID = pt0
+            '''
+            # Check which side of the curve we should pick
+            if intCurve.coor[2,intCurve.barsConn[0,0]-1] < intCurve.coor[2,intCurve.barsConn[-1,-1]-1]:
+                pointID = intCurve.barsConn[0,0]-1
             else:
-                pointID = pt1
+                pointID = intCurve.barsConn[-1,-1]-1
+            '''
+            # Find the trailing edge
+            pointID = np.argmax(intCurve.coor[0,:])
 
-            Y = intCurve.coor[1,pointID-1]
+            # Now compute the derivative for the Y coordinate of the first point of the intersection
+            Y = intCurve.coor[1,pointID]
             coorIntb[:,:] = 0.0
-            coorIntb[1,pointID-1] = 1.0
+            coorIntb[1,pointID] = 1.0
             coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                              comp2,
                                                                              intCurve,
@@ -91,7 +105,7 @@ def test_curve_intersection(deltaZ,ii):
             dYdZ = np.sum(coorAb[2,:])
 
     # Remove translation
-    comp1.translate(0,+100.0,-deltaZ)
+    comp1.translate(0.0,0.0,-deltaZ)
 
     # Return results
     return Y, dYdZ
@@ -99,13 +113,13 @@ def test_curve_intersection(deltaZ,ii):
 #========================================================
 
 # MIN PROGRAM
-nStates = 20
-Z = np.linspace(0.0, 140.0, nStates)[-4:]
+nStates = 21
+Z = np.linspace(0.0, 0.6, nStates)
 
-Y = np.zeros(len(Z))
-dYdZ = np.zeros(len(Z))
+Y = np.zeros(nStates)
+dYdZ = np.zeros(nStates)
 
-for ii in range(len(Z)):
+for ii in range(nStates):
     print ''
     print 'translation'
     print Z[ii]

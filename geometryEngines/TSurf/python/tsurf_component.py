@@ -121,10 +121,14 @@ class TSurfGeometry(Geometry):
     def scale(self, factor):
         tst.scale(self, factor)
         tst.update_surface(self)
+        for curve in self.curves.itervalues():
+            curve.scale(factor)
 
     def rotate(self, angle, axis):
         tst.rotate(self, angle, axis)
         tst.update_surface(self)
+        for curve in self.curves.itervalues():
+            curve.rotate(angle, axis)
 
     def project_on_surface(self, xyz):
 
@@ -385,7 +389,7 @@ class TSurfCurve(Curve):
         self.coor = coor[:,:nUniqueNodes]
         self.barsConn = sortedConn
         self.name = name
-        self.extra_data = []
+        self.extra_data = {}
 
     def extract_points(self):
 
@@ -421,7 +425,8 @@ class TSurfCurve(Curve):
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
         # Flip the extra data
-        self.extra_data = self.extra_data[::-1]
+        for data in self.extra_data:
+            self.extra_data[data] = self.extra_data[data][::-1]
 
     def translate(self, x, y, z):
         tst.translate(self, x, y, z)

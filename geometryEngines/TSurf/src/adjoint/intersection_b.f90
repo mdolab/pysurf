@@ -2,8 +2,8 @@
 !  Tapenade 3.10 (r5363) -  9 Sep 2014 09:53
 !
 MODULE INTERSECTION_B
-  USE PRECISION
   USE UTILITIES_B
+  USE PRECISION
   IMPLICIT NONE
 
 CONTAINS
@@ -158,7 +158,7 @@ trialoop:DO elemid=1,ntria
 ! We do not need to check other nodes, so
 ! we jump out of the do loop
 ! Get a running sum of which nodes are on one side of the bounding box
-          ontop = ontop + nodeontop(triaconn(nodeid, elemid), :)
+          ontop = ontop + nodeontop(nodeid, :)
         END IF
       END DO
 ! Check to see if all nodes are on the same side of the bounding box
@@ -167,7 +167,8 @@ trialoop:DO elemid=1,ntria
  100  IF (nodeisinside .NEQV. .true.) THEN
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 3) THEN
-            nodeisinside = .true.
+! Turned off for testing purposes .true.
+            nodeisinside = .false.
             GOTO 110
           END IF
         END DO
@@ -202,7 +203,8 @@ quadsloop:DO elemid=1,nquads
  120  IF (nodeisinside .NEQV. .true.) THEN
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 4) THEN
-            nodeisinside = .true.
+! Option deactivated for tests .true.
+            nodeisinside = .false.
             GOTO 130
           END IF
         END DO
@@ -263,7 +265,7 @@ quadsloop:DO elemid=1,nquads
         prevcoor = coor(:, prevnodeid)
 ! Compute distance between nodes
         arg1(:) = currcoor - prevcoor
-        dist = NORM(arg1(:))
+        CALL NORM(arg1(:), dist)
 ! Check if the distance is below the merging tolerance
         IF (dist .LE. disttol) THEN
 ! Update link array.
@@ -409,8 +411,6 @@ quadsloop:DO elemid=1,nquads
     INTRINSIC ABS
     INTRINSIC MAX
     INTRINSIC MIN
-    REAL(kind=realtype) :: result1
-    REAL(kind=realtype) :: result1b
     INTEGER :: branch
     REAL(kind=realtype) :: min1
     REAL(kind=realtype) :: max1
@@ -421,15 +421,15 @@ quadsloop:DO elemid=1,nquads
     e1 = v1 - v0
     e2 = v2 - v0
     CALL CROSS_PRODUCT(e1, e2, n1)
-    result1 = DOT(n1, v0)
-    d1 = -result1
+    CALL DOT(n1, v0, d1)
+    d1 = -d1
 ! Get distances from U points to plane defined by V points
-    result1 = DOT(n1, u0)
-    du0 = result1 + d1
-    result1 = DOT(n1, u1)
-    du1 = result1 + d1
-    result1 = DOT(n1, u2)
-    du2 = result1 + d1
+    CALL DOT(n1, u0, du0)
+    du0 = du0 + d1
+    CALL DOT(n1, u1, du1)
+    du1 = du1 + d1
+    CALL DOT(n1, u2, du2)
+    du2 = du2 + d1
 ! Compute the signed distance product to see which side of the plane each point is on
     du0du1 = du0*du1
     du0du2 = du0*du2
@@ -444,15 +444,15 @@ quadsloop:DO elemid=1,nquads
       e1 = u1 - u0
       e2 = u2 - u0
       CALL CROSS_PRODUCT(e1, e2, n2)
-      result1 = DOT(n2, u0)
-      d2 = -result1
+      CALL DOT(n2, u0, d2)
+      d2 = -d2
 ! Get distances from V points to plane defined by U points
-      result1 = DOT(n2, v0)
-      dv0 = result1 + d2
-      result1 = DOT(n2, v1)
-      dv1 = result1 + d2
-      result1 = DOT(n2, v2)
-      dv2 = result1 + d2
+      CALL DOT(n2, v0, dv0)
+      dv0 = dv0 + d2
+      CALL DOT(n2, v1, dv1)
+      dv1 = dv1 + d2
+      CALL DOT(n2, v2, dv2)
+      dv2 = dv2 + d2
 ! Compute the signed distance product to see which side of the plane each point is on
       dv0dv1 = dv0*dv1
       dv0dv2 = dv0*dv2
@@ -653,31 +653,25 @@ quadsloop:DO elemid=1,nquads
 &                                    isectpointa1b, isectpointa2, &
 &                                    isectpointa2b, coplanar, intersect)
       END IF
-      result1b = dv2b
       d2b = dv1b + dv0b + dv2b
       n2b = 0.0
-      CALL DOT_B(n2, n2b, v2, v2b, result1b)
-      result1b = dv1b
-      CALL DOT_B(n2, n2b, v1, v1b, result1b)
-      result1b = dv0b
-      CALL DOT_B(n2, n2b, v0, v0b, result1b)
-      result1b = -d2b
-      CALL DOT_B(n2, n2b, u0, u0b, result1b)
+      CALL DOT_B0(n2, n2b, v2, v2b, dv2, dv2b)
+      CALL DOT_B0(n2, n2b, v1, v1b, dv1, dv1b)
+      CALL DOT_B0(n2, n2b, v0, v0b, dv0, dv0b)
+      d2b = -d2b
+      CALL DOT_B0(n2, n2b, u0, u0b, d2, d2b)
       CALL CROSS_PRODUCT_B(e1, e1b, e2, e2b, n2, n2b)
       u2b = u2b + e2b
       u0b = u0b - e1b - e2b
       u1b = u1b + e1b
     END IF
-    result1b = du2b
     d1b = du1b + du0b + du2b
     n1b = 0.0
-    CALL DOT_B(n1, n1b, u2, u2b, result1b)
-    result1b = du1b
-    CALL DOT_B(n1, n1b, u1, u1b, result1b)
-    result1b = du0b
-    CALL DOT_B(n1, n1b, u0, u0b, result1b)
-    result1b = -d1b
-    CALL DOT_B(n1, n1b, v0, v0b, result1b)
+    CALL DOT_B0(n1, n1b, u2, u2b, du2, du2b)
+    CALL DOT_B0(n1, n1b, u1, u1b, du1, du1b)
+    CALL DOT_B0(n1, n1b, u0, u0b, du0, du0b)
+    d1b = -d1b
+    CALL DOT_B0(n1, n1b, v0, v0b, d1, d1b)
     e1 = v1 - v0
     e2 = v2 - v0
     CALL CROSS_PRODUCT_B(e1, e1b, e2, e2b, n1, n1b)
@@ -729,7 +723,6 @@ quadsloop:DO elemid=1,nquads
     INTRINSIC ABS
     INTRINSIC MAX
     INTRINSIC MIN
-    REAL(kind=realtype) :: result1
     REAL(kind=realtype) :: min1
     REAL(kind=realtype) :: max1
 ! Initialize intersect and coplanar values so the program does not stop prematurely
@@ -739,15 +732,15 @@ quadsloop:DO elemid=1,nquads
     e1 = v1 - v0
     e2 = v2 - v0
     CALL CROSS_PRODUCT(e1, e2, n1)
-    result1 = DOT(n1, v0)
-    d1 = -result1
+    CALL DOT(n1, v0, d1)
+    d1 = -d1
 ! Get distances from U points to plane defined by V points
-    result1 = DOT(n1, u0)
-    du0 = result1 + d1
-    result1 = DOT(n1, u1)
-    du1 = result1 + d1
-    result1 = DOT(n1, u2)
-    du2 = result1 + d1
+    CALL DOT(n1, u0, du0)
+    du0 = du0 + d1
+    CALL DOT(n1, u1, du1)
+    du1 = du1 + d1
+    CALL DOT(n1, u2, du2)
+    du2 = du2 + d1
 ! Compute the signed distance product to see which side of the plane each point is on
     du0du1 = du0*du1
     du0du2 = du0*du2
@@ -761,15 +754,15 @@ quadsloop:DO elemid=1,nquads
       e1 = u1 - u0
       e2 = u2 - u0
       CALL CROSS_PRODUCT(e1, e2, n2)
-      result1 = DOT(n2, u0)
-      d2 = -result1
+      CALL DOT(n2, u0, d2)
+      d2 = -d2
 ! Get distances from V points to plane defined by U points
-      result1 = DOT(n2, v0)
-      dv0 = result1 + d2
-      result1 = DOT(n2, v1)
-      dv1 = result1 + d2
-      result1 = DOT(n2, v2)
-      dv2 = result1 + d2
+      CALL DOT(n2, v0, dv0)
+      dv0 = dv0 + d2
+      CALL DOT(n2, v1, dv1)
+      dv1 = dv1 + d2
+      CALL DOT(n2, v2, dv2)
+      dv2 = dv2 + d2
 ! Compute the signed distance product to see which side of the plane each point is on
       dv0dv1 = dv0*dv1
       dv0dv2 = dv0*dv2

@@ -430,6 +430,23 @@ CONTAINS
     right = n
     RETURN
   END SUBROUTINE R8VEC_BRACKET
+!  Differentiation of dot in reverse (adjoint) mode:
+!   gradient     of useful results: dot_ a b
+!   with respect to varying inputs: a b
+!============================================================
+  SUBROUTINE DOT_B0(a, ab, b, bb, dot_, dot_b)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: a(3), b(3)
+    REAL(kind=realtype) :: ab(3), bb(3)
+    REAL(kind=realtype) :: dot_
+    REAL(kind=realtype) :: dot_b
+    ab(1) = ab(1) + b(1)*dot_b
+    bb(1) = bb(1) + a(1)*dot_b
+    ab(2) = ab(2) + b(2)*dot_b
+    bb(2) = bb(2) + a(2)*dot_b
+    ab(3) = ab(3) + b(3)*dot_b
+    bb(3) = bb(3) + a(3)*dot_b
+  END SUBROUTINE DOT_B0
 !============================================================
   SUBROUTINE DOT(a, b, dot_)
     IMPLICIT NONE
