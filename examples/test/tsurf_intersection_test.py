@@ -67,7 +67,7 @@ class TestCurveIntersection(unittest.TestCase):
 
 
         # Testing derivatives
-        
+
         # Get intersection curve
         for curve in comp1.curves:
             if 'int' in curve:
@@ -76,8 +76,6 @@ class TestCurveIntersection(unittest.TestCase):
                                                                                  comp2,
                                                                                  intCurve,
                                                                                  np.ones(intCurve.coor.shape))
-                print 'boo'
-                print np.min(coorAb)
 
 
 if __name__ == "__main__":
