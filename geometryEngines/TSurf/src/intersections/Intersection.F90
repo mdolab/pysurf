@@ -237,7 +237,6 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
 
   end do nodeLoop
 
-
   ! Allocate extended arrays to store indices of the interior elements. In the worst
   ! case, all elements would be inside, so we would need to store nTria and nQuads
   ! indices in total.
@@ -253,7 +252,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
   ! First we check triangles
   triaLoop: do elemID = 1,nTria
 
-    onTop = 0
+    onTop(:) = 0
 
     ! Loop over all the nodes of the element
     do nodeID = 1,3
@@ -271,7 +270,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
       end if
 
       ! Get a running sum of which nodes are on one side of the bounding box
-      onTop = onTop + nodeOnTop(nodeID, :)
+      onTop = onTop + nodeOnTop(triaConn(nodeID, elemID), :)
 
     end do
 
@@ -281,7 +280,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     if (nodeIsInside .neqv. .true.) then
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 3)) then
-          nodeIsInside = .false. ! Turned off for testing purposes .true.
+          nodeIsInside = .true.
           exit
         end if
       end do
@@ -318,7 +317,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
       end if
 
       ! Get a running sum of which nodes are on one side of the bounding box
-      onTop = onTop + nodeOnTop(nodeID, :)
+      onTop = onTop + nodeOnTop(quadsConn(nodeID, elemID), :)
     end do
 
     ! Check to see if all nodes are on the same side of the bounding box
@@ -327,7 +326,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     if (nodeIsInside .neqv. .true.) then
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 4)) then
-          nodeIsInside = .false. ! Option deactivated for tests .true.
+          nodeIsInside = .true.
           exit
         end if
       end do
