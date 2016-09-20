@@ -6,10 +6,7 @@ import tsurf_component
 
 '''
 TODO:
-
-- Move Curve class to tsurf_component.pt
 - Add variable angle threshold to curve feature extraction and curve split
-- Add code to remove unused points from surfaces and curves
 
 '''
 
@@ -867,7 +864,24 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     '''
     This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
-    intCoorb are the derivative seeds
+
+    INPUTS:
+
+    TSurfGeometryA: TSurfGeometry object
+
+    TSurfGeometryB: TSurfGeometry object
+
+    intCurve: Intersection curve defined by both components (taken from component A)
+
+    coorIntb: float(3,nNodesInt) -> Derivative seeds of the intersection curve nodal coordinates
+
+    OUTPUTS:
+
+    coorAb: float(3,nNodesA) -> Derivative seeds of the component A nodal coordinates
+
+    coorBb: float(3,nNodesB) -> Derivative seeds of the component B nodal coordinates
+
+    Ney Secco 2016-09
     '''
 
     # Call Fortran code to find derivatives
@@ -890,9 +904,26 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd):
 
     '''
-    This function is the forward mode of the intersection computation.
+    This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
-    intCoorb are the derivative seeds
+
+    INPUTS:
+
+    TSurfGeometryA: TSurfGeometry object
+
+    TSurfGeometryB: TSurfGeometry object
+
+    intCurve: Intersection curve defined by both components (taken from component A)
+
+    coorAd: float(3,nNodesA) -> Derivative seeds of the component A nodal coordinates
+
+    coorBd: float(3,nNodesB) -> Derivative seeds of the component B nodal coordinates
+
+    OUTPUTS:
+
+    coorIntd: float(3,nNodesInt) -> Derivative seeds of the intersection curve nodal coordinates
+
+    Ney Secco 2016-09
     '''
 
     # Call Fortran code to find derivatives

@@ -12,7 +12,7 @@ import pickle
 os.system('rm curve_*')
 
 # Load components
-wing = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
+wing = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
 body = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 comp1 = wing
@@ -32,7 +32,7 @@ def test_curve_intersection(deltaZ,ii):
     wing.intersect(body)
 
     # Testing derivatives
-        
+
     # Get intersection curve
     for curve in comp1.curves:
         if 'int' in curve:
@@ -100,7 +100,7 @@ def test_curve_intersection(deltaZ,ii):
 
 # MIN PROGRAM
 nStates = 20
-Z = np.linspace(0.0, 140.0, nStates)[-4:]
+Z = np.linspace(0.0, 140.0, nStates)
 
 Y = np.zeros(len(Z))
 dYdZ = np.zeros(len(Z))

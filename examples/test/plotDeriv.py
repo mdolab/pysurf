@@ -14,14 +14,9 @@ Y = results[1,:]
 dYdZ = results[2,:]
 
 # Compute arrow coordinates
-Xarrow = np.ones(len(Z))
-Yarrow = dYdZ[:]
-MagArrow = np.sqrt(Xarrow**2 + Yarrow**2)
-Xarrow = Xarrow/MagArrow*np.abs(Yarrow)/10
-Yarrow = Yarrow/MagArrow*np.abs(Yarrow)/10
-
-print Xarrow
-print Yarrow
+dZ = Z[1]-Z[0]
+Xarrow = np.ones(len(Z))*dZ
+Yarrow = dYdZ[:]*dZ
 
 from matplotlib import patches as mpatches
 
