@@ -79,7 +79,7 @@ CONTAINS
         coor(:, ncopies) = currcoor
       END IF
     END DO
-! Now zero out the unused point in coor
+! Now zero out the unused points in coor
     coor(:, ncopies+1:nnodes) = 0.0
 ! Now the last step is updating the bars connectivity.
 ! Loop over the elements

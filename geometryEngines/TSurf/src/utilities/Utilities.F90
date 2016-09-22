@@ -133,7 +133,7 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
 
   end do
 
-  ! Now zero out the unused point in coor
+  ! Now zero out the unused points in coor
   coor(:,nCopies+1:nNodes) = 0.0
 
   ! Now the last step is updating the bars connectivity.

@@ -14,6 +14,7 @@ os.system('rm curve_*')
 #comp1.curves['geom_1d'].export_plot3d('plate_outline')
 #comp2.curves['cylinder_1d'].export_plot3d('cyl_outline')
 
+distTol = 1e-7
 
 #========================================================
 
@@ -44,7 +45,8 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
                                                                        comp2,
                                                                        intCurve,
                                                                        coorAd,
-                                                                       coorBd)
+                                                                       coorBd,
+                                                                       distTol)
 
             newCoorIntd = pysurf.tsurf_tools._remesh_d(intCurve, coorIntd)
 
@@ -58,7 +60,8 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                              comp2,
                                                                              intCurve,
-                                                                             coorIntb)
+                                                                             coorIntb,
+                                                                             distTol)
 
             # Dot product test
             dotProd = 0.0
@@ -76,15 +79,27 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             # Save the curve
             newIntCurve.export_plot3d('curve_%03d'%ii)
 
-            # Find the trailing edge
-            pointID = np.argmax(newIntCurve.coor[0,:])
+            # Find the trailing edge point
+            pt0 = newIntCurve.barsConn[0,0]
+            pt1 = newIntCurve.barsConn[-1,-1]
+            X0 = newIntCurve.coor[0,pt0-1]
+            X1 = newIntCurve.coor[0,pt1-1]
+            if X0 > X1:
+                barID = 0
+                pointID = pt0
+            else:
+                barID = -1
+                pointID = pt1
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection
-            X = newIntCurve.coor[0,pointID]
-            Y = newIntCurve.coor[1,pointID]
-            Z = newIntCurve.coor[2,pointID]
+            X = newIntCurve.coor[0,pointID-1]
+            Y = newIntCurve.coor[1,pointID-1]
+            Z = newIntCurve.coor[2,pointID-1]
             newCoorIntb[:,:] = 0.0
-            newCoorIntb[1,pointID] = 1.0
+            newCoorIntb[1,pointID-1] = 1.0
+
+            # Get nodes of the parent triangles
+            parentTriaA = newIntCurve
 
             # Compute the remesh derivatives
             coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
@@ -92,7 +107,8 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                              comp2,
                                                                              intCurve,
-                                                                             coorIntb)
+                                                                             coorIntb,
+                                                                             distTol)
             dYdZ = np.sum(coorAb[2,:])
 
     # Remove translation
@@ -117,7 +133,7 @@ def test_cylinder_level(level):
     comp1 = pysurf.TSurfGeometry('../inputs/plate.cgns',['geom','geom_1d'])
 
     comp1.scale(1.0/200.0)
-    comp1.rotate(15.0,1)
+    comp1.rotate(0.0,1)
     comp1.translate(1.5, 0.8, -0.3)
 
     # Load cylinder as component 2
@@ -125,7 +141,7 @@ def test_cylinder_level(level):
 
     comp2.scale(2.0)
 
-    nStates = 41
+    nStates = 21
     Z = np.linspace(0.0, 0.6, nStates)
 
     Y = np.zeros(nStates)

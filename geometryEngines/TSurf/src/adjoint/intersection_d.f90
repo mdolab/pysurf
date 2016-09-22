@@ -146,7 +146,7 @@ nodeloop:DO nodeid=1,nnodes
     numinnerquads = 0
 ! First we check triangles
 trialoop:DO elemid=1,ntria
-      ontop = 0
+      ontop(:) = 0
 ! Loop over all the nodes of the element
       DO nodeid=1,3
 ! Get location flag of the current node
@@ -158,7 +158,7 @@ trialoop:DO elemid=1,ntria
 ! We do not need to check other nodes, so
 ! we jump out of the do loop
 ! Get a running sum of which nodes are on one side of the bounding box
-          ontop = ontop + nodeontop(nodeid, :)
+          ontop = ontop + nodeontop(triaconn(nodeid, elemid), :)
         END IF
       END DO
 ! Check to see if all nodes are on the same side of the bounding box
@@ -167,8 +167,7 @@ trialoop:DO elemid=1,ntria
  100  IF (nodeisinside .NEQV. .true.) THEN
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 3) THEN
-! Turned off for testing purposes .true.
-            nodeisinside = .false.
+            nodeisinside = .true.
             GOTO 110
           END IF
         END DO
@@ -194,7 +193,7 @@ quadsloop:DO elemid=1,nquads
 ! We do not need to check other nodes, so
 ! we jump out of the do loop
 ! Get a running sum of which nodes are on one side of the bounding box
-          ontop = ontop + nodeontop(nodeid, :)
+          ontop = ontop + nodeontop(quadsconn(nodeid, elemid), :)
         END IF
       END DO
 ! Check to see if all nodes are on the same side of the bounding box
@@ -203,8 +202,7 @@ quadsloop:DO elemid=1,nquads
  120  IF (nodeisinside .NEQV. .true.) THEN
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 4) THEN
-! Option deactivated for tests .true.
-            nodeisinside = .false.
+            nodeisinside = .true.
             GOTO 130
           END IF
         END DO
