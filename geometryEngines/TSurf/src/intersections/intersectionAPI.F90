@@ -263,10 +263,12 @@ contains
     ! Crop extended connectivity array
     allocate(barsConn(2,nBarsConn))
     barsConn(:,:) = extBarsConn(:,:nBarsConn)
+    !deallocate(extBarsConn)
 
     ! Crop extended parents array
     allocate(parentTria(2,nBarsConn))
     parentTria(:,:) = extParentTria(:,:nBarsConn)
+    !deallocate(extParentTria)
 
     ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
     ! will be returned to Python.
@@ -278,6 +280,7 @@ contains
     ! Allocate array to hold only unique nodes
     allocate(coor(3,nUniqueNodes))
     coor(:,:) = extCoor(:,1:nUniqueNodes)
+    !deallocate(extCoor)
 
   end subroutine computeIntersection
 
@@ -289,7 +292,7 @@ contains
     coorA, coorAb, triaConnA, quadsConnA, &
     coorB, coorBb, triaConnB, quadsConnB, &
     coorInt, coorIntb, barsConnInt, &
-    parentTriaInt)
+    parentTriaInt, distTol)
 
     ! This function computes the backward derivatives of the intersection curve between two
     ! triangulated surface components A and B.
@@ -335,6 +338,9 @@ contains
     ! parentTriaInt: integer(2,nBarsInt) -> Triangle pairs (from component A and component B) that
     !                                       generated each intersection bar element.
     !
+    ! distTol: real -> distance used to check if the start and end nodes of the intersection are flipped.
+    !                  use the same distTol used for the original computeIntersection.
+    !
     ! OUTPUTS
     !
     ! coorAb: real(3,nNodesA) -> Derivative seeds of the nodal coordinates used by component A
@@ -363,6 +369,7 @@ contains
     real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorIntb ! Intersection nodes
     integer(kind=intType), dimension(2,nBarsInt), intent(in) :: barsConnInt ! Intersection bar connectivities
     integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTriaInt ! Pair of triangles from A and B that generates each bar
+    real(kind=realType), intent(in) :: distTol
     !f2py intent(in) nNodesA, nTriaA, nQuadsA
     !f2py intent(in) nNodesB, nTriaB, nQuadsB
     !f2py intent(in) nNodesInt, nBarsInt
@@ -370,6 +377,7 @@ contains
     !f2py intent(in) coorB, triaConnB, quadsConnB
     !f2py intent(in) coorInt, coorIntb, barsConnInt
     !f2py intent(in) parentTriaInt
+    !f2py intent(in) distTol
 
     ! Output variables
     real(kind=realType), dimension(3,nNodesA), intent(out) :: coorAb
@@ -390,6 +398,7 @@ contains
     real(kind=realType), dimension(3) :: node1Bb, node2Bb, node3Bb
     real(kind=realType), dimension(3) :: vecStart, vecEnd
     real(kind=realType), dimension(3) :: vecStartb, vecEndb
+    real(kind=realType), dimension(3) :: vecStartTest, vecEndTest
     integer(kind=intType) :: barID, parentA, parentB
 
     ! EXECUTION
@@ -466,6 +475,20 @@ contains
       vecStartb = coorIntb(:,barsConnInt(1,barID))
       vecEndb = coorIntb(:,barsConnInt(2,barID))
 
+      ! Run the forward function and check if vecStart and vecEnd are the same
+      call triTriIntersect(node1A, node2A, node3A, &
+           node1B, node2B, node3B, &
+           intersect, vecStartTest, vecEndTest)
+
+      ! If vecStart and vecEnd are flipped, we also need to flip the seeds
+      ! They may flip due to the FEsort algorithm
+      if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
+         ! Here we flip seeds, and we use vecStartTest as buffer for the flip operation
+         vecStartTest = vecStartb
+         vecStartb = vecEndb
+         vecEndb = vecStartTest
+      end if
+
       ! We always detect intersections
       intersect = 1
 
@@ -503,7 +526,7 @@ contains
     coorA, coorAd, triaConnA, quadsConnA, &
     coorB, coorBd, triaConnB, quadsConnB, &
     coorInt, coorIntd, barsConnInt, &
-    parentTriaInt)
+    parentTriaInt, distTol)
 
     ! This function computes the backward derivatives of the intersection curve between two
     ! triangulated surface components A and B.
@@ -551,6 +574,9 @@ contains
     ! parentTriaInt: integer(2,nBarsInt) -> Triangle pairs (from component A and component B) that
     !                                       generated each intersection bar element.
     !
+    ! distTol: real -> distance used to check if the start and end nodes of the intersection are flipped.
+    !                  use the same distTol used for the original computeIntersection.
+    !
     ! OUTPUTS
     !
     ! coorIntd: real(3,nNodesInt) -> Derivative seed of the nodal coordinates used by the intersection curve
@@ -578,6 +604,7 @@ contains
     real(kind=realType), dimension(3,nNodesInt), intent(in) :: coorInt ! Intersection nodes
     integer(kind=intType), dimension(2,nBarsInt), intent(in) :: barsConnInt ! Intersection bar connectivities
     integer(kind=intType), dimension(2,nBarsInt), intent(in) :: parentTriaInt ! Pair of triangles from A and B that generates each bar
+    real(kind=realType), intent(in) :: distTol
     !f2py intent(in) nNodesA, nTriaA, nQuadsA
     !f2py intent(in) nNodesB, nTriaB, nQuadsB
     !f2py intent(in) nNodesInt, nBarsInt
@@ -586,6 +613,7 @@ contains
     !f2py intent(in) coorAd, coorBd
     !f2py intent(in) coorInt, barsConnInt
     !f2py intent(in) parentTriaInt
+    !f2py intent(in) distTol
 
     ! Output variables
     real(kind=realType), dimension(3,nNodesInt), intent(out) :: coorIntd ! Intersection nodes
@@ -605,6 +633,7 @@ contains
     real(kind=realType), dimension(3) :: node1Bd, node2Bd, node3Bd
     real(kind=realType), dimension(3) :: vecStart, vecEnd
     real(kind=realType), dimension(3) :: vecStartd, vecEndd
+    real(kind=realType), dimension(3) :: vecStartTest, vecEndTest
     integer(kind=intType) :: barID, parentA, parentB
 
     ! EXECUTION
@@ -695,7 +724,16 @@ contains
 
       call triTriIntersect_d(node1A, node1Ad, node2A, node2Ad, node3A, node3Ad, &
       node1B, node1Bd, node2B, node2Bd, node3B, node3Bd, &
-      intersect, vecStart, vecStartd, vecEnd, vecEndd)
+      intersect, vecStartTest, vecStartd, vecEndTest, vecEndd)
+
+      ! If vecStart and vecEnd are flipped, we also need to flip the seeds.
+      ! They may flip due to the FEsort algorithm
+      if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
+         ! Here we flip seeds, and we use vecStartTest as buffer for the flip operation
+         vecStartTest = vecStartd
+         vecStartd = vecEndd
+         vecEndd = vecStartTest
+      end if
 
       ! Get bar node seeds
       coorIntd(:,barsConnInt(1,barID)) = coorIntd(:,barsConnInt(1,barID)) + vecStartd

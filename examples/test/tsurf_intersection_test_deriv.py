@@ -18,6 +18,8 @@ body = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 comp1 = wing
 comp2 = body
 
+distTol = 1e-7
+
 #========================================================
 
 def test_curve_intersection(deltaZ,ii):
@@ -38,15 +40,6 @@ def test_curve_intersection(deltaZ,ii):
         if 'int' in curve:
             intCurve = comp1.curves[curve]
 
-            # Running backward mode
-
-            coorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
-
-            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
-                                                                             comp2,
-                                                                             intCurve,
-                                                                             coorIntb)
-
             # Running forward mode
 
             coorAd = np.array(np.random.rand(comp1.coor.shape[0],comp1.coor.shape[1]),order='F')
@@ -56,20 +49,39 @@ def test_curve_intersection(deltaZ,ii):
                                                                        comp2,
                                                                        intCurve,
                                                                        coorAd,
-                                                                       coorBd)
+                                                                       coorBd,
+                                                                       distTol)
+
+            newCoorIntd = pysurf.tsurf_tools._remesh_d(intCurve, coorIntd)
+
+
+            # Running backward mode
+
+            newCoorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
+
+            coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
+
+            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
+                                                                             comp2,
+                                                                             intCurve,
+                                                                             coorIntb,
+                                                                             distTol)
 
             # Dot product test
             dotProd = 0.0
-            dotProd = dotProd + np.sum(coorIntb*coorIntd)
+            dotProd = dotProd + np.sum(newCoorIntb*newCoorIntd)
             dotProd = dotProd - np.sum(coorAb*coorAd)
             dotProd = dotProd - np.sum(coorBb*coorBd)
 
-            # Print results
+            # Print results; should be 0
             print 'dotProd test'
             print dotProd
 
+            # Remesh the curve in a linear spacing
+            newIntCurve = intCurve.remesh()
+
             # Save the curve
-            intCurve.export_plot3d('curve_%03d'%ii)
+            newIntCurve.export_plot3d('curve_%03d'%ii)
 
             # Find the upper skin trailing edge point
             pt0 = intCurve.barsConn[0,0]
@@ -81,17 +93,34 @@ def test_curve_intersection(deltaZ,ii):
             else:
                 pointID = pt1
 
-            Y = intCurve.coor[1,pointID-1]
-            coorIntb[:,:] = 0.0
-            coorIntb[1,pointID-1] = 1.0
+            # Now compute the derivative for the Y coordinate of the first point of the intersection
+            X = newIntCurve.coor[0,pointID-1]
+            Y = newIntCurve.coor[1,pointID-1]
+            Z = newIntCurve.coor[2,pointID-1]
+            newCoorIntb[:,:] = 0.0
+            newCoorIntb[1,pointID-1] = 1.0
+
+            # Get nodes of the parent triangles
+            parentTriaA = newIntCurve
+
+            # Compute the remesh derivatives
+            coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
+
             coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
                                                                              comp2,
                                                                              intCurve,
-                                                                             coorIntb)
+                                                                             coorIntb,
+                                                                             distTol)
             dYdZ = np.sum(coorAb[2,:])
 
     # Remove translation
-    comp1.translate(0,+100.0,-deltaZ)
+    comp1.translate(0.0,+100.0,-deltaZ)
+
+    # Print results
+    print 'results'
+    print 'Y:',Y
+    print 'dYdZ:',dYdZ
+    print ''
 
     # Return results
     return Y, dYdZ
@@ -99,7 +128,7 @@ def test_curve_intersection(deltaZ,ii):
 #========================================================
 
 # MIN PROGRAM
-nStates = 20
+nStates = 15
 Z = np.linspace(0.0, 140.0, nStates)
 
 Y = np.zeros(len(Z))

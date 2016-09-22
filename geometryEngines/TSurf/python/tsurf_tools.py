@@ -813,8 +813,8 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
     if len(coor) > 0:
 
-        barsConn = np.sort(barsConn, axis=0)
-        barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
+        #barsConn = np.sort(barsConn, axis=0)
+        #barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
 
         # Sort FE data. After this step, barsConn may become a list if we
         # have two disconnect intersection curves.
@@ -859,7 +859,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
 #=================================================================
 
-def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb):
+def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb, distTol):
 
     '''
     This function is the backward mode of the intersection computation.
@@ -894,14 +894,15 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
                                                                            intCurve.coor,
                                                                            coorIntb,
                                                                            intCurve.barsConn,
-                                                                           intCurve.extra_data['parentTria'])
+                                                                           intCurve.extra_data['parentTria'],
+                                                                           distTol)
 
     # Return derivatives
     return coorAb, coorBb
 
 #=================================================================
 
-def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd):
+def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd, distTol):
 
     '''
     This function is the backward mode of the intersection computation.
@@ -918,6 +919,9 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     coorAd: float(3,nNodesA) -> Derivative seeds of the component A nodal coordinates
 
     coorBd: float(3,nNodesB) -> Derivative seeds of the component B nodal coordinates
+
+    distTol: float -> Distance used to check if the bar elements were flipped. Used the
+                      same distTol used to merge nearby nodes.
 
     OUTPUTS:
 
@@ -937,7 +941,8 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
                                                                      TSurfGeometryB.quadsConn,
                                                                      intCurve.coor,
                                                                      intCurve.barsConn,
-                                                                     intCurve.extra_data['parentTria'])
+                                                                     intCurve.extra_data['parentTria'],
+                                                                     distTol)
 
     # Return derivatives
     return coorIntd

@@ -277,7 +277,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     ! Check to see if all nodes are on the same side of the bounding box
     ! If any node is not on the same side as all the others, flag the element
     ! to check for intersections
-    if (nodeIsInside .neqv. .true.) then
+    if (nodeIsInside .neqv. .true.) then !DEBUG
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 3)) then
           nodeIsInside = .true.
@@ -323,7 +323,7 @@ subroutine filterElements(coor, triaConn, quadsConn, BBox, &
     ! Check to see if all nodes are on the same side of the bounding box
     ! If any node is not on the same side as all the others, flag the element
     ! to check for intersections
-    if (nodeIsInside .neqv. .true.) then
+    if (nodeIsInside .neqv. .true.) then !DEBUG
       do i=1,3
         if ((onTop(i) .ne. 0) .and. (onTop(i) .ne. 4)) then
           nodeIsInside = .true.
