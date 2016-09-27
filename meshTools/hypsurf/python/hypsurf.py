@@ -116,7 +116,7 @@ class HypSurfMesh(object):
         rStart = self.curve.flatten().astype(float)
 
         if fortran_flag:
-            R, fail, ratios = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+            R_initial_march, R_smoothed, R, fail, ratios = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
 
         else:
 

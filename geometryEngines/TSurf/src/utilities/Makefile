@@ -27,7 +27,7 @@ all:
 	cp -f *.mod $(MODDIR)
 
 clean:
-	@echo "        Making clean in Intersections... "
+	@echo "        Making clean in Utilities... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
 
 src1:	$(FF90_OBJECTS_1)
