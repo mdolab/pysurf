@@ -109,11 +109,6 @@ subroutine remesh_b(nNodes, nNewNodes, coor, newCoorb, barsConn, method, spacing
   ! Just call the main routine that will do the actual job
   call remesh_main_b(nNodes, nNewNodes, coor, coorb, barsConn, method, spacing, newCoor, newCoorb, newBarsConn)
 
-  ! print *, 'newCoor:'
-  ! do i=1,3
-  !   print *, newCoor(i, :)
-  ! end do
-
 end subroutine remesh_b
 
 subroutine remesh_d(nNodes, nNewNodes, coor, coord, barsConn, method, spacing, newCoor, newCoord, newBarsConn)

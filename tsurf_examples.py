@@ -24,7 +24,7 @@ class TestCreateMesh(unittest.TestCase):
         self.geom = TSurfGeometry('examples/inputs/plate.cgns')
 
         # Set source self.curve
-        self.curve = np.array([[0,0,0],
+        self.curve = np.array([[0.,0,0],
                        [1,1,0],
                        [2,2,0],
                        [3,2,0],
@@ -235,6 +235,82 @@ class TestCreateMesh(unittest.TestCase):
         mesh = hypsurf.HypSurfMesh(curve=self.curve, ref_geom=self.geom, options=options)
 
         mesh.createMesh()
+
+
+        hs = hypsurf.hypsurfAPI.hypsurfapi
+
+        if type(self.curve) == type('string'):
+
+            ### DOT PRODUCT TEST FOR SMOOTHING
+            coor = self.geom.curves[self.curve].coor.reshape(-1, order='F')
+            hs.smoothing(coor, 3., self.alphaP0, 1, self.numLayers)
+
+            # FORWARD MODE
+            coord = np.random.random_sample(coor.shape)
+            coord_copy = coord.copy()
+            rOut, rOutd = hs.smoothing_d(coor, coord, 5., self.alphaP0, 1, self.numLayers)
+
+            # REVERSE MODE
+            rOutb = np.random.random_sample(coor.shape)
+            rOutb_copy = rOutb.copy()
+            coorb, rOut = hs.smoothing_b(coor, 5., self.alphaP0, 1, self.numLayers, rOutb)
+
+            print
+            print 'Smoothing dot product test. This should be zero:'
+            dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
+            print dotprod
+            print
+            np.testing.assert_almost_equal(dotprod, 0.)
+
+
+            ### DOT PRODUCT TEST FOR COMPUTEMATRICES
+            n = 4
+            r0 = np.random.rand(3*n) * 10
+            rm1 = r0 / 2
+            n0 = np.random.rand(3, n)
+            s0 = np.random.rand(n) * 4
+            sm1 = s0 / 2
+            layerindex = 1
+
+            # FORWARD MODE
+            r0_d = np.random.random_sample(r0.shape)
+            n0_d = np.random.random_sample(n0.shape)
+            s0_d = np.random.random_sample(s0.shape)
+            rm1_d = np.random.random_sample(rm1.shape)
+            sm1_d = np.random.random_sample(sm1.shape)
+
+            r0_d_copy = r0_d.copy()
+            n0_d_copy = n0_d.copy()
+            s0_d_copy = s0_d.copy()
+            rm1_d_copy = rm1_d.copy()
+            sm1_d_copy = sm1_d.copy()
+
+            rnext, rnext_d = hs.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0)
+
+            # REVERSE MODE
+            rnext_b = np.random.random_sample(r0.shape)
+
+            rnext_b_copy = rnext_b.copy()
+
+            r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0, rnext_b)
+
+
+
+            # Dot product test
+            dotProd = 0.0
+            dotProd = dotProd + np.sum(rnext_d*rnext_b_copy)
+            dotProd = dotProd - np.sum(r0_b*r0_d_copy)
+            dotProd = dotProd - np.sum(n0_b*n0_d_copy)
+            dotProd = dotProd - np.sum(s0_b*s0_d_copy)
+            dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
+            dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
+
+            print 'Dot product test for ComputeMatrices. This should be zero:'
+            print dotProd
+
+
+
+
 
         # mesh.exportPlot3d('output.xyz')
 

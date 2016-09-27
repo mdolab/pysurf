@@ -165,6 +165,7 @@ trialoop:DO elemid=1,ntria
 ! If any node is not on the same side as all the others, flag the element
 ! to check for intersections
  100  IF (nodeisinside .NEQV. .true.) THEN
+!DEBUG
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 3) THEN
             nodeisinside = .true.
@@ -200,6 +201,7 @@ quadsloop:DO elemid=1,nquads
 ! If any node is not on the same side as all the others, flag the element
 ! to check for intersections
  120  IF (nodeisinside .NEQV. .true.) THEN
+!DEBUG
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 4) THEN
             nodeisinside = .true.

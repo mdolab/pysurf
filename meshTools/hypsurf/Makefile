@@ -9,6 +9,7 @@
 #      ******************************************************************
 
 SUBDIR_SRC    = src/common \
+		src/adjoint \
 		src/hypsurf \
 
 default:
