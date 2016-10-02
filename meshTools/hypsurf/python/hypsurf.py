@@ -107,7 +107,6 @@ class HypSurfMesh(object):
         numAreaPasses = self.optionsDict['numAreaPasses']
         extension = self.optionsDict['extension']
         nuArea = self.optionsDict['nuArea']
-        plotQuality = int(self.optionsDict['plotQuality'])
 
 
         # Flatten the coordinates vector
@@ -116,7 +115,62 @@ class HypSurfMesh(object):
         rStart = self.curve.flatten().astype(float)
 
         if fortran_flag:
-            R_initial_march, R_smoothed, R, fail, ratios = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+
+            # Perform the marching algorithm and output the results into R,
+            # which contains the mesh.
+            # fail is a flag set to true if the marching algo failed
+            # ratios is the ratios of quality for the mesh
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+
+            # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
+            # These are used in the adjoint formulation.
+            R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march)
+            R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed)
+            R_final = np.array(hypsurfAPI.hypsurfapi.r_final)
+            S = np.array(hypsurfAPI.hypsurfapi.s)
+            N = np.array(hypsurfAPI.hypsurfapi.n)
+
+
+
+            # Forward mode
+
+            for index in range(len(rStart)):
+                if (index+1)/3 == int((index+1)/3):
+                    continue
+
+                rStartd = np.zeros(rStart.shape)
+                rStartd[index] = 1
+
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+                # print Rd
+
+                # Reverse mode
+
+                Rb = np.random.random_sample(R.shape)
+
+                # rStartb, R_, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, Rb, numLayers)
+
+                # Note that the following should hold and can be used as a check for small cases
+                # np.testing.assert_almost_equal(np.linalg.norm(R_final[majorIndices-1] - R), 0.)
+
+                # Release the Fortran memory for the pseudomesh arrays; otherwise
+                # they would continue to exist on the Fortran level.
+                hypsurfAPI.hypsurfapi.releasememory()
+
+                # Finite difference over the mesh marching
+                step_size = 1e-6
+
+                rStart_copy = rStart.copy()
+                rStart_copy[index] += step_size
+                R_, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_copy, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+                deriv = (R_ - R) / step_size
+                # print deriv
+
+                hypsurfAPI.hypsurfapi.releasememory()
+
+                print
+                print 'Index:', index, 'THIS SHOULD BE ZERO:'
+                print np.linalg.norm(deriv - Rd)
 
         else:
 
@@ -166,8 +220,6 @@ class HypSurfMesh(object):
             Sm1, maxStretch = self.areaFactor(rNext, d)
 
             fail = False
-
-
 
             # MARCH!!!
             for layerIndex in range(numLayers-1):

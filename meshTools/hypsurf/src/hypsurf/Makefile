@@ -17,7 +17,8 @@ vpath %.o $(OBJDIR)
 
 FF90_OBJECTS_1 = hypsurfMain.o \
 
-FF90_OBJECTS_2 = hypsurfAPI.o
+FF90_OBJECTS_2 = hypsurfAPI.o \
+								 complexify.o
 
 default: all
 
