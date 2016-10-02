@@ -163,7 +163,7 @@ contains
     extBarsConn = 0
     extParentTria = 0
 
-    ! For now, we had just one allocations
+    ! For now, we have just one allocation
     nAllocations = 1
 
     ! Initialize the number of intersection connectivities known so far.
@@ -197,7 +197,7 @@ contains
           ! Increase the number of intersections elements known so far
           nBarsConn = nBarsConn + 1
 
-          ! Check if we already extrapolated the memory allocated so far
+          ! Check if we already exceeded the memory allocated so far
           if ((nBarsConn .gt. size(extBarsConn,2)) .or. (2*nBarsConn .gt. size(extCoor,2))) then
 
             ! We need to allocate more memory

@@ -84,7 +84,7 @@
           f(:3) = zero
           f(1) = S0(1) * (1-sigmaSplay)
 
-        else if (bc1 .eq. 'constX') then
+        else if (bc1 .eq. 'constx') then
 
           ! Populate matrix
           K(2, 4) = zero
@@ -97,7 +97,7 @@
             K(i, i) = one
           end do
 
-        else if (bc1 .eq. 'constY') then
+        else if (bc1 .eq. 'consty') then
           ! Populate matrix
           K(1, 4) = -one
           K(1, 5) = zero
@@ -109,7 +109,7 @@
             K(i, i) = one
           end do
 
-        else if (bc1 .eq. 'constZ') then
+        else if (bc1 .eq. 'constz') then
           ! Populate matrix
           K(1, 4) = -one
           K(1, 5) = zero
@@ -171,7 +171,7 @@
           f(3*(index-1)+1:3*index) = zero
           f(3*(index-1)+1) = S0(index) * (1-sigmaSplay)
 
-        else if (bc2 .eq. 'constX') then
+        else if (bc2 .eq. 'constx') then
 
           ! Populate matrix
           K(3*index-0, 3*(index-2)+1) = zero
@@ -184,7 +184,7 @@
             K(i, i) = one
           end do
 
-        else if (bc2 .eq. 'constY') then
+        else if (bc2 .eq. 'consty') then
           ! Populate matrix
           K(3*index-2, 3*(index-2)+1) = -one
           K(3*index-2, 3*(index-2)+2) = zero
@@ -196,7 +196,7 @@
             K(i, i) = one
           end do
 
-        else if (bc2 .eq. 'constZ') then
+        else if (bc2 .eq. 'constz') then
           ! Populate matrix
           K(3*index-2, 3*(index-2)+1) = -one
           K(3*index-2, 3*(index-2)+2) = zero
@@ -502,42 +502,37 @@
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(out) :: S(n), maxStretch
 
-        real(kind=realType) :: r0minus1(3), r0plus1(3), r0_extrap(3*(2+n))
-        real(kind=realType) :: R0_extrap_3d(3, 2+n), neighborDist(n), norm_1(n), norm_2(n)
+        real(kind=realType) :: r0_extrap(3*(2+n))
+        real(kind=realType) :: neighborDist(n), norm_1(n), norm_2(n)
         real(kind=realType) :: Sminus, Splus, stretchRatio(n)
 
         integer(kind=intType) :: index
 
-        !f2py intent(in) n, r0, d, nuArea, numAreaPasses, bc1, bc2
-        !f2py intent(out) S, maxStretch
-        !f2py depends(n) r0, S
-
-        ! Extrapolate the end points
-        r0minus1 = 2*r0(:3) - r0(4:6)
-        r0plus1 = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
-
-        r0_extrap(:3) = r0minus1
+        ! Extrapolate the end points and copy starting curve
+        r0_extrap(:3) = 2*r0(:3) - r0(4:6)
         r0_extrap(4:3*(n+1)) = r0
-        r0_extrap(3*(n+1)+1:) = r0plus1
-
-        ! Reshape so we have 3D array
-        R0_extrap_3d = RESHAPE(r0_extrap, (/3, 2+n/))
+        r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
 
         ! Compute the distance of each node to its neighbors
         do index=1,n
-          call norm(R0_extrap_3d(:, 1+index) - R0_extrap_3d(:, index), norm_1(index))
-          call norm(R0_extrap_3d(:, 2+index) - R0_extrap_3d(:, 1+index), norm_2(index))
+          call norm(r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*index), norm_1(index))
+          call norm(r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*index+3), norm_2(index))
         end do
         neighborDist = 0.5 * (norm_1 + norm_2)
 
         ! Multiply distances by the step size to get the areas
         S = d * neighborDist
 
-        ! Divide the march_maining distance and the neighbor distance to get the stretch ratios
+        ! Divide the marching distance and the neighbor distance to get the stretch ratios
         stretchRatio = d / neighborDist
 
         ! Get the maximum stretch ratio
-        maxStretch = maxval(stretchRatio)
+        maxStretch = -1.e20
+        do index=1, n
+          if (stretchRatio(index) .gt. maxStretch) then
+            maxStretch = stretchRatio(index)
+          end if
+        end do
 
         ! Do the requested number of averagings
         do index=1,numAreaPasses
@@ -747,182 +742,6 @@
         end subroutine qualityCheck
 
 
-        subroutine march_main(py_projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, plotQuality,&
-        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, R_initial_march, R_smoothed, R_final, fail, ratios)
-
-        implicit none
-
-        external py_projection
-        real(kind=realType), intent(in) :: rStart(3*numNodes),dStart, theta, sigmaSplay
-        integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
-        real(kind=realType), intent(in) :: epsE0, extension, nuArea
-        character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
-        integer(kind=intType), intent(in) :: numSmoothingPasses, plotQuality
-
-        real(kind=realType), intent(out) :: R_initial_march(numLayers, 3*numNodes)
-        real(kind=realType), intent(out) :: R_smoothed(numLayers, 3*numNodes)
-        real(kind=realType), intent(out) :: R_final(numLayers, 3*numNodes)
-        integer(kind=intType), intent(out) :: fail
-        real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
-
-        real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
-        real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
-        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
-        real(kind=realType) :: rNext_in(3*numNodes)
-        real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
-        real(kind=realType) :: dPseudo, maxStretch, radius, eta
-        integer(kind=intType) :: layerIndex, indexSubIter, cFactor, totalSubIter
-
-        ! Project onto the surface or curve (if applicable)
-        call py_projection(rStart, rNext, NNext, numNodes)
-
-        ! Initialize step size and total marched distance
-        d = dStart
-        dTot = 0
-
-        ! Find the characteristic radius of the mesh
-        call findRadius(rNext, numNodes, radius)
-
-        ! Find the desired marching distance
-        dMax = radius * (extension-1.)
-
-        ! Compute the growth ratio necessary to match this distance
-        call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
-
-        ! Print growth ratio
-        print *, 'Growth ratio: ',dGrowth
-
-        ! Store the initial curve
-        R_initial_march(1, :) = rNext
-        R_smoothed(1, :) = rNext
-        R_final(1, :) = rNext
-
-
-        ! ! Issue a warning message if the projected points are far from the given points
-        ! if max(abs(rNext - rStart)) > 1.0e-5:
-        !     warn('The given points (rStart) might not belong to the given surface (surf)\nThese points were projected for the surface mesh generation')
-
-
-        ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-        ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-        rm1 = rNext
-
-        !===========================================================
-
-        ! Some functions require the area factors of the first-before-last curve
-        ! We will repeat the first curve areas for simplicity.
-        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! But we still need to find Sm1
-
-        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
-
-        fail = 0
-        totalSubIter = 0
-
-        do layerIndex=1,numLayers-1
-          ! Get the coordinates computed by the previous iteration
-          r0 = rNext
-
-          ! Compute the new area factor for the desired marching distance
-          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
-
-          ! The subiterations will use pseudo marching steps.
-          ! If the required marching step is too large, the hyperbolic marching might become
-          ! unstable. So we subdivide the current marching step into multiple smaller pseudo-steps
-
-          ! Compute the factor between the current stretching ratio and the allowed one.
-          ! If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
-          ! The pseudo-step will be the same as the desired step.
-          !
-          ! Can't use ceiling function with Tapenade; define our own logic
-          ! cFactor = ceiling(maxStretch/cMax)
-
-          if (maxStretch .lt. cMax) then
-            cFactor = 1
-          else
-            cFactor = int(maxStretch/cMax) + 1
-          end if
-
-          ! Constrain the marching distance if the stretching ratio is too high
-          dPseudo = d / cFactor
-
-          ! Subiteration
-          ! The number of subiterations is the one required to meet the desired marching distance
-          do indexSubIter=1,cFactor
-
-            ! Recompute areas with the pseudo-step
-            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
-
-            ! Update the Normals with the values computed in the last iteration.
-            ! We do this because, the last iteration already projected the new
-            ! points to the surface and also computed the normals. So we don't
-            ! have to repeat the projection step
-            N0 = NNext
-
-            ! March using the pseudo-marching distance
-            eta = layerIndex+2
-
-            ! Generate matrices of the linear system
-            call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
-            sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
-
-            ! Save this initially marched row for later use in the backwards
-            ! derivative computation if it's the last one of the subiterations
-            if (indexSubIter .eq. cFactor) then
-              R_initial_march(layerIndex+1, :) = rNext
-            end if
-
-            ! Smooth coordinates
-            call smoothing_main(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed)
-
-            ! Save this smoothed row for later use in the backwards
-            ! derivative computation if it's the last one of the subiterations
-            if (indexSubIter .eq. cFactor) then
-              R_smoothed(layerIndex+1, :) = rSmoothed
-            end if
-
-            call py_projection(rSmoothed, rNext, NNext, numNodes)
-
-            ! Update Sm1 (Store the previous area factors)
-            Sm1 = S0
-
-            ! Update rm1
-            rm1 = r0
-
-            ! Update r0
-            r0 = rNext
-
-          end do
-
-          ! Store grid points
-          R_final(layerIndex+1, :) = rNext
-
-          ! Check quality of the mesh
-          if (layerIndex .gt. 2) then
-            if (layerIndex .gt. numLayers - 2) then
-              call qualityCheck(R_final(layerIndex-3:layerIndex, :), layerIndex, 4, numNodes, fail, ratios)
-            else
-              call qualityCheck(R_final(layerIndex-2:layerIndex+1, :), layerIndex, 4, numNodes, fail, ratios)
-            end if
-          end if
-
-          ! Compute the total marched distance so far
-          dTot = dTot + d
-
-          ! Update step size
-          d = d*dGrowth
-        end do
-
-
-        if (plotQuality .eq. 1) then
-          call qualityCheck(R_final, 0, numLayers, numNodes, fail, ratios)
-        end if
-
-
-        end subroutine march_main
-
         subroutine findRadius(r, numNodes, radius)
 
         implicit none
@@ -932,29 +751,56 @@
 
         real(kind=realType), intent(out) :: radius
 
-        real(kind=realType) :: x(numNodes), y(numNodes), z(numNodes)
+        real(kind=realType) :: x, y, z
         real(kind=realType) :: minX, maxX, minY, maxY, minZ, maxZ
         integer(kind=intType) :: i
 
+        minX = 1.e20
+        minY = 1.e20
+        minZ = 1.e20
+        maxX = -1.e20
+        maxY = -1.e20
+        maxZ = -1.e20
 
-        ! Split coordinates
+        ! Split coordinates and find max and min values
         do i=1,numNodes
-          x(i) = r(3*(i-1)+1)
-          y(i) = r(3*(i-1)+2)
-          z(i) = r(3*(i-1)+3)
+          x = r(3*(i-1)+1)
+          if (x .gt. maxX) then
+            maxX = x
+          end if
+          if (x .lt. minX) then
+            minX = x
+          end if
+
+          y = r(3*(i-1)+2)
+          if (y .gt. maxY) then
+            maxY = y
+          end if
+          if (y .lt. minY) then
+            minY = y
+          end if
+
+          z = r(3*(i-1)+3)
+          if (z .gt. maxZ) then
+            maxZ = z
+          end if
+          if (z .lt. minZ) then
+            minZ = z
+          end if
         end do
 
-
-        ! Find bounds
-        minX = minval(x)
-        maxX = maxval(x)
-        minY = minval(y)
-        maxY = maxval(y)
-        minZ = minval(z)
-        maxZ = maxval(z)
-
-        ! Find longest radius (we give only half of the largest side to be considered as radius)
-        radius = max(maxX-minX, maxY-minY, maxZ-minZ) / 2.
+        ! Find largest radius (we give only half of the largest side to be considered as radius)
+        radius = -1.e20
+        if (maxX-minX .gt. radius) then
+          radius = maxX-minX
+        end if
+        if (maxY-minY .gt. radius) then
+          radius = maxY-minY
+        end if
+        if (maxZ-minZ .gt. radius) then
+          radius = maxZ-minZ
+        end if
+        radius = radius / 2.
 
         end subroutine findRadius
 
@@ -990,10 +836,11 @@
         end do
 
         ! Check if we got a reasonable value
-        ! if (q <= 1) or (q >= q0):
-        !     error('Ratio may be too large...\nIncrease number of cells or reduce extension')
-        !     from sys import exit
-        !     exit()
+        if ((q .le. 1) .or. (q .ge. ratioGuess)) then
+          print *, ''
+          print *, ''
+          stop 'Ratio may be too large... Increase number of cells or reduce extension'
+        end if
 
         end subroutine findRatio
 
