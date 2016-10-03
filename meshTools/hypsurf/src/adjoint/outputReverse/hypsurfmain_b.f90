@@ -1458,6 +1458,7 @@ contains
         r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
 &         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
       end do
+! r_smooth(3*(index-1)+1:3*(index-1)+3) = r_curr
 ! copy coordinates to allow next pass
       call pushreal8array(rout, realtype*3*n/8)
       rout = r_smooth
@@ -1544,6 +1545,7 @@ contains
         r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
 &         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
       end do
+! r_smooth(3*(index-1)+1:3*(index-1)+3) = r_curr
 ! copy coordinates to allow next pass
       rout = r_smooth
     end do

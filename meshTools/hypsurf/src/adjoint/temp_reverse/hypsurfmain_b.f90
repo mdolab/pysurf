@@ -1461,6 +1461,7 @@ CONTAINS
         r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
 &         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
       END DO
+! r_smooth(3*(index-1)+1:3*(index-1)+3) = r_curr
 ! Copy coordinates to allow next pass
       CALL PUSHREAL8ARRAY(rout, realtype*3*n/8)
       rout = r_smooth
@@ -1547,6 +1548,7 @@ CONTAINS
         r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
 &         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
       END DO
+! r_smooth(3*(index-1)+1:3*(index-1)+3) = r_curr
 ! Copy coordinates to allow next pass
       rout = r_smooth
     END DO

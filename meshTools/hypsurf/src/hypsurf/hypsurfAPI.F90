@@ -434,14 +434,14 @@
         nSubIters = 0
 
         Rd = 0.
-        R(1, :) = rNext
         Rd(1, :) = rNextd
+        R(1, :) = rNext
 
         dd = 0.
         do layerIndex=1,numLayers-1
           ! Get the coordinates computed by the previous iteration
-          r0 = rNext
           r0d = rNextd
+          r0 = rNext
 
           S0d = 0.
           ! Compute the new area factor for the desired marching distance
@@ -457,8 +457,8 @@
           cFactor = ceiling(maxStretch/cMax)
 
           ! Constrain the marching distance if the stretching ratio is too high
-          dPseudo = d / cFactor
           dPseudod = dd / cFactor
+          dPseudo = d / cFactor
 
           ! Subiteration
           ! The number of subiterations is the one required to meet the desired marching distance
@@ -481,22 +481,22 @@
             call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
             ! call py_projection(rSmoothed, rNext, NNext, numNodes)
-            ! rNext = rSmoothed
-            ! rNextd = rSmoothedd
-            ! NNext = N0
-            ! NNextd = N0d
+            rNext = rSmoothed
+            rNextd = rSmoothedd
+            NNext = N0
+            NNextd = N0d
 
             ! Update Sm1 (Store the previous area factors)
-            Sm1 = S0
             Sm1d = S0d
+            Sm1 = S0
 
             ! Update rm1
-            rm1 = r0
             rm1d = r0d
+            rm1 = r0
 
             ! Update r0
-            r0 = rSmoothed
-            r0d = rSmoothedd
+            r0d = rNextd
+            r0 = rNext
 
             ! Update the normals with the values computed in the last iteration.
             ! We do this because the last iteration already projected the new
@@ -508,8 +508,8 @@
           end do
 
           ! Store grid points
-          R(layerIndex+1, :) = r0
-          Rd(layerIndex+1, :) = r0d
+          Rd(layerIndex+1, :) = rNextd
+          R(layerIndex+1, :) = rNext
 
           ! Compute the total marched distance so far
           dTot = dTot + d
