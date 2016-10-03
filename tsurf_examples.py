@@ -61,28 +61,103 @@ class TestCreateMesh(unittest.TestCase):
 
         np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
 
-    # def test_line_on_cylinder(self):
-    #     example = 'line_on_cylinder'
+    def test_line_on_cylinder(self):
+        example = 'line_on_cylinder'
+
+        # Read inputs from CGNS file
+        self.geom = TSurfGeometry('examples/inputs/cylinder.cgns')
+
+        # Flip BC self.curve
+        self.geom.curves['bc1'].flip()
+
+        # Set problem
+        self.curve = 'source'
+        self.bc1 = 'splay'
+        self.bc2 = 'self.curve:bc1'
+
+        # Set parameters
+        self.epsE0 = 5.5
+        self.theta = 0.0
+        self.alphaP0 = 0.25
+        self.numSmoothingPasses = 0
+        self.nuArea = 0.16
+        self.numAreaPasses = 0
+        self.sigmaSplay = 0.2
+        self.cMax = 1.0
+        self.ratioGuess = 20
+
+        # Options
+        self.sBaseline = 0.01
+        self.numLayers = 50
+        self.extension = 4.8
+
+        self.layout_file = 'layout_cylinder.lay'
+
+        self.create_mesh()
+
+        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+
+    def test_cylinder_cap(self):
+        example = 'cylinder_cap'
+
+        # Read inputs from CGNS file
+        self.geom = TSurfGeometry('examples/inputs/cylinder.cgns')
+
+        # Set reference self.curve
+        n1 = 7
+        n2 = 21
+
+        x = np.hstack([np.linspace(0.5,0,n1), np.zeros(n2-1), np.linspace(0,0.5,n1)[1:]])
+        y = np.hstack([-0.5*np.ones(n1), np.linspace(-0.5, 0.5, n2)[1:], 0.5*np.ones(n1-1)])
+        z = np.zeros(n1+n2+n1-2)
+        self.curve = np.vstack([x, y, z]).T
+
+        # Set boundary conditions
+        self.bc1 = 'splay'
+        self.bc2 = 'splay'
+
+        # Set parameters
+        self.epsE0 = 2.5
+        self.theta = 0.0
+        self.alphaP0 = 0.25
+        self.numSmoothingPasses = 0
+        self.nuArea = 0.16
+        self.numAreaPasses = 0
+        self.sigmaSplay = 0.2
+        self.cMax = 1.0
+        self.ratioGuess = 20
+
+        # Options
+        self.sBaseline = 0.01
+        self.numLayers = 40
+        self.extension = 2.5
+
+        self.layout_file = 'layout_cylinder.lay'
+
+        self.create_mesh()
+
+        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+
+    # def test_line_on_cubeAndCylinder(self):
+    #     example = 'line_on_cubeAndCylinder'
     #
     #     # Read inputs from CGNS file
-    #     self.geom = TSurfGeometry('examples/inputs/cylinder.cgns')
-    #
-    #     # Flip BC self.curve
-    #     self.geom.curves['bc1'].flip()
+    #     #self.geom = TSurfGeometry('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
+    #     self.geom = TSurfGeometry('examples/inputs/cubeAndCylinder.cgns',['self.geom']) # mesh cube only
     #
     #     # Set problem
-    #     self.curve = 'source'
+    #     self.curve = 'diag'
     #     self.bc1 = 'splay'
-    #     self.bc2 = 'self.curve:bc1'
+    #     self.bc2 = 'splay'
     #
     #     # Set parameters
-    #     self.epsE0 = 5.5
+    #     self.epsE0 = 1.5
     #     self.theta = 0.0
     #     self.alphaP0 = 0.25
     #     self.numSmoothingPasses = 0
     #     self.nuArea = 0.16
     #     self.numAreaPasses = 0
-    #     self.sigmaSplay = 0.2
+    #     self.sigmaSplay = 0.1
     #     self.cMax = 1.0
     #     self.ratioGuess = 20
     #
@@ -91,124 +166,49 @@ class TestCreateMesh(unittest.TestCase):
     #     self.numLayers = 50
     #     self.extension = 4.8
     #
-    #     self.layout_file = 'layout_cylinder.lay'
+    #     self.layout_file = 'layout_cubeAndCylinder.lay'
     #
     #     self.create_mesh()
-    #
-    #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
-    #
-    # def test_cylinder_cap(self):
-    #     example = 'cylinder_cap'
-    #
-    #     # Read inputs from CGNS file
-    #     self.geom = TSurfGeometry('examples/inputs/cylinder.cgns')
-    #
-    #     # Set reference self.curve
-    #     n1 = 7
-    #     n2 = 21
-    #
-    #     x = np.hstack([np.linspace(0.5,0,n1), np.zeros(n2-1), np.linspace(0,0.5,n1)[1:]])
-    #     y = np.hstack([-0.5*np.ones(n1), np.linspace(-0.5, 0.5, n2)[1:], 0.5*np.ones(n1-1)])
-    #     z = np.zeros(n1+n2+n1-2)
-    #     self.curve = np.vstack([x, y, z]).T
-    #
-    #     # Set boundary conditions
-    #     self.bc1 = 'splay'
-    #     self.bc2 = 'splay'
-    #
-    #     # Set parameters
-    #     self.epsE0 = 2.5
-    #     self.theta = 0.0
-    #     self.alphaP0 = 0.25
-    #     self.numSmoothingPasses = 0
-    #     self.nuArea = 0.16
-    #     self.numAreaPasses = 0
-    #     self.sigmaSplay = 0.2
-    #     self.cMax = 1.0
-    #     self.ratioGuess = 20
-    #
-    #     # Options
-    #     self.sBaseline = 0.01
-    #     self.numLayers = 40
-    #     self.extension = 2.5
-    #
-    #     self.layout_file = 'layout_cylinder.lay'
-    #
-    #     self.create_mesh()
-    #
-    #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
-    #
-    # # def test_line_on_cubeAndCylinder(self):
-    # #     example = 'line_on_cubeAndCylinder'
-    # #
-    # #     # Read inputs from CGNS file
-    # #     #self.geom = TSurfGeometry('inputs/cubeAndCylinder.cgns',['cylinder']) # mesh cylinder only
-    # #     self.geom = TSurfGeometry('examples/inputs/cubeAndCylinder.cgns',['self.geom']) # mesh cube only
-    # #
-    # #     # Set problem
-    # #     self.curve = 'diag'
-    # #     self.bc1 = 'splay'
-    # #     self.bc2 = 'splay'
-    # #
-    # #     # Set parameters
-    # #     self.epsE0 = 1.5
-    # #     self.theta = 0.0
-    # #     self.alphaP0 = 0.25
-    # #     self.numSmoothingPasses = 0
-    # #     self.nuArea = 0.16
-    # #     self.numAreaPasses = 0
-    # #     self.sigmaSplay = 0.1
-    # #     self.cMax = 1.0
-    # #     self.ratioGuess = 20
-    # #
-    # #     # Options
-    # #     self.sBaseline = 0.01
-    # #     self.numLayers = 50
-    # #     self.extension = 4.8
-    # #
-    # #     self.layout_file = 'layout_cubeAndCylinder.lay'
-    # #
-    # #     self.create_mesh()
-    #     #
-    #     # np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
-    #
-    # def test_line_on_cube(self):
-    #     example = 'line_on_cube'
-    #
-    #     # Read inputs from CGNS file
-    #     self.geom = TSurfGeometry('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
-    #
-    #     # Set problem
-    #     n = 40
-    #     nums = np.linspace(0.75, 0.25, n)
-    #     x = nums
-    #     y = nums #0.2*np.ones(n)
-    #     z = np.zeros(n)
-    #     self.curve = np.vstack([x, y, z]).T
-    #     self.bc1 = 'splay'
-    #     self.bc2 = 'splay'
-    #
-    #     # Set parameters
-    #     self.epsE0 = 2.4
-    #     self.theta = 0.0
-    #     self.alphaP0 = 0.25
-    #     self.numSmoothingPasses = 0
-    #     self.nuArea = 0.16
-    #     self.numAreaPasses = 0
-    #     self.sigmaSplay = 0.2
-    #     self.cMax = 10.0
-    #     self.ratioGuess = 20
-    #
-    #     # Options
-    #     self.sBaseline = 0.01
-    #     self.numLayers = 60
-    #     self.extension = 5.1
-    #
-    #     self.layout_file = 'layout_cube.lay'
-    #
-    #     self.create_mesh()
-    #
-    #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+        #
+        # np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+
+    def test_line_on_cube(self):
+        example = 'line_on_cube'
+
+        # Read inputs from CGNS file
+        self.geom = TSurfGeometry('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
+
+        # Set problem
+        n = 40
+        nums = np.linspace(0.75, 0.25, n)
+        x = nums
+        y = nums #0.2*np.ones(n)
+        z = np.zeros(n)
+        self.curve = np.vstack([x, y, z]).T
+        self.bc1 = 'splay'
+        self.bc2 = 'splay'
+
+        # Set parameters
+        self.epsE0 = 2.4
+        self.theta = 0.0
+        self.alphaP0 = 0.25
+        self.numSmoothingPasses = 0
+        self.nuArea = 0.16
+        self.numAreaPasses = 0
+        self.sigmaSplay = 0.2
+        self.cMax = 10.0
+        self.ratioGuess = 20
+
+        # Options
+        self.sBaseline = 0.01
+        self.numLayers = 60
+        self.extension = 5.1
+
+        self.layout_file = 'layout_cube.lay'
+
+        self.create_mesh()
+
+        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
 
     def create_mesh(self):
 
@@ -251,7 +251,7 @@ class TestCreateMesh(unittest.TestCase):
             rOut, rOutd = hs.smoothing_d(coor, coord, 5., self.alphaP0, 1, self.numLayers)
 
             # REVERSE MODE
-            rOutb = np.random.random_sample(coor.shape)
+            rOutb = np.random.random_sample(coor.shape)**2
             rOutb_copy = rOutb.copy()
             coorb, rOut = hs.smoothing_b(coor, 5., self.alphaP0, 1, self.numLayers, rOutb)
 
@@ -286,14 +286,6 @@ class TestCreateMesh(unittest.TestCase):
             sm1_d_copy = sm1_d.copy()
 
             rnext, rnext_d = hs.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0)
-
-            print '@@@@@@@@@@@@@@@@@@'
-            print np.linalg.norm(r0_d_copy - r0_d)
-            print np.linalg.norm(n0_d_copy - n0_d)
-            print np.linalg.norm(s0_d_copy - s0_d)
-            print np.linalg.norm(rm1_d_copy - rm1_d)
-            print np.linalg.norm(sm1_d_copy - sm1_d)
-            print '@@@@@@@@@@@@@@@@@@@@@'
 
             # REVERSE MODE
             rnext_b = np.random.random_sample(r0.shape)
