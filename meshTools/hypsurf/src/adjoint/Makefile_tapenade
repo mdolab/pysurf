@@ -61,7 +61,8 @@ ad_forward:
 	computeMatrices_main(r0 n0 s0 rm1 sm1) > (f) \
 	areaFactor(r0 d) > (S) \
 	findRadius(r) > (radius) \
-	findRatio(dMax d0) > (q)" ../hypsurf/hypsurfMain.F90 \
+	findRatio(dMax d0) > (q) \
+	march_main(rstart) > (R)" ../hypsurf/hypsurfMain.F90 \
 	-forward $(TAPENADE_PRECISION) \
 	-O temp_forward $(I_RES_FILES)
 
@@ -87,7 +88,8 @@ ad_reverse:
 	computeMatrices_main(r0 n0 s0 rm1 sm1) > (f) \
 	areaFactor(r0 d) > (S) \
 	findRadius(r) > (radius) \
-	findRatio(dMax d0) > (q)" ../hypsurf/hypsurfMain.F90 \
+	findRatio(dMax d0) > (q) \
+	march_main(rstart) > (R)" ../hypsurf/hypsurfMain.F90 \
 	-reverse $(TAPENADE_PRECISION) \
 	-O temp_reverse $(I_RES_FILES)
 

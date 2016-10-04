@@ -21,6 +21,16 @@ python module march_d__user__routines
         end subroutine py_projection
     end interface march_d_user_interface
 end python module march_d__user__routines
+python module march_b__user__routines 
+    interface march_b_user_interface 
+        subroutine py_projection(rstart,rnext,nnext,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march_b:unknown_interface
+            real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
+            real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(out) :: rnext
+            real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(out) :: nnext
+            integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
+        end subroutine py_projection
+    end interface march_b_user_interface
+end python module march_b__user__routines
 python module hypsurfAPI ! in 
     interface  ! in :hypsurfAPI
         module hypsurfapi ! in :hypsurfAPI:hypsurfAPI.F90
@@ -82,6 +92,38 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
                 integer(kind=inttype) dimension(numlayers),intent(out),depend(numlayers) :: majorindices
             end subroutine march_d
+            subroutine march_b(py_projection,rstart,rstartb,r_initial_march,r_smoothed,r_final,n,majorindices,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,extension,nuarea,ratioguess,cmax,numsmoothingpasses,numareapasses,numlayers,numnodes,nsubiters,r,rb,fail,ratios) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_b, only: smoothing_main_b,findradius_b,computematrices_main_b,findratio_b,areafactor_b
+                use march_b__user__routines
+                external py_projection
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
+                real(kind=realtype) dimension(3 * numnodes),intent(out),depend(numnodes) :: rstartb
+                real(kind=realtype) dimension(nsubiters,3 * numnodes),intent(in),depend(numnodes) :: r_initial_march
+                real(kind=realtype) dimension(nsubiters,3 * numnodes),intent(in),depend(nsubiters,numnodes) :: r_smoothed
+                real(kind=realtype) dimension(nsubiters,3 * numnodes),intent(in),depend(nsubiters,numnodes) :: r_final
+                real(kind=realtype) dimension(nsubiters,3,numnodes),intent(in),depend(nsubiters,numnodes) :: n
+                integer(kind=inttype) dimension(numlayers),intent(in) :: majorindices
+                real(kind=realtype) intent(in) :: dstart
+                real(kind=realtype) intent(in) :: theta
+                real(kind=realtype) intent(in) :: sigmasplay
+                character*32 intent(in) :: bc1
+                character*32 intent(in) :: bc2
+                real(kind=realtype) intent(in) :: epse0
+                real(kind=realtype) intent(in) :: alphap0
+                real(kind=realtype) intent(in) :: extension
+                real(kind=realtype) intent(in) :: nuarea
+                real(kind=realtype) intent(in) :: ratioguess
+                real(kind=realtype) intent(in) :: cmax
+                integer(kind=inttype) intent(in) :: numsmoothingpasses
+                integer(kind=inttype) intent(in) :: numareapasses
+                integer(kind=inttype), optional,intent(in),check(len(majorindices)>=numlayers),depend(majorindices) :: numlayers=len(majorindices)
+                integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
+                integer(kind=inttype), optional,intent(in),check(shape(r_initial_march,0)==nsubiters),depend(r_initial_march) :: nsubiters=shape(r_initial_march,0)
+                real(kind=realtype) dimension(numlayers,3 * numnodes),depend(numlayers,numnodes) :: r
+                real(kind=realtype) dimension(numlayers,3 * numnodes),depend(numlayers,numnodes) :: rb
+                integer(kind=inttype) intent(out) :: fail
+                real(kind=realtype) dimension(numlayers - 1,numnodes - 1),depend(numlayers,numnodes) :: ratios
+            end subroutine march_b
             subroutine releasememory ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
             end subroutine releasememory
             subroutine computematrices(r0,n0,s0,rm1,sm1,layerindex,theta,sigmasplay,bc1,bc2,numlayers,epse0,rnext,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi

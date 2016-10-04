@@ -725,7 +725,7 @@
         do i=1,numNodes-1
           do j=1,numLayers-1
             if (((ratios(j, i) .ne. ratios(j, i)) .or. ratios(j, i) .le. zero) .and. (layerIndex .ge. 1)) then
-              print *,'========FAIL============'
+              print *,'========= FAILURE DETECTED ============'
               fail = 1
             end if
           end do
@@ -843,6 +843,119 @@
         end if
 
         end subroutine findRatio
+
+        subroutine march_main(rStart, dStart, theta, sigmaSplay, bc1, bc2,&
+        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
+        numLayers, numNodes, R, fail, ratios, majorIndices)
+
+        implicit none
+
+        real(kind=realType), intent(in) :: rStart(3*numNodes),dStart, theta, sigmaSplay
+        integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
+        real(kind=realType), intent(in) :: epsE0, extension, nuArea
+        character*32, intent(in) :: bc1, bc2
+        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
+        integer(kind=intType), intent(in) :: numSmoothingPasses
+
+        integer(kind=intType), intent(out) :: fail
+        real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1), R(numLayers, 3*numNodes)
+        integer(kind=intType), intent(out) :: majorIndices(numLayers)
+
+        real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
+        real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
+        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
+        real(kind=realType) :: rNext_in(3*numNodes)
+        real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
+        real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
+        integer(kind=intType) :: layerIndex, indexSubIter, cFactor
+        integer(kind=intType) :: arraySize, nAllocations
+
+        rNext = rStart
+        NNext = 0.
+        do layerIndex=1,numNodes
+          NNext(3, layerIndex) = -1.
+        end do
+
+        ! Initialize step size and total marched distance
+        d = dStart
+
+        ! Find the characteristic radius of the mesh
+        call findRadius(rNext, numNodes, radius)
+
+        ! Find the desired marching distance
+        dMax = radius * (extension-1.)
+
+        ! Compute the growth ratio necessary to match this distance
+        call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+
+        ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
+        ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
+        rm1 = rNext
+        N0 = NNext
+
+        !===========================================================
+
+        ! Some functions require the area factors of the first-before-last curve
+        ! We will repeat the first curve areas for simplicity.
+        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
+        ! But we still need to find Sm1
+
+        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
+
+        R(1, :) = rNext
+
+        do layerIndex=1,numLayers-1
+          ! Get the coordinates computed by the previous iteration
+          r0 = rNext
+
+          ! Compute the new area factor for the desired marching distance
+          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+
+          cfactor = int(maxstretch/cmax) + 1
+
+          ! Constrain the marching distance if the stretching ratio is too high
+          dPseudo = d / cFactor
+
+          ! Subiteration
+          ! The number of subiterations is the one required to meet the desired marching distance
+          do indexSubIter=1,cFactor
+
+            ! Recompute areas with the pseudo-step
+            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+
+            ! March using the pseudo-marching distance
+            eta = layerIndex+2
+
+            ! Generate matrices of the linear system
+            call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
+            sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
+
+            ! Smooth coordinates
+            call smoothing_main(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed)
+
+            ! Placeholder for projection
+            rNext = rSmoothed
+            NNext = N0
+
+            Sm1 = S0
+            rm1 = r0
+
+            r0 = rNext
+            N0 = NNext
+
+          end do
+
+          ! Store grid points
+          R(layerIndex+1, :) = rNext
+
+          ! Update step size
+          d = d*dGrowth
+
+        end do
+
+        end subroutine march_main
+
+
 
 
 
