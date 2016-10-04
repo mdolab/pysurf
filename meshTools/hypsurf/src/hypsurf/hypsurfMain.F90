@@ -815,8 +815,11 @@
         real(kind=realType), intent(out) :: q
 
         real(kind=realType) :: Rdot, R
-        integer(kind=intType) :: nIters, i
+        integer(kind=intType) :: nIters
 
+        ! Note that this counter is not the intType that we use for all other integers.
+        ! This is done so that Tapenade correctly backwards differentiates this subroutine.
+        integer :: i
 
         ! Extra parameters
         nIters = 200 ! Maximum number of iterations for Newton search

@@ -143,7 +143,7 @@ contains
       do j=1,numlayers-1
         if ((ratios(j, i) .ne. ratios(j, i) .or. ratios(j, i) .le. zero)&
 &           .and. layerindex .ge. 1) then
-          print*, '========fail============'
+          print*, '========= failure detected ============'
           fail = 1
         end if
       end do
@@ -1527,7 +1527,10 @@ contains
     real(kind=realtype) :: qb
     real(kind=realtype) :: rdot, r
     real(kind=realtype) :: rdotb, rb
-    integer(kind=inttype) :: niters, i
+    integer(kind=inttype) :: niters
+! note that this counter is not the inttype that we use for all other integers.
+! this is done so that tapenade correctly backwards differentiates this subroutine.
+    integer :: i
     integer :: ad_to
 ! extra parameters
 ! maximum number of iterations for newton search
@@ -2201,7 +2204,10 @@ contains
     integer(kind=inttype), intent(in) :: numlayers
     real(kind=realtype), intent(out) :: q
     real(kind=realtype) :: rdot, r
-    integer(kind=inttype) :: niters, i
+    integer(kind=inttype) :: niters
+! note that this counter is not the inttype that we use for all other integers.
+! this is done so that tapenade correctly backwards differentiates this subroutine.
+    integer :: i
 ! extra parameters
 ! maximum number of iterations for newton search
     niters = 200

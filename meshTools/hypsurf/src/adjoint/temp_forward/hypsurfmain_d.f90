@@ -143,7 +143,7 @@ CONTAINS
       DO j=1,numlayers-1
         IF ((ratios(j, i) .NE. ratios(j, i) .OR. ratios(j, i) .LE. zero)&
 &           .AND. layerindex .GE. 1) THEN
-          PRINT*, '========FAIL============'
+          PRINT*, '========= FAILURE DETECTED ============'
           fail = 1
         END IF
       END DO
@@ -1149,7 +1149,10 @@ CONTAINS
     REAL(kind=realtype), INTENT(OUT) :: qd
     REAL(kind=realtype) :: rdot, r
     REAL(kind=realtype) :: rdotd, rd
-    INTEGER(kind=inttype) :: niters, i
+    INTEGER(kind=inttype) :: niters
+! Note that this counter is not the intType that we use for all other integers.
+! This is done so that Tapenade correctly backwards differentiates this subroutine.
+    INTEGER :: i
     INTEGER :: pwy1
     REAL(kind=realtype) :: pwr1
     REAL(kind=realtype) :: pwr1d
@@ -1819,7 +1822,10 @@ CONTAINS
     INTEGER(kind=inttype), INTENT(IN) :: numlayers
     REAL(kind=realtype), INTENT(OUT) :: q
     REAL(kind=realtype) :: rdot, r
-    INTEGER(kind=inttype) :: niters, i
+    INTEGER(kind=inttype) :: niters
+! Note that this counter is not the intType that we use for all other integers.
+! This is done so that Tapenade correctly backwards differentiates this subroutine.
+    INTEGER :: i
     INTEGER :: pwy1
     REAL(kind=realtype) :: pwr1
 ! Extra parameters
