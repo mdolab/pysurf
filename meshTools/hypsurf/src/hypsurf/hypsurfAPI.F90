@@ -89,10 +89,13 @@
         ! Print growth ratio
         print *, 'Growth ratio: ',dGrowth
 
-
-        ! ! Issue a warning message if the projected points are far from the given points
-        ! if max(abs(rNext - rStart)) > 1.0e-5:
-        !     warn('The given points (rStart) might not belong to the given surface (surf)\nThese points were projected for the surface mesh generation')
+        ! Issue a warning message if the projected points are far from the given points
+        if (maxval(abs(rNext - rStart)) .gt. 1.0e-5) then
+          print *, ''
+          print *, 'The given points (rStart) might not belong to the given surface (surf)'
+          print *, 'These points were projected for the surface mesh generation'
+          print *, ''
+        end if
 
 
         ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
@@ -143,9 +146,8 @@
         nAllocations = 1
 
         print *, ''
-        print *, '=================='
-        print *, "Marching Progress:"
-        print *, '=================='
+        print *, '========================================================================================'
+        print *, "                                Marching Progress:"
         print *, ''
         print *, 'Major iteration | Subiters for this step | Lowest mesh quality value | Marching distance'
         print *, '========================================================================================'
@@ -176,6 +178,12 @@
           ! Subiteration
           ! The number of subiterations is the one required to meet the desired marching distance
           do indexSubIter=1,cFactor
+
+            ! Recompute areas with the pseudo-step
+            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+
+            ! Save S0 into S for backwards derivative computation
+            ext_S(nSubIters+1, :) = S0
 
             ! Increase the number of intersections elements known so far
             nSubIters = nSubIters + 1
@@ -241,9 +249,6 @@
 
             end if
 
-            ! Recompute areas with the pseudo-step
-            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
-
             ! March using the pseudo-marching distance
             eta = layerIndex+2
 
@@ -273,9 +278,6 @@
             ! Save this final projected row for later use in the backwards
             ! derivative computation if it's the last one of the subiterations
             ext_R_final(nSubIters+1, :) = rNext
-
-            ! Save S0 into S for backwards derivative computation
-            ext_S(nSubIters+1, :) = S0
 
             ! Save N0 into N for backwards derivative computation
             ext_N(nSubIters+1, :, :) = N0
@@ -389,11 +391,6 @@
 
         ! Need py_projection_d here
         rNextd = rStartd
-        rNext = rStart
-        NNext = 0.
-        do layerindex=1,numnodes
-          NNext(3, layerindex) = -1.
-        end do
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -410,9 +407,6 @@
 
         ! Compute the growth ratio necessary to match this distance
         call findratio_d(dMax, dMaxd, dStart, dStartd, numLayers, ratioGuess, dGrowth, dGrowthd)
-
-        ! Print growth ratio
-        print *, 'Growth ratio: ',dGrowth
 
         ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
         ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
@@ -523,169 +517,277 @@
 
         !=======================================================================
 
-        ! subroutine march_b(py_projection, rStart, rStartb, R_initial_march, R_smoothed, &
-        ! R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1, bc2, &
-        ! epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, &
-        ! numSmoothingPasses, numAreaPasses, &
-        ! numLayers, numNodes, nSubIters, R, Rb, fail)
+        subroutine march_b(py_projection, rStart, rStartb, R_initial_march, R_smoothed, &
+        R_final, N, majorIndices, dStart, theta, sigmaSplay, &
+        &   bc1, bc2, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, &
+        &   numSmoothingPasses, numAreaPasses, numLayers, numNodes, nSubIters, R, Rb, fail&
+        &   , ratios)
+
+          use hypsurfMain_b, only: computeMatrices_main_b, smoothing_main_b, areaFactor_b, findRadius_b, findRatio_b
+          implicit none
+
+          external py_projection
+          integer(kind=inttype), intent(in) :: numNodes, numLayers, &
+        &   numAreaPasses, nSubIters
+          real(kind=realType), dimension(nSubIters, 3*numNodes), intent(in) :: R_initial_march, R_smoothed, R_final
+          real(kind=realType), intent(in) :: N(nSubIters, 3, numNodes)
+          real(kind=realtype), intent(in) :: rStart(3*numNodes), dStart, theta&
+        &   , sigmaSplay
+          real(kind=realtype) :: dStartb
+          real(kind=realtype), intent(in) :: epsE0, extension, nuArea
+          character(len=32), intent(in) :: bc1, bc2
+          real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax
+          integer(kind=inttype), intent(in) :: numSmoothingPasses
+          integer(kind=intType), intent(in) :: majorIndices(numLayers)
+
+          integer(kind=inttype), intent(out) :: fail
+          real(kind=realtype), intent(out) :: rStartb(3*numNodes)
+
+          real(kind=realtype) :: ratios(numLayers-1, numNodes-1), R(numLayers&
+        &   , 3*numNodes)
+          real(kind=realtype) :: Rb(numLayers, 3*numNodes)
+          real(kind=realtype) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
+          real(kind=realtype) :: r0b(3*numNodes), N0b(3, numNodes), S0b(&
+        &   numNodes)
+          real(kind=realtype) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*&
+        &   numNodes)
+          real(kind=realtype) :: rm1b(3*numNodes), Sm1b(numNodes), rSmoothedb(&
+        &   3*numNodes)
+          real(kind=realtype) :: rNext(3*numNodes), nNext(3, numNodes)
+          real(kind=realtype) :: rNextb(3*numNodes)
+          real(kind=realtype) :: rNext_in(3*numNodes)
+          real(kind=realtype) :: dr(3*numNodes), d, dMax, dGrowth
+          real(kind=realtype) :: db, dMaxb, dGrowthb, dVec(numLayers)
+          real(kind=realtype) :: dPseudo, maxStretch, radius, eta
+          real(kind=realtype) :: dPseudob, radiusb
+          integer(kind=inttype) :: layerIndex, indexSubIter, cFactor
+          integer(kind=inttype) :: minorIndex, cFactorVec(numLayers)
+          intrinsic int
+          integer :: arg1
+          integer :: ad_to
+
+          ! Placeholder before we get projection_b
+          call py_projection(rStart, rNext, NNext, numNodes)
+
+        ! find the characteristic radius of the mesh
+          call findradius(rNext, numNodes, radius)
+
+        ! find the desired marching distance
+          dMax = radius*(extension-1.)
+
+        ! compute the growth ratio necessary to match this distance
+          call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+
+          d = dStart
+          cFactorVec = 0.
+          dVec(1) = d
+
+          ! Compute and store d and cFactor values for the backwards loop
+          do layerIndex=1,numLayers-1
+            call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+            cFactor = ceiling(maxStretch/cMax)
+            cFactorVec(layerIndex) = cFactor
+            d = d*dGrowth
+            dVec(layerIndex+1) = d
+          end do
+
+
+        !!! This part is no longer necessary as we save the information from the original forward call
+
+        !  ! initialize step size and total marched distance
+        !   d = dStart
         !
-        ! use hypsurfMain_b, only: computeMatrices_main_b, smoothing_main_b, areafactor_b
-        ! implicit none
+        ! ! we need a guess for the first-before-last curve in order to compute the grid distribution sensor
+        ! ! as we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
+        !   rm1 = rNext
+        !   N0 = nNext
+        ! !===========================================================
+        ! ! some functions require the area factors of the first-before-last curve
+        ! ! we will repeat the first curve areas for simplicity.
+        ! ! rNext, nNext, rm1 for the first iteration are computed at the beginning of the function.
+        ! ! but we still need to find Sm1
+        !   call areafactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes&
+        ! &             , Sm1, maxStretch)
+        !   do layerIndex=1,numLayers-1
+        ! ! get the coordinates computed by the previous iteration
+        !     r0 = rNext
+        ! ! compute the new area factor for the desired marching distance
+        !     ! call pushreal8array(S0, realtype*numNodes/8)
         !
-        ! external py_projection
-        ! real(kind=realType), intent(in) :: rStart(3*numNodes), Rb(numLayers, 3*numNodes)
-        ! real(kind=realType), dimension(nSubIters, 3*numNodes), intent(in) :: R_initial_march, R_smoothed, R_final
-        ! real(kind=realType), intent(in) :: N(nSubIters, 3, numNodes)
-        ! real(kind=realType), intent(in) :: dStart, theta, sigmaSplay
-        ! integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses, nSubIters
-        ! real(kind=realType), intent(in) :: epsE0, extension, nuArea
-        ! character*32, intent(in) :: bc1, bc2
-        ! real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
-        ! integer(kind=intType), intent(in) :: numSmoothingPasses
-        ! integer(kind=intType), intent(in) :: majorIndices(numLayers)
         !
-        ! integer(kind=intType), intent(out) :: fail
-        ! real(kind=realType), intent(out) :: R(numLayers, 3*numNodes), rStartb(3*numNodes)
+        !     call areafactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, &
+        ! &               S0, maxStretch)
+        !     ! call pushinteger4array(cFactor, inttype/4)
+        !     cFactor = int(maxStretch/cMax) + 1
+        ! ! constrain the marching distance if the stretching ratio is too high
+        !     dPseudo = d/cFactor
+        ! ! subiteration
+        ! ! the number of subiterations is the one required to meet the desired marching distance
+        !     do indexSubIter=1,cFactor
+        ! ! recompute areas with the pseudo-step
+        !       ! call pushreal8array(S0, realtype*numNodes/8)
+        !       call areafactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, &
+        ! &                 numNodes, S0, maxStretch)
+        ! ! march using the pseudo-marching distance
+        !       eta = layerIndex + 2
+        ! ! generate matrices of the linear system
+        !       arg1 = layerIndex - 1
         !
-        ! real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
-        ! real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
-        ! real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes), NNextb(3, numNodes)
-        ! real(kind=realType) :: rNext_in(3*numNodes)
-        ! real(kind=realType) :: R_fullb(nSubIters, 3*numNodes), S_fullb(nSubIters, numNodes)
-        ! real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
-        ! real(kind=realType) :: dPseudo, maxStretch, radius, eta
-        ! integer(kind=intType) :: layerIndex, indexSubIter, cFactor
-        ! integer(kind=intType) :: arraySize, nAllocations, i, j, majorIndexArray(nSubIters), majorIndex
-        ! logical :: isMajor
+        !       ! call pushreal8array(rNext, realtype*3*numNodes/8)
         !
-        ! ! Derivative variables
-        ! real(kind=realType):: r0b(3*numNodes), N0b(3, numNodes), S0b(numNodes)
-        ! real(kind=realType) :: rm1b(3*numNodes), Sm1b(numNodes), rNextb(3*numNodes)
-        ! real(kind=realType) :: rSmoothedb(3*numNodes)
         !
-        ! ! Pseudocode outline of backwards code necessary
-        !
-        ! ! loop backwards over the subiterations:
-        ! ! backwards project
-        ! ! backwards smooth
-        ! ! backwards computematrices
-        ! ! this is the seed for the next row
-        ! ! if this row is a major iteration, add the weights from Rb
-        !
-        ! ! Project onto the surface or curve (if applicable)
-        ! call py_projection(rStart, rNext, NNext, numNodes)
-        !
-        ! ! Initialize step size and total marched distance
-        ! d = dStart
-        ! dTot = 0
-        !
-        ! ! Find the characteristic radius of the mesh
-        ! call findRadius(rNext, numNodes, radius)
-        !
-        ! ! Find the desired marching distance
-        ! dMax = radius * (extension-1.)
-        !
-        ! ! Compute the growth ratio necessary to match this distance
-        ! call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
-        !
-        ! ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-        ! ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-        ! rm1 = rNext
-        ! N0 = NNext
-        !
-        ! ! Some functions require the area factors of the first-before-last curve
-        ! ! We will repeat the first curve areas for simplicity.
-        ! ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! ! But we still need to find Sm1
-        !
-        ! call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
-        !
-        ! ! Start at the last marched layer
-        ! majorIndex = numLayers
-        !
-        ! ! Initial seed for normals is 0. because no external functions have
-        ! ! dependencies on the normal values
-        ! NNextb = 0.
-        ! rNextb = 0.
-        !
-        ! R_fullb = 0.
-        ! S_fullb = 0.
-        !
-        ! do indexSubIter=nSubIters, 2, -1
-        !
-        !   rNextb = rNextb + R_fullb(indexSubIter, :)
-        !
-        !   ! Check to see if this subiteration is a major iteration; if so, set a flag
-        !   isMajor = .false.
-        !   do i=1,numLayers
-        !     if (indexSubIter .eq. majorIndices(i)) then
-        !       majorIndex = i
-        !       rNextb = rNextb + Rb(majorIndex, :)
-        !       isMajor = .true.
-        !     end if
+        !       call computematrices_main(r0, N0, S0, rm1, Sm1, arg1, theta, &
+        ! &                           sigmaSplay, bc1, bc2, numLayers, epsE0, &
+        ! &                           rNext, numNodes)
+        ! ! smooth coordinates
+        !       call smoothing_main(rNext, eta, alphaP0, numSmoothingPasses, &
+        ! &                     numLayers, numNodes, rSmoothed)
+        ! ! placeholder for projection
+        !       ! call pushreal8array(rNext, realtype*3*numNodes/8)
+        !       rNext = rSmoothed
+        !       nNext = N0
+        !       ! call pushreal8array(Sm1, realtype*numNodes/8)
+        !       Sm1 = S0
+        !       ! call pushreal8array(rm1, realtype*3*numNodes/8)
+        !       rm1 = r0
+        !       ! call pushreal8array(r0, realtype*3*numNodes/8)
+        !       r0 = rNext
+        !       ! call pushreal8array(N0, realtype*3*numNodes/8)
+        !       N0 = nNext
+        !     end do
+        !     ! call pushinteger4(indexSubIter - 1)
+        ! ! store grid points
+        ! ! update step size
+        !     ! call pushreal8array(d, realtype/8)
+        !     d = d*dGrowth
         !   end do
-        !
-        !   print *,indexSubIter, isMajor
-        !
-        !   ! Obtain the final projected coordinates of this subiteration
-        !   rSmoothed = R_smoothed(indexSubIter, :)
-        !
-        !   ! Backwards project here
-        !   ! call py_projection_b(rSmoothed, rSmoothedb, rNext, rNextb, NNext, NNextb, numNodes)
-        !
-        !   ! Placeholder until we get the projection differentiation
-        !   rSmoothedb = rNextb
-        !
-        !   rNext = R_initial_march(indexSubIter, :)
-        !
-        !   ! Backwards smooth
-        !   call smoothing_main_b(rNext, rNextb, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedb)
-        !
-        !   ! Obtain the correct values to use in computeMatrices
-        !   r0 = R_final(indexSubIter-1, :)
-        !   N0 = N(indexSubIter-1, :, :)
-        !   S0 = S(indexSubIter-1, :)
-        !   if (indexSubIter .eq. 2) then
-        !     rm1 = R_final(indexSubIter-1, :)
-        !     Sm1 = S(indexSubIter-1, :)
-        !   else
-        !     rm1 = R_final(indexSubIter-2, :)
-        !     Sm1 = S(indexSubIter-2, :)
-        !   end if
-        !
-        !   ! Backwards computematrices
-        !   call computeMatrices_main_b(r0, r0b, N0, N0b, S0, S0b, rm1, rm1b, &
-        !   Sm1, Sm1b, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
-        !   numLayers, epsE0, rNext, rNextb, numNodes)
-        !
-        !   R_fullb(indexSubIter-1, :) = R_fullb(indexSubIter-1, :) + r0b
-        !   S_fullb(indexSubIter-1, :) = S_fullb(indexSubIter-1, :) + S0b
-        !   if (indexSubIter .eq. 2) then
-        !     R_fullb(indexSubIter-1, :) = R_fullb(indexSubIter-1, :) + rm1b
-        !     S_fullb(indexSubIter-1, :) = S_fullb(indexSubIter-1, :) + Sm1b
-        !   else
-        !     R_fullb(indexSubIter-2, :) = R_fullb(indexSubIter-2, :) + rm1b
-        !     S_fullb(indexSubIter-2, :) = S_fullb(indexSubIter-2, :) + Sm1b
-        !   end if
-        !
-        !   r0 = R_final(indexSubIter-1, :)
-        !
-        !   ! Compute reverse areaFactor
-        !   call areaFactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, bc2, numNodes, &
-        !   S0, S0b, maxstretch)
-        !
-        !   R_fullb(indexSubIter-1, :) = R_fullb(indexSubIter-1, :) + r0b
-        !
-        !
-        ! end do
-        !
-        ! end subroutine march_b
+
+          ! Initialize the seeds as 0s
+          db = 0.0_8
+          rNextb = 0.0_8
+          Sm1b = 0.0_8
+          rm1b = 0.0_8
+          dGrowthb = 0.0_8
+
+          ! minorIndex is the index for the pseudomesh, which includes info
+          ! from all minor steps, including subiterations
+          minorIndex = nSubIters
+          S0 = S(minorIndex-1, :)
+
+          ! Loop over the major steps in reverse order
+          do layerIndex=numLayers-1,1,-1
+
+            ! call popreal8array(d, realtype/8)
+            d = dVec(layerIndex)
+
+            dGrowthb = dGrowthb + d*db
+            db = dGrowth*db
+            rNextb = rNextb + rb(layerIndex+1, :)
+            rb(layerIndex+1, :) = 0.0_8
+            dPseudo = d/cFactor
+            dPseudob = 0.0_8
+            r0b = 0.0_8
+
+            ! call popinteger4(ad_to)
+            ad_to = cFactorVec(layerIndex)
+
+            ! Loop over a certain number of subiterations for each major step.
+            ! This number, the cFactor, was determined previously
+            do indexSubIter=ad_to,1,-1
+
+              ! call popreal8array(N0, realtype*3*numNodes/8)
+              N0 = N(minorIndex, :, :)
+              ! call popreal8array(r0, realtype*3*numNodes/8)
+              r0 = R_final(minorIndex-1, :)
+
+              rNextb = rNextb + r0b
+              r0b = 0.0_8
+              ! call popreal8array(rm1, realtype*3*numNodes/8)
+              if (minorIndex .le. 2) then
+                rm1 = R_final(minorIndex-1, :)
+                Sm1 = S(minorIndex-1, :)
+              else
+                rm1 = R_final(minorIndex-2, :)
+                Sm1 = S(minorIndex-2, :)
+              end if
+
+              r0b = rm1b
+              S0b = 0.0_8
+              ! call popreal8array(Sm1, realtype*numNodes/8)
+
+              S0b = Sm1b
+              rSmoothedb = 0.0_8
+
+              ! call popreal8array(rNext, realtype*3*numNodes/8)
+              rNext = R_initial_march(minorIndex, :)
+
+              rSmoothedb = rNextb
+              eta = layerIndex + 2
+
+              call smoothing_main_b(rNext, rNextb, eta, alphaP0, &
+        &                       numSmoothingPasses, numLayers, numNodes, &
+        &                       rSmoothed, rSmoothedb)
+              arg1 = layerIndex - 1
+
+              ! call popreal8array(rNext, realtype*3*numNodes/8)
+              rNext = R_initial_march(minorIndex-1, :)
+
+              call computematrices_main_b(r0, r0b, N0, N0b, S0, S0b, rm1, rm1b&
+        &                             , Sm1, Sm1b, arg1, theta, sigmaSplay, bc1&
+        &                             , bc2, numLayers, epsE0, rNext, rNextb, &
+        &                             numNodes)
+              ! call popreal8array(S0, realtype*numNodes/8)
+              S0 = S(minorIndex, :)
+              call areaFactor_b(r0, r0b, dPseudo, dPseudob, nuArea, &
+        &                   numAreaPasses, bc1, bc2, numNodes, S0, S0b, &
+        &                   maxStretch)
+              rNextb = 0.0_8
+              minorIndex = minorIndex - 1
+            end do
+            db = db + dPseudob/cFactor
+
+            ! call popinteger4array(cFactor, inttype/4)
+            cFactor = cFactorVec(layerIndex)
+
+            ! call popreal8array(S0, realtype*numNodes/8)
+            if (minorIndex .le. 1) then
+              S0 = S(minorIndex, :)
+            else
+              S0 = S(minorIndex-1, :)
+            end if
+
+            S0b = 0.0_8
+            call areaFactor_b(r0, r0b, d, db, nuArea, numAreaPasses, bc1, bc2&
+        &                 , numNodes, S0, S0b, maxStretch)
+            rNextb = rNextb + r0b
+          end do
+
+          rNextb = rNextb + rb(1, :)
+          db = 0.0_8
+
+          call areaFactor_b(rNext, rNextb, d, db, nuArea, numAreaPasses, bc1, &
+        &               bc2, numNodes, Sm1, Sm1b, maxStretch)
+
+          rNextb = rNextb + rm1b
+
+          call findRatio_b(dMax, dMaxb, dStart, dStartb, numLayers, ratioGuess&
+        &              , dGrowth, dGrowthb)
+
+          radiusb = (extension-1.)*dMaxb
+
+          call findRadius_b(rNext, rNextb, numNodes, radius, radiusb)
+
+          rStartb = 0.0_8
+          rStartb = rNextb
+
+        end subroutine march_b
+
 
         !=======================================================================
 
         subroutine releaseMemory()
 
-          ! This subroutine just deallocates memory used by the intersection code.
+          ! This subroutine just deallocates memory used by the marching code.
           ! Remember to call this function after you copy the outputs in Python.
 
           implicit none
@@ -710,7 +812,7 @@
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(out) :: rNext(3*numNodes)
 
-        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
+        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), dVec(3), dVec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
         integer(kind=intType) :: index, i
         integer(kind=intType) :: ipiv(3*numNodes)
@@ -739,7 +841,7 @@
         real(kind=realType), intent(out) :: r0_b(3*numNodes), N0_b(3, numNodes), S0_b(numNodes)
         real(kind=realType), intent(out) :: rm1_b(3*numNodes), Sm1_b(numNodes)
 
-        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
+        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), dVec(3), dVec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
         integer(kind=intType) :: index, i
         integer(kind=intType) :: ipiv(3*numNodes)
@@ -768,7 +870,7 @@
         real(kind=realType), intent(in) :: r0_d(3*numNodes), N0_d(3, numNodes), S0_d(numNodes)
         real(kind=realType), intent(in) :: rm1_d(3*numNodes), Sm1_d(numNodes)
 
-        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
+        real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), dVec(3), dVec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
         integer(kind=intType) :: index, i
         integer(kind=intType) :: ipiv(3*numNodes)

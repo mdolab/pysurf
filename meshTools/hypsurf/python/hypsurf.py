@@ -12,6 +12,7 @@ import pdb
 import hypsurfAPI
 
 fortran_flag = True
+deriv_check = True
 
 '''
 TO DO
@@ -130,50 +131,23 @@ class HypSurfMesh(object):
             S = np.array(hypsurfAPI.hypsurfapi.s)
             N = np.array(hypsurfAPI.hypsurfapi.n)
 
+            # Derivative check
+            if deriv_check:
+                rStartd = np.random.random_sample(rStart.shape)
+
+                rStartd_copy = rStartd.copy()
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+
+                Rb = np.random.random_sample(R.shape)
+                Rb_copy = Rb.copy()
+
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, R, Rb, ratios, numLayers)
+
+                print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb)
+                print
+
+            # Release the pseudomesh information from the hypsurfAPI instance
             hypsurfAPI.hypsurfapi.releasememory()
-
-
-
-            # Forward mode
-
-            if len(rStart) < 7*3:
-                for index in range(len(rStart)):
-                    if (index+1)/3 == int((index+1)/3):
-                        continue
-
-                    rStartd = np.zeros(rStart.shape)
-                    rStartd[index] = 1
-
-                    R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
-                    # print Rd
-
-                    # Reverse mode
-
-                    Rb = np.random.random_sample(R.shape)
-
-                    # rStartb, R_, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, Rb, numLayers)
-
-                    # Note that the following should hold and can be used as a check for small cases
-                    # np.testing.assert_almost_equal(np.linalg.norm(R_final[majorIndices-1] - R), 0.)
-
-                    # Release the Fortran memory for the pseudomesh arrays; otherwise
-                    # they would continue to exist on the Fortran level.
-                    hypsurfAPI.hypsurfapi.releasememory()
-
-                    # Finite difference over the mesh marching
-                    step_size = 1e-6
-
-                    rStart_copy = rStart.copy()
-                    rStart_copy[index] += step_size
-                    R_, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_copy, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
-                    deriv = (R_ - R) / step_size
-                    # print deriv
-
-                    hypsurfAPI.hypsurfapi.releasememory()
-
-                    print
-                    print 'Index:', index, 'THIS SHOULD BE ZERO:'
-                    print np.linalg.norm(deriv - Rd)
 
         else:
 
