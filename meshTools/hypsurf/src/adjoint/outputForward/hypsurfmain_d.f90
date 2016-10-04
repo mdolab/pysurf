@@ -143,7 +143,7 @@ contains
       do j=1,numlayers-1
         if ((ratios(j, i) .ne. ratios(j, i) .or. ratios(j, i) .le. zero)&
 &           .and. layerindex .ge. 1) then
-          print*, '========fail============'
+          print*, '========= failure detected ============'
           fail = 1
         end if
       end do
@@ -1147,7 +1147,10 @@ contains
     real(kind=realtype), intent(out) :: qd
     real(kind=realtype) :: rdot, r
     real(kind=realtype) :: rdotd, rd
-    integer(kind=inttype) :: niters, i
+    integer(kind=inttype) :: niters
+! note that this counter is not the inttype that we use for all other integers.
+! this is done so that tapenade correctly backwards differentiates this subroutine.
+    integer :: i
     integer :: pwy1
     real(kind=realtype) :: pwr1
     real(kind=realtype) :: pwr1d
@@ -1816,7 +1819,10 @@ contains
     integer(kind=inttype), intent(in) :: numlayers
     real(kind=realtype), intent(out) :: q
     real(kind=realtype) :: rdot, r
-    integer(kind=inttype) :: niters, i
+    integer(kind=inttype) :: niters
+! note that this counter is not the inttype that we use for all other integers.
+! this is done so that tapenade correctly backwards differentiates this subroutine.
+    integer :: i
     integer :: pwy1
     real(kind=realtype) :: pwr1
 ! extra parameters

@@ -143,7 +143,7 @@ CONTAINS
       DO j=1,numlayers-1
         IF ((ratios(j, i) .NE. ratios(j, i) .OR. ratios(j, i) .LE. zero)&
 &           .AND. layerindex .GE. 1) THEN
-          PRINT*, '========FAIL============'
+          PRINT*, '========= FAILURE DETECTED ============'
           fail = 1
         END IF
       END DO
@@ -1529,7 +1529,10 @@ CONTAINS
     REAL(kind=realtype) :: qb
     REAL(kind=realtype) :: rdot, r
     REAL(kind=realtype) :: rdotb, rb
-    INTEGER(kind=inttype) :: niters, i
+    INTEGER(kind=inttype) :: niters
+! Note that this counter is not the intType that we use for all other integers.
+! This is done so that Tapenade correctly backwards differentiates this subroutine.
+    INTEGER :: i
     INTEGER :: ad_to
 ! Extra parameters
 ! Maximum number of iterations for Newton search
@@ -1548,7 +1551,7 @@ CONTAINS
       CALL PUSHREAL8ARRAY(q, realtype/8)
       q = q - r/rdot
     END DO
-    CALL PUSHINTEGER4ARRAY(i - 1, inttype/4)
+    CALL PUSHINTEGER4(i - 1)
 ! Check if we got a reasonable value
     IF (q .LE. 1 .OR. q .GE. ratioguess) THEN
       STOP
@@ -2204,7 +2207,10 @@ CONTAINS
     INTEGER(kind=inttype), INTENT(IN) :: numlayers
     REAL(kind=realtype), INTENT(OUT) :: q
     REAL(kind=realtype) :: rdot, r
-    INTEGER(kind=inttype) :: niters, i
+    INTEGER(kind=inttype) :: niters
+! Note that this counter is not the intType that we use for all other integers.
+! This is done so that Tapenade correctly backwards differentiates this subroutine.
+    INTEGER :: i
 ! Extra parameters
 ! Maximum number of iterations for Newton search
     niters = 200

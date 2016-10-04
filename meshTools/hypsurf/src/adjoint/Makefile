@@ -25,10 +25,10 @@ default: all
 all:
 # # TODO: remove these calls to tapenade here
 # # Make the forward mode derivative files
-# 	make -f Makefile_tapenade
+	make -f Makefile_tapenade
 #
 # # Make the reverse mode derivative files
-# 	make -f Makefile_tapenade ad_reverse
+	make -f Makefile_tapenade ad_reverse
 
 	$(PMAKE)  src1
 	cp -f *.mod $(MODDIR)
