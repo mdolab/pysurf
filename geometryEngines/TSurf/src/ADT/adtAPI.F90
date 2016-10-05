@@ -256,6 +256,85 @@
         !***************************************************************
         !***************************************************************
 
+        subroutine adtIntersectionSearch(nBBox,     inpBBox,        adtID,     &
+                                         procID,    elementType, elementID, &
+                                         BBoxPtr)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine performs the detects elements whose bounding    *
+!       * boxes intersect the user provided bounding boxes (inpBBox).  *
+!       * This narrows down, for instance, candidates in intersection  *
+!       * algorithms.                                                  *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nBBox:     Number of bounding boxes for which the            *
+!       *            intersecting elements must be determined.         *
+!       * inpBBox:   real(6,nBBox) containing the corners of each      *
+!       *            bounding box (xmin, ymin, zmin, xmax, ymax, zmax).*
+!       * adtID:     The ADT to be searched.                           *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the elements that intersect the given     *
+!       *              bounding boxes are stored. You need to use      *
+!       *              BBoxPtr to slice this array and get elements    *
+!       *              that intersect a specific bounding box.         *
+!       * elementType: The type of element which intersects the        *
+!       *              bounding boxes.                                 *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which intersects the bounding boxes.            *
+!       *              The sizes of procID, elementType, and elementID *
+!       *              are all the same, and equal to the total number *
+!       *              of elements that intersect any given BBox.      *
+!       * BBoxPtr:     integer(nBBox+1). Pointers used to slice procID,*
+!       *              elementType, and elementID.                     *
+!       *              The indices from BBoxPtr(i) to BBoxPtr(i+1)-1   *
+!       *              belong to inpBBox(i).                           *
+!       *              If BBoxPtr(i) == BBoxPtr(i+1), then inpBBox(i)  *
+!       *              has no intersections with the tree elements.    *
+!       *                                                              *
+!       ****************************************************************
+!
+!       ATTENTION!: This subroutine will only work if the trees in every
+!       proc are the same. In other words, all elements should be defined
+!       in all processors! In order to do this, you should use the same
+!       coor, and connectivities when building the trees in each proc.
+!
+!       Ney Secco 2016-09
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nBBox
+
+        real(kind=realType), dimension(6,nBBox), intent(in) :: inpBBox
+
+        character(len=*), intent(in) :: adtID
+
+        integer(kind=intType), dimension(:), allocatable, intent(out) :: procID
+
+        integer(kind=adtElementType), dimension(:), allocatable, intent(out) :: elementType
+
+        integer(kind=intType), dimension(:), allocatable, intent(out) :: elementID
+
+        integer(kind=intType), dimension(nBBox+1), intent(out) :: BBoxPtr
+
+        !===============================================================
+
+        ! Call the subroutine intersectionSearch to do the actual work.
+
+        call intersectionSearch(nBBox,       inpBBox,       adtID, &
+                                procID,  elementType,   elementID, &
+                                BBoxPtr)
+
+      end subroutine adtIntersectionSearch
+
+        !***************************************************************
+        !***************************************************************
+
         subroutine adtDeallocateADTs(adtID)
 !
 !       ****************************************************************

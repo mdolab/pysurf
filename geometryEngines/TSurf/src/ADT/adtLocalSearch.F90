@@ -211,9 +211,9 @@
 
                     nBB     = nBB + 1
                     BB(nBB) = kk
-                  endif
+                 endif
 
-                else terminalTest
+              else terminalTest
 
                   ! Child contains a leaf. Check if the coordinate is
                   ! inside the bounding box of the leaf.
@@ -1787,4 +1787,283 @@
 
         end subroutine minDistanceTreeSearch
 
-      end module adtLocalSearch
+!===============================================================
+
+        subroutine intersectionTreeSearch(jj,        inpBBox,   &
+                                          intInfo,   BBoxPtr,   nBBox)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine performs the detects elements whose bounding    *
+!       * boxes intersect the user provided bounding boxes (inpBBox).  *
+!       * This narrows down, for instance, candidates in intersection  *
+!       * algorithms.                                                  *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * jj:        Entry in the array ADTs, whose ADT must be        *
+!       *            searched.                                         *
+!       * nBBox:     Number of bounding boxes for which the            *
+!       *            intersecting elements must be determined.         *
+!       * inpBBox:   real(6,nBBox) containing the corners of each      *
+!       *            bounding box (xmin, ymin, zmin, xmax, ymax, zmax).*
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * intInfo: 2D integer array, in which the following output     *
+!       *          will be stored:                                     *
+!       *          intInfo(1,:): processor ID of the processor where   *
+!       *                        the element is stored. This of course *
+!       *                        is myID. If no element is found this  *
+!       *                        value is set to -1.                   *
+!       *          intInfo(2,:): The element type of the element.      *
+!       *          intInfo(3,:): The element ID of the element in the  *
+!       *                        connectivity.                         *
+!       *          This array will hold all elements that intersects   *
+!       *          any of the given bounding boxes. Then you need to   *
+!       *          use BBoxPtr to find which slice of the intInfo      *
+!       *          array corresponds to a specific bounding box given  *
+!       *          in inpBBox.                                         *
+!       *                                                              *
+!       * BBoxPtr: integer(nBBox+1). Pointers used to slice intInfo.     *
+!       *          The indices from BBoxPtr(i) to BBoxPtr(i+1)-1       *
+!       *          belong to inpBBox(i).                               *
+!       *                                                              *
+!       ****************************************************************
+!
+        use Utilities ! ../utilities/Utilities.F90
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nBBox, jj
+
+        real(kind=realType), dimension(6,nBBox), intent(in) :: inpBBox
+
+        integer(kind=intType), dimension(:,:), allocatable, intent(out) :: intInfo
+
+        integer(kind=intType), dimension(nBBox+1), intent(out) :: BBoxPtr
+!
+!       Local variables.
+!
+        integer :: ierr
+
+        integer(kind=intType) :: ii, kk, ll, mm, nn, i
+        integer(kind=intType) :: nBB, nFrontLeaves, nFrontLeavesNew
+        integer(kind=intType) :: nAllocBB, nAllocFront, nAllocIntInfo
+        integer(kind=intType) :: nBBoxTotal, startID, endID
+
+        integer(kind=intType), dimension(:), pointer :: BB
+        integer(kind=intType), dimension(:), pointer :: frontLeaves
+        integer(kind=intType), dimension(:), pointer :: frontLeavesNew
+
+        real(kind=realType), dimension(6) :: BBoxA, BBoxB, BBoxAB
+
+        real(kind=realType), dimension(:,:), pointer :: xBBox
+
+        logical :: overlap
+
+        type(adtLeafType), dimension(:), pointer :: ADTree
+!
+!       ****************************************************************
+!       *                                                              *
+!       * Begin execution.                                             *
+!       *                                                              *
+!       ****************************************************************
+!
+        ! Set some pointers to make the code more readable.
+        
+        xBBox  => ADTs(jj)%xBBox
+        ADTree => ADTs(jj)%ADTree
+        
+        ! Initial allocation of the arrays for the tree traversal.
+
+        nAllocBB      = 10
+        nAllocFront   = 25
+        nAllocIntInfo = 30
+
+        allocate(BB(nAllocBB), frontLeaves(nAllocFront), &
+             frontLeavesNew(nAllocFront), intInfo(3,nAllocIntInfo), &
+             stat=ierr)
+        if(ierr /= 0)                                    &
+             call adtTerminate(jj, "containmentTreeSearch", &
+             "Memory allocation failure for BB, &
+             &frontLeaves and frontLeavesNew.")
+
+        ! Initialize the processor ID to -1 to indicate that no
+        ! corresponding bounding box is found.
+        intInfo = -1
+        
+        ! Initialize counter of total number of BBoxes flagged so far
+        nBBoxTotal = 0
+
+        ! Loop over the number of bounding boxes to be treated.
+
+        coorLoop: do nn=1,nBBox
+
+           ! Get corners of the current bounding box
+           BBoxA = inpBBox(:,nn)
+           
+!
+!         **************************************************************
+!         *                                                            *
+!         * Part 1. Traverse the tree and determine the target         *
+!         *         elements, which may intersect the given BBox.      *
+!         *                                                            *
+!         **************************************************************
+!
+           ! Start at the root, i.e. set the front leaf to the root leaf.
+           ! Also initialize the number of possible bounding boxes to 0.
+
+           nBB = 0
+
+           nFrontLeaves   = 1
+           frontLeaves(1) = 1
+
+           treeTraversalLoop: do
+
+              ! Initialize the number of leaves for the new front, i.e.
+              ! the front of the next round, to 0.
+
+              nFrontLeavesNew = 0
+            
+              ! Loop over the leaves of the current front.
+
+              currentFrontLoop: do ii=1,nFrontLeaves
+                 
+                 ! Store the ID of the leaf a bit easier and loop over
+                 ! its two children.
+
+                 ll = frontLeaves(ii)
+
+                 childrenLoop: do mm=1,2
+                    
+                    ! Determine whether this child contains a bounding box
+                    ! or a leaf of the next level.
+                    
+                    kk = ADTree(ll)%children(mm)
+
+                    terminalTest: if(kk < 0) then ! We have a terminal leaf with a BBox!
+                       
+                       ! Child contains a bounding box. Check if the
+                       ! coordinate is inside the bounding box.
+
+                       kk = -kk ! This is the BBox ID
+
+                       ! Get coordinates of the candidate bounding box
+                       BBoxB = xBBox(:,kk)
+
+                       ! Check bounding box intersection
+                       ! computeBBoxIntersection defined in Utilities.F90 of the utilities foldes
+                       call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+                       if (overlap) then
+
+                          ! The bounding boxes intersect. Store the
+                          ! bounding box in the list of possible candidates.
+                          ! But first check if we need to increase the BBox array
+                          if (nBB == nAllocBB) &
+                               call reallocPlus(BB, nAllocBB, 10, jj)
+
+                          ! Store the new candidate BBox
+                          nBB     = nBB + 1
+                          BB(nBB) = kk
+                       endif
+
+                    else terminalTest ! We do not have a terminal leaf because kk is positive
+
+                       ! Child contains a leaf. Check if the current BBox intersects the
+                       ! leaf bounding box.
+
+                       ! Get coordinates of the leaf BBox
+                       BBoxB(1:3) = ADTree(kk)%xMin(1:3)
+                       BBoxB(4:6) = ADTree(kk)%xMax(4:6)
+
+                       ! Check bounding box intersection
+                       ! computeBBoxIntersection defined in Utilities.F90 of the utilities foldes
+                       call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+                       if(overlap) then
+
+                          ! Our bounding box intersects the leaf BBox. Store the leaf in
+                          ! the list for the new front.
+
+                          if(nFrontLeavesNew == nAllocFront) then
+                             i = nAllocFront
+                             call reallocPlus(frontLeavesNew, i, 25, jj)
+                             call reallocPlus(frontLeaves, nAllocFront, 25, jj)
+                          endif
+                          
+                          nFrontLeavesNew = nFrontLeavesNew + 1
+                          frontLeavesNew(nFrontLeavesNew) = kk
+
+                       endif
+
+                    endif terminalTest
+
+                 enddo childrenLoop
+                 
+              enddo currentFrontLoop
+
+              ! End of the loop over the current front. If the new front
+              ! is empty the entire tree has been traversed and an exit is
+              ! made from the corresponding loop.
+
+              if(nFrontLeavesNew == 0) exit treeTraversalLoop
+
+              ! Copy the data of the new front leaves into the current
+              ! front for the next round.
+
+              nFrontLeaves = nFrontLeavesNew
+              do ll=1,nFrontLeaves
+                 frontLeaves(ll) = frontLeavesNew(ll)
+              enddo
+              
+           enddo treeTraversalLoop
+!
+!         **************************************************************
+!         *                                                            *
+!         * Part 2: Store the new bounding boxes in the output array   *
+!         *                                                            *
+!         **************************************************************
+!
+
+           do ii = 1,nBB
+
+              ! Get BBox ID that we stored in part 1
+              kk = BB(ii)
+
+              ! Check if we need to reallocate intInfo.
+              ! reallocPlus2D defined in adtUtils.F90
+              if (nBBoxTotal+ii .gt. nAllocIntInfo) then
+                 call reallocPlus2D(intInfo, nAllocIntInfo, 30, jj)
+              end if
+
+              ! Store proc ID
+              intInfo(1,nBBoxTotal+ii) = ADTs(jj)%myID
+
+              ! Store element type
+              intInfo(2,nBBoxTotal+ii) = ADTs(jj)%elementType(kk)
+
+              ! Store element ID
+              intInfo(3,nBBoxTotal+ii) = ADTs(jj)%elementID(kk)
+
+           end do
+
+           ! Store pointer info for the BBox we are currently checking.
+           BBoxPtr(nn) = nBBoxTotal + 1
+
+           ! Update total number of BBox found so far
+           nBBoxTotal = nBBoxTotal + nBB
+
+       end do coorLoop
+
+       ! Add the final pointer to BBoxPtr (which will point to the end of ther array)
+       BBoxPtr(nBBox+1) = nBBoxTotal + 1
+
+       ! Now we crop intInfo to have the correct number of bounding boxes
+       call reallocPlus2D(intInfo, nAllocIntInfo, nBBoxTotal-nAllocIntInfo, jj)
+
+     end subroutine intersectionTreeSearch
+
+   end module adtLocalSearch

@@ -454,6 +454,11 @@
 !       *                                                              *
 !       ****************************************************************
 !
+!       ATTENTION!: If you plan on using ADT to compute bounding box
+!       intersections, you should use the same coor, triaConn, and quadsConn
+!       in every processor. This subroutine will only work if the trees in every
+!       proc are the same.
+
         implicit none
 !
 !       Subroutine arguments.
@@ -845,6 +850,11 @@
 !       *                                                              *
 !       ****************************************************************
 !
+!       ATTENTION!: If you plan on using ADT to compute bounding box
+!       intersections, you should use the same coor, and connectivities
+!       on every pocessor. This subroutine will only work if the trees in every
+!       proc are the same.
+
         implicit none
 !
 !       Subroutine arguments.

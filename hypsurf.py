@@ -460,7 +460,8 @@ class HypSurfMesh(object):
                                   r0[3*(neighbor2_index):3*(neighbor2_index)+3],
                                   N0[:,curr_index])
                 if np.isnan(angle):
-                    pdb.set_trace()
+                    #pdb.set_trace()
+                    pass
 
             x0_xi = r0_xi[0]
             y0_xi = r0_xi[1]
@@ -883,7 +884,7 @@ class HypSurfMesh(object):
         '''
 
         # IMPORTS
-        from plot3d_interface import Grid, export_plot3d
+        from utilities.plot3d_interface import Grid, export_plot3d
 
         # Get coordiantes
         X = self.mesh[0,:,:].T

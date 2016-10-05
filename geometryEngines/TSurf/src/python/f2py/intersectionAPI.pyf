@@ -8,9 +8,10 @@ python module intersectionAPI ! in
             integer(kind=inttype), allocatable,dimension(:,:) :: barsconn
             real(kind=realtype), allocatable,dimension(:,:) :: coor
             integer(kind=inttype), allocatable,dimension(:,:) :: parenttria
-            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb,disttol) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
+            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb,disttol,comm) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection
                 use utilities
+                use adtapi
                 integer(kind=inttype), optional,intent(in),check(shape(coora,1)==nnodesa),depend(coora) :: nnodesa=shape(coora,1)
                 integer(kind=inttype), optional,intent(in),check(shape(triaconna,1)==ntriaa),depend(triaconna) :: ntriaa=shape(triaconna,1)
                 integer(kind=inttype), optional,intent(in),check(shape(quadsconna,1)==nquadsa),depend(quadsconna) :: nquadsa=shape(quadsconna,1)
@@ -24,6 +25,7 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(3,ntriab),intent(in) :: triaconnb
                 integer(kind=inttype) dimension(4,nquadsb),intent(in) :: quadsconnb
                 real(kind=realtype) intent(in) :: disttol
+                integer(kind=inttype) intent(in) :: comm
             end subroutine computeintersection
             subroutine computeintersection_b(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,nnodesint,nbarsint,coora,coorab,triaconna,quadsconna,coorb,coorbb,triaconnb,quadsconnb,coorint,coorintb,barsconnint,parenttriaint,disttol) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection_b, only: tritriintersect_b

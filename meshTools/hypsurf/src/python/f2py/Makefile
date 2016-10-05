@@ -56,11 +56,11 @@ all:
 # the C wrapper we will compile ourselves.
 	f2py hypsurfAPI.pyf
 	@echo " "
-	$(CC) $(CC_FLAGS) $(PYTHON_INCLUDES) -I$(NUMPY_INCLUDES) \
+	$(CC) $(CC_ALL_FLAGS) $(PYTHON_INCLUDES) -I$(NUMPY_INCLUDES) \
 	-I$(F2PY_ROOT)/src -c hypsurfAPImodule.c
 
 # Compile the fortran wrapper from f2py directory
-	$(CC) $(CC_FLAGS) $(PYTHON_INCLUDES) -I$(NUMPY_INCLUDES) -c \
+	$(CC) $(CC_ALL_FLAGS) $(PYTHON_INCLUDES) -I$(NUMPY_INCLUDES) -c \
 	$(F2PY_ROOT)/src/fortranobject.c -o fortranobject.o
 
 # # This file is for F77 wrappers if they exist

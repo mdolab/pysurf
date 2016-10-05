@@ -17,7 +17,7 @@ CGNS_LINKER_FLAGS=-L$(HOME)/packages/cgnslib_3.2.1/src -lcgns
 FF90_GEN_FLAGS = -fPIC -g -fbounds-check
 CC_GEN_FLAGS   = -fPIC
 
-FF90_OPT_FLAGS   =  -fPIC -fdefault-real-8 -O2 -fdefault-double-8
+FF90_OPT_FLAGS   = -fPIC -fdefault-real-8 -O2 -fdefault-double-8
 CC_OPT_FLAGS     = -O2
 
 # ------- Define Archiver  and Flags -----------------------------------
@@ -30,8 +30,8 @@ LINKER_FLAGS =
 # ------- Define Petsc Info --- Should not need to modify this -----
 include ${PETSC_DIR}/lib/petsc/conf/variables # PETSc 3.6
 #include ${PETSC_DIR}/conf/variables # PETSc 3.5
-PETSC_INCLUDE_FLAGS=${PETSC_CC_INCLUDES} -I$(PETSC_DIR)
-PETSC_LINKER_FLAGS=${PETSC_LIB}
+PETSC_INCLUDE_FLAGS= ${PETSC_CC_INCLUDES} -I$(PETSC_DIR)
+PETSC_LINKER_FLAGS= ${PETSC_LIB}
 
 # Define potentially different python, python-config and f2py executables:
 PYTHON = python

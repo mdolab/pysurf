@@ -84,10 +84,10 @@ def test_curve_intersection(deltaZ,ii):
             newIntCurve.export_plot3d('curve_%03d'%ii)
 
             # Find the upper skin trailing edge point
-            pt0 = intCurve.barsConn[0,0]
-            pt1 = intCurve.barsConn[-1,-1]
-            Z0 = intCurve.coor[2,pt0-1]
-            Z1 = intCurve.coor[2,pt1-1]
+            pt0 = newIntCurve.barsConn[0,0]
+            pt1 = newIntCurve.barsConn[-1,-1]
+            Z0 = newIntCurve.coor[2,pt0-1]
+            Z1 = newIntCurve.coor[2,pt1-1]
             if Z0 > Z1:
                 pointID = pt0
             else:
