@@ -4,7 +4,7 @@
 !     * File:          adtAPI.f90                                      *
 !     * Author:        Edwin van der Weide                             *
 !     * Starting date: 02-09-2006                                      *
-!     * Last modified: 02-09-2006                                      *
+!     * Last modified: 10-05-2016                                      *
 !     *                                                                *
 !     ******************************************************************
 !
@@ -12,7 +12,7 @@
 !
 !     ******************************************************************
 !     *                                                                *
-!     * Module, which defines the API of the ADT routines. It is       *
+!     * Module which defines the API of the ADT routines. It is        *
 !     * included in a module, such that an explicit interface is       *
 !     * present.                                                       *
 !     *                                                                *
@@ -397,6 +397,7 @@
 !       * --------------------------------                             *
 !       * nCoor: Number of points for which the element must be        *
 !       *        determined.                                           *
+!       * nNodes: Number of donor nodes for interpolation information.
 !       * coor:  The coordinates of these points.                      *
 !       * adtID: The ADT to be searched.                               *
 !       * nInterpol: Number of variables to be interpolated.           *
@@ -487,6 +488,24 @@
 !
 !       ****************************************************************
 !       *                                                              *
+!       * This routine computes the nodal normals for each node by     *
+!       * obtaining the normals for each panel face then interpolating *
+!       * the data to the nodes.                                       *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nTria: Number of triangle elements.                          *
+!       * nQuads: Number of quad elements.                             *
+!       * coor:  The coordinates of these points.                      *
+!       * triaConn: Connectivity information for the triangle elments. *
+!       * quadsConn: Connectivity information for the quad elments.    *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * nodalNormals: The interpolated normals at each coordinate    *
+!       *               node.                                          *
 !       *                                                              *
 !       ****************************************************************
 !
@@ -519,46 +538,65 @@
 
         ! Loop over triangle connectivities
         do i = 1,nTria
+
+          ! Get the indices for each node of the triangle element
           ind1 = triaConn(1, i)
           ind2 = triaConn(2, i)
           ind3 = triaConn(3, i)
 
+          ! Get the coordinates for each node of the triangle element
           x1 = coor(:, ind1)
           x2 = coor(:, ind2)
           x3 = coor(:, ind3)
 
+          ! Compute relative vectors for the triangle sides
           x12 = x1 - x2
           x23 = x2 - x3
 
+          ! Take the cross-product of these vectors to obtain the normal vector
           call cross_product(x12, x23, normal1)
+
+          ! Normalize this normal vector
           normal1 = normal1 / sqrt(dot_product(normal1, normal1))
 
+          ! Add the contribution of this normal to the nodalNormals array
           nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
           nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal1
           nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal1
 
+          ! Add connectivity information to the connect_count array so we
+          ! know how many edges are connected to a node.
+          ! We divide the nodalNormals vector by this number to obtain the
+          ! averaged nodal normal.
           connect_count(ind1) = connect_count(ind1) + 1
           connect_count(ind2) = connect_count(ind2) + 1
           connect_count(ind3) = connect_count(ind3) + 1
+
         end do
 
         ! Loop over quad connectivities
         do i = 1,nQuads
+
+          ! Get the indices for each node of the quad element
           ind1 = quadsConn(1, i)
           ind2 = quadsConn(2, i)
           ind3 = quadsConn(3, i)
           ind4 = quadsConn(4, i)
 
+          ! Get the coordinates for each node of the quad element
           x1 = coor(:, ind1)
           x2 = coor(:, ind2)
           x3 = coor(:, ind3)
           x4 = coor(:, ind4)
 
+          ! Compute relative vectors for the quad sides
           x12 = x1 - x2
           x23 = x2 - x3
           x34 = x3 - x4
           x41 = x4 - x1
 
+          ! Take the cross-product of these vectors to obtain the normal vectors
+          ! Normalize these normal vectors
           call cross_product(x12, -x41, normal1)
           normal1 = normal1 / sqrt(dot_product(normal1, normal1))
           call cross_product(x23, -x12, normal2)
@@ -568,22 +606,30 @@
           call cross_product(x41, -x34, normal4)
           normal4 = normal4 / sqrt(dot_product(normal4, normal4))
 
+          ! Add the contribution of this normal to the nodalNormals array
           nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
           nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal2
           nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal3
           nodalNormals(:, ind4) = nodalNormals(:, ind4) + normal4
 
+          ! Add connectivity information to the connect_count array so we
+          ! know how many edges are connected to a node.
+          ! We divide the nodalNormals vector by this number to obtain the
+          ! averaged nodal normal.
           connect_count(ind1) = connect_count(ind1) + 1
           connect_count(ind2) = connect_count(ind2) + 1
           connect_count(ind3) = connect_count(ind3) + 1
           connect_count(ind4) = connect_count(ind4) + 1
+
         end do
 
         do i = 1,3
-            nodalNormals(i, :) = nodalNormals(i, :) / connect_count
+          ! Divide the nodal normals by the number of edges that each node has
+          nodalNormals(i, :) = nodalNormals(i, :) / connect_count
         end do
 
         do i=1,nCoor
+          ! Normalize these new averaged nodal normals
           normal1 = nodalNormals(:, i)
           nodalNormals(:, i) = normal1 / sqrt(dot_product(normal1, normal1))
         end do
@@ -591,7 +637,11 @@
         end subroutine computeNodalNormals
 
         subroutine cross_product(A, B, C)
-
+!
+!       ****************************************************************
+!       *       Obtain the cross-product of two vectors, A and B.      *
+!       ****************************************************************
+!
           implicit none
 
           real(kind=realType), intent(in) :: A(3), B(3)
@@ -623,7 +673,7 @@
         ! OUTPUT VARIABLES
         integer(kind=intType), intent(out) :: nADT
 
-        ! call subroutine defined in adtUtils.F90 that will do all the job
+        ! call subroutine defined in adtUtils.F90 that will do the whole job
         call numberOfADTs(nADT)
 
       end subroutine adtGetNumberOfTrees

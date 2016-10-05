@@ -23,13 +23,7 @@ FF90_OBJECTS_1 = adBuffer.o \
 default: all
 
 all:
-# # TODO: remove these calls to tapenade here
-# # Make the forward mode derivative files
-	make -f Makefile_tapenade
-#
-# # Make the reverse mode derivative files
-	make -f Makefile_tapenade ad_reverse
-
+	@echo "            Making in HypsurfAPI Derivatives... "
 	$(PMAKE)  src1
 	cp -f *.mod $(MODDIR)
 
@@ -38,3 +32,11 @@ clean:
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
 
 src1:	$(FF90_OBJECTS_1)
+
+derivatives:
+	@echo "     Running Tapenade in HypsurfAPI Derivatives... "
+	# Make the forward mode derivative files
+	make -f Makefile_tapenade
+
+	# Make the reverse mode derivative files
+	make -f Makefile_tapenade ad_reverse
