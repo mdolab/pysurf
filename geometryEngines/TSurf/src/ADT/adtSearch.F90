@@ -386,6 +386,133 @@
         !***************************************************************
         !***************************************************************
 
+        subroutine intersectionSearch(nBBox,       inpBBox,       adtID, &
+                                      procID,  elementType,   elementID, &
+                                      BBoxPtr)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine performs the detects elements whose bounding    *
+!       * boxes intersect the user provided bounding boxes (inpBBox).  *
+!       * This narrows down, for instance, candidates in intersection  *
+!       * algorithms.                                                  *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nBBox:     Number of bounding boxes for which the            *
+!       *            intersecting elements must be determined.         *
+!       * inpBBox:   real(6,nBBox) containing the corners of each      *
+!       *            bounding box (xmin, ymin, zmin, xmax, ymax, zmax).*
+!       * adtID:     The ADT to be searched.                           *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the elements that intersect the given     *
+!       *              bounding boxes are stored. You need to use      *
+!       *              BBoxPtr to slice this array and get elements    *
+!       *              that intersect a specific bounding box.         *
+!       * elementType: The type of element which intersects the        *
+!       *              bounding boxes.                                 *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which intersects the bounding boxes.            *
+!       *              The sizes of procID, elementType, and elementID *
+!       *              are all the same, and equal to the total number *
+!       *              of elements that intersect any given BBox.      *
+!       * BBoxPtr:     integer(nBBox+1). Pointers used to slice procID,*
+!       *              elementType, and elementID.                     *
+!       *              The indices from BBoxPtr(i) to BBoxPtr(i+1)-1   *
+!       *              belong to inpBBox(i).                           *
+!       *              If BBoxPtr(i) == BBoxPtr(i+1), then inpBBox(i)  *
+!       *              has no intersections with the tree elements.    *
+!       *                                                              *
+!       ****************************************************************
+!
+!       ATTENTION!: This subroutine will only work if the trees in every
+!       proc are the same. In other words, all elements should be defined
+!       in all processors! In order to do this, you should use the same
+!       coor, triaConn, and quadsConn when building the trees in each proc.
+!
+!       Ney Secco 2016-09
+
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nBBox
+
+        real(kind=realType), dimension(6,nBBox), intent(in) :: inpBBox
+
+        character(len=*), intent(in) :: adtID
+
+        integer(kind=intType), dimension(:), allocatable, intent(out) :: procID
+
+        integer(kind=adtElementType), dimension(:), allocatable, intent(out) :: elementType
+
+        integer(kind=intType), dimension(:), allocatable, intent(out) :: elementID
+
+        integer(kind=intType), dimension(nBBox+1), intent(out) :: BBoxPtr
+
+!
+!       Local variables.
+!
+        integer :: ierr
+
+        integer(kind=intType) :: jj, nAlloc, nIntersections
+
+        real(kind=realType), dimension(1) :: dummy
+
+        integer(kind=intType), dimension(:,:), allocatable :: intInfo
+
+!
+!       ****************************************************************
+!       *                                                              *
+!       * Begin execution.                                             *
+!       *                                                              *
+!       ****************************************************************
+!
+        ! Determine the index in the array ADTs, which stores the given
+        ! ID. As the number of trees stored is limited, a linear search
+        ! algorithm is okay.
+
+        nAlloc = ubound(ADTs, 1)
+        do jj=1,nAlloc
+          if(adtID == ADTs(jj)%adtID) exit
+        enddo
+
+        ! Check if the ADT to be searched exists. If not stop.
+        ! Note that adtTerminate is not called. The reason is that the
+        ! processor ID is not known.
+
+        if(jj > nAlloc) stop "ADT to be searched does not exist."
+
+        ! We only need to do the local search since we are assuming that
+        ! all processors have the full tree. We do this to avoid the
+        ! allocation of variable size arrays sice we don know beforehand
+        ! how many intersections each BBox will have.
+        ! Subroutine intersectionTreeSearch.F90 defined in adtLocalSearch.F90
+        call intersectionTreeSearch(jj, inpBBox, &
+                                    intInfo, BBoxPtr, nBBox)
+
+        ! Allocate new variables based on intInfo size
+        nIntersections = size(intInfo,2)
+        allocate(procID(nIntersections), &
+                 elementType(nIntersections), &
+                 elementID(nIntersections))
+
+        ! Split information from intInfo
+        procID = intInfo(1,:)
+        elementType = intInfo(2,:)
+        elementID = intInfo(3,:)
+        
+        ! Deallocate intInfo
+        deallocate(intInfo)
+
+        end subroutine intersectionSearch
+
+        !***************************************************************
+        !***************************************************************
+
         subroutine initSearch(nCoor, coor, dist2, jj, containmentSearch)
 !
 !       ****************************************************************
@@ -1817,5 +1944,14 @@
                             &stored in the module adtData.")
 
         end subroutine search
+
+        !***************************************************************
+        !***************************************************************
+
+        !***************************************************************
+        !***************************************************************
+
+        !***************************************************************
+        !***************************************************************
 
       end module adtSearch

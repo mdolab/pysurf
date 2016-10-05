@@ -517,4 +517,214 @@ subroutine norm(A, norm_)
 
 end subroutine norm
 
+!============================================================
+! BOUNDING BOX ROUTINES
+!============================================================
+
+subroutine computeBBox(coor, BBox)
+
+  ! This subroutine computes the bounding box of all points given in coor.
+  ! Ney Secco - 2016-08
+  !
+  ! INPUTS:
+  !
+  ! coor: real(3, nNodes) -> coordinates (x,y,z) of all nodes used in the
+  !       triangulated surface definition.
+  !
+  ! OUTPUTS:
+  !
+  ! BBox: real(3, 2) -> coordinates defining the bounding box
+  !                     [xmin, xmax]
+  !                     [ymin, ymax]
+  !                     [zmin, zmax]
+  ! Ney Secco 2016-08
+
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), dimension(:,:), intent(in) :: coor
+
+  ! OUTPUTS
+  real(kind=realType), dimension(3,2), intent(out) :: BBox
+
+  ! EXECUTION
+
+  ! Get bounding values
+  BBox(:, 1) = minval(coor, 2)
+  BBox(:, 2) = maxval(coor, 2)
+
+end subroutine computeBBox
+
+!============================================================
+
+subroutine computeBBoxPerElements(nNodes, nTria, nQuads, &
+                                  coor, triaConn, quadsConn, &
+                                  triaBBox, quadsBBox)
+
+  ! This subroutine computes a bounding box for each element in triaConn and quadsConn.
+  !
+  ! INPUTS
+  !
+  ! coor: real(3,nNodes) -> Nodal coordinates
+  !
+  ! triaConn: integer(3,nTria) -> Connectivities of triangle elements
+  !
+  ! quadsConn: integer(4,nQuads) -> Connectivities of quad elements
+  !
+  ! OUTPUTS:
+  !
+  ! triaBBox: real(6,nTria) -> Bounding box coordinates for each triangle element.
+  !                            (xmin, ymin, zmin, xmax, ymax, zmax).
+  !
+  ! quadsBBox: real(6,nQuads) -> Bounding box coordinates for each quad element.
+  !                              (xmin, ymin, zmin, xmax, ymax, zmax).
+  ! Ney Secco 2016-10
+
+  implicit none
+
+  ! INPUTS
+  integer(kind=intType), intent(in) :: nNodes, nTria, nQuads
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+  integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
+  integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+
+  ! OUTPUTS
+  real(kind=realType), dimension(6,nTria), intent(out) :: triaBBox
+  real(kind=realType), dimension(6,nQuads), intent(out) :: quadsBBox
+
+  ! WORKING
+  integer(kind=intType) :: elemID, nodeID
+  real(kind=realType) :: triaCoor(3,3), quadsCoor(3,4), BBox(6)
+
+  ! EXECUTION
+
+  ! Loop over all triangles
+  do elemID = 1,nTria
+
+     ! Get coordinates of each node and store them in a single matrix
+     triaCoor(:,1) = coor(:,triaConn(1,elemID))
+     triaCoor(:,2) = coor(:,triaConn(2,elemID))
+     triaCoor(:,3) = coor(:,triaConn(3,elemID))
+
+     ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
+     ! based on the nodal coordinates.
+     triaBBox(1:3, elemID) = minval(triaCoor, 2)
+     triaBBox(4:6, elemID) = maxval(triaCoor, 2)
+     
+  end do
+
+  ! Loop over all quads
+  do elemID = 1,nQuads
+
+     ! Get coordinates of each node and store them in a single matrix
+     quadsCoor(:,1) = coor(:,quadsConn(1,elemID))
+     quadsCoor(:,2) = coor(:,quadsConn(2,elemID))
+     quadsCoor(:,3) = coor(:,quadsConn(3,elemID))
+     quadsCoor(:,4) = coor(:,quadsConn(4,elemID))
+
+     ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
+     ! based on the nodal coordinates.
+     quadsBBox(1:3, elemID) = minval(quadsCoor, 2)
+     quadsBBox(4:6, elemID) = maxval(quadsCoor, 2)
+     
+  end do
+
+end subroutine computeBBoxPerElements
+
+!============================================================
+
+subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
+
+  ! This subroutine gives a rectangle (BBoxAB) that correponds to the intersection
+  ! of two bounding boxes (BBoxA, and BBoxB).
+  ! If there is no intersection, we will return overlap = .false., but BBoxAB will
+  ! still have meaningless value.
+  ! Ney Secco - 2016-08
+  !
+  ! INPUTS
+  !
+  ! BBoxA: real(6) -> bounding box A coordinates (xmin, ymin, zmin, xmax, ymax, zmax).
+  !
+  ! BBoxB: real(6) -> bounding box B coordinates (xmin, ymin, zmin, xmax, ymax, zmax).
+  !
+  ! OUTPUTS
+  !
+  ! BBoxAB: real(6) -> coordinates of the A-B intersection bounding box.
+  !         ATTENTION: This variable may still have meaningless values if
+  !         overlap = .false.
+  !
+  ! overlap: logical -> logical indicating if there is an intersection
+  !          between boxes A and B. If overlap = .false., disregard all
+  !          values given in BBoxAB.
+  
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), dimension(6), intent(in) :: BBoxA, BBoxB
+
+  ! OUTPUTS
+  real(kind=realType), dimension(6), intent(out) :: BBoxAB
+  logical, intent(out) :: overlap
+
+  ! EXECUTION
+
+  ! Check overlaps along each dimension
+  ! We have an actual BBox intersection if there are overlaps in all dimensions
+
+  ! X overlap
+  call lineIntersectionInterval(BBoxA(1), BBoxA(4), BBoxB(1), BBoxB(4), &
+       BBoxAB(1), BBoxAB(4), overlap)
+
+  if (overlap) then
+     ! Y overlap
+     call lineIntersectionInterval(BBoxA(2), BBoxA(5), BBoxB(2), BBoxB(5), &
+          BBoxAB(2), BBoxAB(5), overlap)
+
+     if (overlap) then
+        ! Z overlap
+        call lineIntersectionInterval(BBoxA(3), BBoxA(6), BBoxB(3), BBoxB(6), &
+             BBoxAB(3), BBoxAB(6), overlap)
+
+     end if
+
+  end if
+
+  ! Remember that overlap may be set to false in the Z overlap test
+
+end subroutine computeBBoxIntersection
+
+!============================================================
+
+subroutine lineIntersectionInterval(xminA, xmaxA, xminB, xmaxB, xminAB, xmaxAB, overlap)
+
+  ! This subroutine finds a 1D overlap interval between two lines.
+  ! This step is used three times (one for each dimension) when
+  ! computing bounding boxes intersection.
+  ! If the bounding boxes do not overlap we return overlap = .false.
+  ! Ney Secco - 2016-08
+
+  implicit none
+
+  ! INPUTS
+  real(kind=realType), intent(in) :: xminA, xmaxA, xminB, xmaxB
+
+  ! OUTPUTS
+  real(kind=realType), intent(out) :: xminAB, xmaxAB
+  logical, intent(out) :: overlap
+
+  ! EXECUTION
+
+  ! Get bounding interval
+  xminAB = max(xminA, xminB)
+  xmaxAB = min(xmaxA, xmaxB)
+
+  ! Check if we actually have an overlap
+  if (xminAB .gt. xmaxAB) then
+     overlap = .false.
+  else
+     overlap = .true.
+  end if
+
+end subroutine lineIntersectionInterval
+
 end module Utilities

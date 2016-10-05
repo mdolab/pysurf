@@ -292,6 +292,8 @@ class TSurfGeometry(Geometry):
         print 'Number of intersections between',self.name,'and',otherGeometry.name,'is',len(Intersection)
 
 #=============================================================
+#=============================================================
+#=============================================================
 
 class TSurfCurve(Curve):
 

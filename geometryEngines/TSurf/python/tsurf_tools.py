@@ -7,7 +7,6 @@ import tsurf_component
 '''
 TODO:
 - Add variable angle threshold to curve feature extraction and curve split
-
 '''
 
 #===========================================
@@ -462,6 +461,8 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
 # AUXILIARY SURFACE FUNCTIONS
 #=================================================================
 
+#=================================================================
+
 def merge_surface_sections(sectionDict, selectedSections):
 
     '''
@@ -739,11 +740,52 @@ def split_curve_single(curve, curveName, criteria):
 
 #=================================================================
 
+
+def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear'):
+
+    # Get connectivities and coordinates of the current Curve object
+    coor = origCurve.coor
+    barsConn = origCurve.barsConn
+
+    # Get the number of nodes and elements in the curve
+    nElem = barsConn.shape[1]
+    nNodes = nElem + 1
+
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
+    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
+
+    return coorb
+
+#=================================================================
+
+def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear'):
+
+    # Get connectivities and coordinates of the current Curve object
+    coor = origCurve.coor
+    barsConn = origCurve.barsConn
+
+    # Get the number of nodes and elements in the curve
+    nElem = barsConn.shape[1]
+    nNodes = nElem + 1
+
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
+    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
+
+    return newCoord
+
+#=================================================================
+
 #===================================
 # INTERSECTION FUNCTIONS
 #===================================
 
-def compute_intersections(TSurfGeometryList,distTol=1e-7):
+def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
     '''
     This function will just compute pair-wise intersections
@@ -771,7 +813,7 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7):
             # Compute new intersections for the current pair
             newIntersections = _compute_pair_intersection(TSurfGeometryList[ii],
                                                          TSurfGeometryList[jj],
-                                                         distTol)
+                                                          distTol, comm)
 
             # Append new curve objects to the list
             Intersections = Intersections + newIntersections
@@ -784,7 +826,7 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7):
 
 #=================================================================
 
-def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
+def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI.COMM_WORLD):
 
     '''
     This function finds intersection curves between components A and B
@@ -798,7 +840,8 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
                                                         TSurfGeometryB.coor,
                                                         TSurfGeometryB.triaConn,
                                                         TSurfGeometryB.quadsConn,
-                                                        distTol)
+                                                        distTol,
+                                                        comm.py2f())
 
     # Retrieve results from Fortran
     coor = np.array(intersectionAPI.intersectionapi.coor)
@@ -812,9 +855,6 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     Intersections = []
 
     if len(coor) > 0:
-
-        #barsConn = np.sort(barsConn, axis=0)
-        #barsConn = np.vstack({tuple(col) for col in barsConn.T}).T
 
         # Sort FE data. After this step, barsConn may become a list if we
         # have two disconnect intersection curves.
@@ -874,6 +914,9 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     intCurve: Intersection curve defined by both components (taken from component A)
 
     coorIntb: float(3,nNodesInt) -> Derivative seeds of the intersection curve nodal coordinates
+
+    distTol: float -> Distance used to check if the bar elements were flipped. Used the
+                      same distTol used to merge nearby nodes.
 
     OUTPUTS:
 
@@ -946,47 +989,6 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
 
     # Return derivatives
     return coorIntd
-
-#=================================================================
-
-
-def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear'):
-
-    # Get connectivities and coordinates of the current Curve object
-    coor = origCurve.coor
-    barsConn = origCurve.barsConn
-
-    # Get the number of nodes and elements in the curve
-    nElem = barsConn.shape[1]
-    nNodes = nElem + 1
-
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
-
-    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
-
-    return coorb
-
-#=================================================================
-
-def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear'):
-
-    # Get connectivities and coordinates of the current Curve object
-    coor = origCurve.coor
-    barsConn = origCurve.barsConn
-
-    # Get the number of nodes and elements in the curve
-    nElem = barsConn.shape[1]
-    nNodes = nElem + 1
-
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
-
-    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
-
-    return newCoord
 
 #=================================================================
 
@@ -1239,7 +1241,8 @@ def remove_unused_points(coor,
     also update all connectivities.
 
     ATTENTION:
-    All inputs must be arrays.
+    All inputs must be arrays. The user does not need to provide all inputs, only
+    the connectivities that matter to select used points.
 
     OUTPUTS:
     This function returns cropCoor, which is the cropped set of nodes.
@@ -1548,17 +1551,3 @@ def rotate(Geometry, angle, axis, point=None):
     relCoor[1,:] = relCoor[1,:] + point[1]
     relCoor[2,:] = relCoor[2,:] + point[2]
     Geometry.coor = relCoor
-
-'''
-def compute_intersection_derivatives(geom1, geom2, int_curve):
-
-    # get the int_curve here
-    # select a point on the int_curve and set the seed
-    # introduce int_curveb as newcoorb to the remesh_main_b
-
-    # get coorb from remesh_main_b
-    # send coorb to intersection_b
-
-    # get coorAb from intersection (the one for the actual geometry)
-    # apply translation derivative (0, 0, 1) on coorAb and dot to get the scalar
-'''

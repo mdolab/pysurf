@@ -13,10 +13,7 @@ import copy
 # USER INPUTS
 
 # Define translation cases for the wing
-nStates = 1
-
-#wingTranslation = [[0.0, -3.0, s] for s in np.hstack([np.linspace(0,0.25,nStates),np.linspace(0.25,0,nStates)])]
-#wingTranslation = [[0.0, -100.0, 145.0]]
+nStates = 11
 
 wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
@@ -88,7 +85,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     Intersections[0].shift_end_nodes(criteria='maxX')
 
     # Remesh curve to get better spacing
-    Intersections[0].remesh(nNewNodes=300)
+    Intersections[0] = Intersections[0].remesh(nNewNodes=300)
 
     # Check if we need to flip the curve
     if Intersections[0].coor[2,0] > Intersections[0].coor[2,-1]:
@@ -123,7 +120,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         nuArea = 0.16
         numAreaPasses = 0
         sigmaSplay = 0.
-        cMax = 10.0
+        cMax = 1000.0
         ratioGuess = 20
 
         # Options
@@ -156,7 +153,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         nuArea = 0.16
         numAreaPasses = 0
         sigmaSplay = 0.3
-        cMax = 1.0
+        cMax = 1000.0
         ratioGuess = 20
 
         # Options

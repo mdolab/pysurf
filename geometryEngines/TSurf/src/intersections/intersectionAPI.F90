@@ -23,7 +23,7 @@ contains
     nNodesB, nTriaB, nQuadsB, &
     coorA, triaConnA, quadsConnA, &
     coorB, triaConnB, quadsConnB, &
-    distTol)
+    distTol, comm)
 
     ! This function computes the intersection curve between two
     ! triangulated surface components A and B.
@@ -46,16 +46,18 @@ contains
     !
     ! triaConnA: integer(3,nTriaA) -> Connectivities of triangle elements in component A
     !
-    ! quadsConnA : integer(4,nQuadsA) -> Connectivities of quad elements in component A
+    ! quadsConnA: integer(4,nQuadsA) -> Connectivities of quad elements in component A
     !
     ! coorB: real(3,nNodesB) -> Nodal coordinates used by component B
     !
     ! triaConnB: integer(3,nTriaB) -> Connectivities of triangle elements in component B
     !
-    ! quadsConnB : integer(4,nQuadsB) -> Connectivities of quad elements in component B
+    ! quadsConnB: integer(4,nQuadsB) -> Connectivities of quad elements in component B
     !
     ! distTol: real -> distance tolerance to merge nearby nodes in
     !          the intersection curve.
+    !
+    ! comm : integer -> MPI communicator.
     !
     ! OUTPUTS
     ! This subroutine has no explicit outputs. It updates the variables coor, barsConn, and parentTria
@@ -65,6 +67,7 @@ contains
 
     use Intersection
     use Utilities ! This will bring condenseBarNodes_main
+    use adtAPI ! This will bring adtBuildSurfaceADT and adtIntersectionSearch
     implicit none
 
     ! Input variables
@@ -77,11 +80,12 @@ contains
     integer(kind=intType), dimension(3,nTriaB), intent(in) :: triaConnB
     integer(kind=intType), dimension(4,nQuadsB), intent(in) :: quadsConnB
     real(kind=realType), intent(in) :: distTol
+    integer(kind=intType), intent(in) :: comm
     !f2py intent(in) nNodesA, nTriaA, nQuadsA
     !f2py intent(in) nNodesB, nTriaB, nQuadsB
     !f2py intent(in) coorA, triaConnA, quadsConnA
     !f2py intent(in) coorB, triaConnB, quadsConnB
-    !f2py intent(in) distTol
+    !f2py intent(in) distTol, comm
 
     ! Working variables
     real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
@@ -98,10 +102,16 @@ contains
     real(kind=realType), dimension(3) :: node1A, node2A, node3A
     real(kind=realType), dimension(3) :: node1B, node2B, node3B
     real(kind=realType), dimension(3) :: vecStart, vecEnd
-
     integer(kind=intType) :: nNodesInt, nBarsInt, nUniqueNodes
-
     integer(kind=intType), dimension(:,:), allocatable :: extParentTria
+
+    character(len=32) :: adtID
+    real(kind=realType), dimension(:,:), allocatable :: triaBBox
+    real(kind=realType), dimension(6,0) :: quadsBBox
+    integer(kind=intType), dimension(:), allocatable :: procID, elementID
+    integer(kind=adtElementType), dimension(:), allocatable :: elementType
+    integer(kind=intType), dimension(:), allocatable :: BBoxPtr
+    integer(kind=intType) :: startIndex, endIndex, numBBoxTest, candidateID
 
     ! EXECUTION
 
@@ -147,6 +157,47 @@ contains
     nInnerTriaA = size(allTriaConnA,2)
     nInnerTriaB = size(allTriaConnB,2)
 
+    !========================================
+    ! ADT filter
+    !========================================
+    ! This part of the code will generate an ADT using only elements inside the
+    ! intersecting bounding box. This will help us eliminate unnecessary
+    ! intersection checks.
+
+    ! Create generic ID for the ADT
+    adtID = 'intersectionFilter'
+
+    ! Generate ADT with the component that has the largest number of elements.
+    ! This ADT will contain only the triangles.
+    ! adtBuildSurfaceADT defined in adtAPI.F90
+    call adtBuildSurfaceADT(nInnerTriaB, 0, nNodesB, &
+         coorB, allTriaConnB, quadsConnB, &
+         BBoxAB, .false., comm, &
+         adtID)
+
+    ! Allocate arrays for bounding boxes
+    allocate(triaBBox(6,nInnerTriaA), BBoxPtr(nInnerTriaA+1))
+
+    ! Now we compute bounding boxes for each element of the component that
+    ! does not have a tree. Remember that quadsBBox is a dummy variable, as
+    ! we only deal with triangle elements.
+    call computeBBoxPerElements(nNodesA, nInnerTriaA, 0, &
+                                coorA, allTriaConnA, quadsConnA, &
+                                triaBBox, quadsBBox)
+
+    ! Now we use ADT to search for possible intersections.
+    ! adtIntersectionSearch defined in adtAPI.F90
+    call adtIntersectionSearch(nInnerTriaA, triaBBox, adtID, &
+                               procID, elementType, elementID, &
+                               BBoxPtr)
+
+    ! Now we can deallocate the tree
+    call adtDeallocateADTs(adtID)
+
+    !========================================
+    ! Pair-wise intersection tests
+    !========================================
+
     ! Initialize extended connectivity arrays for the intersection curves.
     ! These arrays will be cropped to get the actual outputs.
     ! For now we will allocate arrays of size arraySize. We will increase them
@@ -173,102 +224,119 @@ contains
     ! We will call every pair between triangles in A and B
     do ii = 1,nInnerTriaA
 
-      ! Get nodes of the element in A
-      node1A = coorA(:, allTriaConnA(1,ii))
-      node2A = coorA(:, allTriaConnA(2,ii))
-      node3A = coorA(:, allTriaConnA(3,ii))
+       ! Get initial and final position to slice tree outputs
+       startIndex = BBoxPtr(ii)
+       endIndex = BBoxPtr(ii+1)
 
-      ! Now loop over the triangles of the other component
-      do jj = 1,nInnerTriaB
+       ! Check how many bounding boxes intersect the bounding box from
+       ! the current element from component A. This is given by the difference
+       ! of consecutive pointers in BBoxPtr.
+       numBBoxTest = endIndex - startIndex
 
-        ! Get nodes of the element in B
-        node1B = coorB(:, allTriaConnB(1,jj))
-        node2B = coorB(:, allTriaConnB(2,jj))
-        node3B = coorB(:, allTriaConnB(3,jj))
+       if (numBBoxTest .le. 0) then ! We have no intersection, so jump to next element
+          cycle
+       end if
 
-        ! Call triangle-triangle intersection routine
-        call triTriIntersect(node1A, node2A, node3A, &
-        node1B, node2B, node3B, &
-        intersect, vecStart, vecEnd)
+       ! Get nodes of the element in A
+       node1A = coorA(:, allTriaConnA(1,ii))
+       node2A = coorA(:, allTriaConnA(2,ii))
+       node3A = coorA(:, allTriaConnA(3,ii))
 
-        ! Check if the triangles actually intersect
-        if (intersect .eq. 1) then
+       ! Now loop over the triangles of the other component that might
+       ! intersect the current element.
+       do jj = 1,numBBoxTest
 
-          ! Increase the number of intersections elements known so far
-          nBarsConn = nBarsConn + 1
+          ! Get index of element in component B
+          candidateID = elementID(startIndex + jj - 1)
 
-          ! Check if we already exceeded the memory allocated so far
-          if ((nBarsConn .gt. size(extBarsConn,2)) .or. (2*nBarsConn .gt. size(extCoor,2))) then
+          ! Get nodes of the element in B
+          node1B = coorB(:, allTriaConnB(1,candidateID))
+          node2B = coorB(:, allTriaConnB(2,candidateID))
+          node3B = coorB(:, allTriaConnB(3,candidateID))
 
-            ! We need to allocate more memory
-            nAllocations = nAllocations + 1
+          ! Call triangle-triangle intersection routine
+          call triTriIntersect(node1A, node2A, node3A, &
+                               node1B, node2B, node3B, &
+                               intersect, vecStart, vecEnd)
+          
+          ! Check if the triangles actually intersect
+          if (intersect .eq. 1) then
+             
+             ! Increase the number of intersections elements known so far
+             nBarsConn = nBarsConn + 1
 
-            ! REALLOCATING extCoor
-
-            ! Create temporary array and initialize
-            allocate(extTempReal(3,nAllocations*arraySize))
-            extTempReal = 0.0
-
-            ! Tranfer data from original array
-            extTempReal(:,:(nAllocations-1)*arraySize) = extCoor
-
-            ! Now move the new allocation back to extCoor.
-            ! extTemp is deallocated in this process.
-            call move_alloc(extTempReal, extCoor)
-
-            ! REALLOCATING extBarsConn
-
-            ! Create temporary array
-            allocate(extTempInt(2,nAllocations*arraySize))
-            extTempInt = 0
-
-            ! Tranfer data from original array
-            extTempInt(:,:(nAllocations-1)*arraySize) = extBarsConn
-
-            ! Now move the new allocation back to extBarsConn.
-            ! extTemp is deallocated in this process.
-            call move_alloc(extTempInt, extBarsConn)
-
-            ! REALLOCATING extParentTria
-
-            ! Create temporary array
-            allocate(extTempInt(2,nAllocations*arraySize))
-            extTempInt = 0
-
-            ! Tranfer data from original array
-            extTempInt(:,:(nAllocations-1)*arraySize) = extParentTria
-
-            ! Now move the new allocation back to extParentTria.
-            ! extTemp is deallocated in this process.
-            call move_alloc(extTempInt, extParentTria)
-
+             ! Check if we already extrapolated the memory allocated so far
+             if ((nBarsConn .gt. size(extBarsConn,2)) .or. (2*nBarsConn .gt. size(extCoor,2))) then
+                
+                ! We need to allocate more memory
+                nAllocations = nAllocations + 1
+                
+                ! REALLOCATING extCoor
+                
+                ! Create temporary array and initialize
+                allocate(extTempReal(3,nAllocations*arraySize))
+                extTempReal = 0.0
+                
+                ! Tranfer data from original array
+                extTempReal(:,:(nAllocations-1)*arraySize) = extCoor
+                
+                ! Now move the new allocation back to extCoor.
+                ! extTemp is deallocated in this process.
+                call move_alloc(extTempReal, extCoor)
+                
+                ! REALLOCATING extBarsConn
+                
+                ! Create temporary array
+                allocate(extTempInt(2,nAllocations*arraySize))
+                extTempInt = 0
+                
+                ! Tranfer data from original array
+                extTempInt(:,:(nAllocations-1)*arraySize) = extBarsConn
+                
+                ! Now move the new allocation back to extBarsConn.
+                ! extTemp is deallocated in this process.
+                call move_alloc(extTempInt, extBarsConn)
+                
+                ! REALLOCATING extParentTria
+                
+                ! Create temporary array
+                allocate(extTempInt(2,nAllocations*arraySize))
+                extTempInt = 0
+                
+                ! Tranfer data from original array
+                extTempInt(:,:(nAllocations-1)*arraySize) = extParentTria
+                
+                ! Now move the new allocation back to extParentTria.
+                ! extTemp is deallocated in this process.
+                call move_alloc(extTempInt, extParentTria)
+                
+             end if
+             
+             ! Assign new nodes
+             extCoor(:,2*nBarsConn-1) = vecStart
+             extCoor(:,2*nBarsConn)   = vecEnd
+             
+             ! Assign new connectivity
+             extBarsConn(:,nBarsConn) = [2*nBarsConn-1, 2*nBarsConn]
+             
+             ! Assign new parent triangles
+             extParentTria(:,nBarsConn) = [ii, candidateID]
+             
           end if
-
-          ! Assign new nodes
-          extCoor(:,2*nBarsConn-1) = vecStart
-          extCoor(:,2*nBarsConn)   = vecEnd
-
-          ! Assign new connectivity
-          extBarsConn(:,nBarsConn) = [2*nBarsConn-1, 2*nBarsConn ]
-
-          ! Assign new parent triangles
-          extParentTria(:,nBarsConn) = [ii, jj]
-
-        end if
-
-      end do
-
+          
+       end do
+       
     end do
-
+    
     ! Crop extended connectivity array
     allocate(barsConn(2,nBarsConn))
     barsConn(:,:) = extBarsConn(:,:nBarsConn)
-    !deallocate(extBarsConn)
+    deallocate(extBarsConn)
 
     ! Crop extended parents array
     allocate(parentTria(2,nBarsConn))
     parentTria(:,:) = extParentTria(:,:nBarsConn)
-    !deallocate(extParentTria)
+    deallocate(extParentTria)
 
     ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
     ! will be returned to Python.
@@ -280,7 +348,7 @@ contains
     ! Allocate array to hold only unique nodes
     allocate(coor(3,nUniqueNodes))
     coor(:,:) = extCoor(:,1:nUniqueNodes)
-    !deallocate(extCoor)
+    deallocate(extCoor)
 
   end subroutine computeIntersection
 

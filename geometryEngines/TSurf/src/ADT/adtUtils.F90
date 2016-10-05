@@ -1058,6 +1058,97 @@
         !***************************************************************
         !***************************************************************
 
+        subroutine reallocPlus2D(arr, nSize, nInc, jj)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This internal routine reallocates the memory of the given    *
+!       * pointer 2D array. The extensional is done only in one        *
+!       * dimension (2nd dimension), so you can extend a (3x10) array  *
+!       * to (3x30) array, for instance. This should be an array of    *
+!       * integers.                                                    *
+!       * You can use negative nInc to crop an array as well!          *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * jj:   Entry in the array ADTs, whose ADT is being searched.  *
+!       * nInc: Increment of the size of the array. Can be negative!   *
+!       *                                                              *
+!       * Subroutine intent(inout) arguments.                          *
+!       * -----------------------------------                          *
+!       * nSize: On input it contains the size of the given array.     *
+!       *        On output this value is incremented by nInc.          *
+!       *                                                              *
+!       * Subroutine pointer arguments.                                *
+!       * -----------------------------                                *
+!       * arr: Array to be reallocated.                                *
+!       *                                                              *
+!       ****************************************************************
+!
+!       Ney Secco 2016-09
+
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in)    :: nInc
+        integer(kind=intType), intent(in)    :: jj
+        integer(kind=intType), intent(inout) :: nSize
+
+        integer(kind=intType), dimension(:,:), allocatable :: arr
+!
+!       Local variables.
+!
+        integer(kind=intType) :: ierr
+        integer(kind=intType) :: i, nOld, nDim
+
+        integer(kind=intType), dimension(:,:), allocatable :: tmp
+!
+!       ****************************************************************
+!       *                                                              *
+!       * Begin execution.                                             *
+!       *                                                              *
+!       ****************************************************************
+!
+        ! Get first dimension of the input array
+        nDim = size(arr,1)
+
+        ! Store the input value of nSize
+        nOld = nSize
+
+        ! Compute updated size
+        nSize = nSize + nInc
+
+        ! Allocate temporary array with new size and initialize
+        allocate(tmp(nDim, nSize), stat=ierr)
+        if(ierr /= 0)                          &
+          call adtTerminate(jj, "reallocPlus2D", &
+                            "Memory allocation failure for arr.")
+        tmp = 0
+
+        ! Copy the data from the original array into tmp.
+        nOld = min(nOld,nSize)
+        tmp(:,1:nOld) = arr(:,1:nOld)
+
+        ! Deallocate our original array so that we can reallocate it later on.
+        deallocate(arr, stat=ierr)
+        if(ierr /= 0)                          &
+          call adtTerminate(jj, "reallocPlus2D", &
+                            "Deallocation failure for arr.")
+
+        ! Now move the new allocation back to arr.
+        ! temp is deallocated in this process.
+        call move_alloc(tmp, arr)
+
+        end subroutine reallocPlus2D
+
+
+        !***************************************************************
+        !***************************************************************
+
+        !***************************************************************
+        !***************************************************************
+
 
         subroutine numberOfADTs(nADT)
 
@@ -1082,5 +1173,5 @@
           end if
 
         end subroutine numberOfADTs
-
+        
       end module adtUtils
