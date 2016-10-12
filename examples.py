@@ -1,13 +1,15 @@
 # IMPORTS
 
 from __future__ import division
-import hypsurf
+import pysurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 import os
-import GeoMACHSurf.geomach_geometry as geomach_geometry
+from mpi4py import MPI
 
 # OPTIONS
+
+comm = MPI.COMM_WORLD
 
 # Select example
 # example = 'kink_on_plate'
@@ -133,6 +135,9 @@ elif example == 'line_on_cylinder':
     bc1 = 'splay'
     bc2 = 'splay'
 
+    '''
+    # GEOMACH
+
     # Define surface points
     s0 = 0.0
     s1 = 3.0
@@ -147,8 +152,11 @@ elif example == 'line_on_cylinder':
             pts[i, j, 2] = radius*sin(theta)
 
     # Create geometry object
-    surf = geomach_geometry.Surface('cylinder',pts)
-    geom = classes.Geometry({'cylinder':surf})
+    geom = pysurf.GeoMACHGeometry(comm, {'cylinder':pts})
+    '''
+
+    # TSURF
+    geom = pysurf.TSurfGeometry('examples/inputs/cylinder.cgns',comm)
 
     # Set parameters
     epsE0 = 2.5
@@ -397,23 +405,6 @@ elif example == 'airfoil_on_cylinder':
 
 # MAIN PROGRAM
 
-'''
-# print curve1_pts[:, 0, :]
-
-# Project curve points to the Surface
-surf.inverse_evaluate(curve1_pts.reshape((-1, 3)))
-curve1_pts = surf.get_points(None).reshape((-1, 4, 3))
-
-# print curve1_pts[:, 0, :]
-# exit()
-
-surf.inverse_evaluate(curve2_pts.reshape((-1, 3)))
-curve2_pts = surf.get_points(None).reshape((-1, 4, 3))
-
-curve1 = surface.Surface(curve1_pts)
-curve2 = surface.Surface(curve2_pts)
-'''
-
 # Set options
 options = {
 
@@ -434,7 +425,7 @@ options = {
 
     }
 
-mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
+mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
 mesh.createMesh()
 

@@ -44,6 +44,12 @@ class Grid():
         # Increase number of blocks
         self.num_blocks = self.num_blocks + 1
 
+    def remove_block(self, blockID):
+        # Remove this block to the block list
+        self.blocks.pop(blockID)
+        # Decrease number of blocks
+        self.num_blocks = self.num_blocks - 1
+
     def convert_2dto3d(self,zSpan=1,num_i=2):
 
         '''
@@ -80,6 +86,35 @@ class Grid():
             # Update values with flipped order
             self.blocks[iblock].update(X,Z,Y)
 
+    def remove_curves(self):
+
+        '''
+        This method will remove unidimensional blocks.
+        This is useful when preparing Plot3D inputs for pyHyp
+
+        Ney Secco 2016-10
+        '''
+
+        # Initialize block counter
+        blockID = 0
+
+        # Loop until all blocks are checked
+        while blockID < self.num_blocks:
+
+            # Get shape of the current block
+            shape = self.blocks[blockID].shape
+
+            # Check if block is unidimensional by checking how many "1"
+            # we have in its shape
+            numDim = shape.count(1)
+
+            if numDim > 1: # Block is unidimensional if we have more than 1 "1"
+                # Remove block
+                self.remove_block(blockID)
+            else:
+                # Check next block
+                blockID = blockID + 1
+
 class Curve():
 
     def __init__(self, coors, barsConn):
@@ -115,10 +150,6 @@ class Curve():
 def read_plot3d(fileName,dimension):
 
     '''
-    First you should initialize a grid object with the file name, then
-    call the read_plot3d method!
-    This function will always return 3D shaped arrays. In the case of 2d grids, the
-    Z coordinate will be all zeroes.
     The function will return a Grid object containg the coordinates.
     dimension should be 2 or 3 depending on the dimension of the plot3d file.
     '''
@@ -175,8 +206,8 @@ def read_plot3d(fileName,dimension):
 
         # Read coordinates
         if dimension == 2:
-            X = read_coord(1,shape_block[iblock][0],shape_block[iblock][1])
-            Y = read_coord(1,shape_block[iblock][0],shape_block[iblock][1])
+            X = read_coord(shape_block[iblock][0],shape_block[iblock][1],1)
+            Y = read_coord(shape_block[iblock][0],shape_block[iblock][1],1)
             Z = np.zeros(Y.shape)
         elif dimension == 3:
             X = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
@@ -238,3 +269,100 @@ def export_plot3d(grid, fileName):
 
     # Close file
     fid.close()
+
+#===========================================
+#===========================================
+#===========================================
+
+def merge_plot3d(files, flips, outputFile='merged.xyz'):
+
+    '''
+    This subroutine will merge two plot3d files into one. It may also
+    flip the orientation of some meshes so that the final block remains
+    structured.
+    
+    INPUTS:
+    
+    files: list of strings -> Name of one plot3d file to be merged.
+
+    flips: list of boolean[3] -> If true, it will flip the node ordering along the
+                                 the corresponding dimension for files. You should
+                                 provide one list for every grid.
+
+    outputFile: string -> Name of the output file (without extension).
+
+    EXAMPLE:
+    merge_plot3d(['a.xyz','b.xyz'], [[0,1,0],[0,0,0]])
+    -- This will flip the j coordinates in a.xyz and then merge with b.xyz
+
+    ATTENTION: I still need to implement a smart way to check shared faces
+    to automatically concatenate. For now I will concatenate along the j
+    direction.
+
+    Ney Secco 2016-10
+    '''
+
+    # Print log
+    print 'Merging Plot3D files'
+
+    # Initialize list of grids and number of blocks
+    Grids = []
+    numBlocks = []
+
+    # Initialize merged grid
+    mergedGrid = Grid()
+
+    # Read grids
+    for ii in range(len(files)):
+        # Read input files and append to grid list
+        Grids.append(read_plot3d(files[ii],3))
+
+        # Print log
+        print 'Block dimensions from '+files[ii]
+        for jj in range(Grids[ii].num_blocks):
+            print Grids[ii].blocks[jj].shape
+
+    # Flip coordinates along each dimension if necessary
+    for problem in zip(Grids,flips):
+
+        # Split Grid and flip from the tuple given by zip
+        curGrid = problem[0]
+        curFlip = problem[1]
+
+        for dim in range(3):
+        
+            # Generate flip command as a string
+            if dim == 0:
+                flipCommand = '[::-1,:,:]'
+            elif dim == 1:
+                flipCommand = '[:,::-1,:]'
+            elif dim == 2:
+                flipCommand = '[:,:,::-1]'
+                
+            if curFlip[dim]: # Check if user requested to flip current dimension
+
+                for ii in range(curGrid.num_blocks):
+                    
+                    # Get pointers to each block coordinate
+                    X = curGrid.blocks[ii].X
+                    Y = curGrid.blocks[ii].Y
+                    Z = curGrid.blocks[ii].Z
+                    
+                    # Flip each coordinate
+                    X[:,:,:] = eval('X'+flipCommand)
+                    Y[:,:,:] = eval('Y'+flipCommand)
+                    Z[:,:,:] = eval('Z'+flipCommand)
+
+        # Now add blocks to the merged grid
+        for ii in range(curGrid.num_blocks):
+
+            # Get pointers to each block coordinate
+            X = curGrid.blocks[ii].X
+            Y = curGrid.blocks[ii].Y
+            Z = curGrid.blocks[ii].Z
+
+            # Add new block
+            mergedGrid.add_block(X, Y, Z)
+
+    # Now we can finally export the new grid
+    export_plot3d(mergedGrid, outputFile)

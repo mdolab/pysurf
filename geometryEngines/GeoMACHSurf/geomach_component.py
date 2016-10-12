@@ -25,7 +25,8 @@ class GeoMACHGeometry(Geometry):
                     and size [nu,3] for curves.
         '''
 
-        list_bsp_surfs = arg[0]
+        comm = arg[0]
+        pointsDict = arg[1]
 
         self.Surfaces = {}
 

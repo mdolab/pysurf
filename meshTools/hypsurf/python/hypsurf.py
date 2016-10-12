@@ -927,7 +927,10 @@ class HypSurfMesh(object):
         # IMPORTS
         from pysurf import plot3d_interface
 
-        # Get coordiantes
+        # Get grid size
+        gridShape = self.mesh.shape[1:]
+
+        # Get coordinates
         X = self.mesh[0,:,:].T
         Y = self.mesh[1,:,:].T
         Z = self.mesh[2,:,:].T
@@ -936,9 +939,12 @@ class HypSurfMesh(object):
         myGrid = plot3d_interface.Grid()
 
         # Expand the coordinate matrices
-        X3d = np.array([X])
-        Y3d = np.array([Y])
-        Z3d = np.array([Z])
+        X3d = np.zeros((gridShape[1], gridShape[0], 1))
+        Y3d = np.zeros((gridShape[1], gridShape[0], 1))
+        Z3d = np.zeros((gridShape[1], gridShape[0], 1))
+        X3d[:,:,0] = X
+        Y3d[:,:,0] = Y
+        Z3d[:,:,0] = Z
 
         # Add mesh to the grid
         myGrid.add_block(X3d, Y3d, Z3d)

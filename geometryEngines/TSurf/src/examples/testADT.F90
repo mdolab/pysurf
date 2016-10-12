@@ -9,7 +9,7 @@ program test
   ! DECLARE VARIABLES
   integer(kind=intType) :: ierr, nNodes, nTria, nQuads, nPts, nInterpol, i
   integer(kind=intType) :: comm, numProcs, myID
-  integer(kind=intType) :: triaConn(3,3), quadsConn(4,1)
+  integer(kind=intType) :: triaConn(3,3), quadsConn(4,2)
   integer(kind=intType), dimension(:), allocatable :: elementID, procID
   integer(kind=adtElementType), dimension(:), allocatable :: elementType
   real(kind=realType) :: coor(3,6), BBox(3,2), coorPts(3,1), arrDonor(1,1)
@@ -45,7 +45,7 @@ program test
 
   ! Define quad elements
   quadsConn(:,1) = [1,2,5,4]
-  ! quadsConn(:,2) = [2,3,6,5]
+  quadsConn(:,2) = [2,3,6,5]
 
 
   ! Bounding box parameters
@@ -56,7 +56,7 @@ program test
   adtID = 'testSurf'
 
   ! Define points to be projected
-  coorPts = reshape([3., .5, .555], &
+  coorPts = reshape([1., .5, .5], &
                      [3,1])
 
   !===============================
@@ -82,8 +82,8 @@ program test
 
   ! Determine number of nodes, elements, and projected points
   nNodes = size(coor, 2)
-  nTria = size(triaConn, 2)
-  nQuads = 0
+  nTria = 0 !size(triaConn, 2)
+  nQuads = size(quadsConn, 2)
   nPts = size(coorPts, 2)
 
   ! Setup ADT

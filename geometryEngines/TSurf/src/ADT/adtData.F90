@@ -51,6 +51,7 @@
       real(kind=realType), parameter :: adtFourth = 0.25_realType
       real(kind=realType), parameter :: adtHalf   = 0.5_realType
       real(kind=realType), parameter :: adtOne    = 1.0_realType
+      real(kind=realType),   parameter :: adtEps    = 1.e-25_realType
 !
 !     ******************************************************************
 !     *                                                                *

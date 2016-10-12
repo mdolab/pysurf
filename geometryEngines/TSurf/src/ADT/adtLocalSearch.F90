@@ -871,12 +871,12 @@
         integer(kind=intType), dimension(:), pointer :: frontLeaves
         integer(kind=intType), dimension(:), pointer :: frontLeavesNew
 
-        real(kind=realType) :: dx, dy, dz, d1, d2, invLen, val
-        real(kind=realType) :: u, v, w, uv, uold, vold, vn, du, dv
+        real(kind=realType) :: dx, dy, dz, d1, d2, val
+        real(kind=realType) :: u, v, w
         real(kind=realType) :: uu, vv, ww
 
         real(kind=realType), dimension(2) :: dd
-        real(kind=realType), dimension(3) :: x1, x21, x31, x41, x3142, x32, xf
+        real(kind=realType), dimension(3) :: x1, x2, x3, x4, x, xf
         real(kind=realType), dimension(3) :: vf, vt, a, b, norm, an, bn
         real(kind=realType), dimension(3) :: chi
         real(kind=realType), dimension(3) :: norm_, xf_
@@ -1294,15 +1294,12 @@
                 ! =============================================
                 ! =============================================
 
-                ! Temporary implementation. I'm waiting for John to come
-                ! up with his more sophisticated algorithm.
-
                 ! This is a surface element, so set the parametric weight
                 ! w to zero.
 
                 w = adtZero
 
-                ! Determine the 3 vectors which completely describe
+                ! Determine the 3 nodes which completely describe
                 ! the traingle face
 
                 ll   = ADTs(jj)%elementID(kk)
@@ -1314,123 +1311,22 @@
                 x1(2) = ADTs(jj)%coor(2,n(1))
                 x1(3) = ADTs(jj)%coor(3,n(1))
 
-                x21(1) = ADTs(jj)%coor(1,n(2)) - x1(1)
-                x21(2) = ADTs(jj)%coor(2,n(2)) - x1(2)
-                x21(3) = ADTs(jj)%coor(3,n(2)) - x1(3)
+                x2(1) = ADTs(jj)%coor(1,n(2))
+                x2(2) = ADTs(jj)%coor(2,n(2))
+                x2(3) = ADTs(jj)%coor(3,n(2))
 
-                x31(1) = ADTs(jj)%coor(1,n(3)) - x1(1)
-                x31(2) = ADTs(jj)%coor(2,n(3)) - x1(2)
-                x31(3) = ADTs(jj)%coor(3,n(3)) - x1(3)
+                x3(1) = ADTs(jj)%coor(1,n(3))
+                x3(2) = ADTs(jj)%coor(2,n(3))
+                x3(3) = ADTs(jj)%coor(3,n(3))
 
-                x32(1) = x31(1) - x21(1)
-                x32(2) = x31(2) - x21(2)
-                x32(3) = x31(3) - x21(3)
+                ! Get the point that should be projected
 
-                ! Determine the tangent vectors in u- and v-direction.
-                ! Store these in a and b respectively.
+                x = coor(1:3,nn)
 
-                a(1) = x21(1)
-                a(2) = x21(2)
-                a(3) = x21(3)
+                ! Call projection algorithm
+                ! triaProjection defined in adtUtils.F90
 
-                b(1) = x31(1)
-                b(2) = x31(2)
-                b(3) = x31(3)
-
-                ! Determine the normal vector of the face by taking the
-                ! cross product of a and b. Afterwards this vector will
-                ! be scaled to a unit vector.
-
-                norm(1) = a(2)*b(3) - a(3)*b(2)
-                norm(2) = a(3)*b(1) - a(1)*b(3)
-                norm(3) = a(1)*b(2) - a(2)*b(1)
-
-                invLen = adtOne/max(adtEps,sqrt(norm(1)*norm(1) &
-                       +                        norm(2)*norm(2) &
-                       +                        norm(3)*norm(3)))
-
-                norm(1) = norm(1)*invLen
-                norm(2) = norm(2)*invLen
-                norm(3) = norm(3)*invLen
-
-                ! Determine the vector vf from xf to given coordinate.
-
-                vf(1) = coor(1,nn) - x1(1)
-                vf(2) = coor(2,nn) - x1(2)
-                vf(3) = coor(3,nn) - x1(3)
-
-                ! Determine the projection of the vector vf onto
-                ! the face.
-
-                vn = vf(1)*norm(1) + vf(2)*norm(2) + vf(3)*norm(3)
-                vt(1) = vf(1) - vn*norm(1)
-                vt(2) = vf(2) - vn*norm(2)
-                vt(3) = vf(3) - vn*norm(3)
-
-                ! The vector vt points from the current point on the
-                ! face to the new point. However this new point lies on
-                ! the plane determined by the vectors a and b, but not
-                ! necessarily on the face itself. The new point on the
-                ! face is obtained by projecting the point in the a-b
-                ! plane onto the face. this can be done by determining
-                ! the coefficients du and dv, such that vt = du*a + dv*b.
-                ! To solve du and dv the vectors normal to a and b
-                ! inside the plane ab are needed.
-
-                an(1) = a(2)*norm(3) - a(3)*norm(2)
-                an(2) = a(3)*norm(1) - a(1)*norm(3)
-                an(3) = a(1)*norm(2) - a(2)*norm(1)
-
-                bn(1) = b(2)*norm(3) - b(3)*norm(2)
-                bn(2) = b(3)*norm(1) - b(1)*norm(3)
-                bn(3) = b(1)*norm(2) - b(2)*norm(1)
-
-                ! Solve du and dv. the clipping of vn should not be
-                ! active, as this would mean that the vectors a and b
-                ! are parallel. This corresponds to a quad degenerated
-                ! to a line, which should not occur in the surface mesh.
-
-                vn = a(1)*bn(1) + a(2)*bn(2) + a(3)*bn(3)
-                vn = sign(max(adtEps,abs(vn)),vn)
-                du = (vt(1)*bn(1) + vt(2)*bn(2) + vt(3)*bn(3))/vn
-
-                vn = b(1)*an(1) + b(2)*an(2) + b(3)*an(3)
-                vn = sign(max(adtEps,abs(vn)),vn)
-                dv = (vt(1)*an(1) + vt(2)*an(2) + vt(3)*an(3))/vn
-
-                ! The projections are the parametric coordinates
-
-                u = du
-                v = dv
-
-                ! Triangles should be bounded by the line u + v = 1
-
-                uv = u + v
-                if (uv > adtOne) then
-                  u = u / uv
-                  v = v / uv
-                end if
-
-                ! Determine the new parameter values uu and vv. These
-                ! are limited to 0 <= (uu,vv) <= 1.
-
-                u = min(adtOne,max(adtZero,u))
-                v = min(adtOne,max(adtZero,v))
-
-                ! Determine the new coordinates of the point xf.
-
-                xf(1) = x1(1) + u*x21(1) + v*x31(1)
-                xf(2) = x1(2) + u*x21(2) + v*x31(2)
-                xf(3) = x1(3) + u*x21(3) + v*x31(3)
-
-                ! Compute the distance squared between the given
-                ! coordinate and the point xf.
-
-                dx = coor(1,nn) - xf(1)
-                dy = coor(2,nn) - xf(2)
-                dz = coor(3,nn) - xf(3)
-
-                val = dx*dx + dy*dy + dz*dz
+                call triaProjection(x1, x2, x3, x, xf, norm, u, v, val)
 
                 ! If the distance squared is less than the current value
                 ! store the wall distance and interpolation info and
@@ -1485,151 +1381,27 @@
                 x1(2) = ADTs(jj)%coor(2,n(1))
                 x1(3) = ADTs(jj)%coor(3,n(1))
 
-                x21(1) = ADTs(jj)%coor(1,n(2)) - x1(1)
-                x21(2) = ADTs(jj)%coor(2,n(2)) - x1(2)
-                x21(3) = ADTs(jj)%coor(3,n(2)) - x1(3)
+                x2(1) = ADTs(jj)%coor(1,n(2))
+                x2(2) = ADTs(jj)%coor(2,n(2))
+                x2(3) = ADTs(jj)%coor(3,n(2))
 
-                x41(1) = ADTs(jj)%coor(1,n(4)) - x1(1)
-                x41(2) = ADTs(jj)%coor(2,n(4)) - x1(2)
-                x41(3) = ADTs(jj)%coor(3,n(4)) - x1(3)
+                x3(1) = ADTs(jj)%coor(1,n(3))
+                x3(2) = ADTs(jj)%coor(2,n(3))
+                x3(3) = ADTs(jj)%coor(3,n(3))
 
-                x3142(1) = ADTs(jj)%coor(1,n(3)) - x1(1) - x21(1) - x41(1)
-                x3142(2) = ADTs(jj)%coor(2,n(3)) - x1(2) - x21(2) - x41(2)
-                x3142(3) = ADTs(jj)%coor(3,n(3)) - x1(3) - x21(3) - x41(3)
+                x4(1) = ADTs(jj)%coor(1,n(4))
+                x4(2) = ADTs(jj)%coor(2,n(4))
+                x4(3) = ADTs(jj)%coor(3,n(4))
 
-                ! Initialize u and v to 0.5 and determine the
-                ! corresponding coordinates on the face, which is the
-                ! centroid.
+                ! Get the point that should be projected
 
-                u  = adtHalf
-                v  = adtHalf
-                uv = u*v
+                x = coor(1:3,nn)
 
-                xf(1) = x1(1) + u*x21(1) + v*x41(1) + uv*x3142(1)
-                xf(2) = x1(2) + u*x21(2) + v*x41(2) + uv*x3142(2)
-                xf(3) = x1(3) + u*x21(3) + v*x41(3) + uv*x3142(3)
-
-                ! Newton loop to determine the point on the surface,
-                ! which minimizes the distance to the given coordinate.
-
-                NewtonQuads: do ll=1,iterMax
-
-                  ! Store the current values of u and v for a stop
-                  ! criterion later on.
-
-                  uold = u
-                  vold = v
-
-                  ! Determine the vector vf from xf to given coordinate.
-
-                  vf(1) = coor(1,nn) - xf(1)
-                  vf(2) = coor(2,nn) - xf(2)
-                  vf(3) = coor(3,nn) - xf(3)
-
-                  ! Determine the tangent vectors in u- and v-direction.
-                  ! Store these in a and b respectively.
-
-                  a(1) = x21(1) + v*x3142(1)
-                  a(2) = x21(2) + v*x3142(2)
-                  a(3) = x21(3) + v*x3142(3)
-
-                  b(1) = x41(1) + u*x3142(1)
-                  b(2) = x41(2) + u*x3142(2)
-                  b(3) = x41(3) + u*x3142(3)
-
-                  ! Determine the normal vector of the face by taking the
-                  ! cross product of a and b. Afterwards this vector will
-                  ! be scaled to a unit vector.
-
-                  norm(1) = a(2)*b(3) - a(3)*b(2)
-                  norm(2) = a(3)*b(1) - a(1)*b(3)
-                  norm(3) = a(1)*b(2) - a(2)*b(1)
-
-                  invLen = adtOne/max(adtEps,sqrt(norm(1)*norm(1) &
-                         +                        norm(2)*norm(2) &
-                         +                        norm(3)*norm(3)))
-
-                  norm(1) = norm(1)*invLen
-                  norm(2) = norm(2)*invLen
-                  norm(3) = norm(3)*invLen
-
-                  ! Determine the projection of the vector vf onto
-                  ! the face.
-
-                  vn = vf(1)*norm(1) + vf(2)*norm(2) + vf(3)*norm(3)
-                  vt(1) = vf(1) - vn*norm(1)
-                  vt(2) = vf(2) - vn*norm(2)
-                  vt(3) = vf(3) - vn*norm(3)
-
-                  ! The vector vt points from the current point on the
-                  ! face to the new point. However this new point lies on
-                  ! the plane determined by the vectors a and b, but not
-                  ! necessarily on the face itself. The new point on the
-                  ! face is obtained by projecting the point in the a-b
-                  ! plane onto the face. this can be done by determining
-                  ! the coefficients du and dv, such that vt = du*a + dv*b.
-                  ! To solve du and dv the vectors normal to a and b
-                  ! inside the plane ab are needed.
-
-                  an(1) = a(2)*norm(3) - a(3)*norm(2)
-                  an(2) = a(3)*norm(1) - a(1)*norm(3)
-                  an(3) = a(1)*norm(2) - a(2)*norm(1)
-
-                  bn(1) = b(2)*norm(3) - b(3)*norm(2)
-                  bn(2) = b(3)*norm(1) - b(1)*norm(3)
-                  bn(3) = b(1)*norm(2) - b(2)*norm(1)
-
-                  ! Solve du and dv. the clipping of vn should not be
-                  ! active, as this would mean that the vectors a and b
-                  ! are parallel. This corresponds to a quad degenerated
-                  ! to a line, which should not occur in the surface mesh.
-
-                  vn = a(1)*bn(1) + a(2)*bn(2) + a(3)*bn(3)
-                  vn = sign(max(adtEps,abs(vn)),vn)
-                  du = (vt(1)*bn(1) + vt(2)*bn(2) + vt(3)*bn(3))/vn
-
-                  vn = b(1)*an(1) + b(2)*an(2) + b(3)*an(3)
-                  vn = sign(max(adtEps,abs(vn)),vn)
-                  dv = (vt(1)*an(1) + vt(2)*an(2) + vt(3)*an(3))/vn
-                  ! Determine the new parameter values uu and vv. These
-                  ! are limited to 0 <= (uu,vv) <= 1.
-
-                  u = u + du
-                  ! u_raw = u
-                  u = min(adtOne,max(adtZero,u))
-
-                  v = v + dv
-                  ! v_raw = v
-                  v = min(adtOne,max(adtZero,v))
-
-                  ! Determine the final values of the corrections.
-
-                  du = abs(u-uold)
-                  dv = abs(v-vold)
-
-                  ! Determine the new coordinates of the point xf.
-
-                  uv  = u*v
-                  xf(1) = x1(1) + u*x21(1) + v*x41(1) + uv*x3142(1)
-                  xf(2) = x1(2) + u*x21(2) + v*x41(2) + uv*x3142(2)
-                  xf(3) = x1(3) + u*x21(3) + v*x41(3) + uv*x3142(3)
-
-                  ! Exit the loop if the update of the parametric
-                  ! weights is below the threshold
-
-                  val = sqrt(du*du + dv*dv)
-                  if(val <= thresConv) exit NewtonQuads
-
-                enddo NewtonQuads
-
-                ! Compute the distance squared between the given
-                ! coordinate and the point xf.
-
-                dx = coor(1,nn) - xf(1)
-                dy = coor(2,nn) - xf(2)
-                dz = coor(3,nn) - xf(3)
-
-                val = dx*dx + dy*dy + dz*dz
+                ! Call projection algorithm
+                ! quadProjection defined in adtUtils.F90
+                call quadProjection(x1, x2, x3, x4, &
+                                    x, &
+                                    xf, norm, u, v, val)
 
                 ! If the distance squared is less than the current value
                 ! store the wall distance and interpolation info and
