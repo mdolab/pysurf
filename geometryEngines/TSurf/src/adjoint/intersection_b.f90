@@ -7,75 +7,6 @@ MODULE INTERSECTION_B
   IMPLICIT NONE
 
 CONTAINS
-  SUBROUTINE COMPUTEBBOX(coor, bbox)
-    IMPLICIT NONE
-! INPUTS
-    REAL(kind=realtype), DIMENSION(:, :), INTENT(IN) :: coor
-! OUTPUTS
-    REAL(kind=realtype), DIMENSION(3, 2), INTENT(OUT) :: bbox
-    INTRINSIC MINVAL
-    INTRINSIC MAXVAL
-! EXECUTION
-! Get bounding values
-    bbox(:, 1) = MINVAL(coor, 2)
-    bbox(:, 2) = MAXVAL(coor, 2)
-  END SUBROUTINE COMPUTEBBOX
-!============================================================
-  SUBROUTINE COMPUTEBBOXINTERSECTION(bboxa, bboxb, bboxab, overlap)
-    IMPLICIT NONE
-! Remember that overlap may be set to false in the Z overlap test
-! INPUTS
-    REAL(kind=realtype), DIMENSION(3, 2), INTENT(IN) :: bboxa, bboxb
-! OUTPUTS
-    REAL(kind=realtype), DIMENSION(3, 2), INTENT(OUT) :: bboxab
-    LOGICAL, INTENT(OUT) :: overlap
-! EXECUTION
-! Check overlaps along each dimension
-! We have an actual BBox intersection if there are overlaps in all dimensions
-! X overlap
-    CALL LINEINTERSECTIONINTERVAL(bboxa(1, 1), bboxa(1, 2), bboxb(1, 1)&
-&                           , bboxb(1, 2), bboxab(1, 1), bboxab(1, 2), &
-&                           overlap)
-    IF (overlap) THEN
-! Y overlap
-      CALL LINEINTERSECTIONINTERVAL(bboxa(2, 1), bboxa(2, 2), bboxb(2, 1&
-&                             ), bboxb(2, 2), bboxab(2, 1), bboxab(2, 2)&
-&                             , overlap)
-      IF (overlap) CALL LINEINTERSECTIONINTERVAL(bboxa(3, 1), bboxa(3, 2&
-&                                          ), bboxb(3, 1), bboxb(3, 2), &
-&                                          bboxab(3, 1), bboxab(3, 2), &
-&                                          overlap)
-! Z overlap
-    END IF
-  END SUBROUTINE COMPUTEBBOXINTERSECTION
-!============================================================
-  SUBROUTINE LINEINTERSECTIONINTERVAL(xmina, xmaxa, xminb, xmaxb, xminab&
-&   , xmaxab, overlap)
-    IMPLICIT NONE
-! INPUTS
-    REAL(kind=realtype), INTENT(IN) :: xmina, xmaxa, xminb, xmaxb
-! OUTPUTS
-    REAL(kind=realtype), INTENT(OUT) :: xminab, xmaxab
-    LOGICAL, INTENT(OUT) :: overlap
-    INTRINSIC MAX
-    INTRINSIC MIN
-    IF (xmina .LT. xminb) THEN
-      xminab = xminb
-    ELSE
-      xminab = xmina
-    END IF
-    IF (xmaxa .GT. xmaxb) THEN
-      xmaxab = xmaxb
-    ELSE
-      xmaxab = xmaxa
-    END IF
-! Check if we actually have an overlap
-    IF (xminab .GT. xmaxab) THEN
-      overlap = .false.
-    ELSE
-      overlap = .true.
-    END IF
-  END SUBROUTINE LINEINTERSECTIONINTERVAL
 !============================================================
   SUBROUTINE FILTERELEMENTS(coor, triaconn, quadsconn, bbox, innertriaid&
 &   , innerquadsid)
@@ -165,7 +96,6 @@ trialoop:DO elemid=1,ntria
 ! If any node is not on the same side as all the others, flag the element
 ! to check for intersections
  100  IF (nodeisinside .NEQV. .true.) THEN
-!DEBUG
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 3) THEN
             nodeisinside = .true.
@@ -201,7 +131,6 @@ quadsloop:DO elemid=1,nquads
 ! If any node is not on the same side as all the others, flag the element
 ! to check for intersections
  120  IF (nodeisinside .NEQV. .true.) THEN
-!DEBUG
         DO i=1,3
           IF (ontop(i) .NE. 0 .AND. ontop(i) .NE. 4) THEN
             nodeisinside = .true.

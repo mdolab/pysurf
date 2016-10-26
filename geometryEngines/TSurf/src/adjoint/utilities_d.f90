@@ -451,4 +451,115 @@ CONTAINS
     arg1 = a(1)*a(1) + a(2)*a(2) + a(3)*a(3)
     norm_ = SQRT(arg1)
   END SUBROUTINE NORM
+!============================================================
+! BOUNDING BOX ROUTINES
+!============================================================
+  SUBROUTINE COMPUTEBBOX(coor, bbox)
+    IMPLICIT NONE
+! INPUTS
+    REAL(kind=realtype), DIMENSION(:, :), INTENT(IN) :: coor
+! OUTPUTS
+    REAL(kind=realtype), DIMENSION(3, 2), INTENT(OUT) :: bbox
+    INTRINSIC MINVAL
+    INTRINSIC MAXVAL
+! EXECUTION
+! Get bounding values
+    bbox(:, 1) = MINVAL(coor, 2)
+    bbox(:, 2) = MAXVAL(coor, 2)
+  END SUBROUTINE COMPUTEBBOX
+!============================================================
+  SUBROUTINE COMPUTEBBOXPERELEMENTS(nnodes, ntria, nquads, coor, &
+&   triaconn, quadsconn, triabbox, quadsbbox)
+    IMPLICIT NONE
+! INPUTS
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes, ntria, nquads
+    REAL(kind=realtype), DIMENSION(3, nnodes), INTENT(IN) :: coor
+    INTEGER(kind=inttype), DIMENSION(3, ntria), INTENT(IN) :: triaconn
+    INTEGER(kind=inttype), DIMENSION(4, nquads), INTENT(IN) :: quadsconn
+! OUTPUTS
+    REAL(kind=realtype), DIMENSION(6, ntria), INTENT(OUT) :: triabbox
+    REAL(kind=realtype), DIMENSION(6, nquads), INTENT(OUT) :: quadsbbox
+! WORKING
+    INTEGER(kind=inttype) :: elemid, nodeid
+    REAL(kind=realtype) :: triacoor(3, 3), quadscoor(3, 4), bbox(6)
+    INTRINSIC MINVAL
+    INTRINSIC MAXVAL
+! EXECUTION
+! Loop over all triangles
+    DO elemid=1,ntria
+! Get coordinates of each node and store them in a single matrix
+      triacoor(:, 1) = coor(:, triaconn(1, elemid))
+      triacoor(:, 2) = coor(:, triaconn(2, elemid))
+      triacoor(:, 3) = coor(:, triaconn(3, elemid))
+! Assign min values (BBox(1:3)) and max values (BBox(4:6))
+! based on the nodal coordinates.
+      triabbox(1:3, elemid) = MINVAL(triacoor, 2)
+      triabbox(4:6, elemid) = MAXVAL(triacoor, 2)
+    END DO
+! Loop over all quads
+    DO elemid=1,nquads
+! Get coordinates of each node and store them in a single matrix
+      quadscoor(:, 1) = coor(:, quadsconn(1, elemid))
+      quadscoor(:, 2) = coor(:, quadsconn(2, elemid))
+      quadscoor(:, 3) = coor(:, quadsconn(3, elemid))
+      quadscoor(:, 4) = coor(:, quadsconn(4, elemid))
+! Assign min values (BBox(1:3)) and max values (BBox(4:6))
+! based on the nodal coordinates.
+      quadsbbox(1:3, elemid) = MINVAL(quadscoor, 2)
+      quadsbbox(4:6, elemid) = MAXVAL(quadscoor, 2)
+    END DO
+  END SUBROUTINE COMPUTEBBOXPERELEMENTS
+!============================================================
+  SUBROUTINE COMPUTEBBOXINTERSECTION(bboxa, bboxb, bboxab, overlap)
+    IMPLICIT NONE
+! Remember that overlap may be set to false in the Z overlap test
+! INPUTS
+    REAL(kind=realtype), DIMENSION(6), INTENT(IN) :: bboxa, bboxb
+! OUTPUTS
+    REAL(kind=realtype), DIMENSION(6), INTENT(OUT) :: bboxab
+    LOGICAL, INTENT(OUT) :: overlap
+! EXECUTION
+! Check overlaps along each dimension
+! We have an actual BBox intersection if there are overlaps in all dimensions
+! X overlap
+    CALL LINEINTERSECTIONINTERVAL(bboxa(1), bboxa(4), bboxb(1), bboxb(4)&
+&                           , bboxab(1), bboxab(4), overlap)
+    IF (overlap) THEN
+! Y overlap
+      CALL LINEINTERSECTIONINTERVAL(bboxa(2), bboxa(5), bboxb(2), bboxb(&
+&                             5), bboxab(2), bboxab(5), overlap)
+      IF (overlap) CALL LINEINTERSECTIONINTERVAL(bboxa(3), bboxa(6), &
+&                                          bboxb(3), bboxb(6), bboxab(3)&
+&                                          , bboxab(6), overlap)
+! Z overlap
+    END IF
+  END SUBROUTINE COMPUTEBBOXINTERSECTION
+!============================================================
+  SUBROUTINE LINEINTERSECTIONINTERVAL(xmina, xmaxa, xminb, xmaxb, xminab&
+&   , xmaxab, overlap)
+    IMPLICIT NONE
+! INPUTS
+    REAL(kind=realtype), INTENT(IN) :: xmina, xmaxa, xminb, xmaxb
+! OUTPUTS
+    REAL(kind=realtype), INTENT(OUT) :: xminab, xmaxab
+    LOGICAL, INTENT(OUT) :: overlap
+    INTRINSIC MAX
+    INTRINSIC MIN
+    IF (xmina .LT. xminb) THEN
+      xminab = xminb
+    ELSE
+      xminab = xmina
+    END IF
+    IF (xmaxa .GT. xmaxb) THEN
+      xmaxab = xmaxb
+    ELSE
+      xmaxab = xmaxa
+    END IF
+! Check if we actually have an overlap
+    IF (xminab .GT. xmaxab) THEN
+      overlap = .false.
+    ELSE
+      overlap = .true.
+    END IF
+  END SUBROUTINE LINEINTERSECTIONINTERVAL
 END MODULE UTILITIES_D

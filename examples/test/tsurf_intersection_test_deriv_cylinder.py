@@ -34,7 +34,12 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
     # Get intersection curve
     for curve in comp1.curves:
         if 'int' in curve:
+
+            # Extract intersection curve
             intCurve = comp1.curves[curve]
+
+            # Remesh the curve in a linear spacing
+            newIntCurve = intCurve.remesh()
 
             # Running forward mode
 
@@ -53,7 +58,7 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
 
             # Running backward mode
 
-            newCoorIntb = np.random.rand(intCurve.coor.shape[0],intCurve.coor.shape[1])
+            newCoorIntb = np.random.rand(newIntCurve.coor.shape[0],newIntCurve.coor.shape[1])
 
             coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
 
@@ -73,22 +78,19 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             print 'dotProd test'
             print dotProd
 
-            # Remesh the curve in a linear spacing
-            newIntCurve = intCurve.remesh()
-
             # Save the curve
             newIntCurve.export_plot3d('curve_%03d'%ii)
 
             # Find the trailing edge point
-            pt0 = newIntCurve.barsConn[0,0]
-            pt1 = newIntCurve.barsConn[-1,-1]
+            pt0 = newIntCurve.barsConn[0,1]###
+            pt1 = newIntCurve.barsConn[-1,-2]###
             X0 = newIntCurve.coor[0,pt0-1]
             X1 = newIntCurve.coor[0,pt1-1]
             if X0 > X1:
-                barID = 0
+                barID = 1 ###
                 pointID = pt0
             else:
-                barID = -1
+                barID = -2 ###
                 pointID = pt1
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection
@@ -97,9 +99,6 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             Z = newIntCurve.coor[2,pointID-1]
             newCoorIntb[:,:] = 0.0
             newCoorIntb[1,pointID-1] = 1.0
-
-            # Get nodes of the parent triangles
-            parentTriaA = newIntCurve
 
             # Compute the remesh derivatives
             coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)

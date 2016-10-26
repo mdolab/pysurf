@@ -454,12 +454,15 @@ contains
 
     ! Working variables
     real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
-    logical :: overlap
+    logical :: overlap, isPeriodic
     integer(kind=intType), dimension(:), allocatable :: innerTriaID_A, innerQuadsID_A
     integer(kind=intType), dimension(:), allocatable :: innerTriaID_B, innerQuadsID_B
     integer(kind=intType), dimension(:,:), allocatable :: allTriaConnA, allTriaConnB
     integer(kind=intType) :: nInnerTriaA, nInnerQuadsA, nInnerTriaB, nInnerQuadsB
     integer(kind=intType) :: intersect
+    integer(kind=intType) :: node1Aid, node2Aid, node3Aid
+    integer(kind=intType) :: node1Bid, node2Bid, node3Bid
+    real(kind=realType) :: factorStart, factorEnd
     real(kind=realType), dimension(3) :: node1A, node2A, node3A
     real(kind=realType), dimension(3) :: node1Ab, node2Ab, node3Ab
     real(kind=realType), dimension(3) :: node1B, node2B, node3B
@@ -518,6 +521,13 @@ contains
     coorAb = 0.0
     coorBb = 0.0
 
+    ! Check if the given curve is periodic
+    if (barsConnInt(1,1) .ne. barsConnInt(2,nBarsInt)) then
+       isPeriodic = .false.
+    else
+       isPeriodic = .true.
+    end if
+
     ! Compute intersection point derivatives
     do barID = 1,nBarsInt
 
@@ -525,23 +535,48 @@ contains
       parentA = parentTriaInt(1,barID)
       parentB = parentTriaInt(2,barID)
 
+      ! Store IDs of each triangle A node
+      node1Aid = allTriaConnA(1,parentA)
+      node2Aid = allTriaConnA(2,parentA)
+      node3Aid = allTriaConnA(3,parentA)
+
+      ! Store IDs of each triangle A node
+      node1Bid = allTriaConnB(1,parentB)
+      node2Bid = allTriaConnB(2,parentB)
+      node3Bid = allTriaConnB(3,parentB)
+
       ! Get nodal coordinates of triangle in A
-      node1A = coorA(:, allTriaConnA(1,parentA))
-      node2A = coorA(:, allTriaConnA(2,parentA))
-      node3A = coorA(:, allTriaConnA(3,parentA))
+      node1A = coorA(:, node1Aid)
+      node2A = coorA(:, node2Aid)
+      node3A = coorA(:, node3Aid)
 
       ! Get nodal coordinates of triangle in B
-      node1B = coorB(:, allTriaConnB(1,parentB))
-      node2B = coorB(:, allTriaConnB(2,parentB))
-      node3B = coorB(:, allTriaConnB(3,parentB))
+      node1B = coorB(:, node1Bid)
+      node2B = coorB(:, node2Bid)
+      node3B = coorB(:, node3Bid)
 
       ! Get bar nodes
       vecStart = coorInt(:,barsConnInt(1,barID))
       vecEnd = coorInt(:,barsConnInt(2,barID))
 
+      ! We need to adjust the incoming seeds as some triangle nodes will be seeded twice by
+      ! the same intersection node. If this is the case, we apply a factor of 0.5 to the
+      ! intersection node seed. The only place where we can acount for the full value
+      ! of the intersection node seed is at the end points of a non-periodic intersection curve,
+      ! as their seeds will be propagated just once
+      factorStart = 0.5
+      factorEnd = 0.5
+      if (.not. isPeriodic) then
+         if (barID .eq. 1) then
+            factorStart = 1.0
+         else if (barID .eq. nBarsInt) then
+            factorEnd = 1.0
+         end if
+      end if
+
       ! Get bar node seeds
-      vecStartb = coorIntb(:,barsConnInt(1,barID))
-      vecEndb = coorIntb(:,barsConnInt(2,barID))
+      vecStartb = coorIntb(:,barsConnInt(1,barID))*factorStart
+      vecEndb = coorIntb(:,barsConnInt(2,barID))*factorEnd
 
       ! Run the forward function and check if vecStart and vecEnd are the same
       call triTriIntersect(node1A, node2A, node3A, &
@@ -550,12 +585,12 @@ contains
 
       ! If vecStart and vecEnd are flipped, we also need to flip the seeds
       ! They may flip due to the FEsort algorithm
-      if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
+      !if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
          ! Here we flip seeds, and we use vecStartTest as buffer for the flip operation
-         vecStartTest = vecStartb
-         vecStartb = vecEndb
-         vecEndb = vecStartTest
-      end if
+      !   vecStartTest = vecStartb
+      !   vecStartb = vecEndb
+      !   vecEndb = vecStartTest
+      !end if
 
       ! We always detect intersections
       intersect = 1
@@ -572,15 +607,15 @@ contains
       node1B, node1Bb, node2B, node2Bb, node3B, node3Bb, &
       intersect, vecStart, vecStartb, vecEnd, vecEndb)
 
-      ! Assign derivatives to coorAb
-      coorAb(:, allTriaConnA(1,parentA)) = coorAb(:, allTriaConnA(1,parentA)) + node1Ab
-      coorAb(:, allTriaConnA(2,parentA)) = coorAb(:, allTriaConnA(2,parentA)) + node2Ab
-      coorAb(:, allTriaConnA(3,parentA)) = coorAb(:, allTriaConnA(3,parentA)) + node3Ab
+      ! Assign derivatives to coorAb.
+      coorAb(:, node1Aid) = coorAb(:, node1Aid) + node1Ab
+      coorAb(:, node2Aid) = coorAb(:, node2Aid) + node2Ab
+      coorAb(:, node3Aid) = coorAb(:, node3Aid) + node3Ab
 
-      ! Assign derivatives to coorBb
-      coorBb(:, allTriaConnB(1,parentB)) = coorBb(:, allTriaConnB(1,parentB)) + node1Bb
-      coorBb(:, allTriaConnB(2,parentB)) = coorBb(:, allTriaConnB(2,parentB)) + node2Bb
-      coorBb(:, allTriaConnB(3,parentB)) = coorBb(:, allTriaConnB(3,parentB)) + node3Bb
+      ! Assign derivatives to coorBb.
+      coorBb(:, node1Bid) = coorBb(:, node1Bid) + node1Bb
+      coorBb(:, node2Bid) = coorBb(:, node2Bid) + node2Bb
+      coorBb(:, node3Bid) = coorBb(:, node3Bid) + node3Bb
 
     end do
 
@@ -600,6 +635,9 @@ contains
     ! triangulated surface components A and B.
     ! This functions receives the seeds of the component points (coorAd, and coorBd) and returns the
     ! derivatives of the intersection points (coorIntd)
+    !
+    ! ATTENTION:
+    ! The intersection curve data should be sorted with FEsort in order to get correct results.
     !
     ! INPUTS
     !
@@ -695,6 +733,8 @@ contains
     integer(kind=intType), dimension(:,:), allocatable :: allTriaConnA, allTriaConnB
     integer(kind=intType) :: nInnerTriaA, nInnerQuadsA, nInnerTriaB, nInnerQuadsB
     integer(kind=intType) :: intersect
+    integer(kind=intType) :: node1Aid, node2Aid, node3Aid
+    integer(kind=intType) :: node1Bid, node2Bid, node3Bid
     real(kind=realType), dimension(3) :: node1A, node2A, node3A
     real(kind=realType), dimension(3) :: node1Ad, node2Ad, node3Ad
     real(kind=realType), dimension(3) :: node1B, node2B, node3B
@@ -747,7 +787,7 @@ contains
     nInnerTriaA = size(allTriaConnA,2)
     nInnerTriaB = size(allTriaConnB,2)
 
-    ! BACKWARD PASS
+    ! FORWARD PASS
 
     ! Initialize derivatives
     coorIntd = 0.0
@@ -759,15 +799,25 @@ contains
       parentA = parentTriaInt(1,barID)
       parentB = parentTriaInt(2,barID)
 
+      ! Store IDs of each triangle A node
+      node1Aid = allTriaConnA(1,parentA)
+      node2Aid = allTriaConnA(2,parentA)
+      node3Aid = allTriaConnA(3,parentA)
+
+      ! Store IDs of each triangle A node
+      node1Bid = allTriaConnB(1,parentB)
+      node2Bid = allTriaConnB(2,parentB)
+      node3Bid = allTriaConnB(3,parentB)
+
       ! Get nodal coordinates of triangle in A
-      node1A = coorA(:, allTriaConnA(1,parentA))
-      node2A = coorA(:, allTriaConnA(2,parentA))
-      node3A = coorA(:, allTriaConnA(3,parentA))
+      node1A = coorA(:, node1Aid)
+      node2A = coorA(:, node2Aid)
+      node3A = coorA(:, node3Aid)
 
       ! Get nodal coordinates of triangle in B
-      node1B = coorB(:, allTriaConnB(1,parentB))
-      node2B = coorB(:, allTriaConnB(2,parentB))
-      node3B = coorB(:, allTriaConnB(3,parentB))
+      node1B = coorB(:, node1Bid)
+      node2B = coorB(:, node2Bid)
+      node3B = coorB(:, node3Bid)
 
       ! Get bar nodes
       vecStart = coorInt(:,barsConnInt(1,barID))
@@ -777,14 +827,14 @@ contains
       intersect = 1
 
       ! Assign derivatives to coorAb
-      node1Ad = coorAd(:, allTriaConnA(1,parentA))
-      node2Ad = coorAd(:, allTriaConnA(2,parentA))
-      node3Ad = coorAd(:, allTriaConnA(3,parentA))
+      node1Ad = coorAd(:, node1Aid)
+      node2Ad = coorAd(:, node2Aid)
+      node3Ad = coorAd(:, node3Aid)
 
       ! Assign derivatives to coorBb
-      node1Bd = coorBd(:, allTriaConnB(1,parentB))
-      node2Bd = coorBd(:, allTriaConnB(2,parentB))
-      node3Bd = coorBd(:, allTriaConnB(3,parentB))
+      node1Bd = coorBd(:, node1Bid)
+      node2Bd = coorBd(:, node2Bid)
+      node3Bd = coorBd(:, node3Bid)
 
       ! Initialize derivatives
       vecStartd = 0.0
@@ -803,11 +853,26 @@ contains
          vecEndd = vecStartTest
       end if
 
-      ! Get bar node seeds
-      coorIntd(:,barsConnInt(1,barID)) = coorIntd(:,barsConnInt(1,barID)) + vecStartd
-      coorIntd(:,barsConnInt(2,barID)) = coorIntd(:,barsConnInt(2,barID)) + vecEndd
+      ! Get bar node seeds (We use the 0.5 factor because most intersection nodes will
+      ! be seeded by the same triangle twice)
+      coorIntd(:,barsConnInt(1,barID)) = coorIntd(:,barsConnInt(1,barID)) + vecStartd*0.5
+      coorIntd(:,barsConnInt(2,barID)) = coorIntd(:,barsConnInt(2,barID)) + vecEndd*0.5
 
     end do
+
+    ! Adjust derivatives for nodes that are seeded once. This mainly occurs if we have a non-periodic
+    ! intersection.
+
+    ! Detect if we have a non-periodic curve. In this case, the last bar element does not point to the
+    ! nodes of the first bar element.
+    if (barsConnInt(1,1) .ne. barsConnInt(2,nBarsInt)) then
+
+       ! We need to double the sensitivities of the end points
+       
+       coorIntd(:,barsConnInt(1,1)) = coorIntd(:,barsConnInt(1,1))*2.0
+       coorIntd(:,barsConnInt(2,nBarsInt)) = coorIntd(:,barsConnInt(2,nBarsInt))*2.0
+
+    end if
 
   end subroutine computeIntersection_d
 
