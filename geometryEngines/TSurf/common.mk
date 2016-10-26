@@ -33,7 +33,7 @@ MAKE_CLEAN_ARGUMENTS = *~ *.o *.mod *.il *.stb c_* *.a
 #      ******************************************************************
 #      *                                                                *
 #      * Compiler flags to compile the sources.                         *
-#      * The macro's ADDITIONAL_FF90_FLAGS and ADDITIONAL_CC_FLAGS      *
+#      * The macro's ADDITIONAL_FF90_FLAGS and ADDITIONAL_CC_ALL_FLAGS  *
 #      * make it possible that every subdirectory adds its own specific *
 #      * compiler flags, if necessary.                                  *
 #      *                                                                *
