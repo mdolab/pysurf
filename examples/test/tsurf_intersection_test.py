@@ -52,6 +52,8 @@ class TestCurveIntersection(unittest.TestCase):
         curveID = 0
         # master_dict = {}
         for curve in comp2.curves.itervalues():
+            print curve.name
+            print curve.coor
             # Save only intersection curves
             if 'int' in curve.name:
                 curveID = curveID + 1
@@ -59,6 +61,8 @@ class TestCurveIntersection(unittest.TestCase):
 
                 # master_dict.update({curveID : curve.coor})
                 coor_master = master_dict[curveID]
+                print curve.coor
+                print coor_master
                 np.testing.assert_almost_equal(coor_master, curve.coor)
 
         # Save the intersection curves for comparison
