@@ -32,6 +32,23 @@ class HypSurfMesh(object):
     """
 
     def __init__(self, curve, ref_geom, options={}):
+
+        # Check to see if the marching extension (distance) is given
+        try:
+            _ = options['extension']
+            self.extension_given = True
+        except:
+            self.extension_given = False
+            pass
+
+        # Check to see if the growth ratio is given
+        try:
+            _ = options['growthRatio']
+            self.growthRatio_given = True
+        except:
+            self.growthRatio_given = False
+            pass
+
         self._getDefaultOptions()
         self._applyUserOptions(options)
 
@@ -93,7 +110,6 @@ class HypSurfMesh(object):
 
 
         dStart = self.optionsDict['dStart']
-        extension = self.optionsDict['extension']
         cMax = self.optionsDict['cMax']
         ratioGuess = self.optionsDict['ratioGuess']
         theta = self.optionsDict['theta']
@@ -106,9 +122,17 @@ class HypSurfMesh(object):
         alphaP0 = self.optionsDict['alphaP0']
         numSmoothingPasses = self.optionsDict['numSmoothingPasses']
         numAreaPasses = self.optionsDict['numAreaPasses']
-        extension = self.optionsDict['extension']
         nuArea = self.optionsDict['nuArea']
 
+        if self.growthRatio_given and self.extension_given:
+            error('Cannot define extension and growthRatio parameters. Please select only one to include in the options dictionary.')
+
+        if self.extension_given:
+            extension = self.optionsDict['extension']
+            marchParameter = extension
+        else:
+            growthRatio = self.optionsDict['growthRatio']
+            marchParameter = growthRatio
 
         # Flatten the coordinates vector
         # We do this because the linear system is assembled assuming that
@@ -121,7 +145,7 @@ class HypSurfMesh(object):
             # which contains the mesh.
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
@@ -136,12 +160,12 @@ class HypSurfMesh(object):
                 rStartd = np.random.random_sample(rStart.shape)
 
                 rStartd_copy = rStartd.copy()
-                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, numLayers)
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
 
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses, R, Rb, ratios, numLayers)
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios, numLayers)
 
                 print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb)
                 print
@@ -161,14 +185,17 @@ class HypSurfMesh(object):
             d = dStart
             dTot = 0
 
-            # Find the characteristic radius of the mesh
-            radius = findRadius(rNext)
+            if self.extension_given:
+                # Find the characteristic radius of the mesh
+                radius = findRadius(rNext)
 
-            # Find the desired marching distance
-            dMax = radius*(extension-1)
+                # Find the desired marching distance
+                dMax = radius*(extension-1)
 
-            # Compute the growth ratio necessary to match this distance
-            dGrowth = findRatio(dMax, dStart, numLayers, ratioGuess)
+                # Compute the growth ratio necessary to match this distance
+                dGrowth = findRatio(dMax, dStart, numLayers, ratioGuess)
+            else:
+                dGrowth = growthRatio
 
             # Print growth ratio
             print 'Growth ratio: ',dGrowth
@@ -971,6 +998,7 @@ class HypSurfMesh(object):
             'cMax' : 3.0,
             'ratioGuess' : 20,
             'plotQuality' : False,
+            'growthRatio' : 1.2,
             }
 
     def _applyUserOptions(self, options):

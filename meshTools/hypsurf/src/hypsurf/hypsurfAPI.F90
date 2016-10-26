@@ -4,7 +4,7 @@
 !     * File:          hypsurfAPI.F90                                  *
 !     * Authors:       John Jasa and Ney Secco                         *
 !     * Starting date: 09-25-2016                                      *
-!     * Last modified: 09-25-2016                                      *
+!     * Last modified: 10-26-2016                                      *
 !     *                                                                *
 !     ******************************************************************
 !
@@ -35,7 +35,7 @@
         !=======================================================================
 
         subroutine march(py_projection, rStart, dStart, theta, sigmaSplay, bc1, bc2,&
-        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
+        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, R, fail, ratios, majorIndices)
 
         implicit none
@@ -43,10 +43,11 @@
         external py_projection
         real(kind=realType), intent(in) :: rStart(3*numNodes),dStart, theta, sigmaSplay
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
-        real(kind=realType), intent(in) :: epsE0, extension, nuArea
+        real(kind=realType), intent(in) :: epsE0, marchParameter, nuArea
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
         integer(kind=intType), intent(in) :: numSmoothingPasses
+        logical, intent(in) :: extension_given
 
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1), R(numLayers, 3*numNodes)
@@ -58,6 +59,7 @@
         real(kind=realType) :: rNext_in(3*numNodes)
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
+        real(kind=realType) :: extension, growthRatio
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
         integer(kind=intType) :: arraySize, nAllocations
 
@@ -80,11 +82,17 @@
         ! Find the characteristic radius of the mesh
         call findRadius(rNext, numNodes, radius)
 
-        ! Find the desired marching distance
-        dMax = radius * (extension-1.)
+        if (extension_given) then
+          ! Find the desired marching distance
+          ! Here marchParameter = extension
+          dMax = radius * (marchParameter-1.)
 
-        ! Compute the growth ratio necessary to match this distance
-        call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+          ! Compute the growth ratio necessary to match this distance
+          call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+        else
+          ! Here marchParameter = growthRatio
+          dGrowth = marchParameter
+        end if
 
         ! Print growth ratio
         print *, 'Growth ratio: ',dGrowth
@@ -351,7 +359,7 @@
         !=======================================================================
 
         subroutine march_d(py_projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
-        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
+        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, R, Rd, fail, ratios, majorIndices)
 
         use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d
@@ -361,10 +369,11 @@
         real(kind=realType), intent(in) :: rStart(3*numNodes), rStartd(3*numNodes)
         real(kind=realType), intent(in) :: dStart, theta, sigmaSplay
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
-        real(kind=realType), intent(in) :: epsE0, extension, nuArea
+        real(kind=realType), intent(in) :: epsE0, marchParameter, nuArea
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
         integer(kind=intType), intent(in) :: numSmoothingPasses
+        logical, intent(in) :: extension_given
 
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
@@ -376,7 +385,7 @@
         real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
         real(kind=realType) :: rNext_in(3*numNodes)
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
-        real(kind=realType) :: dPseudo, maxStretch, radius, eta
+        real(kind=realType) :: dPseudo, maxStretch, radius, eta, extension
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
         integer(kind=intType) :: arraySize, nAllocations
 
@@ -396,17 +405,24 @@
         d = dStart
         dTot = 0
 
-        ! Find the characteristic radius of the mesh
-        call findRadius_d(rNext, rNextd, numNodes, radius, radiusd)
+        if (extension_given) then
+          extension = marchParameter
+          ! Find the characteristic radius of the mesh
+          call findRadius_d(rNext, rNextd, numNodes, radius, radiusd)
 
-        ! Find the desired marching distance
-        dMax = radius * (extension-1.)
-        dMaxd = radiusd * (extension-1.)
+          ! Find the desired marching distance
+          dMax = radius * (extension-1.)
+          dMaxd = radiusd * (extension-1.)
 
-        dStartd = 0.
+          dStartd = 0.
 
-        ! Compute the growth ratio necessary to match this distance
-        call findratio_d(dMax, dMaxd, dStart, dStartd, numLayers, ratioGuess, dGrowth, dGrowthd)
+          ! Compute the growth ratio necessary to match this distance
+          call findratio_d(dMax, dMaxd, dStart, dStartd, numLayers, ratioGuess, dGrowth, dGrowthd)
+        else
+          dGrowth = marchParameter
+          dGrowthd = 0.
+        end if
+
 
         ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
         ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
@@ -519,7 +535,7 @@
 
         subroutine march_b(py_projection, rStart, rStartb, R_initial_march, R_smoothed, &
         R_final, N, majorIndices, dStart, theta, sigmaSplay, &
-        &   bc1, bc2, epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, &
+        &   bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, &
         &   numSmoothingPasses, numAreaPasses, numLayers, numNodes, nSubIters, R, Rb, fail&
         &   , ratios)
 
@@ -534,17 +550,18 @@
           real(kind=realtype), intent(in) :: rStart(3*numNodes), dStart, theta&
         &   , sigmaSplay
           real(kind=realtype) :: dStartb
-          real(kind=realtype), intent(in) :: epsE0, extension, nuArea
+          real(kind=realtype), intent(in) :: epsE0, marchParameter, nuArea
           character(len=32), intent(in) :: bc1, bc2
           real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax
           integer(kind=inttype), intent(in) :: numSmoothingPasses
           integer(kind=intType), intent(in) :: majorIndices(numLayers)
+          logical, intent(in) :: extension_given
 
           integer(kind=inttype), intent(out) :: fail
           real(kind=realtype), intent(out) :: rStartb(3*numNodes)
 
           real(kind=realtype) :: ratios(numLayers-1, numNodes-1), R(numLayers&
-        &   , 3*numNodes)
+        &   , 3*numNodes), extension
           real(kind=realtype) :: Rb(numLayers, 3*numNodes)
           real(kind=realtype) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
           real(kind=realtype) :: r0b(3*numNodes), N0b(3, numNodes), S0b(&
@@ -572,11 +589,16 @@
         ! find the characteristic radius of the mesh
           call findradius(rNext, numNodes, radius)
 
-        ! find the desired marching distance
-          dMax = radius*(extension-1.)
+          if (extension_given) then
+            extension = marchParameter
+          ! find the desired marching distance
+            dMax = radius*(extension-1.)
 
-        ! compute the growth ratio necessary to match this distance
-          call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+          ! compute the growth ratio necessary to match this distance
+            call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+          else
+            dGrowth = marchParameter
+          end if
 
           d = dStart
           cFactorVec = 0.
@@ -770,12 +792,15 @@
 
           rNextb = rNextb + rm1b
 
-          call findRatio_b(dMax, dMaxb, dStart, dStartb, numLayers, ratioGuess&
-        &              , dGrowth, dGrowthb)
+          if (extension_given) then
 
-          radiusb = (extension-1.)*dMaxb
+            call findRatio_b(dMax, dMaxb, dStart, dStartb, numLayers, ratioGuess&
+          &              , dGrowth, dGrowthb)
 
-          call findRadius_b(rNext, rNextb, numNodes, radius, radiusb)
+            radiusb = (extension-1.)*dMaxb
+
+            call findRadius_b(rNext, rNextb, numNodes, radius, radiusb)
+          end if
 
           rStartb = 0.0_8
           rStartb = rNextb
