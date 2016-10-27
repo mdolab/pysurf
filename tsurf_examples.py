@@ -96,7 +96,7 @@ class TestCreateMesh(unittest.TestCase):
     #     self.create_mesh()
     #
     #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
-    #
+
     # def test_cylinder_cap(self):
     #     example = 'cylinder_cap'
     #
