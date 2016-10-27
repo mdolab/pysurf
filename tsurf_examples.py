@@ -61,6 +61,94 @@ class TestCreateMesh(unittest.TestCase):
 
         np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
 
+    def test_smoothed_kink_on_plate(self):
+        example = 'smoothed_kink_on_plate'
+
+        # Read inputs from CGNS file
+        self.geom = TSurfGeometry('examples/inputs/plate.cgns')
+
+        # Set source self.curve
+        self.curve = np.array([[0.,0,0],
+                       [1,1,0],
+                       [2,2,0],
+                       [3,2,0],
+                       [4,1,0],
+                       [5,0,0]])
+
+        # Flip self.curve to change marching direction
+        self.curve = self.curve[::-1,:]
+
+        # Define boundary conditions
+        self.bc1 = 'constX'
+        self.bc2 = 'constX'
+
+        # Set parameters
+        self.epsE0 = 1.0
+        self.theta = 0.0
+        self.alphaP0 = 0.25
+        self.numSmoothingPasses = 5
+        self.nuArea = 0.16
+        self.numAreaPasses = 0
+        self.sigmaSplay = 0.5
+        self.cMax = 20.0
+        self.ratioGuess = 20
+
+        # Options
+        self.sBaseline = 0.15
+        self.numLayers = 5
+        self.extension = 1.5
+
+        # Give layout file
+        self.layout_file = 'layout_plate.lay'
+
+        self.create_mesh()
+
+        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+
+    def test_area_kink_on_plate(self):
+        example = 'area_kink_on_plate'
+
+        # Read inputs from CGNS file
+        self.geom = TSurfGeometry('examples/inputs/plate.cgns')
+
+        # Set source self.curve
+        self.curve = np.array([[0.,0,0],
+                       [1,1,0],
+                       [2,2,0],
+                       [3,2,0],
+                       [4,1,0],
+                       [5,0,0]])
+
+        # Flip self.curve to change marching direction
+        self.curve = self.curve[::-1,:]
+
+        # Define boundary conditions
+        self.bc1 = 'constX'
+        self.bc2 = 'constX'
+
+        # Set parameters
+        self.epsE0 = 1.0
+        self.theta = 0.0
+        self.alphaP0 = 0.25
+        self.numSmoothingPasses = 0
+        self.nuArea = 0.16
+        self.numAreaPasses = 5
+        self.sigmaSplay = 0.5
+        self.cMax = 20.0
+        self.ratioGuess = 20
+
+        # Options
+        self.sBaseline = 0.15
+        self.numLayers = 5
+        self.extension = 1.5
+
+        # Give layout file
+        self.layout_file = 'layout_plate.lay'
+
+        self.create_mesh()
+
+        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+
     # def test_line_on_cylinder(self):
     #     example = 'line_on_cylinder'
     #
