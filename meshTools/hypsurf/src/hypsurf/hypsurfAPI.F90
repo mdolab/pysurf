@@ -604,13 +604,16 @@
           cFactorVec = 0.
           dVec(1) = d
 
+          minorIndex = 1
           ! Compute and store d and cFactor values for the backwards loop
           do layerIndex=1,numLayers-1
-            call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+            r0 = R_final(minorIndex, :)
+            call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
             cFactor = ceiling(maxStretch/cMax)
             cFactorVec(layerIndex) = cFactor
             d = d*dGrowth
             dVec(layerIndex+1) = d
+            minorIndex = minorIndex + cFactor
           end do
 
 

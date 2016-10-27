@@ -167,7 +167,7 @@ class HypSurfMesh(object):
 
                 rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios, numLayers)
 
-                print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb)
+                print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb), '(unless the surface is curved; don\'t have projections working)'
                 print
 
             # Release the pseudomesh information from the hypsurfAPI instance
