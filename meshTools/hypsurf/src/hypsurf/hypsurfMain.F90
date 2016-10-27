@@ -538,7 +538,7 @@
         do index=1,numAreaPasses
           ! Store previous values
           Splus = S(2)
-          Sminus = S(n-2)
+          Sminus = S(n-1)
           ! Do the averaging for the central nodes
           S(2:n-1) = (1-nuArea)*S(2:n-1) + nuArea/2*(S(:n-2) + S(3:))
           ! Average for the extremum nodes
