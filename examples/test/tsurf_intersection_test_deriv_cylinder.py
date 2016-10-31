@@ -82,15 +82,15 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             newIntCurve.export_plot3d('curve_%03d'%ii)
 
             # Find the trailing edge point
-            pt0 = newIntCurve.barsConn[0,1]###
-            pt1 = newIntCurve.barsConn[-1,-2]###
+            pt0 = newIntCurve.barsConn[0,0]###
+            pt1 = newIntCurve.barsConn[-1,-1]###
             X0 = newIntCurve.coor[0,pt0-1]
             X1 = newIntCurve.coor[0,pt1-1]
             if X0 > X1:
-                barID = 1 ###
+                barID = 0 ###
                 pointID = pt0
             else:
-                barID = -2 ###
+                barID = -1 ###
                 pointID = pt1
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection

@@ -562,8 +562,110 @@
         !***************************************************************
         !***************************************************************
 
-        subroutine computeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
-                                       quadsConn, nodalNormals)
+        subroutine adtMinDistanceSearch_d(nCoor,       nNodes,      coor,        coord, &
+                                          adtID,       adtCoord,    procID,      elementType, &
+                                          elementID,   uvw,         dist2,       &
+                                          allxfs,      allxfsd,     nInterpol,   &
+                                          arrDonor,    arrDonord, &
+                                          arrInterpol, arrInterpold)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine computes derivatives of the minimum distance    *
+!       * (projection) algorithm. Note that most inputs should be      *
+!       * obtained with the execution of the original routine first.   *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nNodes: Number of donor nodes for interpolation information. *
+!       * coor: The coordinates of these points.                       *
+!       * coord: Derivative seeds for the coordinates.                 *
+!       * adtID: The ADT to be searched.                               *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the element containing the point is       *
+!       *              stored. If no element is found for a given      *
+!       *              point the corresponding entry in procID is set  *
+!       *              to -1 to indicate failure. Remember that the    *
+!       *              processor ID's start at 0 and not at 1.         *
+!       * elementType: The type of element which contains the point.   *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which contains the point. The ID is negative if *
+!       *              the coordinate is outside the element.          *
+!       * uvw:         The parametric coordinates of the point in the  *
+!       *              transformed element; this transformation is     *
+!       *              such that every element is transformed into a   *
+!       *              standard element in parametric space. The u, v  *
+!       *              and w coordinates can be used to determine the  *
+!       *              actual interpolation weights. If the tree       *
+!       *              corresponds to a surface mesh the third entry   *
+!       *              of this array will not be filled.               *
+!       * dist2: Minimum distance squared of the coordinates to the    *
+!       *        elements of the ADT.                                  *
+!       * allxfs: Array with projected points.                         *
+!       * nInterpol: Number of variables to be interpolated.           *
+!       * arrDonor:  Array with the donor data; needed to obtain the   *
+!       *            interpolated data.                                *
+!       * arrDonord: Derivative seeds of the donor data.               *
+!       * arrInterpol: Array with the interpolated data.               *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * allxfsd: Derivative seeds of projected points.               *
+!       * arrInterpold: Derivative seeds of the interpolated data.     *
+!       *                                                              *
+!       ****************************************************************
+!       Ney Secco 2016-10
+!
+        implicit none
+
+        !f2py intent(in) nCoor, nNodes, coor, coord, adtID, nInterpol, arrDonor
+        !f2py intent(in) procID, elementType, elementID, uvw, arrInterpol
+        !f2py intent(in) dist2, allxfs, arrInterpol
+        !f2py intent(out) allxfsd, arrInterpold
+
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
+        character(len=32),     intent(in) :: adtID
+
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor, coord
+        real(kind=realType), dimension(3,nNodes), intent(in) :: adtCoord
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor, arrDonord
+
+        integer, dimension(nCoor), intent(in) :: procID
+        integer(kind=intType), dimension(nCoor), intent(in) :: elementID
+
+        integer(kind=adtElementType), dimension(nCoor), intent(in) :: &
+                                                            elementType
+
+        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+
+        real(kind=realType), dimension(nCoor), intent(in) :: dist2
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
+
+        real(kind=realType), dimension(3,nCoor), intent(out) :: allxfsd
+        real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpold
+
+        !===============================================================
+
+        ! Call the subroutine minDistanceSearch_d to do the actual work.
+
+        call minDistanceSearch_d(nCoor,       coor,        coord,     adtID,    adtCoord, &
+                                 procID,      elementType, elementID, uvw,      dist2,    &
+                                 allxfs,      allxfsd,     nInterpol, arrDonor, arrDonord, &
+                                 arrInterpol, arrInterpold)
+
+        end subroutine adtMinDistanceSearch_d
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine adtComputeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
+                                          quadsConn, nodalNormals)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -588,6 +690,7 @@
 !       *                                                              *
 !       ****************************************************************
 !
+        use adtProjections
         implicit none
 
         !f2py intent(in) nCoor, nTria, nQuads, coor, triaConn, quadsConn
@@ -605,134 +708,73 @@
         ! Output
         real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
 
-        ! Working
-        real(kind=realType), dimension(nCoor) :: connect_count
-        real(kind=realType) :: normal1(3), normal2(3), normal3(3), normal4(3)
-        integer(kind=intType) :: i, ind1, ind2, ind3, ind4
-        real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
-        real(kind=realType) :: x12(3), x23(3), x34(3), x41(3)
+        ! Call function that will do the job.
+        ! computeNodalNormals defined in adtProjections.F90
+        call computeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
+                                 quadsConn, nodalNormals)
 
+      end subroutine adtComputeNodalNormals
 
-        !===============================================================
+        !***************************************************************
+        !***************************************************************
 
-        ! Loop over triangle connectivities
-        do i = 1,nTria
-
-          ! Get the indices for each node of the triangle element
-          ind1 = triaConn(1, i)
-          ind2 = triaConn(2, i)
-          ind3 = triaConn(3, i)
-
-          ! Get the coordinates for each node of the triangle element
-          x1 = coor(:, ind1)
-          x2 = coor(:, ind2)
-          x3 = coor(:, ind3)
-
-          ! Compute relative vectors for the triangle sides
-          x12 = x1 - x2
-          x23 = x2 - x3
-
-          ! Take the cross-product of these vectors to obtain the normal vector
-          call cross_product(x12, x23, normal1)
-
-          ! Normalize this normal vector
-          normal1 = normal1 / sqrt(dot_product(normal1, normal1))
-
-          ! Add the contribution of this normal to the nodalNormals array
-          nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
-          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal1
-          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal1
-
-          ! Add connectivity information to the connect_count array so we
-          ! know how many edges are connected to a node.
-          ! We divide the nodalNormals vector by this number to obtain the
-          ! averaged nodal normal.
-          connect_count(ind1) = connect_count(ind1) + 1
-          connect_count(ind2) = connect_count(ind2) + 1
-          connect_count(ind3) = connect_count(ind3) + 1
-
-        end do
-
-        ! Loop over quad connectivities
-        do i = 1,nQuads
-
-          ! Get the indices for each node of the quad element
-          ind1 = quadsConn(1, i)
-          ind2 = quadsConn(2, i)
-          ind3 = quadsConn(3, i)
-          ind4 = quadsConn(4, i)
-
-          ! Get the coordinates for each node of the quad element
-          x1 = coor(:, ind1)
-          x2 = coor(:, ind2)
-          x3 = coor(:, ind3)
-          x4 = coor(:, ind4)
-
-          ! Compute relative vectors for the quad sides
-          x12 = x1 - x2
-          x23 = x2 - x3
-          x34 = x3 - x4
-          x41 = x4 - x1
-
-          ! Take the cross-product of these vectors to obtain the normal vectors
-          ! Normalize these normal vectors
-          call cross_product(x12, -x41, normal1)
-          normal1 = normal1 / sqrt(dot_product(normal1, normal1))
-          call cross_product(x23, -x12, normal2)
-          normal2 = normal2 / sqrt(dot_product(normal2, normal2))
-          call cross_product(x34, -x23, normal3)
-          normal3 = normal3 / sqrt(dot_product(normal3, normal3))
-          call cross_product(x41, -x34, normal4)
-          normal4 = normal4 / sqrt(dot_product(normal4, normal4))
-
-          ! Add the contribution of this normal to the nodalNormals array
-          nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
-          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal2
-          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal3
-          nodalNormals(:, ind4) = nodalNormals(:, ind4) + normal4
-
-          ! Add connectivity information to the connect_count array so we
-          ! know how many edges are connected to a node.
-          ! We divide the nodalNormals vector by this number to obtain the
-          ! averaged nodal normal.
-          connect_count(ind1) = connect_count(ind1) + 1
-          connect_count(ind2) = connect_count(ind2) + 1
-          connect_count(ind3) = connect_count(ind3) + 1
-          connect_count(ind4) = connect_count(ind4) + 1
-
-        end do
-
-        do i = 1,3
-          ! Divide the nodal normals by the number of edges that each node has
-          nodalNormals(i, :) = nodalNormals(i, :) / connect_count
-        end do
-
-        do i=1,nCoor
-          ! Normalize these new averaged nodal normals
-          normal1 = nodalNormals(:, i)
-          nodalNormals(:, i) = normal1 / sqrt(dot_product(normal1, normal1))
-        end do
-
-        end subroutine computeNodalNormals
-
-        subroutine cross_product(A, B, C)
+        subroutine adtComputeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
+                                            quadsConn, nodalNormals, nodalNormalsd)
 !
 !       ****************************************************************
-!       *       Obtain the cross-product of two vectors, A and B.      *
+!       *                                                              *
+!       * This routine computes the nodal normals for each node by     *
+!       * obtaining the normals for each panel face then interpolating *
+!       * the data to the nodes.                                       *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nTria: Number of triangle elements.                          *
+!       * nQuads: Number of quad elements.                             *
+!       * coor:  The coordinates of these points.                      *
+!       * coord: Derivative seed of the nodal coordinates.             *
+!       * triaConn: Connectivity information for the triangle elments. *
+!       * quadsConn: Connectivity information for the quad elments.    *
+!       * nodalNormals: The interpolated normals at each coordinate    *
+!       *               node (obtained by the original function).      *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * nodalNormalsd: Derivatives of the interpolated normals.      *
+!       *                                                              *
 !       ****************************************************************
 !
-          implicit none
+        use adtProjections_d
+        implicit none
 
-          real(kind=realType), intent(in) :: A(3), B(3)
-          real(kind=realType), intent(out) :: C(3)
+        !f2py intent(in) nCoor, nTria, nQuads, coor, triaConn, quadsConn
+        !f2py intent(out) nodalNormalsd, nodalNormals
 
-          C(1) = A(2) * B(3) - A(3) * B(2)
-          C(2) = A(3) * B(1) - A(1) * B(3)
-          C(3) = A(1) * B(2) - A(2) * B(1)
+!
+!       Subroutine arguments.
+!
+        ! Input
+        integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coord
+        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
 
-        end subroutine cross_product
+        ! Output
+        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormalsd
 
+        ! Call function that will do the job.
+        ! computeNodalNormals defined in adtProjections.F90
+        call computeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
+                                   quadsConn, nodalNormals, nodalNormalsd)
 
+      end subroutine adtComputeNodalNormals_d
+
+        !***************************************************************
+        !***************************************************************
         !***************************************************************
         !***************************************************************
 

@@ -18,6 +18,7 @@
 !     ******************************************************************
 !
       use adtUtils
+      use adtProjections
       implicit none
 
       !=================================================================
@@ -877,10 +878,10 @@
 
         real(kind=realType), dimension(2) :: dd
         real(kind=realType), dimension(3) :: x1, x2, x3, x4, x, xf
-        real(kind=realType), dimension(3) :: vf, vt, a, b, norm, an, bn
+        real(kind=realType), dimension(3) :: vf, vt, a, b, an, bn
         real(kind=realType), dimension(3) :: chi
-        real(kind=realType), dimension(3) :: norm_, xf_
-        real(kind=realType), dimension(8) :: weight
+        real(kind=realType), dimension(3) :: xf_
+        real(kind=realType), dimension(8) :: weight, donorData
 
         real(kind=realType), dimension(:,:), pointer :: xBBox
 
@@ -1324,9 +1325,9 @@
                 x = coor(1:3,nn)
 
                 ! Call projection algorithm
-                ! triaProjection defined in adtUtils.F90
+                ! triaProjection defined in adtProjections.F90
 
-                call triaProjection(x1, x2, x3, x, xf, norm, u, v, val)
+                call triaProjection(x1, x2, x3, x, xf, u, v, val)
 
                 ! If the distance squared is less than the current value
                 ! store the wall distance and interpolation info and
@@ -1340,13 +1341,8 @@
                   kkk  = kk;   uu   = u;    vv   = v;    ww   = w
                   m(1) = n(1); m(2) = n(2); m(3) = n(3)
 
-                  weight(1) = (adtOne - u)*(adtOne - v)
-                  weight(2) =           u *(adtOne - v)
-                  weight(3) = (adtOne - u)*          v
-
-                  norm_(1) = norm(1)
-                  norm_(2) = norm(2)
-                  norm_(3) = norm(3)
+                  ! triaWeights defined in adtProjections.F90
+                  call triaWeights(u,v,weight)
 
                   xf_(1) = xf(1)
                   xf_(2) = xf(2)
@@ -1398,10 +1394,10 @@
                 x = coor(1:3,nn)
 
                 ! Call projection algorithm
-                ! quadProjection defined in adtUtils.F90
+                ! quadProjection defined in adtProjections.F90
                 call quadProjection(x1, x2, x3, x4, &
                                     x, &
-                                    xf, norm, u, v, val)
+                                    xf, u, v, val)
 
                 ! If the distance squared is less than the current value
                 ! store the wall distance and interpolation info and
@@ -1415,14 +1411,8 @@
                   kkk  = kk;   uu   = u;    vv   = v;    ww   = w
                   m(1) = n(1); m(2) = n(2); m(3) = n(3); m(4) = n(4)
 
-                  weight(1) = (adtOne - u)*(adtOne - v)
-                  weight(2) =           u *(adtOne - v)
-                  weight(3) =           u *          v
-                  weight(4) = (adtOne - u)*          v
-
-                  norm_(1) = norm(1)
-                  norm_(2) = norm(2)
-                  norm_(3) = norm(3)
+                  ! quadWeights defined in adtProjections.F90
+                  call quadWeights(u,v,weight)
 
                   xf_(1) = xf(1)
                   xf_(2) = xf(2)
@@ -1536,10 +1526,20 @@
 
             do ll=1,nInterpol
               ii = 4+ll
-              uvw(ii,nn) = weight(1)*arrDonor(ll,m(1))
-              do i=2,nNodeElement
-                uvw(ii,nn) = uvw(ii,nn) + weight(i)*arrDonor(ll,m(i))
-              enddo
+              ! Gather data from nodes
+              donorData = adtZero
+              do i=1,nNodeElement
+                 donorData(i) = arrDonor(ll,m(i))
+              end do
+              ! Dot function defined in utilities.F90
+              call dotProd(weight,donorData,uvw(ii,nn))
+
+              ! Old code
+              !uvw(ii,nn) = weight(1)*arrDonor(ll,m(1))
+              !do i=2,nNodeElement
+              !  uvw(ii,nn) = uvw(ii,nn) + weight(i)*arrDonor(ll,m(i))
+              !enddo
+              
             enddo
 
             ! Store global coordinate of projected point

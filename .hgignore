@@ -21,3 +21,4 @@ callgrind*
 *.uns
 *.uns.bak
 *.plt
+*.msg

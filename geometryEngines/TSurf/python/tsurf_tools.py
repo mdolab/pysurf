@@ -133,9 +133,9 @@ def update_surface(TSurfGeometry):
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    TSurfGeometry.nodal_normals = adtAPI.adtapi.computenodalnormals(TSurfGeometry.coor,
-                                                                   TSurfGeometry.triaConn,
-                                                                   TSurfGeometry.quadsConn)
+    TSurfGeometry.nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(TSurfGeometry.coor,
+                                                                       TSurfGeometry.triaConn,
+                                                                       TSurfGeometry.quadsConn)
 
     # Create new tree (the tree itself is stored in Fortran level)
     adtAPI.adtapi.adtbuildsurfaceadt(TSurfGeometry.coor,
@@ -1551,3 +1551,75 @@ def rotate(Geometry, angle, axis, point=None):
     relCoor[1,:] = relCoor[1,:] + point[1]
     relCoor[2,:] = relCoor[2,:] + point[2]
     Geometry.coor = relCoor
+
+#============================================================
+#============================================================
+#============================================================
+
+# NORMALIZATION FUNCTION
+
+# ORIGINAL FUNCTION
+def normalize(vec):
+
+    '''
+    This is a simple function to normalize an array of vectors.
+    Each row of vec will be treated as a vector that should be normalized.
+
+    INPUTS
+    vec: array[n x m] -> Array of n vectors of size m that should be normalized
+
+    OUTPUTS:
+    normalVec: array[n x m] -> Array of n normalized vectors
+
+    Ney Secco 2016-10
+    '''
+
+    vecNorms = np.array([np.sum(vec**2,axis=1)]).T
+    vecNorms = np.sqrt(vecNorms)
+    normalVec = vec/vecNorms
+
+    return normalVec
+
+# FORWARD MODE
+def normalize_d(vec, vecd):
+
+    '''
+    This is the forward differentiation of the normalize routine
+
+    Ney Secco 2016-10
+    '''
+
+    vecNorms = np.array([np.sum(vec**2,axis=1)]).T
+    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)]).T 
+
+    vecNorms = np.sqrt(vecNorms)
+    vecNormsd = 0.5*vecNormsd/vecNorms
+
+    normalVec = vec/vecNorms
+    normalVecd = vecd/vecNorms - vec*vecNormsd/vecNorms**2
+
+    return normalVec, normalVecd
+
+# REVERSE MODE
+def normalize_b(vec, normalVecb):
+
+    '''
+    This is the backward differentiation of the normalize routine
+
+    Ney Secco 2016-10
+    '''
+
+    vecNorms1 = np.array([np.sum(vec**2,axis=1)]).T
+
+    vecNorms2 = np.sqrt(vecNorms1)
+
+    normalVec = vec/vecNorms2
+
+    vecNorms2b = np.sum(-vec/vecNorms2**2*normalVecb,axis=1)
+    vecb = normalVecb/vecNorms2
+
+    vecNorms1b = vecNorms2b/2.0/vecNorms2
+
+    vecb = vecb + 2.0*vec*vecNorms1b
+
+    return vecb
