@@ -105,6 +105,14 @@ class TSurfGeometry(Geometry):
         This function updates the nodal coordinates used by both surface and curve objects.
         '''
 
+        # First check if we have the same number of new coordinates
+        if not self.coor.shape == coor.shape:
+            print ''
+            print 'WARNING: self.update in TSurfGeometry class'
+            print '         The new set of coordinates does not have the'
+            print '         same number of points as the original set.'
+            print ''
+
         # Update coordinates
         self.coor = coor
 
@@ -142,6 +150,9 @@ class TSurfGeometry(Geometry):
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         normProj -> float[numPts,3] : Surface normal at projected points
+
+        projDict -> dictionary : Dictionary containing intermediate values that are
+                                 required by the differentiation routines.
         '''
 
         '''
@@ -169,15 +180,93 @@ class TSurfGeometry(Geometry):
         numPts = xyz.shape[0]
         dist2 = np.ones(numPts)*1e10
         xyzProj = np.zeros((numPts,3))
-        normProj = np.zeros((numPts,3))
+        normProjNotNorm = np.zeros((numPts,3))
 
         # Call projection function
         procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.name,
                                                                                  dist2, xyzProj.T,
-                                                                                 self.nodal_normals, normProj.T)
+                                                                                 self.nodal_normals, normProjNotNorm.T)
+
+        # Store additional outputs in a dictionary to make outputs cleaner
+        projDict = {'procID':procID,
+                    'elementType':elementType,
+                    'elementID':elementID,
+                    'uvw':uvw,
+                    'dist2':dist2,
+                    'normProjNotNorm':normProjNotNorm}
+
+
+        # Normalize the normals
+        normProj = tst.normalize(normProjNotNorm)
 
         # Return projections
-        return xyzProj, normProj
+        return xyzProj, normProj, projDict
+
+    def project_on_surface_d(self, xyz, xyzd, xyzProj, normProj, projDict, coord):
+
+        '''
+        This function will compute derivatives of the projection algorithm in forward mode.
+
+        INPUTS:
+        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+
+        xyzd -> float[numPts, 3] : Derivative seeds for coordinates of the points
+                                   that should be projected.
+
+        xyzProj -> float[numPts,3] : Coordinates of the projected points (can be obtained
+                                     with the original projection function)
+
+        normProj -> float[numPts,3] : Surface normal at projected points (can be obtained
+                                      with the original projection function)
+
+        projDict -> dictionary : Dictionary containing intermediate values that are
+                                 required by the differentiation routines.  (can be obtained
+                                 with the original projection function)
+
+        coord -> float[numNodes,3] : Derivative seeds of the nodal coordinates of the baseline
+                                     surface.
+
+        OUTPUTS:
+        xyzProjd -> float[numPts,3] : Derivative seeds of the coordinates of the projected points
+
+        normProjd -> float[numPts,3] : Derivative seeds of the surface normal at projected points
+
+        Ney Secco 2016-10
+        '''
+
+        # Rename variables to make code more readable
+        procID = projDict['procID']
+        elementType = projDict['elementType']
+        elementID = projDict['elementID']
+        uvw = projDict['uvw']
+        dist2 = projDict['dist2']
+        normProjNotNorm = projDict['normProjNotNorm']
+
+        # Compute derivatives of the normal vectors
+        nodal_normals, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(self.coor, coord,
+                                                                               self.triaConn, self.quadsConn)
+
+        # Call projection function
+        # ATTENTION: The variable "xyz" here in Python corresponds to the variable "coor" in the Fortran code.
+        # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
+        # I could not change this because the original ADT code already used "coor" to denote nodes that should be
+        # projected.
+        xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(xyz.T, xyzd.T, self.name, coord,
+                                                                          procID, elementType,
+                                                                          elementID, uvw,
+                                                                          dist2, xyzProj.T, self.nodal_normals, 
+                                                                          nodal_normalsd, normProjNotNorm.T)
+
+        # Transpose results to make them consistent
+        xyzProjd = xyzProjd.T
+        normProjNotNormd = normProjNotNormd.T
+
+
+        # Now we need to compute derivatives of the normalization process
+        normProj, normProjd = tst.normalize_d(normProjNotNorm, normProjNotNormd)
+
+        # Return projections derivatives
+        return xyzProjd, normProjd
 
     def project_on_curve(self, xyz, curveCandidates=None):
 

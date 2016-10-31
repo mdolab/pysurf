@@ -378,7 +378,7 @@ class HypSurfMesh(object):
         node2 = rNext[-3:]
 
         # Project onto surface and compute surface normals
-        rNext, NNext = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
+        rNext, NNext, projDict = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
         rNext = rNext.flatten()
         NNext = NNext.T
 

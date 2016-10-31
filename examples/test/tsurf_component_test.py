@@ -22,7 +22,7 @@ class TestTSurfProjection(unittest.TestCase):
                              [.6, .5, 0.1]], order='F')
 
     def test_orig_cube_projection(self):
-        xyzProj, normProj = self.cube.project_on_surface(self.pts)
+        xyzProj, normProj, projDict = self.cube.project_on_surface(self.pts)
 
         print
         print 'Original cube projection:'
@@ -34,6 +34,11 @@ class TestTSurfProjection(unittest.TestCase):
                                                           [ 0.6, 0.5, 0.]]))
         np.testing.assert_almost_equal(normProj, np.array([[ 0., 0.,  1.],
                                                            [ 0., 0., -1.]]))
+
+        # Call derivative code
+        ptsd = np.zeros(self.pts.shape)
+        ptsd[0,0] = 1.0
+        xyzProjd, normProjd = self.cube.project_on_surface_d(self.pts, ptsd, xyzProj, normProj, projDict, np.zeros(self.cube.coor.shape))
 
     def test_orig_cube_edge_projection(self):
         xyzProj, normProj = self.cube.project_on_curve(self.pts)
@@ -50,7 +55,7 @@ class TestTSurfProjection(unittest.TestCase):
                                                            [ -.70710678, -.70710678, 0.]]))
     def test_mod_cube_projection(self):
         self.cube.translate(0, 0, 3)
-        xyzProj, normProj = self.cube.project_on_surface(self.pts)
+        xyzProj, normProj, projDict = self.cube.project_on_surface(self.pts)
         self.cube.translate(0, 0, -3)
 
         print

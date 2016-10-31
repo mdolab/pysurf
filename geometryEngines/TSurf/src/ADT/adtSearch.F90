@@ -1048,6 +1048,224 @@
         !***************************************************************
         !***************************************************************
 
+        subroutine minDistanceSearch_d(nCoor,       coor,        coord, &
+                                       adtID,       adtCoord,    procID,      &
+                                       elementType, elementID,   &
+                                       uvw,         dist2,       &
+                                       allxfs,      allxfsd,     nInterpol, &
+                                       arrDonor,    arrDonord, &
+                                       arrInterpol, arrInterpold)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine computes derivatives of the minimum distance    *
+!       * (projection) algorithm. Note that most inputs should be      *
+!       * obtained with the execution of the original routine first.   *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nNodes: Number of donor nodes for interpolation information. *
+!       * coor: The coordinates of these points.                       *
+!       * coord: Derivative seeds for the coordinates.                 *
+!       * adtID: The ADT to be searched.                               *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the element containing the point is       *
+!       *              stored. If no element is found for a given      *
+!       *              point the corresponding entry in procID is set  *
+!       *              to -1 to indicate failure. Remember that the    *
+!       *              processor ID's start at 0 and not at 1.         *
+!       * elementType: The type of element which contains the point.   *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which contains the point. The ID is negative if *
+!       *              the coordinate is outside the element.          *
+!       * uvw:         The parametric coordinates of the point in the  *
+!       *              transformed element; this transformation is     *
+!       *              such that every element is transformed into a   *
+!       *              standard element in parametric space. The u, v  *
+!       *              and w coordinates can be used to determine the  *
+!       *              actual interpolation weights. If the tree       *
+!       *              corresponds to a surface mesh the third entry   *
+!       *              of this array will not be filled.               *
+!       * dist2: Minimum distance squared of the coordinates to the    *
+!       *        elements of the ADT.                                  *
+!       * allxfs: Array with projected points.                         *
+!       * nInterpol: Number of variables to be interpolated.           *
+!       * arrDonor:  Array with the donor data; needed to obtain the   *
+!       *            interpolated data.                                *
+!       * arrDonord: Derivative seeds of the donor data.               *
+!       * arrInterpol: Array with the interpolated data.               *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * allxfsd: Derivative seeds of projected points.               *
+!       * arrInterpold: Derivative seeds of the interpolated data.     *
+!       *                                                              *
+!       ****************************************************************
+!       Ney Secco 2016-10
+!
+        use adtProjections_d
+
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nCoor, nInterpol
+        character(len=*),         intent(in) :: adtID
+
+        real(kind=realType), dimension(:,:), intent(in) :: coor
+        real(kind=realType), dimension(:,:), intent(in) :: coord
+        real(kind=realType), dimension(:,:), intent(in) :: adtCoord
+        real(kind=realType), dimension(:,:), intent(in) :: arrDonor
+        real(kind=realType), dimension(:,:), intent(in) :: arrDonord
+
+        integer, dimension(:), intent(in) :: procID
+        integer(kind=intType), dimension(:), intent(in) :: elementID
+
+        integer(kind=adtElementType), dimension(:), intent(in) :: &
+                                                             elementType
+
+        real(kind=realType), dimension(:,:), intent(in) :: uvw
+
+        real(kind=realType), dimension(:), intent(in) :: dist2
+        real(kind=realType), dimension(:,:), intent(in) :: allxfs
+        real(kind=realType), dimension(:,:), intent(in) :: arrInterpol
+
+        real(kind=realType), dimension(:,:), intent(out) :: allxfsd
+        real(kind=realType), dimension(:,:), intent(out) :: arrInterpold
+
+!
+!       Local variables.
+!
+        integer(kind=intType) :: jj, nAlloc, ii, ll, i
+        integer(kind=intType) :: nNodeElement
+        integer(kind=intType), dimension(3) :: n
+        real(kind=realType), dimension(3) :: x1, x2, x3, x, xf
+        real(kind=realType), dimension(3) :: x1d, x2d, x3d, xd, xfd
+        real(kind=realType), dimension(8) :: weight, donorData
+        real(kind=realType), dimension(8) :: weightd, donorDatad
+        real(kind=realType) :: u, v, val
+        real(kind=realType) :: ud, vd
+        real(kind=realType) :: interpData
+        integer :: comm, nProcs, myID
+!
+!       ****************************************************************
+!       *                                                              *
+!       * Begin execution.                                             *
+!       *                                                              *
+!       ****************************************************************
+!
+        ! Determine the index in the array ADTs, which stores the given
+        ! ID. As the number of trees stored is limited, a linear search
+        ! algorithm is okay.
+
+        nAlloc = ubound(ADTs, 1)
+        do jj=1,nAlloc
+          if(adtID == ADTs(jj)%adtID) exit
+        enddo
+
+        ! Check if the ADT to be searched exists. If not stop.
+        ! Note that adtTerminate is not called. The reason is that the
+        ! processor ID is not known.
+
+        if(jj > nAlloc) stop "ADT to be searched does not exist."
+
+        ! Some abbreviations to make the code more readable.
+
+        comm   = ADTs(jj)%comm
+        nProcs = ADTs(jj)%nProcs
+        myID   = ADTs(jj)%myID
+
+        ! Now we loop over each projected point to compute derivatives
+        ! of the ones that belong to this processor.
+        do ii = 1,nCoor
+
+           ! Check if the projection belongs to the current process
+           if (procID(ii) .eq. myID) then
+
+              ! Now we will call the projection derivative subroutine based
+              ! on the element type
+              select case (elementType(ii))
+                 
+              case (adtTriangle)
+
+                ! Determine the 3 nodes which completely describe
+                ! the traingle face
+
+                ll   = abs(elementID(ii)) !ADTs(jj)%elementID(elementID)
+                n(1) = ADTs(jj)%triaConn(1,ll)
+                n(2) = ADTs(jj)%triaConn(2,ll)
+                n(3) = ADTs(jj)%triaConn(3,ll)
+
+                x1(1) = ADTs(jj)%coor(1,n(1))
+                x1(2) = ADTs(jj)%coor(2,n(1))
+                x1(3) = ADTs(jj)%coor(3,n(1))
+
+                x2(1) = ADTs(jj)%coor(1,n(2))
+                x2(2) = ADTs(jj)%coor(2,n(2))
+                x2(3) = ADTs(jj)%coor(3,n(2))
+
+                x3(1) = ADTs(jj)%coor(1,n(3))
+                x3(2) = ADTs(jj)%coor(2,n(3))
+                x3(3) = ADTs(jj)%coor(3,n(3))
+
+                ! Get corresponding derivatives for the baseline surface nodal coordinates
+                x1d = adtCoord(:,n(1))
+                x2d = adtCoord(:,n(2))
+                x3d = adtCoord(:,n(3))
+
+                ! Get the point that should be projected
+                x = coor(1:3,ii)
+                xd = coord(1:3,ii)
+
+                ! Get answers of the forward run
+                xf = allxfs(1:3,ii)
+                u = uvw(1,ii)
+                v = uvw(2,ii)
+                val = dist2(ii)
+
+                ! Run projection algorithm
+                call triaprojection_d(x1, x1d, x2, x2d, x3, x3d, x, xd, &
+                                      xf, xfd, u, ud, v, vd, val)
+
+                ! Store output derivatives
+                allxfsd(:,ii) = xfd
+
+                ! Compute parametric coefficients derivatives for interpolation
+                ! triaWeights defined in adtProjections.F90
+                call triaWeights_d(u,ud,v,vd,weight,weightd)
+
+                ! Set number of nodes in this type of elements
+                nNodeElement = 3
+
+             end select
+
+             ! Compute derivative of interpolated values
+             do ll=1,nInterpol
+                ! Gather data from nodes
+                donorData = adtZero
+                donorDatad = adtZero
+                do i=1,nNodeElement
+                   donorData(i) = arrDonor(ll,n(i))
+                   donorDatad(i) = arrDonord(ll,n(i))
+                end do
+                interpData = arrInterpol(ll,ii)
+                ! Dot function defined in adtProjections_d.F90
+                call dotProd_d(weight, weightd, &
+                               donorData, donorDatad, &
+                               interpData, arrInterpold(ll,ii))
+             end do
+
+          end if
+
+        end do
+
+      end subroutine minDistanceSearch_d
+
+        !***************************************************************
+        !***************************************************************
+
         subroutine search(nCoor,       coor,      procID,   &
                           elementType, elementID, uvw,      &
                           dist2,       allxfs,              &
@@ -1633,8 +1851,12 @@
                 do m=1,nInterpol
                   arrInterpol(m,l) = uvwRecv(m+nVarCoor,j)
                 enddo
-                arrInterpol(:,l) = arrInterpol(:,l) / &
-                  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+
+                ! Normalize interpolated values (could be useful when
+                ! we are interpolating normals, but right now we do this outside
+                ! of ADT)
+                !arrInterpol(:,l) = arrInterpol(:,l) / &
+                !  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
 
               endif
 
@@ -1838,8 +2060,13 @@
                   do m=1,nInterpol
                     arrInterpol(m,l) = uvwBuf(m+nVarCoor,j)
                   enddo
-                  arrInterpol(:,l) = arrInterpol(:,l) / &
-                    sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+
+                  ! Normalize interpolated values (could be useful when
+                  ! we are interpolating normals, but right now we do this outside
+                  ! of ADT)
+                  !arrInterpol(:,l) = arrInterpol(:,l) / &
+                  !  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+
                 endif
 
               enddo
@@ -1879,8 +2106,12 @@
                   do m=1,nInterpol
                     arrInterpol(m,l) = uvwBuf(m+nVarCoor,j)
                   enddo
-                  arrInterpol(:,l) = arrInterpol(:,l) / &
-                    sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
+
+                  ! Normalize interpolated values (could be useful when
+                  ! we are interpolating normals, but right now we do this outside
+                  ! of ADT)
+                  !arrInterpol(:,l) = arrInterpol(:,l) / &
+                  !  sqrt(dot_product(arrInterpol(:,l), arrInterpol(:,l)))
                 endif
 
               enddo

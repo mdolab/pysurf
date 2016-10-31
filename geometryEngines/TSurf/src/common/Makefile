@@ -17,7 +17,7 @@ vpath %.o $(OBJDIR)
 
 FF90_OBJECTS_1 = precision.o
 
-FF90_OBJECTS_2 = communication.o\
+FF90_OBJECTS_2 = communication.o \
 	         constants.o
 
 

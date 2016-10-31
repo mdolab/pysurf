@@ -21,7 +21,8 @@ FF90_OBJECTS_1 = adtData.o\
 	         minD2Hexa.o\
 	         newtonStep.o\
 
-FF90_OBJECTS_2 = adtUtils.o
+FF90_OBJECTS_2 = adtUtils.o \
+                 adtProjections.o
 
 FF90_OBJECTS_3 = adtBuild.o\
 	         adtLocalSearch.o

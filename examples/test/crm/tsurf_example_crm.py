@@ -19,7 +19,7 @@ wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
 wingTranslation[:,2] = np.linspace(0.0, 140.0, nStates)
 
-wingTranslation = [wingTranslation[0,:]]
+#wingTranslation = [wingTranslation[0,:]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
