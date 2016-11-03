@@ -1048,7 +1048,7 @@
         !***************************************************************
         !***************************************************************
 
-        subroutine minDistanceSearch_d(nCoor,       coor,        coord, &
+        subroutine minDistanceSearch_d(nCoor,       nNodes,      coor,        coord, &
                                        adtID,       adtCoord,    procID,      &
                                        elementType, elementID,   &
                                        uvw,         dist2,       &
@@ -1070,6 +1070,8 @@
 !       * coor: The coordinates of these points.                       *
 !       * coord: Derivative seeds for the coordinates.                 *
 !       * adtID: The ADT to be searched.                               *
+!       * adtCoord: Derivative seeds of the nodal coordinates of the   *
+!       *           baseline ADT surface (ADTs%coor).                  *
 !       * procID:      The ID of the processor in the group of the ADT *
 !       *              where the element containing the point is       *
 !       *              stored. If no element is found for a given      *
@@ -1106,43 +1108,38 @@
 !       Ney Secco 2016-10
 !
         use adtProjections_d
+        use quadProjDiff
 
         implicit none
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in) :: nCoor, nInterpol
+        integer(kind=intType), intent(in) :: nCoor, nInterpol, nNodes
         character(len=*),         intent(in) :: adtID
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coord
+        real(kind=realType), dimension(3,nNodes), intent(in) :: adtCoord
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonord
+        integer, dimension(nCoor), intent(in) :: procID
+        integer(kind=intType), dimension(nCoor), intent(in) :: elementID
+        integer(kind=adtElementType), dimension(nCoor), intent(in) :: elementType
+        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+        real(kind=realType), dimension(nCoor), intent(in) :: dist2
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
-        real(kind=realType), dimension(:,:), intent(in) :: coord
-        real(kind=realType), dimension(:,:), intent(in) :: adtCoord
-        real(kind=realType), dimension(:,:), intent(in) :: arrDonor
-        real(kind=realType), dimension(:,:), intent(in) :: arrDonord
-
-        integer, dimension(:), intent(in) :: procID
-        integer(kind=intType), dimension(:), intent(in) :: elementID
-
-        integer(kind=adtElementType), dimension(:), intent(in) :: &
-                                                             elementType
-
-        real(kind=realType), dimension(:,:), intent(in) :: uvw
-
-        real(kind=realType), dimension(:), intent(in) :: dist2
-        real(kind=realType), dimension(:,:), intent(in) :: allxfs
-        real(kind=realType), dimension(:,:), intent(in) :: arrInterpol
-
-        real(kind=realType), dimension(:,:), intent(out) :: allxfsd
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpold
+        real(kind=realType), dimension(3,nCoor), intent(out) :: allxfsd
+        real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpold
 
 !
 !       Local variables.
 !
         integer(kind=intType) :: jj, nAlloc, ii, ll, i
         integer(kind=intType) :: nNodeElement
-        integer(kind=intType), dimension(3) :: n
-        real(kind=realType), dimension(3) :: x1, x2, x3, x, xf
-        real(kind=realType), dimension(3) :: x1d, x2d, x3d, xd, xfd
+        integer(kind=intType), dimension(4) :: n
+        real(kind=realType), dimension(3) :: x1, x2, x3, x4, x, xf
+        real(kind=realType), dimension(3) :: x1d, x2d, x3d, x4d, xd, xfd
         real(kind=realType), dimension(8) :: weight, donorData
         real(kind=realType), dimension(8) :: weightd, donorDatad
         real(kind=realType) :: u, v, val
@@ -1191,7 +1188,7 @@
               case (adtTriangle)
 
                 ! Determine the 3 nodes which completely describe
-                ! the traingle face
+                ! the triangle face
 
                 ll   = abs(elementID(ii)) !ADTs(jj)%elementID(elementID)
                 n(1) = ADTs(jj)%triaConn(1,ll)
@@ -1239,6 +1236,64 @@
                 ! Set number of nodes in this type of elements
                 nNodeElement = 3
 
+              case (adtQuadrilateral)
+
+                ! Determine the 3 nodes which completely describe
+                ! the triangle face
+
+                ll   = abs(elementID(ii)) !ADTs(jj)%elementID(elementID)
+                n(1) = ADTs(jj)%quadsConn(1,ll)
+                n(2) = ADTs(jj)%quadsConn(2,ll)
+                n(3) = ADTs(jj)%quadsConn(3,ll)
+                n(4) = ADTs(jj)%quadsConn(4,ll)
+
+                x1(1) = ADTs(jj)%coor(1,n(1))
+                x1(2) = ADTs(jj)%coor(2,n(1))
+                x1(3) = ADTs(jj)%coor(3,n(1))
+
+                x2(1) = ADTs(jj)%coor(1,n(2))
+                x2(2) = ADTs(jj)%coor(2,n(2))
+                x2(3) = ADTs(jj)%coor(3,n(2))
+
+                x3(1) = ADTs(jj)%coor(1,n(3))
+                x3(2) = ADTs(jj)%coor(2,n(3))
+                x3(3) = ADTs(jj)%coor(3,n(3))
+
+                x4(1) = ADTs(jj)%coor(1,n(4))
+                x4(2) = ADTs(jj)%coor(2,n(4))
+                x4(3) = ADTs(jj)%coor(3,n(4))
+
+                ! Get corresponding derivatives for the baseline surface nodal coordinates
+                x1d = adtCoord(:,n(1))
+                x2d = adtCoord(:,n(2))
+                x3d = adtCoord(:,n(3))
+                x4d = adtCoord(:,n(4))
+
+                ! Get the point that should be projected
+                x = coor(1:3,ii)
+                xd = coord(1:3,ii)
+
+                ! Get answers of the forward run
+                xf = allxfs(1:3,ii)
+                u = uvw(1,ii)
+                v = uvw(2,ii)
+                val = dist2(ii)
+
+                ! Run projection algorithm
+                ! quadprojection_d defined in quadProjDiff.F90
+                call quadprojection_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, &
+                                      x, xd, xf, xfd, u, ud, v, vd, val)
+
+                ! Store output derivatives
+                allxfsd(:,ii) = xfd
+
+                ! Compute parametric coefficients derivatives for interpolation
+                ! triaWeights defined in adtProjections.F90
+                call quadWeights_d(u,ud,v,vd,weight,weightd)
+
+                ! Set number of nodes in this type of elements
+                nNodeElement = 4
+
              end select
 
              ! Compute derivative of interpolated values
@@ -1262,6 +1317,230 @@
         end do
 
       end subroutine minDistanceSearch_d
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine minDistanceSearch_b(nCoor,       nNodes,      coor,      coorb, &
+                                       adtID,       adtCoorb,    procID,      &
+                                       elementType, elementID,   &
+                                       uvw,         dist2,       &
+                                       allxfs,      allxfsb,     nInterpol, &
+                                       arrDonor,    arrDonorb, &
+                                       arrInterpol, arrInterpolb)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine computes derivatives of the minimum distance    *
+!       * (projection) algorithm. Note that most inputs should be      *
+!       * obtained with the execution of the original routine first.   *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nNodes: Number of donor nodes for interpolation information. *
+!       * coor: The coordinates of these points.                       *
+!       * adtID: The ADT to be searched.                               *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the element containing the point is       *
+!       *              stored. If no element is found for a given      *
+!       *              point the corresponding entry in procID is set  *
+!       *              to -1 to indicate failure. Remember that the    *
+!       *              processor ID's start at 0 and not at 1.         *
+!       * elementType: The type of element which contains the point.   *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which contains the point. The ID is negative if *
+!       *              the coordinate is outside the element.          *
+!       * uvw:         The parametric coordinates of the point in the  *
+!       *              transformed element; this transformation is     *
+!       *              such that every element is transformed into a   *
+!       *              standard element in parametric space. The u, v  *
+!       *              and w coordinates can be used to determine the  *
+!       *              actual interpolation weights. If the tree       *
+!       *              corresponds to a surface mesh the third entry   *
+!       *              of this array will not be filled.               *
+!       * dist2: Minimum distance squared of the coordinates to the    *
+!       *        elements of the ADT.                                  *
+!       * allxfs: Array with projected points.                         *
+!       * allxfsb: Derivative seeds of projected points.               *
+!       * nInterpol: Number of variables to be interpolated.           *
+!       * arrDonor:  Array with the donor data; needed to obtain the   *
+!       *            interpolated data.                                *
+!       * arrInterpol: Array with the interpolated data.               *
+!       * arrInterpolb: Derivative seeds of the interpolated data.     *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * coorb: Derivative seeds for the coordinates that are         *
+!       *        projected.                                            *
+!       * adtCoorb: Derivative seeds of the nodal coordinates of the   *
+!       *           baseline ADT surface (ADTs%coor).                  *
+!       * arrDonorb: Derivative seeds of the donor data.               *
+!       *                                                              *
+!       ****************************************************************
+!       Ney Secco 2016-10
+!
+        use adtProjections_b
+
+        implicit none
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nCoor, nInterpol, nNodes
+        character(len=*),         intent(in) :: adtID
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
+        integer, dimension(nCoor), intent(in) :: procID
+        integer(kind=intType), dimension(nCoor), intent(in) :: elementID
+        integer(kind=adtElementType), dimension(nCoor), intent(in) :: elementType
+        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+        real(kind=realType), dimension(nCoor), intent(in) :: dist2
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfsb
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpolb
+
+        real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
+        real(kind=realType), dimension(3,nNodes), intent(out) :: adtCoorb
+        real(kind=realType), dimension(nInterpol,nNodes), intent(out) :: arrDonorb
+!
+!       Local variables.
+!
+        integer(kind=intType) :: jj, nAlloc, ii, ll, i
+        integer(kind=intType) :: nNodeElement
+        integer(kind=intType), dimension(3) :: n
+        real(kind=realType), dimension(3) :: x1, x2, x3, x, xf
+        real(kind=realType), dimension(3) :: x1b, x2b, x3b, xb, xfb
+        real(kind=realType), dimension(8) :: weight, donorData
+        real(kind=realType), dimension(8) :: weightb, donorDatab
+        real(kind=realType) :: u, v, val
+        real(kind=realType) :: ub, vb
+        real(kind=realType) :: interpData, interpDatab
+        integer :: comm, nProcs, myID
+!
+!       ****************************************************************
+!       *                                                              *
+!       * Begin execution.                                             *
+!       *                                                              *
+!       ****************************************************************
+!
+        ! Determine the index in the array ADTs, which stores the given
+        ! ID. As the number of trees stored is limited, a linear search
+        ! algorithm is okay.
+
+        nAlloc = ubound(ADTs, 1)
+        do jj=1,nAlloc
+          if(adtID == ADTs(jj)%adtID) exit
+        enddo
+
+        ! Check if the ADT to be searched exists. If not stop.
+        ! Note that adtTerminate is not called. The reason is that the
+        ! processor ID is not known.
+
+        if(jj > nAlloc) stop "ADT to be searched does not exist."
+
+        ! Some abbreviations to make the code more readable.
+
+        comm   = ADTs(jj)%comm
+        nProcs = ADTs(jj)%nProcs
+        myID   = ADTs(jj)%myID
+
+        ! Now we loop over each projected point to compute derivatives
+        ! of the ones that belong to this processor.
+        do ii = 1,nCoor
+
+           ! Check if the projection belongs to the current process
+           if (procID(ii) .eq. myID) then
+
+              ! Get the point that should be projected
+              x = coor(1:3,ii)
+
+              ! Get answers of the forward run
+              xf = allxfs(1:3,ii)
+              u = uvw(1,ii)
+              v = uvw(2,ii)
+              val = dist2(ii)
+
+              ! Get the element ID in the adtree
+              ll = abs(elementID(ii))
+
+              ! Recompute interpolation weights based on element type.
+              ! Also set number of nodes per element, and get the element nodes
+              select case (elementType(ii))
+              case (adtTriangle)
+                 call triaWeights(u,v,weight)
+                 nNodeElement = 3
+                 n(1:3) = ADTs(jj)%triaConn(1:3,ll)
+              end select
+
+              ! Compute derivative of interpolated values
+              do ll=1,nInterpol
+                 ! Gather data from nodes
+                 donorData = adtZero
+                 donorDatab = adtZero
+                 do i=1,nNodeElement
+                    donorData(i) = arrDonor(ll,n(i))
+                 end do
+                 interpData = arrInterpol(ll,ii)
+                 interpDatab = arrInterpolb(ll,ii)
+                 ! Dot function defined in adtProjections_d.F90
+                 call dotProd_b(weight, weightb, &
+                      donorData, donorDatab, &
+                      interpData, interpDatab)
+                 ! Save derivatives back in the full matrix
+                 do i=1,nNodeElement
+                    arrDonorb(ll,n(i)) = donorDatab(i)
+                 end do
+              end do
+
+              ! Now we will call the projection derivative subroutine based
+              ! on the element type
+              select case (elementType(ii))
+                 
+              case (adtTriangle)
+
+                ! Compute parametric coefficients derivatives for interpolation
+                ! triaWeights defined in adtProjections.F90
+                call triaWeights_b(u,ub,v,vb,weight,weightb)
+
+                ! Determine the 3 nodes which completely describe
+                ! the triangle face
+
+                x1(1) = ADTs(jj)%coor(1,n(1))
+                x1(2) = ADTs(jj)%coor(2,n(1))
+                x1(3) = ADTs(jj)%coor(3,n(1))
+
+                x2(1) = ADTs(jj)%coor(1,n(2))
+                x2(2) = ADTs(jj)%coor(2,n(2))
+                x2(3) = ADTs(jj)%coor(3,n(2))
+
+                x3(1) = ADTs(jj)%coor(1,n(3))
+                x3(2) = ADTs(jj)%coor(2,n(3))
+                x3(3) = ADTs(jj)%coor(3,n(3))
+
+                ! Get derivatives of the projected point
+                xfb = allxfsb(:,ii)
+
+                ! Run projection algorithm
+                call triaprojection_b(x1, x1b, x2, x2b, x3, x3b, x, xb, &
+                                      xf, xfb, u, ub, v, vb, val)
+
+                ! Set corresponding derivatives of the baseline surface nodal coordinates
+                adtCoorb(:,n(1)) = x1b
+                adtCoorb(:,n(2)) = x2b
+                adtCoorb(:,n(3)) = x3b
+
+                ! Set derivatives of the point before projection
+                coorb(1:3,ii) = xb
+
+             end select
+
+          end if
+
+        end do
+
+      end subroutine minDistanceSearch_b
 
         !***************************************************************
         !***************************************************************

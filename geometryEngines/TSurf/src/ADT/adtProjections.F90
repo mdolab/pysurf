@@ -217,9 +217,10 @@
           real(kind=realType), intent(out) :: u, v, val
 
           ! Working variables
-          real(kind=realType), dimension(3) :: x21, x41, x3142, a, b
-          real(kind=realType) :: u_old, v_old, du, dv, error, uv
-          real(kind=realType) :: dx, dy, dz
+          real(kind=realType), dimension(2) :: error
+          real(kind=realType), dimension(2,2) :: invJac
+          real(kind=realType) :: u_old, v_old, du, dv, uv
+          real(kind=realType) :: dx, dy, dz, update
           integer(kind=intType) :: ll
 
           ! Local parameters used in the Newton algorithm.
@@ -246,7 +247,7 @@
 
              call quadProjSubIter(x1, x2, x3, x4, &
                                   x, u, v, &
-                                  du, dv, error, xf)
+                                  du, dv, error, invJac, xf)
 
              ! Determine the new parameter values uu and vv. These
              ! are limited to 0 <= (uu,vv) <= 1.
@@ -260,18 +261,18 @@
              ! Update error metric (after the cropping)
              du = u - u_old
              dv = v - v_old
-             error = du*du + dv*dv
+             update = du*du + dv*dv
 
              ! Exit the loop if the update of the parametric
              ! weights is below the threshold
-             if(sqrt(error) <= thresConv) exit NewtonQuads
+             if(sqrt(update) <= thresConv) exit NewtonQuads
 
           enddo NewtonQuads
 
           ! Call projection one more time for the updated value of u and v
           call quadProjSubIter(x1, x2, x3, x4, &
                                x, u, v, &
-                               du, dv, error, xf)
+                               du, dv, error, invJac, xf)
 
           ! Compute the distance squared between the given
           ! coordinate and the point xf.
@@ -286,7 +287,7 @@
 
         subroutine quadProjSubIter(x1, x2, x3, x4, &
                                    x, u, v, &
-                                   du, dv, error, xf)
+                                   du, dv, error, invJac, xf)
 
           ! This subroutine computes the error that should be reduced
           ! by the iterative process in the subroutine quadProjection.
@@ -313,12 +314,21 @@
           !
           ! dv: real -> Change in parametric coordinate due to solving process.
           !
-          ! error: real -> norm**2 of the variation in parametric coordinates
-          !                which should be zero.
+          ! error: real(2) -> gradient of the distance squared between the point and its
+          !                   projection, which should be zero for minimum distance.
+          !                   This is the residual of the equations we want to solve.
           !
           ! xf: real(3) -> Coordinates (X,Y,Z) of the projected point.
           !
           ! Ney Secco - 2016-10
+          !
+          ! If you write d2 (the distance between the projected and the original
+          ! point squared) in terms of u and v you will get:
+          ! dist2 = A(T)*UV
+          ! where A and UV are given in the code below. The u and v terms are only in UV.
+          ! This function will give the updates for u and v based on Broyden's method to
+          ! solve grad(dist2) = 0. In other words, we will compute:
+          ! delta(u,v) = -inv(Jac(grad(dist2)))*grad(dist2).
           
           implicit none
 
@@ -330,90 +340,120 @@
           real(kind=realType), intent(in) :: u, v
 
           ! Output variables
-          real(kind=realType), intent(out) :: du, dv, error
+          real(kind=realType), intent(out) :: du, dv
+          real(kind=realType), dimension(2), intent(out) :: error
+          real(kind=realType), dimension(2,2), intent(out) :: invJac
           real(kind=realType), dimension(3), intent(out) :: xf
 
           ! Working variables
-          real(kind=realType), dimension(3) :: x21, x41, x3142
-          real(kind=realType), dimension(3) :: vf, a, b, vt, norm
-          real(kind=realType), dimension(3) :: an, bn
-          real(kind=realType) :: uv, invLen, vn
+          real(kind=realType), dimension(3) :: x10, x21, x41, x3142
+          real(kind=realType), dimension(9) :: A, UV
+          real(kind=realType), dimension(2,9) :: gradUV
+          real(kind=realType), dimension(2) :: gradDist2
+          real(kind=realType), dimension(2,2) :: Jac
+          real(kind=realType) :: dotResult, dist2
 
           ! EXECUTION
 
           ! Determine auxiliary vectors
+          x10 = x1 - x
           x21 = x2 - x1
           x41 = x4 - x1
           x3142 = x3 - x1 - x21 - x41
 
           ! Compute guess for projection point
-          uv = u*v
-          xf = x1 + u*x21 + v*x41 + uv*x3142
+          xf = x1 + u*x21 + v*x41 + u*v*x3142
 
-          ! Determine the vector vf from xf to given coordinate.
-          vf = x - xf
+          ! Determine vector of coefficients (A)
+          call dotProd(x10, x10, dotResult)
+          A(1) = dotResult
 
-          ! Determine the tangent vectors in u- and v-direction.
-          ! Store these in a and b respectively.
-          a = x21 + v*x3142
-          b = x41 + u*x3142
-          
-          ! Determine the normal vector of the face by taking the
-          ! cross product of a and b. Afterwards this vector will
-          ! be scaled to a unit vector.
-          norm(1) = a(2)*b(3) - a(3)*b(2)
-          norm(2) = a(3)*b(1) - a(1)*b(3)
-          norm(3) = a(1)*b(2) - a(2)*b(1)
-          
-          invLen = one/max(eps,sqrt(norm(1)*norm(1) &
-               +                        norm(2)*norm(2) &
-               +                        norm(3)*norm(3)))
-          
-          norm(1) = norm(1)*invLen
-          norm(2) = norm(2)*invLen
-          norm(3) = norm(3)*invLen
-          
-          ! Determine the projection of the vector vf onto
-          ! the face.
-          
-          vn = vf(1)*norm(1) + vf(2)*norm(2) + vf(3)*norm(3)
-          vt(1) = vf(1) - vn*norm(1)
-          vt(2) = vf(2) - vn*norm(2)
-          vt(3) = vf(3) - vn*norm(3)
-          
-          ! The vector vt points from the current point on the
-          ! face to the new point. However this new point lies on
-          ! the plane determined by the vectors a and b, but not
-          ! necessarily on the face itself. The new point on the
-          ! face is obtained by projecting the point in the a-b
-          ! plane onto the face. this can be done by determining
-          ! the coefficients du and dv, such that vt = du*a + dv*b.
-          ! To solve du and dv the vectors normal to a and b
-          ! inside the plane ab are needed.
-          
-          an(1) = a(2)*norm(3) - a(3)*norm(2)
-          an(2) = a(3)*norm(1) - a(1)*norm(3)
-          an(3) = a(1)*norm(2) - a(2)*norm(1)
-          
-          bn(1) = b(2)*norm(3) - b(3)*norm(2)
-          bn(2) = b(3)*norm(1) - b(1)*norm(3)
-          bn(3) = b(1)*norm(2) - b(2)*norm(1)
-          
-          ! Solve du and dv. the clipping of vn should not be
-          ! active, as this would mean that the vectors a and b
-          ! are parallel. This corresponds to a quad degenerated
-          ! to a line, which should not occur in the surface mesh.
-          
-          vn = a(1)*bn(1) + a(2)*bn(2) + a(3)*bn(3)
-          vn = sign(max(eps,abs(vn)),vn)
-          du = (vt(1)*bn(1) + vt(2)*bn(2) + vt(3)*bn(3))/vn
-          
-          vn = b(1)*an(1) + b(2)*an(2) + b(3)*an(3)
-          vn = sign(max(eps,abs(vn)),vn)
-          dv = (vt(1)*an(1) + vt(2)*an(2) + vt(3)*an(3))/vn
+          call dotProd(x10, x21, dotResult)
+          A(2) = 2*dotResult
+
+          call dotProd(x10, x41, dotResult)
+          A(3) = 2*dotResult
+
+          call dotProd(x21, x21, dotResult)
+          A(4) = dotResult
+
+          call dotProd(x10, x3142, dotResult)
+          A(5) = 2*dotResult
+          call dotProd(x21, x41, dotResult)
+          A(5) = A(5) + 2*dotResult
+
+          call dotProd(x41, x41, dotResult)
+          A(6) = dotResult
+
+          call dotProd(x21, x3142, dotResult)
+          A(7) = 2*dotResult
+
+          call dotProd(x41, x3142, dotResult)
+          A(8) = 2*dotResult
+
+          call dotProd(x3142, x3142, dotResult)
+          A(9) = dotResult
+
+          ! Determine vector of independent variables (X)
+          UV(1) = 1.0
+          UV(2) = u
+          UV(3) = v
+          UV(4) = u*u
+          UV(5) = u*v
+          UV(6) = v*v
+          UV(7) = u*u*v
+          UV(8) = u*v*v
+          UV(9) = u*u*v*v
+
+          ! Compute the distance squared using the auxiliary vectors
+          call dotProd(A,UV,dist2)
+
+          ! Assemble the gradient of the vector of independent variables (grad(X))
+          ! gradUV(1,:) are derivatives with respect to u
+          ! gradUV(2,:) are derivatives with respect to v
+          gradUV = 0.0
+
+          gradUV(1,1) = 0.0
+          gradUV(1,2) = 1.0
+          gradUV(1,3) = 0.0
+          gradUV(1,4) = 2.0*u
+          gradUV(1,5) = v
+          gradUV(1,6) = 0.0
+          gradUV(1,7) = 2.0*u*v
+          gradUV(1,8) = v*v
+          gradUV(1,9) = 2.0*u*v*v
+
+          gradUV(2,1) = 0.0
+          gradUV(2,2) = 0.0
+          gradUV(2,3) = 1.0
+          gradUV(2,4) = 0.0
+          gradUV(2,5) = u
+          gradUV(2,6) = 2.0*v
+          gradUV(2,7) = u*u
+          gradUV(2,8) = 2.0*u*v
+          gradUV(2,9) = 2.0*u*u*v
+
+          ! Now compute the gradient of the objective function (grad(dist2))
+          call dotProd(A, gradUV(1,:), gradDist2(1))
+          call dotProd(A, gradUV(2,:), gradDist2(2))
 
           ! The error is the magnitude of the vector update
-          error = du*du + dv*dv
+          error = gradDist2
+
+          ! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
+          Jac(1,1) = 2.0*(A(4) + v*A(7) + v*v*A(9))
+          Jac(1,2) = A(5) + 2.0*(u*A(7) + v*A(8) + 2*u*v*A(9))
+          Jac(2,1) = Jac(1,2)
+          Jac(2,2) = 2.0*(A(6) + u*A(8) + u*u*A(9))
+
+          ! Invert the Jacobian
+          call invert2x2(Jac,invJac)
+
+          ! Compute the updates (remember to flip signs)
+          call dotProd(invJac(1,:), gradDist2, du)
+          call dotProd(invJac(2,:), gradDist2, dv)
+          du = -du
+          dv = -dv
 
         end subroutine quadProjSubIter
 
@@ -523,7 +563,7 @@
         real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
 
         ! Working
-        real(kind=realType), dimension(nCoor) :: connect_count
+        integer(kind=intType), dimension(nCoor) :: connect_count
         real(kind=realType) :: normal1(3), normal2(3), normal3(3), normal4(3)
         integer(kind=intType) :: i, ind1, ind2, ind3, ind4
         real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
@@ -532,6 +572,10 @@
 
 
         !===============================================================
+
+        ! Initialize cumulative variables
+        nodalNormals = 0.0
+        connect_count = 0
 
         ! Loop over triangle connectivities
         do i = 1,nTria
@@ -692,5 +736,40 @@
           end do
 
         end subroutine dotProd
+
+        !===============================================================
+
+        subroutine invert2x2(A,Ainv)
+
+          ! This subroutine inverts a 2x2 matrix
+          !
+          ! Ney Secco 2016-11
+
+          implicit none
+
+          ! DECLARATIONS
+
+          ! Input variables
+          real(kind=realType), dimension(2,2), intent(in) :: A
+
+          ! Output variables
+          real(kind=realType), dimension(2,2), intent(out) :: Ainv
+
+          ! Working variables
+          real(kind=realType) :: detInv
+
+          ! EXECUTION
+
+          ! Compute the determinant
+          detInv = 1.0/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+
+          ! Compute inverted matrix
+          Ainv(1,1) = A(2,2)*detInv
+          Ainv(1,2) = -A(1,2)*detInv
+          Ainv(2,1) = -A(2,1)*detInv
+          Ainv(2,2) = A(1,1)*detInv
+
+        end subroutine invert2x2
+
 
       end module adtProjections

@@ -583,6 +583,8 @@
 !       * coor: The coordinates of these points.                       *
 !       * coord: Derivative seeds for the coordinates.                 *
 !       * adtID: The ADT to be searched.                               *
+!       * adtCoord: Derivative seeds of the nodal coordinates of the   *
+!       *           baseline ADT surface (ADTs%coor).                  *
 !       * procID:      The ID of the processor in the group of the ADT *
 !       *              where the element containing the point is       *
 !       *              stored. If no element is found for a given      *
@@ -654,12 +656,119 @@
 
         ! Call the subroutine minDistanceSearch_d to do the actual work.
 
-        call minDistanceSearch_d(nCoor,       coor,        coord,     adtID,    adtCoord, &
+        call minDistanceSearch_d(nCoor,       nNodes,      coor,        coord,     adtID,    adtCoord, &
                                  procID,      elementType, elementID, uvw,      dist2,    &
                                  allxfs,      allxfsd,     nInterpol, arrDonor, arrDonord, &
                                  arrInterpol, arrInterpold)
 
         end subroutine adtMinDistanceSearch_d
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine adtMinDistanceSearch_b(nCoor,       nNodes,      coor,        coorb, &
+                                          adtID,       adtCoorb,    procID,      elementType, &
+                                          elementID,   uvw,         dist2,       &
+                                          allxfs,      allxfsb,     nInterpol,   &
+                                          arrDonor,    arrDonorb, &
+                                          arrInterpol, arrInterpolb)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine computes derivatives of the minimum distance    *
+!       * (projection) algorithm. Note that most inputs should be      *
+!       * obtained with the execution of the original routine first.   *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nNodes: Number of donor nodes for interpolation information. *
+!       * coor: The coordinates of these points.                       *
+!       * adtID: The ADT to be searched.                               *
+!       * procID:      The ID of the processor in the group of the ADT *
+!       *              where the element containing the point is       *
+!       *              stored. If no element is found for a given      *
+!       *              point the corresponding entry in procID is set  *
+!       *              to -1 to indicate failure. Remember that the    *
+!       *              processor ID's start at 0 and not at 1.         *
+!       * elementType: The type of element which contains the point.   *
+!       * elementID:   The entry in the connectivity of this element   *
+!       *              which contains the point. The ID is negative if *
+!       *              the coordinate is outside the element.          *
+!       * uvw:         The parametric coordinates of the point in the  *
+!       *              transformed element; this transformation is     *
+!       *              such that every element is transformed into a   *
+!       *              standard element in parametric space. The u, v  *
+!       *              and w coordinates can be used to determine the  *
+!       *              actual interpolation weights. If the tree       *
+!       *              corresponds to a surface mesh the third entry   *
+!       *              of this array will not be filled.               *
+!       * dist2: Minimum distance squared of the coordinates to the    *
+!       *        elements of the ADT.                                  *
+!       * allxfs: Array with projected points.                         *
+!       * allxfsb: Derivative seeds of projected points.               *
+!       * nInterpol: Number of variables to be interpolated.           *
+!       * arrDonor:  Array with the donor data; needed to obtain the   *
+!       *            interpolated data.                                *
+!       * arrInterpol: Array with the interpolated data.               *
+!       * arrInterpolb: Derivative seeds of the interpolated data.     *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * coorb: Derivative seeds for the coordinates that are         *
+!       *        projected.                                            *
+!       * adtCoorb: Derivative seeds of the nodal coordinates of the   *
+!       *           baseline ADT surface (ADTs%coor).                  *
+!       * arrDonorb: Derivative seeds of the donor data.               *
+!       *                                                              *
+!       ****************************************************************
+!       Ney Secco 2016-10
+!
+        implicit none
+
+        !f2py intent(in) nCoor, nNodes, coor, coord, adtID, nInterpol, arrDonor
+        !f2py intent(in) procID, elementType, elementID, uvw, arrInterpol
+        !f2py intent(in) dist2, allxfs, arrInterpol
+        !f2py intent(out) allxfsd, arrInterpold
+
+!
+!       Subroutine arguments.
+!
+        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
+        character(len=32),     intent(in) :: adtID
+
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
+
+        integer, dimension(nCoor), intent(in) :: procID
+        integer(kind=intType), dimension(nCoor), intent(in) :: elementID
+
+        integer(kind=adtElementType), dimension(nCoor), intent(in) :: &
+                                                            elementType
+
+        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+
+        real(kind=realType), dimension(nCoor), intent(in) :: dist2
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfsb
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
+        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpolb
+
+        real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
+        real(kind=realType), dimension(3,nNodes), intent(out) :: adtCoorb
+        real(kind=realType), dimension(nInterpol,nNodes), intent(out) :: arrDonorb
+
+        !===============================================================
+
+        ! Call the subroutine minDistanceSearch_b to do the actual work.
+
+        call minDistanceSearch_b(nCoor,       nNodes,      coor,      coorb,    adtID,    adtCoorb, &
+                                 procID,      elementType, elementID, uvw,      dist2,    &
+                                 allxfs,      allxfsb,     nInterpol, arrDonor, arrDonorb, &
+                                 arrInterpol, arrInterpolb)
+
+        end subroutine adtMinDistanceSearch_b
 
         !***************************************************************
         !***************************************************************
@@ -737,11 +846,11 @@
 !       * coord: Derivative seed of the nodal coordinates.             *
 !       * triaConn: Connectivity information for the triangle elments. *
 !       * quadsConn: Connectivity information for the quad elments.    *
-!       * nodalNormals: The interpolated normals at each coordinate    *
-!       *               node (obtained by the original function).      *
 !       *                                                              *
 !       * Subroutine intent(out) arguments.                            *
 !       * ---------------------------------                            *
+!       * nodalNormals: The interpolated normals at each coordinate    *
+!       *               node (also given by the original function).    *
 !       * nodalNormalsd: Derivatives of the interpolated normals.      *
 !       *                                                              *
 !       ****************************************************************
@@ -750,7 +859,7 @@
         implicit none
 
         !f2py intent(in) nCoor, nTria, nQuads, coor, triaConn, quadsConn
-        !f2py intent(out) nodalNormalsd, nodalNormals
+        !f2py intent(out) nodalNormals, nodalNormalsd
 
 !
 !       Subroutine arguments.
@@ -761,9 +870,9 @@
         real(kind=realType), dimension(3,nCoor), intent(in) :: coord
         integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
         integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
-        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
 
         ! Output
+        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
         real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormalsd
 
         ! Call function that will do the job.
@@ -772,6 +881,73 @@
                                    quadsConn, nodalNormals, nodalNormalsd)
 
       end subroutine adtComputeNodalNormals_d
+
+        !***************************************************************
+        !***************************************************************
+
+        subroutine adtComputeNodalNormals_b(nCoor, nTria, nQuads, coor, coorb, triaConn, &
+                                            quadsConn, nodalNormals, nodalNormalsb)
+!
+!       ****************************************************************
+!       *                                                              *
+!       * This routine computes the nodal normals for each node by     *
+!       * obtaining the normals for each panel face then interpolating *
+!       * the data to the nodes.                                       *
+!       *                                                              *
+!       * Subroutine intent(in) arguments.                             *
+!       * --------------------------------                             *
+!       * nCoor: Number of points for which the element must be        *
+!       *        determined.                                           *
+!       * nTria: Number of triangle elements.                          *
+!       * nQuads: Number of quad elements.                             *
+!       * coor:  The coordinates of these points.                      *
+!       * triaConn: Connectivity information for the triangle elments. *
+!       * quadsConn: Connectivity information for the quad elments.    *
+!       * nodalNormals: The interpolated normals at each coordinate    *
+!       *               node (obtained by the original function).      *
+!       * nodalNormalsb: Derivatives of the interpolated normals.      *
+!       *                                                              *
+!       * Subroutine intent(out) arguments.                            *
+!       * ---------------------------------                            *
+!       * coorb: Derivative seed of the nodal coordinates.             *
+!       *                                                              *
+!       ****************************************************************
+!
+        use adtProjections_b
+        implicit none
+
+        !f2py intent(in) nCoor, nTria, nQuads, coor, triaConn, quadsConn
+        !f2py intent(in) nodalNormals, nodalNormalsb
+        !f2py intent(out) coorb
+
+!
+!       Subroutine arguments.
+!
+        ! Input
+        integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
+        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
+        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+        real(kind=realType), dimension(3,nCoor), intent(in) :: nodalNormals
+        real(kind=realType), dimension(3,nCoor), intent(in) :: nodalNormalsb
+
+        ! Output
+        real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
+
+        ! Working variables
+        real(kind=realType), dimension(3,nCoor) :: nodalNormals_temp
+        real(kind=realType), dimension(3,nCoor) :: nodalNormalsb_temp
+
+        ! Create temporary arrays due to intents of the differentiated code
+        nodalNormals_temp = nodalNormals
+        nodalNormalsb_temp = nodalNormalsb
+
+        ! Call function that will do the job.
+        ! computeNodalNormals defined in adtProjections.F90
+        call computeNodalNormals_b(nCoor, nTria, nQuads, coor, coorb, triaConn, &
+                                   quadsConn, nodalNormals_temp, nodalNormalsb_temp)
+
+      end subroutine adtComputeNodalNormals_b
 
         !***************************************************************
         !***************************************************************

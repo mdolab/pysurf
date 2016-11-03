@@ -15,17 +15,22 @@ import numpy as np
 cube = pysurf.TSurfGeometry('../inputs/cylinder.cgns', MPI.COMM_WORLD)
 
 # Define generic function to compute projections
-def computeProjections(pts, ptsd, coord, coor=None):
+def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 
     # Replace baseline surface coordinates if the user provided none
     if coor is not None:
         cube.update(coor)
 
     # Call projection algorithm
-    xyzProj, normProj, projDict = cube.project_on_surface(pts)
+    xyzProj, normProj, projDict = cube.project_on_surface(xyz)
     
     # Call derivatives code in forward mode
-    xyzProjd, normProjd = cube.project_on_surface_d(pts, ptsd, xyzProj, normProj, projDict, coord)
+    xyzProjd, normProjd = cube.project_on_surface_d(xyz, xyzd, xyzProj, normProj, projDict, coord)
+
+    # Call derivatives code in backward mode
+    xyzb, coorb = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
+    #xyzb = 0
+    #coorb = 0
 
     # Print results
     print
@@ -35,40 +40,64 @@ def computeProjections(pts, ptsd, coord, coor=None):
     print
 
     # Return results
-    return xyzProj, xyzProjd, normProj, normProjd
+    return xyzProj, xyzProjd, normProj, normProjd, xyzb, coorb
 
 # BACK TO MAIN PROGRAM
 
 # Define points
-pts = np.array([[.6, .5, 1.0],
+xyz = np.array([[.6, .5, 1.0],
                 [.6, .5, 0.1]], order='F')
 
 # Define derivatives and normalize them to a given step size
-stepSize = 1e-8
-ptsd = np.array(np.random.rand(pts.shape[0],pts.shape[1]),order='F')
-ptsd = stepSize*ptsd/np.array([np.linalg.norm(ptsd,axis=1)]).T
+stepSize = 1e-7
+
+xyzd = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
+xyzd = xyzd/np.array([np.linalg.norm(xyzd,axis=1)]).T
 coord = np.array(np.random.rand(cube.coor.shape[0],cube.coor.shape[1]),order='F')
-coord = stepSize*coord/np.array([np.linalg.norm(coord,axis=1)]).T
+coord = coord/np.array([np.linalg.norm(coord,axis=1)]).T
+
+xyzProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
+xyzProjb = xyzProjb/np.array([np.linalg.norm(xyzProjb,axis=1)]).T
+normProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
+normProjb = normProjb/np.array([np.linalg.norm(normProjb,axis=1)]).T
 
 # Call projection function at the original point
-xyzProj0, xyzProjd_AD, normProj0, normProjd_AD = computeProjections(pts, ptsd, coord)
+xyzProj0, xyzProjd_AD, normProj0, normProjd_AD, xyzb_AD, coorb_AD = computeProjections(xyz,
+                                                                                       xyzd, coord,
+                                                                                       xyzProjb, normProjb)
 
 # Call projection function at the perturbed point
-xyzProj, xyzProjd, normProj, normProjd = computeProjections(pts+ptsd, ptsd, coord, coor=cube.coor + coord)
+xyzProj, xyzProjd, normProj, normProjd, dummy, dummy2 = computeProjections(xyz+stepSize*xyzd,
+                                                                           xyzd, coord,
+                                                                           xyzProjb, normProjb,
+                                                                           coor=cube.coor+stepSize*coord)
 
 # Compute directional derivatives with finite differencing
-xyzProjd_FD = (xyzProj - xyzProj0)
-normProjd_FD = (normProj - normProj0)
+xyzProjd_FD = (xyzProj - xyzProj0)/stepSize
+normProjd_FD = (normProj - normProj0)/stepSize
 
 # Compute normalize directional derivatives from AD
 xyzProjd_AD = xyzProjd_AD
 normProjd_AD = normProjd_AD
 
+# Compute dot product test
+dotProd = 0.0
+dotProd = dotProd + np.sum(xyzd*xyzb_AD)
+dotProd = dotProd + np.sum(coord*coorb_AD)
+dotProd = dotProd - np.sum(xyzProjd_AD*xyzProjb)
+dotProd = dotProd - np.sum(normProjd_AD*normProjb)
+
 # Compare directional derivatives
 print ''
-print 'xyzProjd'
+print 'xyzProjd_AD'
 print xyzProjd_AD
+print 'xyzProjd_FD'
 print xyzProjd_FD
-print 'normProjd'
+print 'normProjd_AD'
 print normProjd_AD
+print 'normProjd_FD'
 print normProjd_FD
+
+# Dot product test
+print 'dot product (should be 0.0)'
+print dotProd

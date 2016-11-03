@@ -268,6 +268,75 @@ class TSurfGeometry(Geometry):
         # Return projections derivatives
         return xyzProjd, normProjd
 
+    def project_on_surface_b(self, xyz, xyzProj, xyzProjb, normProj, normProjb, projDict):
+
+        '''
+        This function will compute derivatives of the projection algorithm in forward mode.
+
+        INPUTS:
+        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+
+        xyzProj -> float[numPts,3] : Coordinates of the projected points (can be obtained
+                                     with the original projection function)
+
+        xyzProjb -> float[numPts,3] : Derivative seeds of the coordinates of the projected points
+
+        normProj -> float[numPts,3] : Surface normal at projected points (can be obtained
+                                      with the original projection function)
+
+        normProjb -> float[numPts,3] : Derivative seeds of the surface normal at projected points
+
+        projDict -> dictionary : Dictionary containing intermediate values that are
+                                 required by the differentiation routines. (can be obtained
+                                 with the original projection function)
+
+        OUTPUTS:
+
+        xyzb -> float[numPts, 3] : Derivative seeds for coordinates of the points
+                                   that should be projected.
+
+        coorb -> float[numNodes,3] : Derivative seeds of the nodal coordinates of the baseline
+                                     surface.
+
+        Ney Secco 2016-10
+        '''
+
+        # Rename variables to make code more readable
+        procID = projDict['procID']
+        elementType = projDict['elementType']
+        elementID = projDict['elementID']
+        uvw = projDict['uvw']
+        dist2 = projDict['dist2']
+        normProjNotNorm = projDict['normProjNotNorm']
+
+        # Compute derivatives of the normalization process
+        normProjNotNormb = tst.normalize_b(normProjNotNorm, normProjb)
+
+        # Call projection function
+        # ATTENTION: The variable "xyz" here in Python corresponds to the variable "coor" in the Fortran code.
+        # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
+        # I could not change this because the original ADT code already used "coor" to denote nodes that should be
+        # projected.
+        xyzb, coorb, nodal_normalsb = adtAPI.adtapi.adtmindistancesearch_b(xyz.T, self.name,
+                                                                           procID, elementType,
+                                                                           elementID, uvw,
+                                                                           dist2, xyzProj.T,
+                                                                           xyzProjb.T, self.nodal_normals, 
+                                                                           normProjNotNorm.T, normProjNotNormb.T)
+
+        # Transpose results to make them consistent
+        xyzb = xyzb.T
+
+        # Compute derivatives of the normal vectors
+        nodal_normals_temp = np.array(self.nodal_normals,order='F')
+        nodal_normalsb_temp = np.array(nodal_normalsb,order='F')
+        coorb = coorb + adtAPI.adtapi.adtcomputenodalnormals_b(self.coor,
+                                                               self.triaConn, self.quadsConn,
+                                                               nodal_normals_temp, nodal_normalsb_temp)
+
+        # Return projections derivatives
+        return xyzb, coorb
+
     def project_on_curve(self, xyz, curveCandidates=None):
 
         '''

@@ -20,6 +20,7 @@ FF90_OBJECTS_1 = adtData.o\
 	         hessD2Hexa.o\
 	         minD2Hexa.o\
 	         newtonStep.o\
+		 quadProjDiff.o
 
 FF90_OBJECTS_2 = adtUtils.o \
                  adtProjections.o
