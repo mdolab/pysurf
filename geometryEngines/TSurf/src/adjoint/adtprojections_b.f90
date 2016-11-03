@@ -566,9 +566,10 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
     REAL(kind=realtype), INTENT(OUT) :: u, v, val
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142, a, b
-    REAL(kind=realtype) :: u_old, v_old, du, dv, error, uv
-    REAL(kind=realtype) :: dx, dy, dz
+    REAL(kind=realtype), DIMENSION(2) :: error
+    REAL(kind=realtype), DIMENSION(2, 2) :: invjac
+    REAL(kind=realtype) :: u_old, v_old, du, dv, uv
+    REAL(kind=realtype) :: dx, dy, dz, update
     INTEGER(kind=inttype) :: ll
 ! Local parameters used in the Newton algorithm.
     INTEGER(kind=inttype), PARAMETER :: itermax=15
@@ -590,7 +591,8 @@ newtonquads:DO ll=1,itermax
 ! Store previous parametric coordinates
       u_old = u
       v_old = v
-      CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, xf)
+      CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, &
+&                    invjac, xf)
 ! Determine the new parameter values uu and vv. These
 ! are limited to 0 <= (uu,vv) <= 1.
       u = u + du
@@ -618,13 +620,14 @@ newtonquads:DO ll=1,itermax
 ! Update error metric (after the cropping)
       du = u - u_old
       dv = v - v_old
-      error = du*du + dv*dv
+      update = du*du + dv*dv
 ! Exit the loop if the update of the parametric
 ! weights is below the threshold
-      IF (SQRT(error) .LE. thresconv) GOTO 100
+      IF (SQRT(update) .LE. thresconv) GOTO 100
     END DO newtonquads
 ! Call projection one more time for the updated value of u and v
- 100 CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, xf)
+ 100 CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, invjac&
+&                   , xf)
 ! Compute the distance squared between the given
 ! coordinate and the point xf.
     dx = x(1) - xf(1)
@@ -632,7 +635,186 @@ newtonquads:DO ll=1,itermax
     dz = x(3) - xf(3)
     val = dx*dx + dy*dy + dz*dz
   END SUBROUTINE QUADPROJECTION
-  SUBROUTINE QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, xf)
+!  Differentiation of quadprojsubiter in reverse (adjoint) mode:
+!   gradient     of useful results: error xf
+!   with respect to varying inputs: error u v x xf x1 x2 x3 x4
+!   RW status of diff variables: error:in-zero u:out v:out x:out
+!                xf:in-zero x1:out x2:out x3:out x4:out
+  SUBROUTINE QUADPROJSUBITER_B(x1, x1b, x2, x2b, x3, x3b, x4, x4b, x, xb&
+&   , u, ub, v, vb, du, dv, error, errorb, invjac, xf, xfb)
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1, x2, x3, x4
+    REAL(kind=realtype), DIMENSION(3) :: x1b, x2b, x3b, x4b
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
+    REAL(kind=realtype), DIMENSION(3) :: xb
+    REAL(kind=realtype), INTENT(IN) :: u, v
+    REAL(kind=realtype) :: ub, vb
+! Output variables
+    REAL(kind=realtype), INTENT(OUT) :: du, dv
+    REAL(kind=realtype), DIMENSION(2) :: error
+    REAL(kind=realtype), DIMENSION(2) :: errorb
+    REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
+    REAL(kind=realtype), DIMENSION(3) :: xf
+    REAL(kind=realtype), DIMENSION(3) :: xfb
+! Working variables
+    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
+    REAL(kind=realtype), DIMENSION(3) :: x10b, x21b, x41b, x3142b
+    REAL(kind=realtype), DIMENSION(9) :: a, uv
+    REAL(kind=realtype), DIMENSION(9) :: ab
+    REAL(kind=realtype), DIMENSION(2, 9) :: graduv
+    REAL(kind=realtype), DIMENSION(2, 9) :: graduvb
+    REAL(kind=realtype), DIMENSION(2) :: graddist2
+    REAL(kind=realtype), DIMENSION(2) :: graddist2b
+    REAL(kind=realtype), DIMENSION(2, 2) :: jac
+    REAL(kind=realtype) :: dotresult, dist2
+    REAL(kind=realtype) :: dotresultb
+! EXECUTION
+! Determine auxiliary vectors
+    x10 = x1 - x
+    x21 = x2 - x1
+    x41 = x4 - x1
+    x3142 = x3 - x1 - x21 - x41
+! Compute guess for projection point
+! Determine vector of coefficients (A)
+    CALL DOTPROD(x10, x10, dotresult)
+    a(1) = dotresult
+    CALL DOTPROD(x10, x21, dotresult)
+    a(2) = 2*dotresult
+    CALL DOTPROD(x10, x41, dotresult)
+    a(3) = 2*dotresult
+    CALL DOTPROD(x21, x21, dotresult)
+    a(4) = dotresult
+    CALL DOTPROD(x10, x3142, dotresult)
+    a(5) = 2*dotresult
+    CALL DOTPROD(x21, x41, dotresult)
+    a(5) = a(5) + 2*dotresult
+    CALL DOTPROD(x41, x41, dotresult)
+    a(6) = dotresult
+    CALL DOTPROD(x21, x3142, dotresult)
+    a(7) = 2*dotresult
+    CALL DOTPROD(x41, x3142, dotresult)
+    a(8) = 2*dotresult
+    CALL DOTPROD(x3142, x3142, dotresult)
+    a(9) = dotresult
+! Determine vector of independent variables (X)
+! Compute the distance squared using the auxiliary vectors
+! Assemble the gradient of the vector of independent variables (grad(X))
+! gradUV(1,:) are derivatives with respect to u
+! gradUV(2,:) are derivatives with respect to v
+    graduv = 0.0
+    graduv(1, 1) = 0.0
+    graduv(1, 2) = 1.0
+    graduv(1, 3) = 0.0
+    graduv(1, 4) = 2.0*u
+    graduv(1, 5) = v
+    graduv(1, 6) = 0.0
+    graduv(1, 7) = 2.0*u*v
+    graduv(1, 8) = v*v
+    graduv(1, 9) = 2.0*u*v*v
+    graduv(2, 1) = 0.0
+    graduv(2, 2) = 0.0
+    graduv(2, 3) = 1.0
+    graduv(2, 4) = 0.0
+    graduv(2, 5) = u
+    graduv(2, 6) = 2.0*v
+    graduv(2, 7) = u*u
+    graduv(2, 8) = 2.0*u*v
+    graduv(2, 9) = 2.0*u*u*v
+! Now compute the gradient of the objective function (grad(dist2))
+! The error is the magnitude of the vector update
+! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
+! Invert the Jacobian
+! Compute the updates (remember to flip signs)
+    graddist2b = 0.0
+    graddist2b = errorb
+    ab = 0.0
+    graduvb = 0.0
+    CALL DOTPROD_B(a, ab, graduv(2, :), graduvb(2, :), graddist2(2), &
+&            graddist2b(2))
+    graddist2b(2) = 0.0
+    CALL DOTPROD_B(a, ab, graduv(1, :), graduvb(1, :), graddist2(1), &
+&            graddist2b(1))
+    graddist2b(1) = 0.0
+    ub = v*2.0*2*u*graduvb(2, 9)
+    vb = 2.0*u**2*graduvb(2, 9)
+    graduvb(2, 9) = 0.0
+    ub = ub + 2.0*v*graduvb(2, 8)
+    vb = vb + 2.0*u*graduvb(2, 8)
+    graduvb(2, 8) = 0.0
+    ub = ub + 2*u*graduvb(2, 7)
+    graduvb(2, 7) = 0.0
+    vb = vb + 2.0*graduvb(2, 6)
+    graduvb(2, 6) = 0.0
+    ub = ub + graduvb(2, 5)
+    graduvb(2, 5) = 0.0
+    graduvb(2, 4) = 0.0
+    graduvb(2, 3) = 0.0
+    graduvb(2, 2) = 0.0
+    graduvb(2, 1) = 0.0
+    ub = ub + 2.0*v**2*graduvb(1, 9)
+    vb = vb + u*2.0*2*v*graduvb(1, 9)
+    graduvb(1, 9) = 0.0
+    vb = vb + 2*v*graduvb(1, 8)
+    graduvb(1, 8) = 0.0
+    ub = ub + 2.0*v*graduvb(1, 7)
+    vb = vb + 2.0*u*graduvb(1, 7)
+    graduvb(1, 7) = 0.0
+    graduvb(1, 6) = 0.0
+    vb = vb + u*SUM(x3142*xfb) + SUM(x41*xfb) + graduvb(1, 5)
+    graduvb(1, 5) = 0.0
+    ub = ub + v*SUM(x3142*xfb) + SUM(x21*xfb) + 2.0*graduvb(1, 4)
+    dotresultb = ab(9)
+    ab(9) = 0.0
+    x3142b = 0.0
+    CALL DOTPROD_B(x3142, x3142b, x3142, x3142b, dotresult, dotresultb)
+    dotresultb = 2*ab(8)
+    ab(8) = 0.0
+    x41b = 0.0
+    CALL DOTPROD_B(x41, x41b, x3142, x3142b, dotresult, dotresultb)
+    dotresultb = 2*ab(7)
+    ab(7) = 0.0
+    x21b = 0.0
+    CALL DOTPROD_B(x21, x21b, x3142, x3142b, dotresult, dotresultb)
+    dotresultb = ab(6)
+    ab(6) = 0.0
+    CALL DOTPROD_B(x41, x41b, x41, x41b, dotresult, dotresultb)
+    dotresultb = 2*ab(5)
+    CALL DOTPROD_B(x21, x21b, x41, x41b, dotresult, dotresultb)
+    dotresultb = 2*ab(5)
+    ab(5) = 0.0
+    x10b = 0.0
+    CALL DOTPROD_B(x10, x10b, x3142, x3142b, dotresult, dotresultb)
+    dotresultb = ab(4)
+    ab(4) = 0.0
+    CALL DOTPROD_B(x21, x21b, x21, x21b, dotresult, dotresultb)
+    dotresultb = 2*ab(3)
+    ab(3) = 0.0
+    CALL DOTPROD_B(x10, x10b, x41, x41b, dotresult, dotresultb)
+    dotresultb = 2*ab(2)
+    ab(2) = 0.0
+    CALL DOTPROD_B(x10, x10b, x21, x21b, dotresult, dotresultb)
+    dotresultb = ab(1)
+    CALL DOTPROD_B(x10, x10b, x10, x10b, dotresult, dotresultb)
+    x1b = 0.0
+    x3142b = x3142b + u*v*xfb
+    x21b = x21b + u*xfb - x3142b
+    x41b = x41b + v*xfb - x3142b
+    x1b = x10b - x21b - x3142b - x41b + xfb
+    x3b = 0.0
+    x3b = x3142b
+    x4b = 0.0
+    x4b = x41b
+    x2b = 0.0
+    x2b = x21b
+    xb = 0.0
+    xb = -x10b
+    errorb = 0.0
+    xfb = 0.0
+  END SUBROUTINE QUADPROJSUBITER_B
+  SUBROUTINE QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, &
+&   invjac, xf)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -640,106 +822,97 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
     REAL(kind=realtype), INTENT(IN) :: u, v
 ! Output variables
-    REAL(kind=realtype), INTENT(OUT) :: du, dv, error
+    REAL(kind=realtype), INTENT(OUT) :: du, dv
+    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: error
+    REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
-    REAL(kind=realtype), DIMENSION(3) :: vf, a, b, vt, norm
-    REAL(kind=realtype), DIMENSION(3) :: an, bn
-    REAL(kind=realtype) :: uv, invlen, vn
-    INTRINSIC SQRT
-    INTRINSIC MAX
-    INTRINSIC ABS
-    INTRINSIC SIGN
-    REAL(kind=realtype) :: max3
-    REAL(kind=realtype) :: max2
-    REAL(kind=realtype) :: max1
-    REAL(kind=realtype) :: y3
-    REAL(kind=realtype) :: y2
-    REAL(kind=realtype) :: y1
+    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
+    REAL(kind=realtype), DIMENSION(9) :: a, uv
+    REAL(kind=realtype), DIMENSION(2, 9) :: graduv
+    REAL(kind=realtype), DIMENSION(2) :: graddist2
+    REAL(kind=realtype), DIMENSION(2, 2) :: jac
+    REAL(kind=realtype) :: dotresult, dist2
 ! EXECUTION
 ! Determine auxiliary vectors
+    x10 = x1 - x
     x21 = x2 - x1
     x41 = x4 - x1
     x3142 = x3 - x1 - x21 - x41
 ! Compute guess for projection point
-    uv = u*v
-    xf = x1 + u*x21 + v*x41 + uv*x3142
-! Determine the vector vf from xf to given coordinate.
-    vf = x - xf
-! Determine the tangent vectors in u- and v-direction.
-! Store these in a and b respectively.
-    a = x21 + v*x3142
-    b = x41 + u*x3142
-! Determine the normal vector of the face by taking the
-! cross product of a and b. Afterwards this vector will
-! be scaled to a unit vector.
-    norm(1) = a(2)*b(3) - a(3)*b(2)
-    norm(2) = a(3)*b(1) - a(1)*b(3)
-    norm(3) = a(1)*b(2) - a(2)*b(1)
-    y1 = SQRT(norm(1)*norm(1) + norm(2)*norm(2) + norm(3)*norm(3))
-    IF (eps .LT. y1) THEN
-      max1 = y1
-    ELSE
-      max1 = eps
-    END IF
-    invlen = one/max1
-    norm(1) = norm(1)*invlen
-    norm(2) = norm(2)*invlen
-    norm(3) = norm(3)*invlen
-! Determine the projection of the vector vf onto
-! the face.
-    vn = vf(1)*norm(1) + vf(2)*norm(2) + vf(3)*norm(3)
-    vt(1) = vf(1) - vn*norm(1)
-    vt(2) = vf(2) - vn*norm(2)
-    vt(3) = vf(3) - vn*norm(3)
-! The vector vt points from the current point on the
-! face to the new point. However this new point lies on
-! the plane determined by the vectors a and b, but not
-! necessarily on the face itself. The new point on the
-! face is obtained by projecting the point in the a-b
-! plane onto the face. this can be done by determining
-! the coefficients du and dv, such that vt = du*a + dv*b.
-! To solve du and dv the vectors normal to a and b
-! inside the plane ab are needed.
-    an(1) = a(2)*norm(3) - a(3)*norm(2)
-    an(2) = a(3)*norm(1) - a(1)*norm(3)
-    an(3) = a(1)*norm(2) - a(2)*norm(1)
-    bn(1) = b(2)*norm(3) - b(3)*norm(2)
-    bn(2) = b(3)*norm(1) - b(1)*norm(3)
-    bn(3) = b(1)*norm(2) - b(2)*norm(1)
-! Solve du and dv. the clipping of vn should not be
-! active, as this would mean that the vectors a and b
-! are parallel. This corresponds to a quad degenerated
-! to a line, which should not occur in the surface mesh.
-    vn = a(1)*bn(1) + a(2)*bn(2) + a(3)*bn(3)
-    IF (vn .GE. 0.) THEN
-      y2 = vn
-    ELSE
-      y2 = -vn
-    END IF
-    IF (eps .LT. y2) THEN
-      max2 = y2
-    ELSE
-      max2 = eps
-    END IF
-    vn = SIGN(max2, vn)
-    du = (vt(1)*bn(1)+vt(2)*bn(2)+vt(3)*bn(3))/vn
-    vn = b(1)*an(1) + b(2)*an(2) + b(3)*an(3)
-    IF (vn .GE. 0.) THEN
-      y3 = vn
-    ELSE
-      y3 = -vn
-    END IF
-    IF (eps .LT. y3) THEN
-      max3 = y3
-    ELSE
-      max3 = eps
-    END IF
-    vn = SIGN(max3, vn)
-    dv = (vt(1)*an(1)+vt(2)*an(2)+vt(3)*an(3))/vn
+    xf = x1 + u*x21 + v*x41 + u*v*x3142
+! Determine vector of coefficients (A)
+    CALL DOTPROD(x10, x10, dotresult)
+    a(1) = dotresult
+    CALL DOTPROD(x10, x21, dotresult)
+    a(2) = 2*dotresult
+    CALL DOTPROD(x10, x41, dotresult)
+    a(3) = 2*dotresult
+    CALL DOTPROD(x21, x21, dotresult)
+    a(4) = dotresult
+    CALL DOTPROD(x10, x3142, dotresult)
+    a(5) = 2*dotresult
+    CALL DOTPROD(x21, x41, dotresult)
+    a(5) = a(5) + 2*dotresult
+    CALL DOTPROD(x41, x41, dotresult)
+    a(6) = dotresult
+    CALL DOTPROD(x21, x3142, dotresult)
+    a(7) = 2*dotresult
+    CALL DOTPROD(x41, x3142, dotresult)
+    a(8) = 2*dotresult
+    CALL DOTPROD(x3142, x3142, dotresult)
+    a(9) = dotresult
+! Determine vector of independent variables (X)
+    uv(1) = 1.0
+    uv(2) = u
+    uv(3) = v
+    uv(4) = u*u
+    uv(5) = u*v
+    uv(6) = v*v
+    uv(7) = u*u*v
+    uv(8) = u*v*v
+    uv(9) = u*u*v*v
+! Compute the distance squared using the auxiliary vectors
+    CALL DOTPROD(a, uv, dist2)
+! Assemble the gradient of the vector of independent variables (grad(X))
+! gradUV(1,:) are derivatives with respect to u
+! gradUV(2,:) are derivatives with respect to v
+    graduv = 0.0
+    graduv(1, 1) = 0.0
+    graduv(1, 2) = 1.0
+    graduv(1, 3) = 0.0
+    graduv(1, 4) = 2.0*u
+    graduv(1, 5) = v
+    graduv(1, 6) = 0.0
+    graduv(1, 7) = 2.0*u*v
+    graduv(1, 8) = v*v
+    graduv(1, 9) = 2.0*u*v*v
+    graduv(2, 1) = 0.0
+    graduv(2, 2) = 0.0
+    graduv(2, 3) = 1.0
+    graduv(2, 4) = 0.0
+    graduv(2, 5) = u
+    graduv(2, 6) = 2.0*v
+    graduv(2, 7) = u*u
+    graduv(2, 8) = 2.0*u*v
+    graduv(2, 9) = 2.0*u*u*v
+! Now compute the gradient of the objective function (grad(dist2))
+    CALL DOTPROD(a, graduv(1, :), graddist2(1))
+    CALL DOTPROD(a, graduv(2, :), graddist2(2))
 ! The error is the magnitude of the vector update
-    error = du*du + dv*dv
+    error = graddist2
+! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
+    jac(1, 1) = 2.0*(a(4)+v*a(7)+v*v*a(9))
+    jac(1, 2) = a(5) + 2.0*(u*a(7)+v*a(8)+2*u*v*a(9))
+    jac(2, 1) = jac(1, 2)
+    jac(2, 2) = 2.0*(a(6)+u*a(8)+u*u*a(9))
+! Invert the Jacobian
+    CALL INVERT2X2(jac, invjac)
+! Compute the updates (remember to flip signs)
+    CALL DOTPROD(invjac(1, :), graddist2, du)
+    CALL DOTPROD(invjac(2, :), graddist2, dv)
+    du = -du
+    dv = -dv
   END SUBROUTINE QUADPROJSUBITER
 !  Differentiation of triaweights in reverse (adjoint) mode:
 !   gradient     of useful results: u v weight
@@ -846,7 +1019,7 @@ newtonquads:DO ll=1,itermax
 !  Differentiation of computenodalnormals in reverse (adjoint) mode:
 !   gradient     of useful results: coor nodalnormals
 !   with respect to varying inputs: coor nodalnormals
-!   RW status of diff variables: coor:incr nodalnormals:in-out
+!   RW status of diff variables: coor:incr nodalnormals:in-zero
 !===============================================================
 !===============================================================
 !===============================================================
@@ -866,7 +1039,7 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(3, ncoor) :: nodalnormals
     REAL(kind=realtype), DIMENSION(3, ncoor) :: nodalnormalsb
 ! Working
-    REAL(kind=realtype), DIMENSION(ncoor) :: connect_count
+    INTEGER(kind=inttype), DIMENSION(ncoor) :: connect_count
     REAL(kind=realtype) :: normal1(3), normal2(3), normal3(3), normal4(3&
 &   )
     REAL(kind=realtype) :: normal1b(3), normal2b(3), normal3b(3), &
@@ -894,6 +1067,9 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype) :: temp
     REAL(kind=realtype) :: temp4
 !===============================================================
+! Initialize cumulative variables
+    nodalnormals = 0.0
+    connect_count = 0
 ! Loop over triangle connectivities
     DO i=1,ntria
 ! Get the indices for each node of the triangle element
@@ -1138,6 +1314,7 @@ newtonquads:DO ll=1,itermax
       coorb(:, ind2) = coorb(:, ind2) + x2b
       coorb(:, ind1) = coorb(:, ind1) + x1b
     END DO
+    nodalnormalsb = 0.0
   END SUBROUTINE COMPUTENODALNORMALS_B
 !===============================================================
 !===============================================================
@@ -1157,7 +1334,7 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(3, ncoor), INTENT(OUT) :: &
 &   nodalnormals
 ! Working
-    REAL(kind=realtype), DIMENSION(ncoor) :: connect_count
+    INTEGER(kind=inttype), DIMENSION(ncoor) :: connect_count
     REAL(kind=realtype) :: normal1(3), normal2(3), normal3(3), normal4(3&
 &   )
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
@@ -1166,6 +1343,9 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
 !===============================================================
+! Initialize cumulative variables
+    nodalnormals = 0.0
+    connect_count = 0
 ! Loop over triangle connectivities
     DO i=1,ntria
 ! Get the indices for each node of the triangle element
@@ -1348,4 +1528,23 @@ newtonquads:DO ll=1,itermax
       c = c + a(ii)*b(ii)
     END DO
   END SUBROUTINE DOTPROD
+!===============================================================
+  SUBROUTINE INVERT2X2(a, ainv)
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(2, 2), INTENT(IN) :: a
+! Output variables
+    REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: ainv
+! Working variables
+    REAL(kind=realtype) :: detinv
+! EXECUTION
+! Compute the determinant
+    detinv = 1.0/(a(1, 1)*a(2, 2)-a(1, 2)*a(2, 1))
+! Compute inverted matrix
+    ainv(1, 1) = a(2, 2)*detinv
+    ainv(1, 2) = -(a(1, 2)*detinv)
+    ainv(2, 1) = -(a(2, 1)*detinv)
+    ainv(2, 2) = a(1, 1)*detinv
+  END SUBROUTINE INVERT2X2
 END MODULE ADTPROJECTIONS_B

@@ -54,6 +54,26 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonord
             end subroutine adtmindistancesearch_d
+            subroutine adtmindistancesearch_b(ncoor,nnodes,coor,coorb,adtid,adtcoorb,procid,elementtype,elementid,uvw,dist2,allxfs,allxfsb,ninterpol,arrdonor,arrdonorb,arrinterpol,arrinterpolb) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                integer(kind=inttype) intent(in) :: nnodes
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,ncoor),intent(out) :: coorb
+                character(32) intent(in) :: adtid
+                real(kind=realtype) dimension(3,nnodes),intent(out) :: adtcoorb
+                integer dimension(ncoor),intent(in) :: procid
+                integer(kind=adtelementtype) dimension(ncoor),intent(in) :: elementtype
+                integer(kind=inttype) dimension(ncoor),intent(in) :: elementid
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: uvw
+                real(kind=realtype) dimension(ncoor),intent(in) :: dist2
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: allxfs
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: allxfsb
+                real(kind=realtype) dimension(ninterpol,ncoor),intent(in) :: arrinterpol
+                real(kind=realtype) dimension(ninterpol,ncoor),intent(in) :: arrinterpolb
+                integer(kind=inttype) intent(in) :: ninterpol
+                real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
+                real(kind=realtype) dimension(ninterpol,nnodes),intent(out) :: arrdonorb
+            end subroutine adtmindistancesearch_b
             subroutine adtgetnumberoftrees(nADT) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(out) :: nADT
             end subroutine adtgetnumberoftrees
@@ -80,6 +100,17 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormals
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormalsd
             end subroutine adtcomputenodalnormals_d
+            subroutine adtcomputenodalnormals_b(ncoor,ntria,nquads,coor,coorb,triaconn,quadsconn,nodalnormals,nodalnormalsb) ! in :adtAPI:adtAPI.F90:adtapi
+                integer(kind=inttype) intent(in) :: ncoor
+                integer(kind=inttype) intent(in) :: ntria
+                integer(kind=inttype) intent(in) :: nquads
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,ncoor),intent(out) :: coorb
+                integer(kind=inttype) dimension(3,ntria),intent(in) :: triaconn
+                integer(kind=inttype) dimension(4,nquads),intent(in) :: quadsconn
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: nodalnormals
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: nodalnormalsb
+            end subroutine adtcomputenodalnormals_b
         end module adtapi
     end interface
 end python module adtAPI

@@ -38,7 +38,7 @@ class TestTSurfProjection(unittest.TestCase):
         # Call derivative code
         ptsd = np.zeros(self.pts.shape)
         ptsd[0,0] = 1.0
-        xyzProjd, normProjd = self.cube.project_on_surface_d(self.pts, ptsd, xyzProj, normProj, projDict, np.zeros(self.cube.coor.shape))
+        #xyzProjd, normProjd = self.cube.project_on_surface_d(self.pts, ptsd, xyzProj, normProj, projDict, np.zeros(self.cube.coor.shape))
 
     def test_orig_cube_edge_projection(self):
         xyzProj, normProj = self.cube.project_on_curve(self.pts)

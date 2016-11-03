@@ -1615,7 +1615,7 @@ def normalize_b(vec, normalVecb):
 
     normalVec = vec/vecNorms2
 
-    vecNorms2b = np.sum(-vec/vecNorms2**2*normalVecb,axis=1)
+    vecNorms2b = np.array([np.sum(-vec/vecNorms2**2*normalVecb,axis=1)]).T
     vecb = normalVecb/vecNorms2
 
     vecNorms1b = vecNorms2b/2.0/vecNorms2
