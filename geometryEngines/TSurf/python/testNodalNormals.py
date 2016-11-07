@@ -6,14 +6,16 @@ import numpy as np
 coor = np.array([[0.0, 0.0, 0.0],
                  [3.0, 0.0, 0.0],
                  [0.0, 1.0, 0.0],
-                 [3.0, 1.0, 0.0]],order='F').T
+                 [3.0, 1.0, 0.0],
+                 [4.0, 0.0, 0.0],
+                 [4.0, 1.0, 0.0]],order='F').T
 triaConn = np.array([[1,2,3],
                     [2,4,3]],order='F').T
-quadsConn = np.zeros((0,4),order='F').T
-#quadsConn = np.array([[1,2,4,3]],order='F').T
+#quadsConn = np.zeros((0,4),order='F').T
+quadsConn = np.array([[2,5,6,4]],order='F').T
 
 # Define perturbation
-stepSize = 1e-6
+stepSize = 1e-7
 
 coord = np.array(np.random.rand(coor.shape[0],coor.shape[1]),order='F')
 coord = coord/np.array([np.linalg.norm(coord,axis=1)]).T
@@ -30,16 +32,13 @@ nodal_normals_AD, nodal_normalsd_AD = adtAPI.adtapi.adtcomputenodalnormals_d(coo
                                                                              coord,
                                                                              triaConn,
                                                                              quadsConn)
-# Save original values
-nodal_normals0temp = np.array(nodal_normals0,order='F')
-nodal_normalsbtemp = np.array(nodal_normalsb,order='F')
 
 # Compute derivatives of the coordinates with reverse mode
 coorb_AD = adtAPI.adtapi.adtcomputenodalnormals_b(coor,
                                                   triaConn,
                                                   quadsConn,
-                                                  nodal_normals0temp,
-                                                  nodal_normalsbtemp)
+                                                  nodal_normals0,
+                                                  nodal_normalsb)
 
 # Apply perturbation
 coor = coor + stepSize*coord
@@ -69,5 +68,7 @@ print 'nodal_normalsd_AD'
 print nodal_normalsd_AD
 print 'nodal_normalsd_FD'
 print nodal_normalsd_FD
+print 'coorb_AD'
+print coorb_AD
 print 'dot product test (should be 0.0)'
 print dotProd

@@ -29,8 +29,6 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 
     # Call derivatives code in backward mode
     xyzb, coorb = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
-    #xyzb = 0
-    #coorb = 0
 
     # Print results
     print
@@ -45,8 +43,8 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 # BACK TO MAIN PROGRAM
 
 # Define points
-xyz = np.array([[.6, .5, 1.0],
-                [.6, .5, 0.1]], order='F')
+xyz = np.array([[.7, .55, 1.0],
+                [.7, .55, 1.0]], order='F')
 
 # Define derivatives and normalize them to a given step size
 stepSize = 1e-7

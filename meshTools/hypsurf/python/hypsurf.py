@@ -393,6 +393,33 @@ class HypSurfMesh(object):
 
         return rNext, NNext
 
+    '''
+    def projection_d(self, rNext, rNext):
+
+        # Initialize normals array
+        NNext = np.zeros((3, self.numNodes))
+
+        # Save endpoints
+        node1 = rNext[:3]
+        node2 = rNext[-3:]
+
+        # Project onto surface and compute surface normals
+        rNext, NNext, projDict = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
+        rNext = rNext.flatten()
+        NNext = NNext.T
+
+        # Replace end points if we use curve BCs
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            rNext[:3], NNextAux = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
+            NNext[:, 0] = NNextAux.T[:, 0]
+
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            NNext[:, -1] = NNextAux.T[:, 0]
+
+        return rNext, NNext
+    '''
+
     def areaFactor(self, r0, d):
 
         '''

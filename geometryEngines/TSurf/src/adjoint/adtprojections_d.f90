@@ -407,7 +407,7 @@ CONTAINS
   END SUBROUTINE TRIAPROJECTION
 !***************************************************************
 !***************************************************************
-  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u, v, val)
+  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u_out, v_out, val)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -415,11 +415,11 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), INTENT(OUT) :: u, v, val
+    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out, val
 ! Working variables
-    REAL(kind=realtype), DIMENSION(2) :: error
+    REAL(kind=realtype), DIMENSION(2) :: residual
     REAL(kind=realtype), DIMENSION(2, 2) :: invjac
-    REAL(kind=realtype) :: u_old, v_old, du, dv, uv
+    REAL(kind=realtype) :: u, v, u_old, v_old, du, dv, uv
     REAL(kind=realtype) :: dx, dy, dz, update
     INTEGER(kind=inttype) :: ll
 ! Local parameters used in the Newton algorithm.
@@ -443,8 +443,12 @@ newtonquads:DO ll=1,itermax
 ! Store previous parametric coordinates
       u_old = u
       v_old = v
-      CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, &
-&                    invjac, xf)
+      CALL QUADPROJRESIDUAL(x1, x2, x3, x4, x, u, v, residual, invjac)
+! Compute the updates (remember to flip signs)
+      CALL DOTPROD(invjac(1, :), residual, du)
+      CALL DOTPROD(invjac(2, :), residual, dv)
+      du = -du
+      dv = -dv
 ! Determine the new parameter values uu and vv. These
 ! are limited to 0 <= (uu,vv) <= 1.
       u = u + du
@@ -479,8 +483,7 @@ newtonquads:DO ll=1,itermax
       IF (result1 .LE. thresconv) GOTO 100
     END DO newtonquads
 ! Call projection one more time for the updated value of u and v
- 100 CALL QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, invjac&
-&                   , xf)
+ 100 CALL QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
 ! Compute the distance squared between the given
 ! coordinate and the point xf.
     dx = x(1) - xf(1)
@@ -488,13 +491,13 @@ newtonquads:DO ll=1,itermax
     dz = x(3) - xf(3)
     val = dx*dx + dy*dy + dz*dz
   END SUBROUTINE QUADPROJECTION
-!  Differentiation of quadprojsubiter in forward (tangent) mode:
-!   variations   of useful results: error xf
+!  Differentiation of quadprojresidual in forward (tangent) mode:
+!   variations   of useful results: residual
 !   with respect to varying inputs: u v x x1 x2 x3 x4
-!   RW status of diff variables: error:out u:in v:in x:in xf:out
-!                x1:in x2:in x3:in x4:in
-  SUBROUTINE QUADPROJSUBITER_D(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, xd&
-&   , u, ud, v, vd, du, dv, error, errord, invjac, xf, xfd)
+!   RW status of diff variables: u:in v:in x:in residual:out x1:in
+!                x2:in x3:in x4:in
+  SUBROUTINE QUADPROJRESIDUAL_D(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, &
+&   xd, u, ud, v, vd, residual, residuald, invjac)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -505,23 +508,20 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), INTENT(IN) :: u, v
     REAL(kind=realtype), INTENT(IN) :: ud, vd
 ! Output variables
-    REAL(kind=realtype), INTENT(OUT) :: du, dv
-    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: error
-    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: errord
+    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: residual
+    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: residuald
     REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
-    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xfd
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
     REAL(kind=realtype), DIMENSION(3) :: x10d, x21d, x41d, x3142d
-    REAL(kind=realtype), DIMENSION(9) :: a, uv
+    REAL(kind=realtype), DIMENSION(9) :: a
     REAL(kind=realtype), DIMENSION(9) :: ad
     REAL(kind=realtype), DIMENSION(2, 9) :: graduv
     REAL(kind=realtype), DIMENSION(2, 9) :: graduvd
     REAL(kind=realtype), DIMENSION(2) :: graddist2
     REAL(kind=realtype), DIMENSION(2) :: graddist2d
     REAL(kind=realtype), DIMENSION(2, 2) :: jac
-    REAL(kind=realtype) :: dotresult, dist2
+    REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultd
 ! EXECUTION
 ! Determine auxiliary vectors
@@ -533,10 +533,6 @@ newtonquads:DO ll=1,itermax
     x41 = x4 - x1
     x3142d = x3d - x1d - x21d - x41d
     x3142 = x3 - x1 - x21 - x41
-! Compute guess for projection point
-    xfd = x1d + ud*x21 + u*x21d + vd*x41 + v*x41d + (ud*v+u*vd)*x3142 + &
-&     u*v*x3142d
-    xf = x1 + u*x21 + v*x41 + u*v*x3142
 ! Determine vector of coefficients (A)
     CALL DOTPROD_D(x10, x10d, x10, x10d, dotresult, dotresultd)
     ad = 0.0
@@ -569,22 +565,9 @@ newtonquads:DO ll=1,itermax
     CALL DOTPROD_D(x3142, x3142d, x3142, x3142d, dotresult, dotresultd)
     ad(9) = dotresultd
     a(9) = dotresult
-! Determine vector of independent variables (X)
-    uv(1) = 1.0
-    uv(2) = u
-    uv(3) = v
-    uv(4) = u*u
-    uv(5) = u*v
-    uv(6) = v*v
-    uv(7) = u*u*v
-    uv(8) = u*v*v
-    uv(9) = u*u*v*v
-! Compute the distance squared using the auxiliary vectors
-    CALL DOTPROD(a, uv, dist2)
 ! Assemble the gradient of the vector of independent variables (grad(X))
 ! gradUV(1,:) are derivatives with respect to u
 ! gradUV(2,:) are derivatives with respect to v
-    graduv = 0.0
     graduv(1, 1) = 0.0
     graduv(1, 2) = 1.0
     graduv(1, 3) = 0.0
@@ -624,9 +607,9 @@ newtonquads:DO ll=1,itermax
 &            graddist2d(1))
     CALL DOTPROD_D(a, ad, graduv(2, :), graduvd(2, :), graddist2(2), &
 &            graddist2d(2))
-! The error is the magnitude of the vector update
-    errord = graddist2d
-    error = graddist2
+! The residual is the objective function gradient
+    residuald = graddist2d
+    residual = graddist2
 ! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
     jac(1, 1) = 2.0*(a(4)+v*a(7)+v*v*a(9))
     jac(1, 2) = a(5) + 2.0*(u*a(7)+v*a(8)+2*u*v*a(9))
@@ -634,14 +617,8 @@ newtonquads:DO ll=1,itermax
     jac(2, 2) = 2.0*(a(6)+u*a(8)+u*u*a(9))
 ! Invert the Jacobian
     CALL INVERT2X2(jac, invjac)
-! Compute the updates (remember to flip signs)
-    CALL DOTPROD(invjac(1, :), graddist2, du)
-    CALL DOTPROD(invjac(2, :), graddist2, dv)
-    du = -du
-    dv = -dv
-  END SUBROUTINE QUADPROJSUBITER_D
-  SUBROUTINE QUADPROJSUBITER(x1, x2, x3, x4, x, u, v, du, dv, error, &
-&   invjac, xf)
+  END SUBROUTINE QUADPROJRESIDUAL_D
+  SUBROUTINE QUADPROJRESIDUAL(x1, x2, x3, x4, x, u, v, residual, invjac)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -649,25 +626,21 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
     REAL(kind=realtype), INTENT(IN) :: u, v
 ! Output variables
-    REAL(kind=realtype), INTENT(OUT) :: du, dv
-    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: error
+    REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: residual
     REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
-    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
-    REAL(kind=realtype), DIMENSION(9) :: a, uv
+    REAL(kind=realtype), DIMENSION(9) :: a
     REAL(kind=realtype), DIMENSION(2, 9) :: graduv
     REAL(kind=realtype), DIMENSION(2) :: graddist2
     REAL(kind=realtype), DIMENSION(2, 2) :: jac
-    REAL(kind=realtype) :: dotresult, dist2
+    REAL(kind=realtype) :: dotresult
 ! EXECUTION
 ! Determine auxiliary vectors
     x10 = x1 - x
     x21 = x2 - x1
     x41 = x4 - x1
     x3142 = x3 - x1 - x21 - x41
-! Compute guess for projection point
-    xf = x1 + u*x21 + v*x41 + u*v*x3142
 ! Determine vector of coefficients (A)
     CALL DOTPROD(x10, x10, dotresult)
     a(1) = dotresult
@@ -689,22 +662,9 @@ newtonquads:DO ll=1,itermax
     a(8) = 2*dotresult
     CALL DOTPROD(x3142, x3142, dotresult)
     a(9) = dotresult
-! Determine vector of independent variables (X)
-    uv(1) = 1.0
-    uv(2) = u
-    uv(3) = v
-    uv(4) = u*u
-    uv(5) = u*v
-    uv(6) = v*v
-    uv(7) = u*u*v
-    uv(8) = u*v*v
-    uv(9) = u*u*v*v
-! Compute the distance squared using the auxiliary vectors
-    CALL DOTPROD(a, uv, dist2)
 ! Assemble the gradient of the vector of independent variables (grad(X))
 ! gradUV(1,:) are derivatives with respect to u
 ! gradUV(2,:) are derivatives with respect to v
-    graduv = 0.0
     graduv(1, 1) = 0.0
     graduv(1, 2) = 1.0
     graduv(1, 3) = 0.0
@@ -726,8 +686,8 @@ newtonquads:DO ll=1,itermax
 ! Now compute the gradient of the objective function (grad(dist2))
     CALL DOTPROD(a, graduv(1, :), graddist2(1))
     CALL DOTPROD(a, graduv(2, :), graddist2(2))
-! The error is the magnitude of the vector update
-    error = graddist2
+! The residual is the objective function gradient
+    residual = graddist2
 ! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
     jac(1, 1) = 2.0*(a(4)+v*a(7)+v*v*a(9))
     jac(1, 2) = a(5) + 2.0*(u*a(7)+v*a(8)+2*u*v*a(9))
@@ -735,12 +695,71 @@ newtonquads:DO ll=1,itermax
     jac(2, 2) = 2.0*(a(6)+u*a(8)+u*u*a(9))
 ! Invert the Jacobian
     CALL INVERT2X2(jac, invjac)
-! Compute the updates (remember to flip signs)
-    CALL DOTPROD(invjac(1, :), graddist2, du)
-    CALL DOTPROD(invjac(2, :), graddist2, dv)
-    du = -du
-    dv = -dv
-  END SUBROUTINE QUADPROJSUBITER
+  END SUBROUTINE QUADPROJRESIDUAL
+!  Differentiation of quadprojoutput in forward (tangent) mode:
+!   variations   of useful results: u_out xf v_out
+!   with respect to varying inputs: u v x1 x2 x3 x4
+!   RW status of diff variables: u_out:out u:in v:in xf:out v_out:out
+!                x1:in x2:in x3:in x4:in
+!===============================================================
+  SUBROUTINE QUADPROJOUTPUT_D(x1, x1d, x2, x2d, x3, x3d, x4, x4d, u, ud&
+&   , v, vd, xf, xfd, u_out, u_outd, v_out, v_outd)
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1, x2, x3, x4
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1d, x2d, x3d, x4d
+    REAL(kind=realtype), INTENT(IN) :: u, v
+    REAL(kind=realtype), INTENT(IN) :: ud, vd
+! Output variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
+    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xfd
+    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out
+    REAL(kind=realtype), INTENT(OUT) :: u_outd, v_outd
+! Working variables
+    REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
+    REAL(kind=realtype), DIMENSION(3) :: x21d, x41d, x3142d
+! EXECUTION
+! Determine auxiliary vectors
+    x21d = x2d - x1d
+    x21 = x2 - x1
+    x41d = x4d - x1d
+    x41 = x4 - x1
+    x3142d = x3d - x1d - x21d - x41d
+    x3142 = x3 - x1 - x21 - x41
+! Compute guess for projection point
+    xfd = x1d + ud*x21 + u*x21d + vd*x41 + v*x41d + (ud*v+u*vd)*x3142 + &
+&     u*v*x3142d
+    xf = x1 + u*x21 + v*x41 + u*v*x3142
+! The other outputs are just copies of the parametric coordinates
+    u_outd = ud
+    u_out = u
+    v_outd = vd
+    v_out = v
+  END SUBROUTINE QUADPROJOUTPUT_D
+!===============================================================
+  SUBROUTINE QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1, x2, x3, x4
+    REAL(kind=realtype), INTENT(IN) :: u, v
+! Output variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
+    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out
+! Working variables
+    REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
+! EXECUTION
+! Determine auxiliary vectors
+    x21 = x2 - x1
+    x41 = x4 - x1
+    x3142 = x3 - x1 - x21 - x41
+! Compute guess for projection point
+    xf = x1 + u*x21 + v*x41 + u*v*x3142
+! The other outputs are just copies of the parametric coordinates
+    u_out = u
+    v_out = v
+  END SUBROUTINE QUADPROJOUTPUT
 !  Differentiation of triaweights in forward (tangent) mode:
 !   variations   of useful results: weight
 !   with respect to varying inputs: u v
@@ -870,13 +889,12 @@ newtonquads:DO ll=1,itermax
     INTEGER(kind=inttype), DIMENSION(ncoor) :: connect_count
     REAL(kind=realtype) :: normal1(3), normal2(3), normal3(3), normal4(3&
 &   )
-    REAL(kind=realtype) :: normal1d(3), normal2d(3), normal3d(3), &
-&   normal4d(3)
+    REAL(kind=realtype) :: normal1d(3)
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
     REAL(kind=realtype) :: x1d(3), x2d(3), x3d(3), x4d(3)
-    REAL(kind=realtype) :: x12(3), x23(3), x34(3), x41(3)
-    REAL(kind=realtype) :: x12d(3), x23d(3), x34d(3), x41d(3)
+    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
+    REAL(kind=realtype) :: x13d(3), x24d(3), x12d(3), x23d(3)
     REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultd
     INTRINSIC SQRT
@@ -934,17 +952,14 @@ newtonquads:DO ll=1,itermax
       connect_count(ind2) = connect_count(ind2) + 1
       connect_count(ind3) = connect_count(ind3) + 1
     END DO
-    normal2d = 0.0
-    normal3d = 0.0
-    normal4d = 0.0
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the quad element
+! Get the indices for each node of the triangle element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the quad element
+! Get the coordinates for each node of the triangle element
       x1d = coord(:, ind1)
       x1 = coor(:, ind1)
       x2d = coord(:, ind2)
@@ -953,18 +968,14 @@ newtonquads:DO ll=1,itermax
       x3 = coor(:, ind3)
       x4d = coord(:, ind4)
       x4 = coor(:, ind4)
-! Compute relative vectors for the quad sides
-      x12d = x1d - x2d
-      x12 = x1 - x2
-      x23d = x2d - x3d
-      x23 = x2 - x3
-      x34d = x3d - x4d
-      x34 = x3 - x4
-      x41d = x4d - x1d
-      x41 = x4 - x1
-! Take the cross-product of these vectors to obtain the normal vectors
-! Normalize these normal vectors
-      CALL CROSSPROD_D(x12, x12d, -x41, -x41d, normal1, normal1d)
+! Compute relative vectors for the triangle sides
+      x13d = x3d - x1d
+      x13 = x3 - x1
+      x24d = x4d - x2d
+      x24 = x4 - x2
+! Take the cross-product of these vectors to obtain the normal vector
+      CALL CROSSPROD_D(x13, x13d, x24, x24d, normal1, normal1d)
+! Normalize this normal vector
       CALL DOTPROD_D(normal1, normal1d, normal1, normal1d, dotresult, &
 &              dotresultd)
       IF (dotresult .EQ. 0.0) THEN
@@ -975,48 +986,15 @@ newtonquads:DO ll=1,itermax
       result1 = SQRT(dotresult)
       normal1d = (normal1d*result1-normal1*result1d)/result1**2
       normal1 = normal1/result1
-      CALL CROSSPROD_D(x23, x23d, -x12, -x12d, normal2, normal2d)
-      CALL DOTPROD_D(normal2, normal2d, normal2, normal2d, dotresult, &
-&              dotresultd)
-      IF (dotresult .EQ. 0.0) THEN
-        result1d = 0.0
-      ELSE
-        result1d = dotresultd/(2.0*SQRT(dotresult))
-      END IF
-      result1 = SQRT(dotresult)
-      normal2d = (normal2d*result1-normal2*result1d)/result1**2
-      normal2 = normal2/result1
-      CALL CROSSPROD_D(x34, x34d, -x23, -x23d, normal3, normal3d)
-      CALL DOTPROD_D(normal3, normal3d, normal3, normal3d, dotresult, &
-&              dotresultd)
-      IF (dotresult .EQ. 0.0) THEN
-        result1d = 0.0
-      ELSE
-        result1d = dotresultd/(2.0*SQRT(dotresult))
-      END IF
-      result1 = SQRT(dotresult)
-      normal3d = (normal3d*result1-normal3*result1d)/result1**2
-      normal3 = normal3/result1
-      CALL CROSSPROD_D(x41, x41d, -x34, -x34d, normal4, normal4d)
-      CALL DOTPROD_D(normal4, normal4d, normal4, normal4d, dotresult, &
-&              dotresultd)
-      IF (dotresult .EQ. 0.0) THEN
-        result1d = 0.0
-      ELSE
-        result1d = dotresultd/(2.0*SQRT(dotresult))
-      END IF
-      result1 = SQRT(dotresult)
-      normal4d = (normal4d*result1-normal4*result1d)/result1**2
-      normal4 = normal4/result1
 ! Add the contribution of this normal to the nodalNormals array
       nodalnormalsd(:, ind1) = nodalnormalsd(:, ind1) + normal1d
       nodalnormals(:, ind1) = nodalnormals(:, ind1) + normal1
-      nodalnormalsd(:, ind2) = nodalnormalsd(:, ind2) + normal2d
-      nodalnormals(:, ind2) = nodalnormals(:, ind2) + normal2
-      nodalnormalsd(:, ind3) = nodalnormalsd(:, ind3) + normal3d
-      nodalnormals(:, ind3) = nodalnormals(:, ind3) + normal3
-      nodalnormalsd(:, ind4) = nodalnormalsd(:, ind4) + normal4d
-      nodalnormals(:, ind4) = nodalnormals(:, ind4) + normal4
+      nodalnormalsd(:, ind2) = nodalnormalsd(:, ind2) + normal1d
+      nodalnormals(:, ind2) = nodalnormals(:, ind2) + normal1
+      nodalnormalsd(:, ind3) = nodalnormalsd(:, ind3) + normal1d
+      nodalnormals(:, ind3) = nodalnormals(:, ind3) + normal1
+      nodalnormalsd(:, ind4) = nodalnormalsd(:, ind4) + normal1d
+      nodalnormals(:, ind4) = nodalnormals(:, ind4) + normal1
 ! Add connectivity information to the connect_count array so we
 ! know how many edges are connected to a node.
 ! We divide the nodalNormals vector by this number to obtain the
@@ -1071,7 +1049,7 @@ newtonquads:DO ll=1,itermax
 &   )
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
-    REAL(kind=realtype) :: x12(3), x23(3), x34(3), x41(3)
+    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
     REAL(kind=realtype) :: result1
@@ -1112,44 +1090,30 @@ newtonquads:DO ll=1,itermax
     END DO
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the quad element
+! Get the indices for each node of the triangle element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the quad element
+! Get the coordinates for each node of the triangle element
       x1 = coor(:, ind1)
       x2 = coor(:, ind2)
       x3 = coor(:, ind3)
       x4 = coor(:, ind4)
-! Compute relative vectors for the quad sides
-      x12 = x1 - x2
-      x23 = x2 - x3
-      x34 = x3 - x4
-      x41 = x4 - x1
-! Take the cross-product of these vectors to obtain the normal vectors
-! Normalize these normal vectors
-      CALL CROSSPROD(x12, -x41, normal1)
+! Compute relative vectors for the triangle sides
+      x13 = x3 - x1
+      x24 = x4 - x2
+! Take the cross-product of these vectors to obtain the normal vector
+      CALL CROSSPROD(x13, x24, normal1)
+! Normalize this normal vector
       CALL DOTPROD(normal1, normal1, dotresult)
       result1 = SQRT(dotresult)
       normal1 = normal1/result1
-      CALL CROSSPROD(x23, -x12, normal2)
-      CALL DOTPROD(normal2, normal2, dotresult)
-      result1 = SQRT(dotresult)
-      normal2 = normal2/result1
-      CALL CROSSPROD(x34, -x23, normal3)
-      CALL DOTPROD(normal3, normal3, dotresult)
-      result1 = SQRT(dotresult)
-      normal3 = normal3/result1
-      CALL CROSSPROD(x41, -x34, normal4)
-      CALL DOTPROD(normal4, normal4, dotresult)
-      result1 = SQRT(dotresult)
-      normal4 = normal4/result1
 ! Add the contribution of this normal to the nodalNormals array
       nodalnormals(:, ind1) = nodalnormals(:, ind1) + normal1
-      nodalnormals(:, ind2) = nodalnormals(:, ind2) + normal2
-      nodalnormals(:, ind3) = nodalnormals(:, ind3) + normal3
-      nodalnormals(:, ind4) = nodalnormals(:, ind4) + normal4
+      nodalnormals(:, ind2) = nodalnormals(:, ind2) + normal1
+      nodalnormals(:, ind3) = nodalnormals(:, ind3) + normal1
+      nodalnormals(:, ind4) = nodalnormals(:, ind4) + normal1
 ! Add connectivity information to the connect_count array so we
 ! know how many edges are connected to a node.
 ! We divide the nodalNormals vector by this number to obtain the
