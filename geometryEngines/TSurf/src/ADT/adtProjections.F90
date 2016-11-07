@@ -175,7 +175,7 @@
 
         subroutine quadProjection(x1, x2, x3, x4, &
                                   x, &
-                                  xf, u, v, val)
+                                  xf, u_out, v_out, val)
 
           ! This subroutine computes the projection (xf) of a given point (x) into the
           ! quad defined by four nodes (x1, x2, x3, and x4).
@@ -214,12 +214,12 @@
 
           ! Output variables
           real(kind=realType), dimension(3), intent(out) :: xf
-          real(kind=realType), intent(out) :: u, v, val
+          real(kind=realType), intent(out) :: u_out, v_out, val
 
           ! Working variables
-          real(kind=realType), dimension(2) :: error
+          real(kind=realType), dimension(2) :: residual
           real(kind=realType), dimension(2,2) :: invJac
-          real(kind=realType) :: u_old, v_old, du, dv, uv
+          real(kind=realType) :: u, v, u_old, v_old, du, dv, uv
           real(kind=realType) :: dx, dy, dz, update
           integer(kind=intType) :: ll
 
@@ -245,9 +245,15 @@
              u_old = u
              v_old = v
 
-             call quadProjSubIter(x1, x2, x3, x4, &
-                                  x, u, v, &
-                                  du, dv, error, invJac, xf)
+             call quadProjResidual(x1, x2, x3, x4, x, &
+                                   u, v, &
+                                   residual, invJac)
+
+             ! Compute the updates (remember to flip signs)
+             call dotProd(invJac(1,:), residual, du)
+             call dotProd(invJac(2,:), residual, dv)
+             du = -du
+             dv = -dv
 
              ! Determine the new parameter values uu and vv. These
              ! are limited to 0 <= (uu,vv) <= 1.
@@ -270,9 +276,9 @@
           enddo NewtonQuads
 
           ! Call projection one more time for the updated value of u and v
-          call quadProjSubIter(x1, x2, x3, x4, &
-                               x, u, v, &
-                               du, dv, error, invJac, xf)
+          call quadProjOutput(x1, x2, x3, x4, &
+                              u, v, &
+                              xf, u_out, v_out)
 
           ! Compute the distance squared between the given
           ! coordinate and the point xf.
@@ -285,9 +291,9 @@
 
         end subroutine quadProjection
 
-        subroutine quadProjSubIter(x1, x2, x3, x4, &
-                                   x, u, v, &
-                                   du, dv, error, invJac, xf)
+        subroutine quadProjResidual(x1, x2, x3, x4, x, &
+                                    u, v, &
+                                    residual, invJac)
 
           ! This subroutine computes the error that should be reduced
           ! by the iterative process in the subroutine quadProjection.
@@ -340,18 +346,16 @@
           real(kind=realType), intent(in) :: u, v
 
           ! Output variables
-          real(kind=realType), intent(out) :: du, dv
-          real(kind=realType), dimension(2), intent(out) :: error
+          real(kind=realType), dimension(2), intent(out) :: residual
           real(kind=realType), dimension(2,2), intent(out) :: invJac
-          real(kind=realType), dimension(3), intent(out) :: xf
 
           ! Working variables
           real(kind=realType), dimension(3) :: x10, x21, x41, x3142
-          real(kind=realType), dimension(9) :: A, UV
+          real(kind=realType), dimension(9) :: A
           real(kind=realType), dimension(2,9) :: gradUV
           real(kind=realType), dimension(2) :: gradDist2
           real(kind=realType), dimension(2,2) :: Jac
-          real(kind=realType) :: dotResult, dist2
+          real(kind=realType) :: dotResult
 
           ! EXECUTION
 
@@ -361,10 +365,8 @@
           x41 = x4 - x1
           x3142 = x3 - x1 - x21 - x41
 
-          ! Compute guess for projection point
-          xf = x1 + u*x21 + v*x41 + u*v*x3142
-
           ! Determine vector of coefficients (A)
+
           call dotProd(x10, x10, dotResult)
           A(1) = dotResult
 
@@ -394,24 +396,9 @@
           call dotProd(x3142, x3142, dotResult)
           A(9) = dotResult
 
-          ! Determine vector of independent variables (X)
-          UV(1) = 1.0
-          UV(2) = u
-          UV(3) = v
-          UV(4) = u*u
-          UV(5) = u*v
-          UV(6) = v*v
-          UV(7) = u*u*v
-          UV(8) = u*v*v
-          UV(9) = u*u*v*v
-
-          ! Compute the distance squared using the auxiliary vectors
-          call dotProd(A,UV,dist2)
-
           ! Assemble the gradient of the vector of independent variables (grad(X))
           ! gradUV(1,:) are derivatives with respect to u
           ! gradUV(2,:) are derivatives with respect to v
-          gradUV = 0.0
 
           gradUV(1,1) = 0.0
           gradUV(1,2) = 1.0
@@ -437,8 +424,8 @@
           call dotProd(A, gradUV(1,:), gradDist2(1))
           call dotProd(A, gradUV(2,:), gradDist2(2))
 
-          ! The error is the magnitude of the vector update
-          error = gradDist2
+          ! The residual is the objective function gradient
+          residual = gradDist2
 
           ! Now assemble the Jacobian of the function we are solving (Jac(grad(dist2)))
           Jac(1,1) = 2.0*(A(4) + v*A(7) + v*v*A(9))
@@ -449,13 +436,85 @@
           ! Invert the Jacobian
           call invert2x2(Jac,invJac)
 
-          ! Compute the updates (remember to flip signs)
-          call dotProd(invJac(1,:), gradDist2, du)
-          call dotProd(invJac(2,:), gradDist2, dv)
-          du = -du
-          dv = -dv
+        end subroutine quadProjResidual
 
-        end subroutine quadProjSubIter
+        !===============================================================
+
+        subroutine quadProjOutput(x1, x2, x3, x4, &
+                                  u, v, &
+                                  xf, u_out, v_out)
+
+          ! This subroutine computes the error that should be reduced
+          ! by the iterative process in the subroutine quadProjection.
+          ! 
+          ! INPUTS:
+          !
+          ! x1: real(3) -> Coordinates (X,Y,Z) of the first quad node.
+          !
+          ! x2: real(3) -> Coordinates (X,Y,Z) of the second quad node.
+          !
+          ! x3: real(3) -> Coordinates (X,Y,Z) of the third quad node.
+          !
+          ! x4: real(3) -> Coordinates (X,Y,Z) of the fourth quad node.
+          !
+          ! x: real(3) -> Coordinates (X,Y,Z) of the point that should be projected.
+          !
+          ! u: real -> Parametric coordinate of the projected point on the quad element.
+          !
+          ! v: real -> Parametric coordinate of the projected point on the quad element.
+          !
+          ! OUTPUTS:
+          !
+          ! du: real -> Change in parametric coordinate due to solving process.
+          !
+          ! dv: real -> Change in parametric coordinate due to solving process.
+          !
+          ! error: real(2) -> gradient of the distance squared between the point and its
+          !                   projection, which should be zero for minimum distance.
+          !                   This is the residual of the equations we want to solve.
+          !
+          ! xf: real(3) -> Coordinates (X,Y,Z) of the projected point.
+          !
+          ! Ney Secco - 2016-10
+          !
+          ! If you write d2 (the distance between the projected and the original
+          ! point squared) in terms of u and v you will get:
+          ! dist2 = A(T)*UV
+          ! where A and UV are given in the code below. The u and v terms are only in UV.
+          ! This function will give the updates for u and v based on Broyden's method to
+          ! solve grad(dist2) = 0. In other words, we will compute:
+          ! delta(u,v) = -inv(Jac(grad(dist2)))*grad(dist2).
+          
+          implicit none
+
+          ! DECLARATIONS
+
+          ! Input variables
+          real(kind=realType), dimension(3), intent(in) :: x1, x2, x3, x4
+          real(kind=realType), intent(in) :: u, v
+
+          ! Output variables
+          real(kind=realType), dimension(3), intent(out) :: xf
+          real(kind=realType), intent(out) :: u_out, v_out
+
+          ! Working variables
+          real(kind=realType), dimension(3) :: x21, x41, x3142
+
+          ! EXECUTION
+
+          ! Determine auxiliary vectors
+          x21 = x2 - x1
+          x41 = x4 - x1
+          x3142 = x3 - x1 - x21 - x41
+
+          ! Compute guess for projection point
+          xf = x1 + u*x21 + v*x41 + u*v*x3142
+
+          ! The other outputs are just copies of the parametric coordinates
+          u_out = u
+          v_out = v
+
+        end subroutine quadProjOutput
 
         !===============================================================
         !===============================================================
@@ -567,7 +626,7 @@
         real(kind=realType) :: normal1(3), normal2(3), normal3(3), normal4(3)
         integer(kind=intType) :: i, ind1, ind2, ind3, ind4
         real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
-        real(kind=realType) :: x12(3), x23(3), x34(3), x41(3)
+        real(kind=realType) :: x13(3), x24(3), x12(3), x23(3)
         real(kind=realType) :: dotResult
 
 
@@ -619,47 +678,34 @@
         ! Loop over quad connectivities
         do i = 1,nQuads
 
-          ! Get the indices for each node of the quad element
+          ! Get the indices for each node of the triangle element
           ind1 = quadsConn(1, i)
           ind2 = quadsConn(2, i)
           ind3 = quadsConn(3, i)
           ind4 = quadsConn(4, i)
 
-          ! Get the coordinates for each node of the quad element
+          ! Get the coordinates for each node of the triangle element
           x1 = coor(:, ind1)
           x2 = coor(:, ind2)
           x3 = coor(:, ind3)
           x4 = coor(:, ind4)
 
-          ! Compute relative vectors for the quad sides
-          x12 = x1 - x2
-          x23 = x2 - x3
-          x34 = x3 - x4
-          x41 = x4 - x1
+          ! Compute relative vectors for the triangle sides
+          x13 = x3 - x1
+          x24 = x4 - x2
 
-          ! Take the cross-product of these vectors to obtain the normal vectors
-          ! Normalize these normal vectors
-          call crossProd(x12, -x41, normal1)
+          ! Take the cross-product of these vectors to obtain the normal vector
+          call crossProd(x13, x24, normal1)
+
+          ! Normalize this normal vector
           call dotProd(normal1, normal1, dotResult)
           normal1 = normal1 / sqrt(dotResult)
 
-          call crossProd(x23, -x12, normal2)
-          call dotProd(normal2, normal2, dotResult)
-          normal2 = normal2 / sqrt(dotResult)
-
-          call crossProd(x34, -x23, normal3)
-          call dotProd(normal3, normal3, dotResult)
-          normal3 = normal3 / sqrt(dotResult)
-
-          call crossProd(x41, -x34, normal4)
-          call dotProd(normal4, normal4, dotResult)
-          normal4 = normal4 / sqrt(dotResult)
-
           ! Add the contribution of this normal to the nodalNormals array
           nodalNormals(:, ind1) = nodalNormals(:, ind1) + normal1
-          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal2
-          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal3
-          nodalNormals(:, ind4) = nodalNormals(:, ind4) + normal4
+          nodalNormals(:, ind2) = nodalNormals(:, ind2) + normal1
+          nodalNormals(:, ind3) = nodalNormals(:, ind3) + normal1
+          nodalNormals(:, ind4) = nodalNormals(:, ind4) + normal1
 
           ! Add connectivity information to the connect_count array so we
           ! know how many edges are connected to a node.

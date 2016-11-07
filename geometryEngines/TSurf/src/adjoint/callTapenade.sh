@@ -13,10 +13,10 @@ cpp -traditional -P -DUSE_TAPENADE ../common/precision.F90 precision.f90
 cpp -traditional -P -DUSE_TAPENADE ../common/constants.F90 constants.f90
 
 # Generate forward mode
-tapenade -d -head "triaProjection(x1,x2,x3,x)\(xf,u,v) quadProjSubIter(x1,x2,x3,x4,x,u,v)\(error,xf) triaWeights quadWeights computeNodalNormals" ../ADT/adtProjections.F90 precision.f90 constants.f90
+tapenade -d -head "triaProjection(x1,x2,x3,x)\(xf,u,v) quadProjResidual(x1,x2,x3,x4,x,u,v)\(residual) quadProjOutput(x1,x2,x3,x4,u,v)\(xf,u_out,v_out) triaWeights quadWeights computeNodalNormals" ../ADT/adtProjections.F90 precision.f90 constants.f90
 
 # Generate backward mode
-tapenade -b -head "triaProjection(x1,x2,x3,x)\(xf,u,v) quadProjSubIter(x1,x2,x3,x4,x,u,v)\(error,xf) triaWeights quadWeights computeNodalNormals" ../ADT/adtProjections.F90 precision.f90 constants.f90
+tapenade -b -head "triaProjection(x1,x2,x3,x)\(xf,u,v) quadProjResidual(x1,x2,x3,x4,x,u,v)\(residual) quadProjOutput(x1,x2,x3,x4,u,v)\(xf,u_out,v_out) triaWeights quadWeights computeNodalNormals" ../ADT/adtProjections.F90 precision.f90 constants.f90
 
 # Adjust AD code to use original modules that should not be differentiated
 sed -i -e 's/PRECISION_D/PRECISION/' -e 's/CONSTANTS_D/CONSTANTS/' adtprojections_d.f90

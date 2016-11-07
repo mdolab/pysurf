@@ -321,18 +321,16 @@ class TSurfGeometry(Geometry):
                                                                            procID, elementType,
                                                                            elementID, uvw,
                                                                            dist2, xyzProj.T,
-                                                                           xyzProjb.T, self.nodal_normals, 
+                                                                           xyzProjb.T, self.nodal_normals,
                                                                            normProjNotNorm.T, normProjNotNormb.T)
 
         # Transpose results to make them consistent
         xyzb = xyzb.T
 
         # Compute derivatives of the normal vectors
-        nodal_normals_temp = np.array(self.nodal_normals,order='F')
-        nodal_normalsb_temp = np.array(nodal_normalsb,order='F')
         coorb = coorb + adtAPI.adtapi.adtcomputenodalnormals_b(self.coor,
                                                                self.triaConn, self.quadsConn,
-                                                               nodal_normals_temp, nodal_normalsb_temp)
+                                                               self.nodal_normals, nodal_normalsb)
 
         # Return projections derivatives
         return xyzb, coorb

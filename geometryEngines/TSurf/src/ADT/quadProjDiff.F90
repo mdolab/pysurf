@@ -12,9 +12,8 @@ implicit none
 
 contains
 
-  subroutine quadProjection_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, &
-                              x, xd, &
-                              xf, xfd, u, ud, v, vd, val)
+  subroutine quadProjection_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, xd, &
+                              xfd, u, ud, v, vd)
 
     ! This subroutine computes the projection (xf) of a given point (x) into the
     ! quad defined by four nodes (x1, x2, x3, and x4).
@@ -54,19 +53,18 @@ contains
     real(kind=realType), dimension(3), intent(in) :: x1d, x2d, x3d, x4d
     real(kind=realType), dimension(3), intent(in) :: x
     real(kind=realType), dimension(3), intent(in) :: xd
-    real(kind=realType), intent(in) :: u, v, val
-    real(kind=realType), dimension(3), intent(in) :: xf
+    real(kind=realType), intent(in) :: u, v
 
     ! Output variables
     real(kind=realType), dimension(3), intent(out) :: xfd
     real(kind=realType), intent(out) :: ud, vd
 
     ! Working variables
-    real(kind=realType), dimension(3) :: x21, x41, x3142
-    real(kind=realType), dimension(3) :: x21d, x41d, x3142d, xftemp
-    real(kind=realType), dimension(2) :: error, errord, aux2
+    real(kind=realType), dimension(2) :: residual, residuald, aux2
     real(kind=realType), dimension(2,2) :: invJac
     real(kind=realType) :: du, dv
+    real(kind=realType) :: u_out, v_out, u_outd, v_outd
+    real(kind=realType), dimension(3) :: xf
 
     ! EXECUTION
 
@@ -86,70 +84,27 @@ contains
     ! seeds of the state variables to zero (ud = vd = 0)
     ud = 0.0
     vd = 0.0
-    xftemp = xf
 
-    call quadProjSubIter_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, &
-                           x, xd, u, ud, v, vd, &
-                           du, dv, error, errord, invJac, xftemp, xfd)
-
-    print *,'x1'
-    print *,x1
-    print *,'x2'
-    print *,x2
-    print *,'x3'
-    print *,x3
-    print *,'x4'
-    print *,x4
-    print *,'x'
-    print *,x
-    print *,'x1d'
-    print *,x1d
-    print *,'x2d'
-    print *,x2d
-    print *,'x3d'
-    print *,x3d
-    print *,'x4d'
-    print *,x4d
-    print *,'xd'
-    print *,xd
-    print *,'invJac'
-    print *,invJac(1,:)
-    print *,invJac(2,:)
-    print *,'error'
-    print *,error
-    print *,'errord'
-    print *,errord
-    print *,'u'
-    print *,u
-    print *,'v'
-    print *,v
-    print *,'du'
-    print *,du
-    print *,'dv'
-    print *,dv
+    call quadProjResidual_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, xd, &
+                            u, ud, v, vd, &
+                            residual, residuald, invJac)
 
     ! Now we can compute the values of the seed ud and vd by
     ! solving the "adjoint" system. The inverse Jacobian that
     ! we compute inside the original function already represents
     ! the inversion of the right hand side of the system.
-    aux2 = matmul(invJac, errord)
+    aux2 = matmul(invJac, residuald)
     ud = -aux2(1)
     vd = -aux2(2)
 
-    ! Determine auxiliary vectors and its derivatives
-    x21 = x2 - x1
-    x21d = x2d - x1d
-    x41 = x4 - x1
-    x41d = x4d - x1d
-    x3142 = x3 - x1 - x21 - x41
-    x3142d = x3d - x1d - x21d - x41d
+    ! Compute derivatives of the outputs
+    call quadProjOutput_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, &
+                          u, ud, v, vd, &
+                          xf, xfd, u_out, u_outd, v_out, v_outd)
 
-    ! Derivatives with respect to xf
-    ! Remember that xf = x1 + u*x21 + v*x41 + u*v*x3142
-    xfd = x1d + &
-          ud*x21 + u*x21d + &
-          vd*x41 + v*x41d + &
-          ud*v*x3142 + u*vd*x3142 + u*v*x3142d
+    ! Just rename results
+    ud = u_outd
+    vd = v_outd
 
   end subroutine quadProjection_d
 
@@ -157,9 +112,8 @@ contains
   !=========================================================
   !=========================================================
 
-  subroutine quadProjection_b(x1, x1b, x2, x2b, x3, x3b, x4, x4b, &
-                              x, xb, &
-                              xf, xfb, u, ub, v, vb, val)
+  subroutine quadProjection_b(x1, x1b, x2, x2b, x3, x3b, x4, x4b, x, xb, &
+                              xf, xfb, u, ub, v, vb)
 
     ! This subroutine computes the projection (xf) of a given point (x) into the
     ! quad defined by four nodes (x1, x2, x3, and x4).
@@ -197,7 +151,7 @@ contains
     ! Input variables
     real(kind=realType), dimension(3), intent(in) :: x1, x2, x3, x4
     real(kind=realType), dimension(3), intent(in) :: x
-    real(kind=realType), intent(in) :: u, v, val
+    real(kind=realType), intent(in) :: u, v
     real(kind=realType), intent(in) :: ub, vb
     real(kind=realType), dimension(3), intent(in) :: xf
     real(kind=realType), dimension(3), intent(in) :: xfb
@@ -209,10 +163,15 @@ contains
     ! Working variables
     real(kind=realType), dimension(3) :: xf_temp
     real(kind=realType), dimension(3) :: xfb_temp
-    real(kind=realType) :: ub_temp, vb_temp
-    real(kind=realType), dimension(2) :: error, errorb, aux2
-    real(kind=realType), dimension(2,2) :: invJac
-    real(kind=realType) :: du, dv
+    real(kind=realType) :: u_out, v_out, u_outb, v_outb
+    real(kind=realType), dimension(3) :: x1b_partial, x2b_partial, x3b_partial, x4b_partial
+
+    real(kind=realType) :: ub_temp, vb_temp, ub_partial, vb_partial
+    real(kind=realType), dimension(2) :: residual, residualb
+    real(kind=realType), dimension(2,2) :: Jac, invJac
+    real(kind=realType), dimension(2,15) :: dgdx
+    real(kind=realType), dimension(15) :: xb2full
+    real(kind=realType) :: du, dv, dotResult
 
     ! EXECUTION
 
@@ -224,80 +183,56 @@ contains
     ! and two unknowns (u and v). We can create adjoint systems for
     ! this problem to propagate derivatives.
 
-    ! Set temporary variable to xf to avoid overwriting
-    xf_temp = xf
-    xfb_temp = xfb
-    ub_temp = ub
-    vb_temp = vb
-
     ! We want the error to remain at 0, even when changing inputs/outputs.
     ! Therefore, we can set its seed to zero
-    errorb = 0.0
 
-    print *,'RUNNING REVERSE MODE'
-    print *,'xfb'
-    print *,xfb
-    print *,'ub'
-    print *,ub
-    print *,'vb'
-    print *,vb
-    print *,'x1'
-    print *,x1
-    print *,'x2'
-    print *,x2
-    print *,'x3'
-    print *,x3
-    print *,'x4'
-    print *,x4
-    print *,'x'
-    print *,x
-    print *,'u'
-    print *,u
-    print *,'v'
-    print *,v
+    ! Get partial derivatives of the outputs with respect to input and state variables.
+    ! We need a temporary copy of the output derivatives since the code modifies it.
+    xf_temp = xf
+    xfb_temp = xfb
+    u_out = u
+    u_outb = ub
+    v_out = v
+    v_outb = vb
 
-    ! Check new error derivative
-    call quadProjSubIter_b(x1, x1b, x2, x2b, x3, x3b, x4, x4b, &
-                           x, xb, u, ub_temp, v, vb_temp, &
-                           du, dv, error, errorb, invJac, xf_temp, xfb_temp)
+    call quadProjOutput_b(x1, x1b_partial, x2, x2b_partial, x3, x3b_partial, x4, x4b_partial, &
+                          u, ub_partial, v, vb_partial, &
+                          xf_temp, xfb_temp, u_out, u_outb, v_out, v_outb)
 
-    print *,'xfb'
-    print *,xfb
-    print *,'ub'
-    print *,ub
-    print *,'vb'
-    print *,vb
-    print *,'x1'
-    print *,x1
-    print *,'x2'
-    print *,x2
-    print *,'x3'
-    print *,x3
-    print *,'x4'
-    print *,x4
-    print *,'x'
-    print *,x
-    print *,'x1b'
-    print *,x1b
-    print *,'x2b'
-    print *,x2b
-    print *,'x3b'
-    print *,x3b
-    print *,'x4b'
-    print *,x4b
-    print *,'xb'
-    print *,xb
-    print *,'invJac'
-    print *,invJac(1,:)
-    print *,invJac(2,:)
-    print *,'error'
-    print *,error
-    print *,'errorb'
-    print *,errorb
-    print *,'du'
-    print *,du
-    print *,'dv'
-    print *,dv
+    ! Now we need to assemble the Jacobian (dg/du) and the RHS of the adjoint equation (dg/dx)
+    residualb = [1.0, 0.0]
+    call quadProjResidual_b(x1, x1b, x2, x2b, x3, x3b, x4, x4b, &
+                            x, xb, u, ub_temp, v, vb_temp, &
+                            residual, residualb, invJac)
+    dgdx(1,1:3) = x1b
+    dgdx(1,4:6) = x2b
+    dgdx(1,7:9) = x3b
+    dgdx(1,10:12) = x4b
+    dgdx(1,13:15) = xb
+    Jac(1,:) = [ub_temp, vb_temp]
+
+    residualb = [0.0, 1.0]
+    call quadProjResidual_b(x1, x1b, x2, x2b, x3, x3b, x4, x4b, &
+                            x, xb, u, ub_temp, v, vb_temp, &
+                            residual, residualb, invJac)
+    dgdx(2,1:3) = x1b
+    dgdx(2,4:6) = x2b
+    dgdx(2,7:9) = x3b
+    dgdx(2,10:12) = x4b
+    dgdx(2,13:15) = xb
+    Jac(2,:) = [ub_temp, vb_temp]
+
+    ! Invert the Jacobian
+    call invert2x2(Jac, invJac)
+
+    ! Use the adjoint to compute total derivatives
+    xb2full = matmul([ub_partial, vb_partial], matmul(invJac,dgdx))
+
+    x1b = x1b_partial - xb2full(1:3)
+    x2b = x2b_partial - xb2full(4:6)
+    x3b = x3b_partial - xb2full(7:9)
+    x4b = x4b_partial - xb2full(10:12)
+    xb = -xb2full(13:15)
 
   end subroutine quadProjection_b
 
