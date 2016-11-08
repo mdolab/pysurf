@@ -556,7 +556,7 @@ CONTAINS
   END SUBROUTINE TRIAPROJECTION
 !***************************************************************
 !***************************************************************
-  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u_out, v_out, val)
+  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u, v, val)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -564,16 +564,16 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out, val
+    REAL(kind=realtype), INTENT(OUT) :: u, v, val
 ! Working variables
     REAL(kind=realtype), DIMENSION(2) :: residual
     REAL(kind=realtype), DIMENSION(2, 2) :: invjac
-    REAL(kind=realtype) :: u, v, u_old, v_old, du, dv, uv
+    REAL(kind=realtype) :: u_old, v_old, du, dv
     REAL(kind=realtype) :: dx, dy, dz, update
     INTEGER(kind=inttype) :: ll
 ! Local parameters used in the Newton algorithm.
     INTEGER(kind=inttype), PARAMETER :: itermax=15
-    REAL(kind=realtype), PARAMETER :: thresconv=1.e-10_realType
+    REAL(kind=realtype), PARAMETER :: thresconv=1.e-12_realType
     INTRINSIC MAX
     INTRINSIC MIN
     INTRINSIC SQRT
@@ -630,7 +630,7 @@ newtonquads:DO ll=1,itermax
       IF (SQRT(update) .LE. thresconv) GOTO 100
     END DO newtonquads
 ! Call projection one more time for the updated value of u and v
- 100 CALL QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
+ 100 CALL QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf)
 ! Compute the distance squared between the given
 ! coordinate and the point xf.
     dx = x(1) - xf(1)
@@ -885,14 +885,13 @@ newtonquads:DO ll=1,itermax
     CALL INVERT2X2(jac, invjac)
   END SUBROUTINE QUADPROJRESIDUAL
 !  Differentiation of quadprojoutput in reverse (adjoint) mode:
-!   gradient     of useful results: u_out xf v_out
-!   with respect to varying inputs: u_out u v xf v_out x1 x2 x3
-!                x4
-!   RW status of diff variables: u_out:in-zero u:out v:out xf:in-zero
-!                v_out:in-zero x1:out x2:out x3:out x4:out
+!   gradient     of useful results: xf
+!   with respect to varying inputs: u v xf x1 x2 x3 x4
+!   RW status of diff variables: u:out v:out xf:in-zero x1:out
+!                x2:out x3:out x4:out
 !===============================================================
   SUBROUTINE QUADPROJOUTPUT_B(x1, x1b, x2, x2b, x3, x3b, x4, x4b, u, ub&
-&   , v, vb, xf, xfb, u_out, u_outb, v_out, v_outb)
+&   , v, vb, xf, xfb)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -903,8 +902,6 @@ newtonquads:DO ll=1,itermax
 ! Output variables
     REAL(kind=realtype), DIMENSION(3) :: xf
     REAL(kind=realtype), DIMENSION(3) :: xfb
-    REAL(kind=realtype) :: u_out, v_out
-    REAL(kind=realtype) :: u_outb, v_outb
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
     REAL(kind=realtype), DIMENSION(3) :: x21b, x41b, x3142b
@@ -914,13 +911,12 @@ newtonquads:DO ll=1,itermax
     x41 = x4 - x1
     x3142 = x3 - x1 - x21 - x41
 ! Compute guess for projection point
-! The other outputs are just copies of the parametric coordinates
-    vb = u*SUM(x3142*xfb) + SUM(x41*xfb) + v_outb
-    ub = v*SUM(x3142*xfb) + SUM(x21*xfb) + u_outb
     x1b = 0.0
     x3142b = 0.0
     x21b = 0.0
     x41b = 0.0
+    ub = v*SUM(x3142*xfb) + SUM(x21*xfb)
+    vb = u*SUM(x3142*xfb) + SUM(x41*xfb)
     x3142b = u*v*xfb
     x21b = u*xfb - x3142b
     x41b = v*xfb - x3142b
@@ -931,12 +927,10 @@ newtonquads:DO ll=1,itermax
     x4b = x41b
     x2b = 0.0
     x2b = x21b
-    u_outb = 0.0
     xfb = 0.0
-    v_outb = 0.0
   END SUBROUTINE QUADPROJOUTPUT_B
 !===============================================================
-  SUBROUTINE QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
+  SUBROUTINE QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -944,7 +938,6 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), INTENT(IN) :: u, v
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
 ! EXECUTION
@@ -954,9 +947,6 @@ newtonquads:DO ll=1,itermax
     x3142 = x3 - x1 - x21 - x41
 ! Compute guess for projection point
     xf = x1 + u*x21 + v*x41 + u*v*x3142
-! The other outputs are just copies of the parametric coordinates
-    u_out = u
-    v_out = v
   END SUBROUTINE QUADPROJOUTPUT
 !  Differentiation of triaweights in reverse (adjoint) mode:
 !   gradient     of useful results: u v weight
@@ -1090,8 +1080,8 @@ newtonquads:DO ll=1,itermax
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
     REAL(kind=realtype) :: x1b(3), x2b(3), x3b(3), x4b(3)
-    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
-    REAL(kind=realtype) :: x13b(3), x24b(3), x12b(3), x23b(3)
+    REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
+    REAL(kind=realtype) :: x12b(3), x23b(3), x13b(3), x24b(3)
     REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultb
     INTRINSIC SQRT
@@ -1136,22 +1126,22 @@ newtonquads:DO ll=1,itermax
     END DO
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the triangle element
+! Get the indices for each node of the quad element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the triangle element
+! Get the coordinates for each node of the quad element
       x1 = coor(:, ind1)
       x2 = coor(:, ind2)
       x3 = coor(:, ind3)
       x4 = coor(:, ind4)
-! Compute relative vectors for the triangle sides
+! Compute relative vectors for the quad sides
       x13 = x3 - x1
       x24 = x4 - x2
-! Take the cross-product of these vectors to obtain the normal vector
+! Take the cross-product of these vectors to obtain the normal vectors
+! Normalize these normal vectors
       CALL CROSSPROD(x13, x24, normal1)
-! Normalize this normal vector
       CALL PUSHREAL4ARRAY(dotresult, realtype/4)
       CALL DOTPROD(normal1, normal1, dotresult)
       CALL PUSHREAL4ARRAY(normal1, realtype*3/4)
@@ -1297,7 +1287,7 @@ newtonquads:DO ll=1,itermax
 &   )
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
-    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
+    REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
 !===============================================================
@@ -1336,22 +1326,22 @@ newtonquads:DO ll=1,itermax
     END DO
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the triangle element
+! Get the indices for each node of the quad element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the triangle element
+! Get the coordinates for each node of the quad element
       x1 = coor(:, ind1)
       x2 = coor(:, ind2)
       x3 = coor(:, ind3)
       x4 = coor(:, ind4)
-! Compute relative vectors for the triangle sides
+! Compute relative vectors for the quad sides
       x13 = x3 - x1
       x24 = x4 - x2
-! Take the cross-product of these vectors to obtain the normal vector
+! Take the cross-product of these vectors to obtain the normal vectors
+! Normalize these normal vectors
       CALL CROSSPROD(x13, x24, normal1)
-! Normalize this normal vector
       CALL DOTPROD(normal1, normal1, dotresult)
       normal1 = normal1/SQRT(dotresult)
 ! Add the contribution of this normal to the nodalNormals array

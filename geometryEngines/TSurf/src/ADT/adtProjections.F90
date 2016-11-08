@@ -175,7 +175,7 @@
 
         subroutine quadProjection(x1, x2, x3, x4, &
                                   x, &
-                                  xf, u_out, v_out, val)
+                                  xf, u, v, val)
 
           ! This subroutine computes the projection (xf) of a given point (x) into the
           ! quad defined by four nodes (x1, x2, x3, and x4).
@@ -214,18 +214,18 @@
 
           ! Output variables
           real(kind=realType), dimension(3), intent(out) :: xf
-          real(kind=realType), intent(out) :: u_out, v_out, val
+          real(kind=realType), intent(out) :: u, v, val
 
           ! Working variables
           real(kind=realType), dimension(2) :: residual
           real(kind=realType), dimension(2,2) :: invJac
-          real(kind=realType) :: u, v, u_old, v_old, du, dv, uv
+          real(kind=realType) :: u_old, v_old, du, dv
           real(kind=realType) :: dx, dy, dz, update
           integer(kind=intType) :: ll
 
           ! Local parameters used in the Newton algorithm.
           integer(kind=intType), parameter :: iterMax   = 15
-          real(kind=realType),   parameter :: thresConv = 1.e-10_realType
+          real(kind=realType),   parameter :: thresConv = 1.e-12_realType
 
           ! EXECUTION
           
@@ -278,7 +278,7 @@
           ! Call projection one more time for the updated value of u and v
           call quadProjOutput(x1, x2, x3, x4, &
                               u, v, &
-                              xf, u_out, v_out)
+                              xf)
 
           ! Compute the distance squared between the given
           ! coordinate and the point xf.
@@ -442,7 +442,7 @@
 
         subroutine quadProjOutput(x1, x2, x3, x4, &
                                   u, v, &
-                                  xf, u_out, v_out)
+                                  xf)
 
           ! This subroutine computes the error that should be reduced
           ! by the iterative process in the subroutine quadProjection.
@@ -495,7 +495,6 @@
 
           ! Output variables
           real(kind=realType), dimension(3), intent(out) :: xf
-          real(kind=realType), intent(out) :: u_out, v_out
 
           ! Working variables
           real(kind=realType), dimension(3) :: x21, x41, x3142
@@ -509,10 +508,6 @@
 
           ! Compute guess for projection point
           xf = x1 + u*x21 + v*x41 + u*v*x3142
-
-          ! The other outputs are just copies of the parametric coordinates
-          u_out = u
-          v_out = v
 
         end subroutine quadProjOutput
 
@@ -626,7 +621,7 @@
         real(kind=realType) :: normal1(3), normal2(3), normal3(3), normal4(3)
         integer(kind=intType) :: i, ind1, ind2, ind3, ind4
         real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
-        real(kind=realType) :: x13(3), x24(3), x12(3), x23(3)
+        real(kind=realType) :: x12(3), x23(3), x13(3), x24(3)
         real(kind=realType) :: dotResult
 
 
@@ -678,26 +673,25 @@
         ! Loop over quad connectivities
         do i = 1,nQuads
 
-          ! Get the indices for each node of the triangle element
+          ! Get the indices for each node of the quad element
           ind1 = quadsConn(1, i)
           ind2 = quadsConn(2, i)
           ind3 = quadsConn(3, i)
           ind4 = quadsConn(4, i)
 
-          ! Get the coordinates for each node of the triangle element
+          ! Get the coordinates for each node of the quad element
           x1 = coor(:, ind1)
           x2 = coor(:, ind2)
           x3 = coor(:, ind3)
           x4 = coor(:, ind4)
 
-          ! Compute relative vectors for the triangle sides
+          ! Compute relative vectors for the quad sides
           x13 = x3 - x1
           x24 = x4 - x2
 
-          ! Take the cross-product of these vectors to obtain the normal vector
+          ! Take the cross-product of these vectors to obtain the normal vectors
+          ! Normalize these normal vectors
           call crossProd(x13, x24, normal1)
-
-          ! Normalize this normal vector
           call dotProd(normal1, normal1, dotResult)
           normal1 = normal1 / sqrt(dotResult)
 

@@ -12,7 +12,7 @@ from mpi4py import MPI
 import numpy as np
 
 # Load geometry
-cube = pysurf.TSurfGeometry('../inputs/cylinder.cgns', MPI.COMM_WORLD)
+cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
 
 # Define generic function to compute projections
 def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
@@ -43,8 +43,8 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 # BACK TO MAIN PROGRAM
 
 # Define points
-xyz = np.array([[.7, .55, 1.0],
-                [.7, .55, 1.0]], order='F')
+xyz = np.array([[.7, .55, 0.1],
+                [.7, .55, 0.9]], order='F')
 
 # Define derivatives and normalize them to a given step size
 stepSize = 1e-7
