@@ -62,8 +62,6 @@ contains
     ! Working variables
     real(kind=realType), dimension(2) :: residual, residuald, aux2
     real(kind=realType), dimension(2,2) :: invJac
-    real(kind=realType) :: du, dv
-    real(kind=realType) :: u_out, v_out, u_outd, v_outd
     real(kind=realType), dimension(3) :: xf
 
     ! EXECUTION
@@ -84,7 +82,6 @@ contains
     ! seeds of the state variables to zero (ud = vd = 0)
     ud = 0.0
     vd = 0.0
-
     call quadProjResidual_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, xd, &
                             u, ud, v, vd, &
                             residual, residuald, invJac)
@@ -100,11 +97,7 @@ contains
     ! Compute derivatives of the outputs
     call quadProjOutput_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, &
                           u, ud, v, vd, &
-                          xf, xfd, u_out, u_outd, v_out, v_outd)
-
-    ! Just rename results
-    ud = u_outd
-    vd = v_outd
+                          xf, xfd)
 
   end subroutine quadProjection_d
 
@@ -163,7 +156,6 @@ contains
     ! Working variables
     real(kind=realType), dimension(3) :: xf_temp
     real(kind=realType), dimension(3) :: xfb_temp
-    real(kind=realType) :: u_out, v_out, u_outb, v_outb
     real(kind=realType), dimension(3) :: x1b_partial, x2b_partial, x3b_partial, x4b_partial
 
     real(kind=realType) :: ub_temp, vb_temp, ub_partial, vb_partial
@@ -171,7 +163,7 @@ contains
     real(kind=realType), dimension(2,2) :: Jac, invJac
     real(kind=realType), dimension(2,15) :: dgdx
     real(kind=realType), dimension(15) :: xb2full
-    real(kind=realType) :: du, dv, dotResult
+    real(kind=realType) :: dotResult
 
     ! EXECUTION
 
@@ -190,14 +182,12 @@ contains
     ! We need a temporary copy of the output derivatives since the code modifies it.
     xf_temp = xf
     xfb_temp = xfb
-    u_out = u
-    u_outb = ub
-    v_out = v
-    v_outb = vb
 
     call quadProjOutput_b(x1, x1b_partial, x2, x2b_partial, x3, x3b_partial, x4, x4b_partial, &
                           u, ub_partial, v, vb_partial, &
-                          xf_temp, xfb_temp, u_out, u_outb, v_out, v_outb)
+                          xf_temp, xfb_temp)
+    ub_partial = ub_partial + ub
+    vb_partial = vb_partial + vb
 
     ! Now we need to assemble the Jacobian (dg/du) and the RHS of the adjoint equation (dg/dx)
     residualb = [1.0, 0.0]
@@ -233,6 +223,17 @@ contains
     x3b = x3b_partial - xb2full(7:9)
     x4b = x4b_partial - xb2full(10:12)
     xb = -xb2full(13:15)
+
+    print *,'x1b'
+    print *,x1b
+    print *,'x2b'
+    print *,x2b
+    print *,'x3b'
+    print *,x3b
+    print *,'x4b'
+    print *,x4b
+    print *,'xb'
+    print *,xb
 
   end subroutine quadProjection_b
 

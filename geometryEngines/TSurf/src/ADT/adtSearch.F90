@@ -1414,7 +1414,7 @@
         real(kind=realType), dimension(3) :: x1, x2, x3, x4, x, xf
         real(kind=realType), dimension(3) :: x1b, x2b, x3b, x4b, xb, xfb
         real(kind=realType), dimension(8) :: weight, donorData
-        real(kind=realType), dimension(8) :: weightb, donorDatab
+        real(kind=realType), dimension(8) :: weightb, weightb_temp, donorDatab
         real(kind=realType) :: u, v, val
         real(kind=realType) :: ub, vb
         real(kind=realType) :: interpData, interpDatab
@@ -1488,8 +1488,12 @@
 
               end select
 
+              ! Initialize weight derivatives
+              weightb = adtZero
+
               ! Compute derivative of interpolated values
               do ll=1,nInterpol
+
                  ! Gather data from nodes
                  donorData = adtZero
                  do i=1,nNodeElement
@@ -1499,9 +1503,9 @@
                  interpDatab = arrInterpolb(ll,ii)
 
                  ! Dot function defined in adtProjections_d.F90
-                 weightb = adtZero
+                 weightb_temp = adtZero
                  donorDatab = adtZero
-                 call dotProd_b(weight, weightb, &
+                 call dotProd_b(weight, weightb_temp, &
                       donorData, donorDatab, &
                       interpData, interpDatab)
 
@@ -1509,6 +1513,10 @@
                  do i=1,nNodeElement
                     arrDonorb(ll,n(i)) = arrDonorb(ll,n(i)) + donorDatab(i)
                  end do
+                 
+                 ! Accumulate weight derivatives
+                 weightb = weightb + weightb_temp
+
               end do
 
               ! Now we will call the projection derivative subroutine based
@@ -1597,10 +1605,10 @@
                                       xf, xfb, u, ub, v, vb)
 
                 ! Set corresponding derivatives of the baseline surface nodal coordinates
-                adtCoorb(:,n(1)) = adtCoorb(:,n(1)) + x1b
-                adtCoorb(:,n(2)) = adtCoorb(:,n(2)) + x2b
-                adtCoorb(:,n(3)) = adtCoorb(:,n(3)) + x3b
-                adtCoorb(:,n(4)) = adtCoorb(:,n(4)) + x4b
+                adtCoorb(1:3,n(1)) = adtCoorb(1:3,n(1)) + x1b
+                adtCoorb(1:3,n(2)) = adtCoorb(1:3,n(2)) + x2b
+                adtCoorb(1:3,n(3)) = adtCoorb(1:3,n(3)) + x3b
+                adtCoorb(1:3,n(4)) = adtCoorb(1:3,n(4)) + x4b
 
                 ! Set derivatives of the point before projection
                 coorb(1:3,ii) = coorb(1:3,ii) + xb

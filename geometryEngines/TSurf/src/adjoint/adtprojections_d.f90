@@ -407,7 +407,7 @@ CONTAINS
   END SUBROUTINE TRIAPROJECTION
 !***************************************************************
 !***************************************************************
-  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u_out, v_out, val)
+  SUBROUTINE QUADPROJECTION(x1, x2, x3, x4, x, xf, u, v, val)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -415,16 +415,16 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out, val
+    REAL(kind=realtype), INTENT(OUT) :: u, v, val
 ! Working variables
     REAL(kind=realtype), DIMENSION(2) :: residual
     REAL(kind=realtype), DIMENSION(2, 2) :: invjac
-    REAL(kind=realtype) :: u, v, u_old, v_old, du, dv, uv
+    REAL(kind=realtype) :: u_old, v_old, du, dv
     REAL(kind=realtype) :: dx, dy, dz, update
     INTEGER(kind=inttype) :: ll
 ! Local parameters used in the Newton algorithm.
     INTEGER(kind=inttype), PARAMETER :: itermax=15
-    REAL(kind=realtype), PARAMETER :: thresconv=1.e-10_realType
+    REAL(kind=realtype), PARAMETER :: thresconv=1.e-12_realType
     INTRINSIC MAX
     INTRINSIC MIN
     INTRINSIC SQRT
@@ -483,7 +483,7 @@ newtonquads:DO ll=1,itermax
       IF (result1 .LE. thresconv) GOTO 100
     END DO newtonquads
 ! Call projection one more time for the updated value of u and v
- 100 CALL QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
+ 100 CALL QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf)
 ! Compute the distance squared between the given
 ! coordinate and the point xf.
     dx = x(1) - xf(1)
@@ -697,13 +697,13 @@ newtonquads:DO ll=1,itermax
     CALL INVERT2X2(jac, invjac)
   END SUBROUTINE QUADPROJRESIDUAL
 !  Differentiation of quadprojoutput in forward (tangent) mode:
-!   variations   of useful results: u_out xf v_out
+!   variations   of useful results: xf
 !   with respect to varying inputs: u v x1 x2 x3 x4
-!   RW status of diff variables: u_out:out u:in v:in xf:out v_out:out
-!                x1:in x2:in x3:in x4:in
+!   RW status of diff variables: u:in v:in xf:out x1:in x2:in x3:in
+!                x4:in
 !===============================================================
   SUBROUTINE QUADPROJOUTPUT_D(x1, x1d, x2, x2d, x3, x3d, x4, x4d, u, ud&
-&   , v, vd, xf, xfd, u_out, u_outd, v_out, v_outd)
+&   , v, vd, xf, xfd)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -714,8 +714,6 @@ newtonquads:DO ll=1,itermax
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xfd
-    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out
-    REAL(kind=realtype), INTENT(OUT) :: u_outd, v_outd
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
     REAL(kind=realtype), DIMENSION(3) :: x21d, x41d, x3142d
@@ -731,14 +729,9 @@ newtonquads:DO ll=1,itermax
     xfd = x1d + ud*x21 + u*x21d + vd*x41 + v*x41d + (ud*v+u*vd)*x3142 + &
 &     u*v*x3142d
     xf = x1 + u*x21 + v*x41 + u*v*x3142
-! The other outputs are just copies of the parametric coordinates
-    u_outd = ud
-    u_out = u
-    v_outd = vd
-    v_out = v
   END SUBROUTINE QUADPROJOUTPUT_D
 !===============================================================
-  SUBROUTINE QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf, u_out, v_out)
+  SUBROUTINE QUADPROJOUTPUT(x1, x2, x3, x4, u, v, xf)
     IMPLICIT NONE
 ! DECLARATIONS
 ! Input variables
@@ -746,7 +739,6 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), INTENT(IN) :: u, v
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
-    REAL(kind=realtype), INTENT(OUT) :: u_out, v_out
 ! Working variables
     REAL(kind=realtype), DIMENSION(3) :: x21, x41, x3142
 ! EXECUTION
@@ -756,9 +748,6 @@ newtonquads:DO ll=1,itermax
     x3142 = x3 - x1 - x21 - x41
 ! Compute guess for projection point
     xf = x1 + u*x21 + v*x41 + u*v*x3142
-! The other outputs are just copies of the parametric coordinates
-    u_out = u
-    v_out = v
   END SUBROUTINE QUADPROJOUTPUT
 !  Differentiation of triaweights in forward (tangent) mode:
 !   variations   of useful results: weight
@@ -893,8 +882,8 @@ newtonquads:DO ll=1,itermax
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
     REAL(kind=realtype) :: x1d(3), x2d(3), x3d(3), x4d(3)
-    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
-    REAL(kind=realtype) :: x13d(3), x24d(3), x12d(3), x23d(3)
+    REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
+    REAL(kind=realtype) :: x12d(3), x23d(3), x13d(3), x24d(3)
     REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultd
     INTRINSIC SQRT
@@ -954,12 +943,12 @@ newtonquads:DO ll=1,itermax
     END DO
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the triangle element
+! Get the indices for each node of the quad element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the triangle element
+! Get the coordinates for each node of the quad element
       x1d = coord(:, ind1)
       x1 = coor(:, ind1)
       x2d = coord(:, ind2)
@@ -968,14 +957,14 @@ newtonquads:DO ll=1,itermax
       x3 = coor(:, ind3)
       x4d = coord(:, ind4)
       x4 = coor(:, ind4)
-! Compute relative vectors for the triangle sides
+! Compute relative vectors for the quad sides
       x13d = x3d - x1d
       x13 = x3 - x1
       x24d = x4d - x2d
       x24 = x4 - x2
-! Take the cross-product of these vectors to obtain the normal vector
+! Take the cross-product of these vectors to obtain the normal vectors
+! Normalize these normal vectors
       CALL CROSSPROD_D(x13, x13d, x24, x24d, normal1, normal1d)
-! Normalize this normal vector
       CALL DOTPROD_D(normal1, normal1d, normal1, normal1d, dotresult, &
 &              dotresultd)
       IF (dotresult .EQ. 0.0) THEN
@@ -1049,7 +1038,7 @@ newtonquads:DO ll=1,itermax
 &   )
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
-    REAL(kind=realtype) :: x13(3), x24(3), x12(3), x23(3)
+    REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
     REAL(kind=realtype) :: result1
@@ -1090,22 +1079,22 @@ newtonquads:DO ll=1,itermax
     END DO
 ! Loop over quad connectivities
     DO i=1,nquads
-! Get the indices for each node of the triangle element
+! Get the indices for each node of the quad element
       ind1 = quadsconn(1, i)
       ind2 = quadsconn(2, i)
       ind3 = quadsconn(3, i)
       ind4 = quadsconn(4, i)
-! Get the coordinates for each node of the triangle element
+! Get the coordinates for each node of the quad element
       x1 = coor(:, ind1)
       x2 = coor(:, ind2)
       x3 = coor(:, ind3)
       x4 = coor(:, ind4)
-! Compute relative vectors for the triangle sides
+! Compute relative vectors for the quad sides
       x13 = x3 - x1
       x24 = x4 - x2
-! Take the cross-product of these vectors to obtain the normal vector
+! Take the cross-product of these vectors to obtain the normal vectors
+! Normalize these normal vectors
       CALL CROSSPROD(x13, x24, normal1)
-! Normalize this normal vector
       CALL DOTPROD(normal1, normal1, dotresult)
       result1 = SQRT(dotresult)
       normal1 = normal1/result1
