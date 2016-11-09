@@ -971,10 +971,10 @@ class TSurfCurve(Curve):
                 newArcLength = 0.5*(1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
 
             elif spacing.lower() == 'hypTan':
-                newArcLength = tst.hypTanDist(initialSpacing, finalSpacing, nNewNodes)
+                newArcLength = tst.hypTanDist(initialSpacing/arcLength[-1], finalSpacing/arcLength[-1], nNewNodes)
 
             elif spacing.lower() == 'tangent':
-                newArcLength = tst.tanDist(initialSpacing, finalSpacing, nNewNodes)
+                newArcLength = tst.tanDist(initialSpacing/arcLength[-1], finalSpacing/arcLength[-1], nNewNodes)
 
             # Rescale newArcLength based on the final distance
             newArcLength = arcLength[-1]*newArcLength
