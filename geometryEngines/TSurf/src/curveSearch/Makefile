@@ -15,16 +15,21 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS = curveSearch.o
+FF90_OBJECTS_1 = curveUtils.o
+
+FF90_OBJECTS_2 = curveSearchAPI.o
 
 default: all
 
 all:
-	$(PMAKE)  src
+	$(PMAKE)  src1
+	$(PMAKE)  src2
 	cp -f *.mod $(MODDIR)
 
 clean:
 	@echo "        Making clean in curveSearch... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
 
-src:	$(FF90_OBJECTS)
+src1:	$(FF90_OBJECTS_1)
+
+src2:	$(FF90_OBJECTS_2)

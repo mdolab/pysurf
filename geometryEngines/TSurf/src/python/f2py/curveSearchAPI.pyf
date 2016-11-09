@@ -1,0 +1,57 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module curveSearchAPI ! in 
+    interface  ! in :curveSearchAPI
+        module curvesearchapi ! in :curveSearchAPI:curveSearchAPI.F90
+            use precision
+            subroutine mindistancecurve(nxyz,ncoor,nbars,xyz,coor,barsconn,allprojpoints,alltangents,alldist2,allelemids,curvemask) ! in :curveSearchAPI:curveSearchAPI.F90:curvesearchapi
+                use curveutils
+                integer(kind=inttype), optional,intent(in),check(shape(xyz,1)==nxyz),depend(xyz) :: nxyz=shape(xyz,1)
+                integer(kind=inttype), optional,intent(in),check(shape(coor,1)==ncoor),depend(coor) :: ncoor=shape(coor,1)
+                integer(kind=inttype), optional,intent(in),check(shape(barsconn,1)==nbars),depend(barsconn) :: nbars=shape(barsconn,1)
+                real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                integer(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
+                real(kind=realtype) dimension(3,nxyz),intent(inout),depend(nxyz) :: allprojpoints
+                real(kind=realtype) dimension(3,nxyz),intent(inout),depend(nxyz) :: alltangents
+                real(kind=realtype) dimension(nxyz),intent(inout),depend(nxyz) :: alldist2
+                integer(kind=inttype) dimension(nxyz),intent(inout),depend(nxyz) :: allelemids
+                integer(kind=inttype) dimension(nxyz),intent(out),depend(nxyz) :: curvemask
+            end subroutine mindistancecurve
+            subroutine mindistancecurve_d(nxyz,ncoor,nbars,xyz,xyzd,coor,coord,barsconn,allprojpoints,allprojpointsd,allelemids,curvemask) ! in :curveSearchAPI:curveSearchAPI.F90:curvesearchapi
+                use curveutils_d
+                integer(kind=inttype), optional,intent(in),check(shape(xyz,1)==nxyz),depend(xyz) :: nxyz=shape(xyz,1)
+                integer(kind=inttype), optional,intent(in),check(shape(coor,1)==ncoor),depend(coor) :: ncoor=shape(coor,1)
+                integer(kind=inttype), optional,intent(in),check(shape(barsconn,1)==nbars),depend(barsconn) :: nbars=shape(barsconn,1)
+                real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
+                real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: xyzd
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,ncoor),intent(in),depend(ncoor) :: coord
+                integer(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
+                real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: allprojpoints
+                real(kind=realtype) dimension(3,nxyz),intent(inout),depend(nxyz) :: allprojpointsd
+                integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: allelemids
+                integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: curvemask
+            end subroutine mindistancecurve_d
+            subroutine mindistancecurve_b(nxyz,ncoor,nbars,xyz,xyzb,coor,coorb,barsconn,allprojpoints,allprojpointsb,allelemids,curvemask) ! in :curveSearchAPI:curveSearchAPI.F90:curvesearchapi
+                use curveutils_b
+                integer(kind=inttype), optional,intent(in),check(shape(xyz,1)==nxyz),depend(xyz) :: nxyz=shape(xyz,1)
+                integer(kind=inttype), optional,intent(in),check(shape(coor,1)==ncoor),depend(coor) :: ncoor=shape(coor,1)
+                integer(kind=inttype), optional,intent(in),check(shape(barsconn,1)==nbars),depend(barsconn) :: nbars=shape(barsconn,1)
+                real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
+                real(kind=realtype) dimension(3,nxyz),intent(inout),depend(nxyz) :: xyzb
+                real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
+                real(kind=realtype) dimension(3,ncoor),intent(inout),depend(ncoor) :: coorb
+                integer(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
+                real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: allprojpoints
+                real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: allprojpointsb
+                integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: allelemids
+                integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: curvemask
+            end subroutine mindistancecurve_b
+        end module curvesearchapi
+    end interface 
+end python module curveSearchAPI
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
