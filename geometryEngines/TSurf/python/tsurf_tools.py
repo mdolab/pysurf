@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI, curveSearch
+import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI
 from mpi4py import MPI
 import tsurf_component
 
@@ -1474,6 +1474,171 @@ def detect_feature(node1, node2, element1, element2,
         print 'ERROR: Feature',feature,'cannot be detected as it is not an option.'
         quit()
 
+
+
+#===================================
+# CURVE MESHING FUNCTIONS
+#===================================
+
+# Define hyperbolic tangent generator
+def hypTanDist(Sp1,Sp2,N):
+
+    # This is the hyperbolic tangential spacing developed by ICEMCFD
+    # I got the equations from the ICEM manual
+    # This bunching law is coarser at the middle an finer at the ends
+    # of the interval, just like shown below:
+    # || |   |    |    |   |  | ||
+
+    # Sp1: initial spacing (within the [0,1] interval)
+    # Sp2: final spacing (within the [0,1] interval)
+    # N: number of nodes
+    #
+    # Ney Secco 2016-11
+
+    # IMPORTS
+    from numpy import arange, sqrt, sinh, tanh
+    from scipy.optimize import broyden1
+
+    # Check existence of result
+    if (N-1)*sqrt(Sp1*Sp2) < 1:
+        print 'Hyperbolic distribution not possible'
+        #exit()
+
+    # First find b
+    def findRootb(b):
+        return sinh(b) - b/(N-1)/sqrt(Sp1*Sp2)
+    b = broyden1(findRootb, 20, f_tol=1e-10)
+
+    # Compute parameter A
+    A = sqrt(Sp1/Sp2)
+
+    # Create nodes indices
+    index = arange(N)+1
+
+    # Compute parameter R
+    R = (index-1)/(N-1)-1/2
+
+    # Compute parameter U
+    U = 1 + tanh(b*R)/tanh(b/2)
+
+    # Compute spacings
+    S = U/(2*A + (1-A)*U)
+
+    # Return spacings
+    return S
+
+####################################################
+####################################################
+####################################################
+
+# Define tangent generator
+def tanDist(Sp1,Sp2,N):
+
+    # This is the tangential spacing developed by Ney Secco
+    # This bunching law is coarses at the ends an finer at the middle
+    # of the interval, just like shown below:
+    # |    |   |  | || |  |   |    |
+
+    # Sp1: initial spacing (within the [0,1] interval)
+    # Sp2: final spacing (within the [0,1] interval)
+    # N: number of nodes
+    #
+    # Ney Secco 2016-11
+    
+    # IMPORTS
+    from numpy import tan, arange, pi
+    from scipy.optimize import minimize
+    
+    # Convert number of nodes to number of cells
+    N = N-1
+
+    # Define objective function
+    def func(P):
+        # Split variables
+        a = P[0]
+        e = P[1]
+        c = P[2]
+        # Find b
+        b = e - c
+        # Equations
+        Eq1 = a*(tan(b+c) - tan(c)) - 1
+        Eq2 = a*(tan(b/N+c) - tan(c)) - Sp1
+        Eq3 = a*(tan(b+c) - tan(b*(1-1/N)+c)) - Sp2
+        # Cost function
+        J = Eq1**2 + Eq2**2 + Eq3**2
+        # Return
+        return J
+
+    # Define bounds for the problem
+    a_bounds = [(0, None)]
+    e_bounds = [(0, pi/2)]
+    c_bounds = [(-pi/2 , 0)]
+    bounds = a_bounds + e_bounds + c_bounds
+
+    # Define initial guess
+    a_start = 1.0
+    e_start = pi/4
+    c_start = -pi/4
+    x_start = [a_start, e_start, c_start]
+
+    # Optimize
+    res = minimize(func, x_start, method='SLSQP', bounds=bounds, \
+                   options={'maxiter':1000,'disp':False,'ftol':1e-12})
+
+    # Split variables
+    a = res.x[0]
+    e = res.x[1]
+    c = res.x[2]
+
+    # Find other parameters
+    b = e - c
+    d = -a*tan(c)
+
+    # Generate spacing
+    index = arange(N+1)
+    S = a*tan(b*index/N+c)+d
+        
+    # Return spacing
+    return S
+
+####################################################
+####################################################
+####################################################
+
+# Define cubic generator
+def cubicDist(Sp1,Sp2,N):
+
+    # Sp1: initial spacing (within the [0,1] interval)
+    # Sp2: final spacing (within the [0,1] interval)
+    # N: number of nodes
+    #
+    # Ney Secco 2016-11
+    
+    # IMPORTS
+    from numpy import array, arange
+    from numpy.linalg import inv
+    
+    # Convert number of nodes to number of cells
+    N = N-1
+
+    # Assemble linear system matrix
+    A = array([[1, 1, 1],
+               [(1/N)**3, (1/N)**2, (1/N)],
+               [(1-1/N)**3, (1-1/N)**2, (1-1/N)]])
+    b = array([1, Sp1, 1-Sp2])
+
+    # Solve the linear system
+    x = inv(A).dot(b)
+    a = x[0]
+    b = x[1]
+    c = x[2]
+
+    # Generate spacing
+    index = arange(N+1)/N
+    S = a*index**3 + b*index**2 + c*index
+        
+    # Return spacing
+    return S
 
 
 #============================================================

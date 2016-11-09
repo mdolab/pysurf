@@ -4,7 +4,7 @@ import sys
 
 modules = ['cgnsAPI',
            'adtAPI',
-           'curveSearch',
+           'curveSearchAPI',
            'intersectionAPI',
            'utilitiesAPI']
 

@@ -757,6 +757,8 @@
           ! keep ADT independent of other pySurf modules.
           !
           ! Ney Secco 2016-10
+
+          implicit none
           
           ! DECLARATIONS
 

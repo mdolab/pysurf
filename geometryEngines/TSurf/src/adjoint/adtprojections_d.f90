@@ -1160,12 +1160,6 @@ newtonquads:DO ll=1,itermax
 !===============================================================
   SUBROUTINE DOTPROD_D(a, ad, b, bd, c, cd)
     IMPLICIT NONE
-! This subroutine simply computes a dot product c = a.dot.b
-! This function is redundant with the one defined in
-! Utilities.F90, but I decided to do it in order to
-! keep ADT independent of other pySurf modules.
-!
-! Ney Secco 2016-10
 ! DECLARATIONS
 ! Input variables
     REAL(kind=realtype), DIMENSION(:), INTENT(IN) :: a, b
@@ -1187,12 +1181,6 @@ newtonquads:DO ll=1,itermax
 !===============================================================
   SUBROUTINE DOTPROD(a, b, c)
     IMPLICIT NONE
-! This subroutine simply computes a dot product c = a.dot.b
-! This function is redundant with the one defined in
-! Utilities.F90, but I decided to do it in order to
-! keep ADT independent of other pySurf modules.
-!
-! Ney Secco 2016-10
 ! DECLARATIONS
 ! Input variables
     REAL(kind=realtype), DIMENSION(:), INTENT(IN) :: a, b

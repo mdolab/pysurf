@@ -4,7 +4,7 @@ import numpy as np
 from mpi4py import MPI
 from ...baseClasses import Geometry, Curve
 from ....utilities import plot3d_interface
-import utilitiesAPI, curveSearch
+import utilitiesAPI, curveSearchAPI
 import tsurf_tools as tst
 import adtAPI
 import copy
@@ -382,6 +382,7 @@ class TSurfGeometry(Geometry):
         dist2 = np.ones(numPts)*1e10
         xyzProj = np.zeros((numPts,3))
         tanProj = np.zeros((numPts,3))
+        elemIDs = np.zeros((numPts),dtype='int32')
 
         # Check if the candidates are actually defined
         curveKeys = self.curves.keys()
@@ -391,14 +392,124 @@ class TSurfGeometry(Geometry):
                 print '       Also check if you included this curve name when selecting CGNS sections.'
                 quit()
 
+        # Initialize list that will contain the names of the curves that got the best projections for
+        # each point
+        curveIDs = [0]*numPts
+
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
         for curveName in self.curves:
             if curveName in curveCandidates:
-                self.curves[curveName].project(xyz, dist2, xyzProj, tanProj)
+
+                # Run projection code
+                curveMask = self.curves[curveName].project(xyz, dist2, xyzProj, tanProj, elemIDs)
+
+                # Use curveMask to update names of curves that got best projections
+                for ii in range(numPts):
+                    if curveMask[ii] == 1:
+                        curveIDs[ii] = curveName
+
+        # Create dictionary with useful outputs for differentiated codes
+        curveProjDict = {}
+        curveProjDict['elemIDs'] = elemIDs
+        curveProjDict['curveIDs'] = curveIDs
+        curveProjDict['curveCandidates'] = curveCandidates
 
         # Return projections
-        return xyzProj, tanProj
+        return xyzProj, tanProj, curveProjDict
+
+    def project_on_curve_d(self, xyz, xyzd, allCoord, xyzProj, curveProjDict):
+
+        '''
+        This function will compute projections and surface Normals
+
+        INPUTS:
+        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+
+        OUTPUTS:
+        xyzProj -> float[numPts,3] : Coordinates of the projected points
+
+        tanProj -> float[numPts,3] : Curve tangent at projected points
+
+        Ney Secco 2016-11
+        '''
+
+        # Retrieve data from dictionary
+        elemIDs = curveProjDict['elemIDs']
+        curveIDs = curveProjDict['curveIDs']
+        curveCandidates = curveProjDict['curveCandidates']
+
+        # Get number of points
+        numPts = xyz.shape[0]
+
+        # Initialize derivatives
+        xyzProjd = np.zeros((numPts,3))
+
+        # Call inverse_evaluate for each component in the list, so that we can update
+        # dist2, xyzProj, and normProj
+        for curveName in self.curves:
+            if curveName in curveCandidates:
+
+                # Identify points that are projected to the current curve to create a mask
+                curveMask = [0]*numPts
+                for ii in range(numPts):
+                    if curveIDs[ii] == curveName:
+                        curveMask[ii] = 1
+
+                # Get derivative seeds for the nodal points of the current curve
+                coord = allCoord[curveName]
+
+                # Run projection code in forward mode
+                self.curves[curveName].project_d(xyz, xyzd, coord, xyzProj, xyzProjd, elemIDs, curveMask)
+
+        # Return projections derivatives
+        return xyzProjd
+
+    def project_on_curve_b(self, xyz, xyzProj, xyzProjb, curveProjDict):
+
+        '''
+        This function will backpropagate projections derivatives back
+        to curve nodes and unprojected points.
+
+        Ney Secco 2016-11
+        '''
+
+        # Retrieve data from dictionary
+        elemIDs = curveProjDict['elemIDs']
+        curveIDs = curveProjDict['curveIDs']
+        curveCandidates = curveProjDict['curveCandidates']
+
+        # Get number of points
+        numPts = xyz.shape[0]
+
+        # Initialize derivatives
+        xyzb = np.zeros((numPts,3))
+        allCoorb = {}
+
+        # Call inverse_evaluate for each component in the list, so that we can update
+        # dist2, xyzProj, and normProj
+        for curveName in self.curves:
+
+            # Initialize derivatives
+            coorb = np.zeros(self.curves[curveName].coor.shape, order='F')
+
+            if curveName in curveCandidates:
+
+                # Identify points that are projected to the current curve to create a mask
+                curveMask = [0]*numPts
+                for ii in range(numPts):
+                    if curveIDs[ii] == curveName:
+                        curveMask[ii] = 1
+
+                # Run projection code in reverse mode
+                # This will modify xyzb and coorb
+                self.curves[curveName].project_b(xyz, xyzb, coorb, xyzProj, xyzProjb, elemIDs, curveMask)
+
+            # Store curve node derivatives in the corresponding dictionary
+            allCoorb[curveName] = coorb
+
+        # Return backpropagated derivatives
+        return xyzb, allCoorb
 
     def extract_curves(self, feature='sharpness'):
         '''
@@ -595,8 +706,10 @@ class TSurfCurve(Curve):
     def rotate(self, angle, axis):
         tst.rotate(self, angle, axis)
 
+    def update(self, coor):
+        self.coor = coor
 
-    def project(self, xyz, dist2=None, xyzProj=None, tangents=None):
+    def project(self, xyz, dist2=None, xyzProj=None, tangents=None, elemIDs=None):
 
         '''
         This function will take the points given in xyz and project them to the surface.
@@ -610,14 +723,18 @@ class TSurfCurve(Curve):
                                   If you don't have previous values to dist2, just initialize all elements to
                                   a huge number (1e10).
 
-        xyzProj -> float[nPoints,3] : coordinates of projected points found so far. These projections could be on other curves as well. This function will only replace projections whose dist2 are smaller
+        xyzProj -> float[nPoints,3] : coordinates of projected points found so far. These projections could be on other
+                                      curves as well. This function will only replace projections whose dist2 are smaller
                                       than previous dist2. This allows us to use the same array while working with multiple curves.
                                       If you don't have previous values, just initialize all elements to zero. Also
                                       remember to set dist2 to a huge number so that all values are replaced.
 
         tangents -> float[nPoints,3] : tangent directions for the curve at the projected points.
 
-        This function has no explicit outputs. It will just update dist2, xyzProj, and tangents
+        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
+                                  the execution of the primal routine.
+
+        This function has no explicit outputs. It will just update dist2, xyzProj, tangents, and elemIDs
         '''
 
         # Get number of points
@@ -633,10 +750,109 @@ class TSurfCurve(Curve):
         if tangents is None:
             tangents = np.zeros((nPoints,3))
 
-        # Call fortran code
-        curveSearch.curveproj.mindistancecurve(xyz.T, self.coor, self.barsConn, xyzProj.T, tangents.T, dist2)
+        if elemIDs is None:
+            elemIDs = np.zeros((nPoints),dtype='int32')
 
-    def remesh(self, nNewNodes=None, method='linear', spacing='linear'):
+        # Call fortran code
+        curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(xyz.T, self.coor, self.barsConn,
+                                                                   xyzProj.T, tangents.T, dist2, elemIDs)
+
+        # curveMask is an array of length nPoints. If point ii finds a better projection on this curve, then curveMask[ii]=1.
+        # Otherwise, curveMask[ii]=0
+
+        return curveMask
+
+
+    def project_d(self, xyz, xyzd, coord, xyzProj, xyzProjd, elemIDs, curveMask):
+
+        '''
+        This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
+
+        INPUTS:
+        xyz -> float[nPoints,3] : coordinates of the points that should be projected.
+
+        xyzd -> float[nPoints,3] : derivatives seeds of the coordinates.
+
+        coord -> float[nNodes, 3] : derivative seeds of the nodes that constitutes the bar elements.
+
+        xyzProj -> float[nPoints,3] : coordinates of projected points found with the primal routine.
+
+        xyzProjd -> float[nPoints,3] : Derivative seeds of the projected points.
+
+        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
+                                  the execution of the primal routine.
+
+        curveMask -> int[nPoints] : curveMask[ii] should be 1 if the ii-th point was actually projected onto
+                                    this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
+                                    derivatives for this point.
+
+        OUTPUTS:
+
+        This function has no explicit outputs. It will just update xyzProjd.
+
+        Ney Secco 2016-11
+        '''
+
+        # Get number of points
+        nPoints = xyz.shape[0]
+
+        if self.coor.shape != coord.shape:
+            print 'ERROR: Derivative seeds should have the same dimension of the original'
+            print 'variable. The number of derivatives for the bar element nodes does not match'
+            print 'with the number of nodes.'
+
+        # Call fortran code
+        curveSearchAPI.curvesearchapi.mindistancecurve_d(xyz.T, xyzd.T,
+                                                         self.coor, coord,
+                                                         self.barsConn,
+                                                         xyzProj.T, xyzProjd.T, elemIDs, curveMask)
+
+    def project_b(self, xyz, xyzb, coorb, xyzProj, xyzProjb, elemIDs, curveMask):
+
+        '''
+        This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
+
+        INPUTS:
+        xyz -> float[nPoints,3] : coordinates of the points that should be projected.
+
+        xyzb -> float[nPoints,3] : derivatives seeds of the coordinates.
+
+        coorb -> float[nNodes, 3] : derivative seeds of the nodes that constitutes the bar elements.
+
+        xyzProj -> float[nPoints,3] : coordinates of projected points found with the primal routine.
+
+        xyzProjb -> float[nPoints,3] : Derivative seeds of the projected points.
+
+        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
+                                  the execution of the primal routine.
+
+        curveMask -> int[nPoints] : curveMask[ii] should be 1 if the ii-th point was actually projected onto
+                                    this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
+                                    derivatives for this point.
+
+        OUTPUTS:
+
+        This function has no explicit outputs. It will just update xyzb and coorb.
+
+        Ney Secco 2016-11
+        '''
+
+        # Get number of points
+        nPoints = xyz.shape[0]
+
+        if xyzProj.shape != xyzProjb.shape:
+            print 'ERROR: Derivative seeds should have the same dimension of the original'
+            print 'variable. The number of derivatives for the projected points does not match'
+            print 'with the number of points.'
+
+        # Call fortran code
+        curveSearchAPI.curvesearchapi.mindistancecurve_b(xyz.T, xyzb.T,
+                                                         self.coor, coorb,
+                                                         self.barsConn,
+                                                         xyzProj.T, xyzProjb.T, elemIDs, curveMask)
+
+    def remesh(self, nNewNodes=None, method='linear', spacing='linear',
+               initialSpacing=0.1, finalSpacing=0.1):
 
         '''
         This function will redistribute the nodes along the curve to get
@@ -656,7 +872,12 @@ class TSurfCurve(Curve):
                 existing ones. Check scipy.interpolate.interp1d for options.
 
         spacing: string -> Desired spacing criteria for new nodes. Current options are:
-                 ['linear']
+                 ['linear', 'cosine']
+
+        initialSpacing: float -> Desired distance between the first and second nodes. Only
+                                 used by 'hypTan' and 'Tangent'.
+        finalSpacing: float -> Desired distance between the last two nodes. Only
+                               used by 'hypTan' and 'Tangent'.
 
         OUTPUTS:
         This method has no explicit outputs. It will update self.coor and self.barsConn instead.
@@ -743,11 +964,17 @@ class TSurfCurve(Curve):
             # parametric coordinates based on the used defined spacing criteria.
             # These statements should initially create parametric coordinates in the interval
             # [0.0, 1.0]. We will rescale it after the if statements.
-            if spacing == 'linear':
+            if spacing.lower() == 'linear':
                 newArcLength = np.linspace(0.0, 1.0, nNewNodes)
 
-            elif spacing == 'cosine':
+            elif spacing.lower() == 'cosine':
                 newArcLength = 0.5*(1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
+
+            elif spacing.lower() == 'hypTan':
+                newArcLength = tst.hypTanDist(initialSpacing, finalSpacing, nNewNodes)
+
+            elif spacing.lower() == 'tangent':
+                newArcLength = tst.tanDist(initialSpacing, finalSpacing, nNewNodes)
 
             # Rescale newArcLength based on the final distance
             newArcLength = arcLength[-1]*newArcLength
