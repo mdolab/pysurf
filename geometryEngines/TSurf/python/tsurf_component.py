@@ -254,7 +254,7 @@ class TSurfGeometry(Geometry):
         xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(xyz.T, xyzd.T, self.name, coord,
                                                                           procID, elementType,
                                                                           elementID, uvw,
-                                                                          dist2, xyzProj.T, self.nodal_normals, 
+                                                                          dist2, xyzProj.T, self.nodal_normals,
                                                                           nodal_normalsd, normProjNotNorm.T)
 
         # Transpose results to make them consistent
@@ -872,12 +872,12 @@ class TSurfCurve(Curve):
                 existing ones. Check scipy.interpolate.interp1d for options.
 
         spacing: string -> Desired spacing criteria for new nodes. Current options are:
-                 ['linear', 'cosine']
+                 ['linear', 'cosine', 'hypTan', 'tangent']
 
         initialSpacing: float -> Desired distance between the first and second nodes. Only
-                                 used by 'hypTan' and 'Tangent'.
+                                 used by 'hypTan' and 'tangent'.
         finalSpacing: float -> Desired distance between the last two nodes. Only
-                               used by 'hypTan' and 'Tangent'.
+                               used by 'hypTan' and 'tangent'.
 
         OUTPUTS:
         This method has no explicit outputs. It will update self.coor and self.barsConn instead.

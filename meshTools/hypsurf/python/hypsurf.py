@@ -11,8 +11,8 @@ import numpy as np
 import pdb
 import hypsurfAPI
 
-fortran_flag = True
-deriv_check = True
+fortran_flag = False
+deriv_check = False
 
 '''
 TO DO
@@ -75,6 +75,14 @@ class HypSurfMesh(object):
         # Get the number of nodes
         self.numNodes = self.curve.shape[0]
         self.mesh = np.zeros((3, self.numNodes, self.optionsDict['numLayers']))
+
+        guideIndices = []
+        if self.optionsDict['guideCurves']:
+            for curve in self.optionsDict['guideCurves']:
+                guideCurve = ref_geom.curves[curve].extract_points()
+                guideIndices.append(closest_node(guideCurve, self.curve))
+
+        self.guideIndices = guideIndices
 
     def createMesh(self):
         '''
@@ -306,7 +314,7 @@ class HypSurfMesh(object):
         Y = R[:,1::3]
         Z = R[:,2::3]
 
-        self.mesh = np.zeros((3, self.numNodes, numLayers))
+        self.mesh = np.zeros((3, self.numNodes, X.T.shape[1]))
         self.mesh[0, :, :] = X.T
         self.mesh[1, :, :] = Y.T
         self.mesh[2, :, :] = Z.T
@@ -384,12 +392,20 @@ class HypSurfMesh(object):
 
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):
-            rNext[:3], NNextAux = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
+            rNext[:3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
             NNext[:, 0] = NNextAux.T[:, 0]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            rNext[-3:], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
             NNext[:, -1] = NNextAux.T[:, 0]
+
+        if self.guideIndices:
+            for i, index in enumerate(self.guideIndices):
+                curve = self.optionsDict['guideCurves'][i]
+                node = rNext[3*index:3*index+3]
+                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)), curveCandidates=[curve])
+                NNext[:, index] = NNextAux.T[:, 0]
+
 
         return rNext, NNext
 
@@ -476,6 +492,10 @@ class HypSurfMesh(object):
             S[0] = d
         if self.optionsDict['bc2'].lower().startswith('curve'):
             S[-1] = d
+        # Set guideCurve marching distances
+        if self.guideIndices:
+            for index in self.guideIndices:
+                S[index] = d
 
         # RETURNS
         return S, maxStretch
@@ -733,8 +753,23 @@ class HypSurfMesh(object):
                 matrixBuilder(index)
 
         for index in xrange(1,self.numNodes-1):
-            # Call assembly routine
-            matrixBuilder(index)
+
+            # Set guideCurve matrix contributions
+            if self.guideIndices:
+                if index in self.guideIndices:
+                    # Populate matrix
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)/2
+                    K[3*index:3*index+3,3*index-3:3*index-3+3] = np.eye(3)/4
+                    K[3*index:3*index+3,3*index+3:3*index+3+3] = np.eye(3)/4
+
+                    f[3*index:3*index+3] = S0[index] * N0[:,index]
+
+                else:
+                    # Call assembly routine
+                    matrixBuilder(index)
+            else:
+                # Call assembly routine
+                matrixBuilder(index)
 
         for index in [self.numNodes-1]:
 
@@ -1032,19 +1067,20 @@ class HypSurfMesh(object):
             'ratioGuess' : 20,
             'plotQuality' : False,
             'growthRatio' : 1.2,
+            'guideCurves' : []
             }
 
     def _applyUserOptions(self, options):
         # Override default options with user options
-        for userKeys in options.keys():
+        for userKey in options.keys():
             unusedOption = True
-            for defaultKeys in self.optionsDict.keys():
-                if userKeys.lower() == defaultKeys.lower():
+            for defaultKey in self.optionsDict.keys():
+                if userKey.lower() == defaultKey.lower():
                     unusedOption = False
-                    self.optionsDict[defaultKeys] = options[userKeys]
+                    self.optionsDict[defaultKey] = options[userKey]
                     break
             if unusedOption:
-                message = "{} key not in default options dictionary.".format(userKeys)
+                message = "{} key not in default options dictionary.".format(userKey)
                 warn(message)
 
 
@@ -1216,7 +1252,6 @@ def plotGrid(X,Y,Z,show=False):
     ax.set_axis_off()
 
     if show:
-        # Show
         plt.show()
 
     # Return the figure handle
@@ -1246,3 +1281,15 @@ def view_mat(mat):
     im = plt.imshow(mat, interpolation='none')
     plt.colorbar(im, orientation='horizontal')
     plt.show()
+
+def closest_node(guideCurve, curve):
+    """ Find closest node from a list of node coordinates. """
+    minDist = 1e9
+    for node in guideCurve:
+        curve = np.asarray(curve)
+        deltas = curve - node
+        dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+        if minDist > np.min(dist_2):
+            minDist = np.min(dist_2)
+            ind = np.argmin(dist_2)
+    return ind

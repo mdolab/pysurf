@@ -1,5 +1,5 @@
 #!MC 1410
-$!VarSet |MFBD| = '/home/ney/hg/pysurf/test/crm'
+$!VarSet |MFBD| = '/home/john/hg/pysurf/test/crm'
 $!PICK SETMOUSEMODE
   MOUSEMODE = SELECT
 $!PAGE NAME = 'Untitled'
@@ -11,6 +11,6 @@ $!PRINTSETUP PALETTE = COLOR
 $!EXPORTSETUP IMAGEWIDTH = 1500
 $!EXPORTSETUP USESUPERSAMPLEANTIALIASING = YES
 $!EXPORTSETUP EXPORTFNAME = './images/image.png'
-$!EXPORT 
+$!EXPORT
   EXPORTREGION = CURRENTFRAME
 $!RemoveVar |MFBD|
