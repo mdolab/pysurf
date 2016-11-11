@@ -6,12 +6,12 @@
 #     * Starting date: 09-26-16                                        *
 #     * Last modified: 09-26-16                                        *
 #     *                                                                *
-#     * This makefile is used to create automatically differentated    *
-#     * residual code that can be used to constuct the aerodynamic     *
+#     * This makefile is used to create automatically differentiated   *
+#     * residual code that can be used to construct the aerodynamic    *
 #     * jacobian. There are three main commands:                       *
 #     *                                                                *
 #     * ad_forward: Run in forward mode. Preprocessed output is in     *
-#     *             'forward' directory                                 *
+#     *             'forward' directory                                *
 #     *                                                                *
 #     * ad_reverse: Run in reverse mode. Preprocessed output is in the *
 #     *             'reverse' directory                                *

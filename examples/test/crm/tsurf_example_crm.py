@@ -13,7 +13,7 @@ import copy
 # USER INPUTS
 
 # Define translation cases for the wing
-nStates = 11
+nStates = 1
 
 wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
@@ -27,11 +27,12 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve'])
+wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve','w_le_curve'])
 body = pysurf.TSurfGeometry('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 # Flip some curves
 wing.curves['te_upp_curve'].flip()
+
 
 # Define function to generate a wing body mesh for a given wing position and angle
 
@@ -64,6 +65,10 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
             'ratioGuess' : ratioGuess,
 
         }
+
+        # Set guideCurves for the wing case
+        if output_name == 'wing.xyz':
+            options['guideCurves'] = ['w_le_curve']
 
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
@@ -111,6 +116,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         curve = 'intersection'
         bc1 = 'curve:te_low_curve'
         bc2 = 'curve:te_upp_curve'
+        # bc1 = 'continuous'
+        # bc2 = 'continuous'
 
         # Set parameters
         epsE0 = 9.5
@@ -166,10 +173,12 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
 
     # Run tecplot in bash mode to save picture
-    os.system('tec360 -b plotMesh.mcr')
+    # os.system('tec360 -b plotMesh.mcr')
+    
+    os.system('tec360 layout_mesh.lay')
 
     # Rename image file
-    os.system('mv images/image.png images/image%03d.png'%(meshIndex))
+    # os.system('mv images/image.png images/image%03d.png'%(meshIndex))
 
 
     # Revert transformations to the wing
