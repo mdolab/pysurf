@@ -279,24 +279,12 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
 
   ! ASSIGN NEW COORDINATES AND CONNECTIVITIES
 
-  ! Check if the baseline curve is periodic
-  if (barsConn(1, 1) .eq. barsConn(2, nNodes-1)) then
-    periodic = .true.
-  else
-    periodic = .false.
-  end if
-
   ! Generate new connectivity (the nodes are already in order so we just
   ! need to assign an ordered set to barsConn).
   do elemID=1,nNewNodes-1
     newBarsConn(1, elemID) = elemID
     newBarsConn(2, elemID) = elemID + 1
   end do
-
-  ! We still need to keep periodicity if the original curve is periodic
-  if (periodic) then
-    newBarsConn(2, nNewNodes-1) = newBarsConn(1, 1)
-  end if
 
 end subroutine
 

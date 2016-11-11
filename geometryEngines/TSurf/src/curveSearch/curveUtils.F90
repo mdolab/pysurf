@@ -53,4 +53,36 @@ contains
 
   end subroutine barProjection
 
+  subroutine computeTangent(x1,x2,tangent)
+
+    ! This subroutine computes a normalized vector pointing from x1 to x2
+    !
+    ! Ney Secco 2016-11
+
+    use Utilities
+    implicit none
+
+    ! DECLARATIONS
+
+    ! Input variables
+    real(kind=realType), dimension(3), intent(in) :: x1, x2
+
+    ! Output variables
+    real(kind=realType), dimension(3), intent(out) :: tangent
+
+    ! Working variables
+    real(kind=realType), dimension(3) :: x21
+    real(kind=realType) :: dotResult
+
+    ! EXECUTION
+
+    ! Get the relative vectors for the bar element
+    x21 = x2 - x1
+
+    ! Normalize vector (dot defined in Utilities.F90)
+    call dot(x21, x21, dotResult)
+    tangent = x21 / sqrt(dotResult)
+
+  end subroutine computeTangent
+
 end module curveUtils

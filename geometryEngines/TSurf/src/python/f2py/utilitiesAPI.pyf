@@ -1,12 +1,12 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module utilitiesAPI ! in
+python module utilitiesAPI ! in 
     interface  ! in :utilitiesAPI
         module utilitiesapi ! in :utilitiesAPI:utilitiesAPI.F90
             use utilities
             use precision
-            subroutine condensebarnodes(nnodes,nbars,disttol,coor,barsconn,nuniquenodes) ! in utilitiesAPI.F90:utilitiesapi
+            subroutine condensebarnodes(nnodes,nbars,disttol,coor,barsconn,nuniquenodes) ! in :utilitiesAPI:utilitiesAPI.F90:utilitiesapi
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
                 integer(kind=inttype), optional,intent(in),check(shape(barsconn,1)==nbars),depend(barsconn) :: nbars=shape(barsconn,1)
                 real(kind=realtype) intent(in) :: disttol
@@ -14,7 +14,7 @@ python module utilitiesAPI ! in
                 integer(kind=inttype) dimension(2,nbars),intent(inout) :: barsconn
                 integer(kind=inttype) intent(out) :: nuniquenodes
             end subroutine condensebarnodes
-            subroutine remesh(nnodes,nnewnodes,coor,barsconn,method,spacing,newcoor,newbarsconn) ! in utilitiesAPI.F90:utilitiesapi
+            subroutine remesh(nnodes,nnewnodes,coor,barsconn,method,spacing,newcoor,newbarsconn) ! in :utilitiesAPI:utilitiesAPI.F90:utilitiesapi
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
                 integer(kind=inttype) intent(in) :: nnewnodes
                 real(kind=realtype) dimension(3,nnodes),intent(in) :: coor
@@ -24,7 +24,7 @@ python module utilitiesAPI ! in
                 real(kind=realtype) dimension(3,nnewnodes),intent(out),depend(nnewnodes) :: newcoor
                 integer(kind=inttype) dimension(2,nnewnodes - 1),intent(out),depend(nnewnodes) :: newbarsconn
             end subroutine remesh
-            subroutine remesh_b(nnodes,nnewnodes,coor,newcoorb,barsconn,method,spacing,newcoor,newbarsconn,coorb) ! in utilitiesAPI.F90:utilitiesapi
+            subroutine remesh_b(nnodes,nnewnodes,coor,newcoorb,barsconn,method,spacing,newcoor,newbarsconn,coorb) ! in :utilitiesAPI:utilitiesAPI.F90:utilitiesapi
                 use utilities_b, only: remesh_main_b
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
                 integer(kind=inttype), optional,intent(in),check(shape(newcoorb,1)==nnewnodes),depend(newcoorb) :: nnewnodes=shape(newcoorb,1)
@@ -37,7 +37,7 @@ python module utilitiesAPI ! in
                 integer(kind=inttype) dimension(2,nnewnodes - 1),intent(out),depend(nnewnodes) :: newbarsconn
                 real(kind=realtype) dimension(3,nnodes),intent(out),depend(nnodes) :: coorb
             end subroutine remesh_b
-            subroutine remesh_d(nnodes,nnewnodes,coor,coord,barsconn,method,spacing,newcoor,newcoord,newbarsconn) ! in utilitiesAPI.F90:utilitiesapi
+            subroutine remesh_d(nnodes,nnewnodes,coor,coord,barsconn,method,spacing,newcoor,newcoord,newbarsconn) ! in :utilitiesAPI:utilitiesAPI.F90:utilitiesapi
                 use utilities_d, only: remesh_main_d
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
                 integer(kind=inttype) intent(in) :: nnewnodes
@@ -51,7 +51,7 @@ python module utilitiesAPI ! in
                 integer(kind=inttype) dimension(2,nnewnodes - 1),intent(out),depend(nnewnodes) :: newbarsconn
             end subroutine remesh_d
         end module utilitiesapi
-    end interface
+    end interface 
 end python module utilitiesAPI
 
 ! This file was auto-generated with f2py (version:2).

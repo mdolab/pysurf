@@ -358,7 +358,7 @@
 
         !=======================================================================
 
-        subroutine march_d(py_projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
+        subroutine march_d(py_projection, py_projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
         epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, R, Rd, fail, ratios, majorIndices)
 
@@ -366,6 +366,7 @@
         implicit none
 
         external py_projection
+        external py_projection_d
         real(kind=realType), intent(in) :: rStart(3*numNodes), rStartd(3*numNodes)
         real(kind=realType), intent(in) :: dStart, theta, sigmaSplay
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
@@ -399,7 +400,8 @@
         call py_projection(rStart, rNext, NNext, numNodes)
 
         ! Need py_projection_d here
-        rNextd = rStartd
+        call py_projection_d(rStart, rStartd, rNext, rNextd, NNext, NNextd, numNodes)
+        !rNextd = rStartd
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -490,11 +492,12 @@
             rSmoothedd = 0.
             call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
-            ! call py_projection(rSmoothed, rNext, NNext, numNodes)
-            rNext = rSmoothed
-            rNextd = rSmoothedd
-            NNext = N0
-            NNextd = N0d
+            call py_projection(rSmoothed, rNext, NNext, numNodes)
+            call py_projection_d(rSmoothed, rSmoothedd, rNext, rNextd, NNext, NNextd, numNodes)
+            !rNext = rSmoothed
+            !rNextd = rSmoothedd
+            !NNext = N0
+            !NNextd = N0d
 
             ! Update Sm1 (Store the previous area factors)
             Sm1d = S0d
@@ -615,77 +618,6 @@
             dVec(layerIndex+1) = d
             minorIndex = minorIndex + cFactor
           end do
-
-
-        !!! This part is no longer necessary as we save the information from the original forward call
-
-        !  ! initialize step size and total marched distance
-        !   d = dStart
-        !
-        ! ! we need a guess for the first-before-last curve in order to compute the grid distribution sensor
-        ! ! as we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-        !   rm1 = rNext
-        !   N0 = nNext
-        ! !===========================================================
-        ! ! some functions require the area factors of the first-before-last curve
-        ! ! we will repeat the first curve areas for simplicity.
-        ! ! rNext, nNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! ! but we still need to find Sm1
-        !   call areafactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes&
-        ! &             , Sm1, maxStretch)
-        !   do layerIndex=1,numLayers-1
-        ! ! get the coordinates computed by the previous iteration
-        !     r0 = rNext
-        ! ! compute the new area factor for the desired marching distance
-        !     ! call pushreal8array(S0, realtype*numNodes/8)
-        !
-        !
-        !     call areafactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, &
-        ! &               S0, maxStretch)
-        !     ! call pushinteger4array(cFactor, inttype/4)
-        !     cFactor = int(maxStretch/cMax) + 1
-        ! ! constrain the marching distance if the stretching ratio is too high
-        !     dPseudo = d/cFactor
-        ! ! subiteration
-        ! ! the number of subiterations is the one required to meet the desired marching distance
-        !     do indexSubIter=1,cFactor
-        ! ! recompute areas with the pseudo-step
-        !       ! call pushreal8array(S0, realtype*numNodes/8)
-        !       call areafactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, &
-        ! &                 numNodes, S0, maxStretch)
-        ! ! march using the pseudo-marching distance
-        !       eta = layerIndex + 2
-        ! ! generate matrices of the linear system
-        !       arg1 = layerIndex - 1
-        !
-        !       ! call pushreal8array(rNext, realtype*3*numNodes/8)
-        !
-        !
-        !       call computematrices_main(r0, N0, S0, rm1, Sm1, arg1, theta, &
-        ! &                           sigmaSplay, bc1, bc2, numLayers, epsE0, &
-        ! &                           rNext, numNodes)
-        ! ! smooth coordinates
-        !       call smoothing_main(rNext, eta, alphaP0, numSmoothingPasses, &
-        ! &                     numLayers, numNodes, rSmoothed)
-        ! ! placeholder for projection
-        !       ! call pushreal8array(rNext, realtype*3*numNodes/8)
-        !       rNext = rSmoothed
-        !       nNext = N0
-        !       ! call pushreal8array(Sm1, realtype*numNodes/8)
-        !       Sm1 = S0
-        !       ! call pushreal8array(rm1, realtype*3*numNodes/8)
-        !       rm1 = r0
-        !       ! call pushreal8array(r0, realtype*3*numNodes/8)
-        !       r0 = rNext
-        !       ! call pushreal8array(N0, realtype*3*numNodes/8)
-        !       N0 = nNext
-        !     end do
-        !     ! call pushinteger4(indexSubIter - 1)
-        ! ! store grid points
-        ! ! update step size
-        !     ! call pushreal8array(d, realtype/8)
-        !     d = d*dGrowth
-        !   end do
 
           ! Initialize the seeds as 0s
           db = 0.0_8

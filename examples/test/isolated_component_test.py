@@ -40,7 +40,7 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
     # Return results
     return xyzProj, xyzProjd, normProj, normProjd, xyzb, coorb
 
-def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, allCoor=None):
+def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=None):
 
     # Replace baseline coordinates if the user provided it
     if allCoor is not None:
@@ -51,20 +51,20 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, allCoor=None):
     xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
     
     # Call derivatives code in forward mode
-    xyzProjd = cube.project_on_curve_d(xyz, xyzd, allCoord, xyzProj, curveProjDict)
+    xyzProjd, tanProjd = cube.project_on_curve_d(xyz, xyzd, allCoord, xyzProj, tanProj, curveProjDict)
 
     # Call derivatives code in backward mode
-    xyzb, allCoorb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, curveProjDict)
+    xyzb, allCoorb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
 
     # Print results
     print
     print 'Original cube edge projection:'
     print xyzProj
-    print normProj
+    print tanProj
     print
 
     # Return results
-    return xyzProj, xyzProjd, tanProj, xyzb, allCoorb
+    return xyzProj, xyzProjd, tanProj, tanProjd, xyzb, allCoorb
 
 # BACK TO MAIN PROGRAM
 
@@ -89,6 +89,9 @@ xyzProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
 xyzProjb = xyzProjb/np.array([np.linalg.norm(xyzProjb,axis=1)]).T
 normProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
 normProjb = normProjb/np.array([np.linalg.norm(normProjb,axis=1)]).T
+
+tanProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
+tanProjb = tanProjb/np.array([np.linalg.norm(tanProjb,axis=1)]).T
 
 #############################
 # SURFACE PROJECTION
@@ -137,9 +140,9 @@ print dotProd
 #############################
 
 # Call projection function at the original point
-xyzProj0, xyzProjd_AD, tanProj, xyzb_AD, allCoorb_AD = computeCurveProjections(xyz,
-                                                                               xyzd, allCoord,
-                                                                               xyzProjb)
+xyzProj0, xyzProjd_AD, tanProj0, tanProjd_AD, xyzb_AD, allCoorb_AD = computeCurveProjections(xyz,
+                                                                                            xyzd, allCoord,
+                                                                                            xyzProjb, tanProjb)
 
 # Create coordinates of perturbed points
 allCoor = {}
@@ -148,12 +151,14 @@ for curveName in cube.curves:
     allCoor[curveName] = coor + allCoord[curveName]*stepSize
 
 # Call projection function at the perturbed point
-xyzProj, xyzProjd, tanProj, dummy, dummy2 = computeCurveProjections(xyz+stepSize*xyzd,
-                                                                    xyzd, allCoord,
-                                                                    xyzProjb, allCoor)
+xyzProj, dummy0, tanProj, dummy1, dummy2, dummy3 = computeCurveProjections(xyz+stepSize*xyzd,
+                                                                           xyzd, allCoord,
+                                                                           xyzProjb, tanProjb,
+                                                                           allCoor)
 
 # Compute directional derivatives with finite differencing
 xyzProjd_FD = (xyzProj - xyzProj0)/stepSize
+tanProjd_FD = (tanProj - tanProj0)/stepSize
 
 # Compute dot product test
 dotProd = 0.0
@@ -161,6 +166,7 @@ dotProd = dotProd + np.sum(xyzd*xyzb_AD)
 for curveName in cube.curves:
     dotProd = dotProd + np.sum(allCoord[curveName]*allCoorb_AD[curveName])
 dotProd = dotProd - np.sum(xyzProjd_AD*xyzProjb)
+dotProd = dotProd - np.sum(tanProjd_AD*tanProjb)
 
 # Compare directional derivatives
 print 'CURVE PROJECTION'
@@ -168,6 +174,10 @@ print ''
 print 'xyzProjd_AD'
 print xyzProjd_AD
 print 'xyzProjd_FD'
+print xyzProjd_FD
+print 'tanProjd_AD'
+print xyzProjd_AD
+print 'tanProjd_FD'
 print xyzProjd_FD
 
 # Dot product test

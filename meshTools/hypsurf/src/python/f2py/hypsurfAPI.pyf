@@ -19,6 +19,15 @@ python module march_d__user__routines
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(out) :: nnext
             integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
         end subroutine py_projection
+        subroutine py_projection_d(rstart,rstartd,rnext,rnextd,nnext,nnextd,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march_d:unknown_interface
+            real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
+            real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rstartd
+            real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(in) :: rnext
+            real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(out) :: rnextd
+            real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(in) :: nnext
+            real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(out) :: nnextd
+            integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
+        end subroutine py_projection_d
     end interface march_d_user_interface
 end python module march_d__user__routines
 python module march_b__user__routines 
@@ -66,10 +75,11 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
                 integer(kind=inttype) dimension(numlayers),intent(out),depend(numlayers) :: majorindices
             end subroutine march
-            subroutine march_d(py_projection,rstart,rstartd,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine march_d(py_projection,py_projection_d,rstart,rstartd,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march_d__user__routines
                 use hypsurfmain_d, only: computematrices_main_d,areafactor_d,findratio_d,findradius_d,smoothing_main_d
                 external py_projection
+                external py_projection_d
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
                 real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rstartd
                 real(kind=realtype) intent(in) :: dstart
