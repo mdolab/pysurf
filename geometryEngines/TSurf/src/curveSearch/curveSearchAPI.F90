@@ -56,7 +56,7 @@ contains
     real(kind=realType) :: x(3), x21(3), vec(3)
     real(kind=realType) :: x1(3), x2(3), p1(3), u, mag2
     real(kind=realType) :: xf(3), dist2, newDist2, projPoint(3)
-    real(kind=realType) :: nodalTangents(3)
+    real(kind=realType) :: tangent(3)
     integer(kind=intType) :: i, j, jj
 
     !===============================================================
@@ -109,14 +109,12 @@ contains
           ! Compute tangent direction of the best bar element
           x1 = coor(:, barsConn(1, jj))
           x2 = coor(:, barsConn(2, jj))
-          ! Get the relative vectors for the bar element normalize
-          x21 = x2 - x1
-          nodalTangents = x21 / norm2(x21)
+          call computeTangent(x1, x2, tangent)
 
           ! Store the saved projected point in the full array
           allDist2(i) = dist2
           allProjPoints(:, i) = projPoint
-          allTangents(:, i) = nodalTangents
+          allTangents(:, i) = tangent
           allElemIDs(i) = jj
           curveMask(i) = 1
 
@@ -132,7 +130,9 @@ contains
 
   subroutine minDistanceCurve_d(nxyz, nCoor, nBars, &
                                 xyz, xyzd, coor, coord, barsConn, &
-                                allProjPoints, allProjPointsd, allElemIDs, curveMask)
+                                allProjPoints, allProjPointsd, &
+                                allTangents, allTangentsd, &
+                                allElemIDs, curveMask)
     
     ! This is the interface to the forward mode AD.
     ! The user should run the primal function first in order to obtain the correct values for
@@ -144,8 +144,8 @@ contains
     implicit none
 
     !f2py intent(in) nxyz, nCoor, nBars, xyz, xyzd, coor, coord, barsConn
-    !f2py intent(in) allProjPoints, allElemIDs, curveMask
-    !f2py intent(inout) allProjPointsd
+    !f2py intent(in) allProjPoints, allTangents, allElemIDs, curveMask
+    !f2py intent(inout) allProjPointsd, allTangentsd
 
     !
     !       Subroutine arguments.
@@ -158,15 +158,17 @@ contains
     real(kind=realType), dimension(3,nCoor), intent(in) :: coord
     integer(kind=intType), dimension(2,nBars), intent(in) :: barsConn
     real(kind=realType), dimension(3,nxyz), intent(in) :: allProjPoints
+    real(kind=realType), dimension(3,nxyz), intent(in) :: allTangents
     integer(kind=intType), dimension(nxyz), intent(in) :: allElemIDs
     integer(kind=intType), dimension(nxyz), intent(in) :: curveMask
 
     ! Input/Output
     real(kind=realType), dimension(3,nxyz), intent(inout) :: allProjPointsd
+    real(kind=realType), dimension(3,nxyz), intent(inout) :: allTangentsd
 
     ! Working
-    real(kind=realType) :: x(3), xf(3), x1(3), x2(3)
-    real(kind=realType) :: xd(3), xfd(3), x1d(3), x2d(3)
+    real(kind=realType) :: x(3), xf(3), x1(3), x2(3), tangent(3)
+    real(kind=realType) :: xd(3), xfd(3), x1d(3), x2d(3), tangentd(3)
     real(kind=realType) :: u
 
     integer(kind=intType) :: i, barID, node1, node2
@@ -182,6 +184,7 @@ contains
           ! Recover data from the primal run
           x = xyz(:, i)
           xf = allProjPoints(:, i)
+          tangent = allTangents(:, i)
           barID = allElemIDs(i)
           
           ! Get information of the bar element that has the projection
@@ -195,11 +198,15 @@ contains
           x1d = coord(:, node1)
           x2d = coord(:, node2)
           
-          ! Call projection function
+          ! Compute projection derivatives
           call barProjection_d(x1,x1d,x2,x2d,x,xd,xf,xfd,u)
           
+          ! Compute tangent derivatives
+          call computeTangent_d(x1, x1d, x2, x2d, tangent, tangentd)
+
           ! Store derivatives in the full array
           allProjPointsd(:, i) = xfd
+          allTangentsd(:, i) = tangentd
 
        end if
 
@@ -213,7 +220,9 @@ contains
 
   subroutine minDistanceCurve_b(nxyz, nCoor, nBars, &
                                 xyz, xyzb, coor, coorb, barsConn, &
-                                allProjPoints, allProjPointsb, allElemIDs, curveMask)
+                                allProjPoints, allProjPointsb, &
+                                allTangents, allTangentsb, &
+                                allElemIDs, curveMask)
     
     ! This is the interface to the reverse mode AD.
     ! The user should run the primal function first in order to obtain the correct values for
@@ -225,7 +234,7 @@ contains
     implicit none
 
     !f2py intent(in) nxyz, nCoor, nBars, xyz, coor, barsConn
-    !f2py intent(in) allProjPoints, allElemIDs, curveMask, allProjPointsb
+    !f2py intent(in) allProjPoints, allProjPointsb, allTangents, allTangentsb, allElemIDs, curveMask
     !f2py intent(inout) xyzb, coorb
 
     !
@@ -238,6 +247,8 @@ contains
     integer(kind=intType), dimension(2,nBars), intent(in) :: barsConn
     real(kind=realType), dimension(3,nxyz), intent(in) :: allProjPoints
     real(kind=realType), dimension(3,nxyz), intent(in) :: allProjPointsb
+    real(kind=realType), dimension(3,nxyz), intent(in) :: allTangents
+    real(kind=realType), dimension(3,nxyz), intent(in) :: allTangentsb
     integer(kind=intType), dimension(nxyz), intent(in) :: allElemIDs
     integer(kind=intType), dimension(nxyz), intent(in) :: curveMask
 
@@ -246,8 +257,9 @@ contains
     real(kind=realType), dimension(3,nCoor), intent(inout) :: coorb
 
     ! Working
-    real(kind=realType) :: x(3), xf(3), x1(3), x2(3)
-    real(kind=realType) :: xb(3), xfb(3), x1b(3), x2b(3)
+    real(kind=realType) :: x(3), xf(3), x1(3), x2(3), tangent(3)
+    real(kind=realType) :: xb(3), xfb(3), x1b(3), x2b(3), tangentb(3)
+    real(kind=realType) :: x1b_tang(3), x2b_tang(3)
     real(kind=realType) :: u
 
     integer(kind=intType) :: i, barID, node1, node2
@@ -263,6 +275,7 @@ contains
           ! Recover data from the primal run
           x = xyz(:, i)
           xf = allProjPoints(:, i)
+          tangent = allTangents(:, i)
           barID = allElemIDs(i)
           
           ! Get information of the bar element that has the projection
@@ -273,7 +286,14 @@ contains
           
           ! Get derivative seeds
           xfb = allProjPointsb(:, i)
+          tangentb = allTangentsb(:, i)
           
+          ! Backpropagate derivatives due to tangent calculation
+          x1b_tang = 0.0
+          x2b_tang = 0.0
+          call computeTangent_b(x1, x1b_tang, x2, x2b_tang, tangent, tangentb)
+
+
           ! Call projection function
           x1b = 0.0
           x2b = 0.0
@@ -282,8 +302,8 @@ contains
           
           ! Store derivatives in the full array
           xyzb(:, i) = xyzb(:, i) + xb
-          coorb(:, node1) = coorb(:, node1) + x1b
-          coorb(:, node2) = coorb(:, node2) + x2b
+          coorb(:, node1) = coorb(:, node1) + x1b + x1b_tang
+          coorb(:, node2) = coorb(:, node2) + x2b + x2b_tang
 
        end if
 

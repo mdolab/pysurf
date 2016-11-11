@@ -418,7 +418,7 @@ class TSurfGeometry(Geometry):
         # Return projections
         return xyzProj, tanProj, curveProjDict
 
-    def project_on_curve_d(self, xyz, xyzd, allCoord, xyzProj, curveProjDict):
+    def project_on_curve_d(self, xyz, xyzd, allCoord, xyzProj, tanProj, curveProjDict):
 
         '''
         This function will compute projections and surface Normals
@@ -426,10 +426,12 @@ class TSurfGeometry(Geometry):
         INPUTS:
         xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
 
-        OUTPUTS:
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         tanProj -> float[numPts,3] : Curve tangent at projected points
+
+        allCoord -> dictionary : This is a dictionary whose keys are all curve names. Each entry
+                    should contain an array [nNodes x 3] with derivative seeds for all nodes of the curve
 
         Ney Secco 2016-11
         '''
@@ -444,6 +446,7 @@ class TSurfGeometry(Geometry):
 
         # Initialize derivatives
         xyzProjd = np.zeros((numPts,3))
+        tanProjd = np.zeros((numPts,3))
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
@@ -460,12 +463,12 @@ class TSurfGeometry(Geometry):
                 coord = allCoord[curveName]
 
                 # Run projection code in forward mode
-                self.curves[curveName].project_d(xyz, xyzd, coord, xyzProj, xyzProjd, elemIDs, curveMask)
+                self.curves[curveName].project_d(xyz, xyzd, coord, xyzProj, xyzProjd, tanProj, tanProjd, elemIDs, curveMask)
 
         # Return projections derivatives
-        return xyzProjd
+        return xyzProjd, tanProjd
 
-    def project_on_curve_b(self, xyz, xyzProj, xyzProjb, curveProjDict):
+    def project_on_curve_b(self, xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict):
 
         '''
         This function will backpropagate projections derivatives back
@@ -503,7 +506,7 @@ class TSurfGeometry(Geometry):
 
                 # Run projection code in reverse mode
                 # This will modify xyzb and coorb
-                self.curves[curveName].project_b(xyz, xyzb, coorb, xyzProj, xyzProjb, elemIDs, curveMask)
+                self.curves[curveName].project_b(xyz, xyzb, coorb, xyzProj, xyzProjb, tanProj, tanProjb, elemIDs, curveMask)
 
             # Store curve node derivatives in the corresponding dictionary
             allCoorb[curveName] = coorb
@@ -763,7 +766,7 @@ class TSurfCurve(Curve):
         return curveMask
 
 
-    def project_d(self, xyz, xyzd, coord, xyzProj, xyzProjd, elemIDs, curveMask):
+    def project_d(self, xyz, xyzd, coord, xyzProj, xyzProjd, tanProj, tanProjd, elemIDs, curveMask):
 
         '''
         This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
@@ -805,9 +808,11 @@ class TSurfCurve(Curve):
         curveSearchAPI.curvesearchapi.mindistancecurve_d(xyz.T, xyzd.T,
                                                          self.coor, coord,
                                                          self.barsConn,
-                                                         xyzProj.T, xyzProjd.T, elemIDs, curveMask)
+                                                         xyzProj.T, xyzProjd.T,
+                                                         tanProj.T, tanProjd.T,
+                                                         elemIDs, curveMask)
 
-    def project_b(self, xyz, xyzb, coorb, xyzProj, xyzProjb, elemIDs, curveMask):
+    def project_b(self, xyz, xyzb, coorb, xyzProj, xyzProjb, tanProj, tanProjb, elemIDs, curveMask):
 
         '''
         This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
@@ -849,7 +854,9 @@ class TSurfCurve(Curve):
         curveSearchAPI.curvesearchapi.mindistancecurve_b(xyz.T, xyzb.T,
                                                          self.coor, coorb,
                                                          self.barsConn,
-                                                         xyzProj.T, xyzProjb.T, elemIDs, curveMask)
+                                                         xyzProj.T, xyzProjb.T,
+                                                         tanProj.T, tanProjb.T,
+                                                         elemIDs, curveMask)
 
     def remesh(self, nNewNodes=None, method='linear', spacing='linear',
                initialSpacing=0.1, finalSpacing=0.1):
@@ -886,12 +893,21 @@ class TSurfCurve(Curve):
         '''
 
         # Get connectivities and coordinates of the current Curve object
-        coor = self.coor
-        barsConn = self.barsConn
+        coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
+        barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
 
-        # Get the number of nodes and elements in the curve
+        # Get the number of elements in the curve
         nElem = barsConn.shape[1]
-        nNodes = nElem + 1
+        nNodes = coor.shape[1]
+
+        # Check if the baseline curve is periodic. If this is the case, we artificially repeat
+        # the last point so that we could use the same code of the non-periodic case
+        if barsConn[0,0] == barsConn[1,-1]:
+            periodic = True
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
+            barsConn[-1,-1] = nNodes+1
+        else:
+            periodic = False
 
         # Use the original number of nodes if the user did not specify any
         if nNewNodes is None:
@@ -1001,23 +1017,18 @@ class TSurfCurve(Curve):
             # Set new nodes
             newCoor = newNodeCoor
 
-            # Check if the baseline curve is periodic
-            if barsConn[0,0] == barsConn[1,-1]:
-                periodic = True
-            else:
-                periodic = False
-
             # Generate new connectivity (the nodes are already in order so we just
             # need to assign an ordered set to barsConn).
             barsConn = np.zeros((2,nNewNodes-1), order='F', dtype=int)
             barsConn[0,:] = range(1,nNewNodes)
             barsConn[1,:] = range(2,nNewNodes+1)
 
-            # We still need to keep periodicity if the original curve is periodic
-            if periodic:
-                barsConn[1,-1] = barsConn[0,0]
-
             newBarsConn = barsConn
+
+        # Adjust connectivities if curve is periodic
+        if periodic:
+            newBarsConn[-1,-1] = newBarsConn[0,0]
+            newCoor = newCoor[:,:-1]
 
         # Create a new curve object and return it
         # This way the original curve coordinates and connectivities remain the same

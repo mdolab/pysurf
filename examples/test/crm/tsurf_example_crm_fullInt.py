@@ -13,13 +13,13 @@ import copy
 # USER INPUTS
 
 # Define translation cases for the wing
-nStates = 1
+nStates = 11
 
 wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
 wingTranslation[:,2] = np.linspace(0.0, 140.0, nStates)
 
-#wingTranslation = [wingTranslation[0,:]]
+wingTranslation = [wingTranslation[0,:]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -27,12 +27,11 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve','w_le_curve'])
+wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','w_ted','te_low_curve','te_upp_curve'])
 body = pysurf.TSurfGeometry('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 # Flip some curves
 wing.curves['te_upp_curve'].flip()
-
 
 # Define function to generate a wing body mesh for a given wing position and angle
 
@@ -40,7 +39,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # OPTIONS
     generate_wing = True
-    generate_body = True
+    generate_body = False
 
     # DEFINE FUNCTION TO GENERATE MESH
 
@@ -66,10 +65,6 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         }
 
-        # Set guideCurves for the wing case
-        if output_name == 'wing.xyz':
-            options['guideCurves'] = ['w_le_curve']
-
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
         mesh.createMesh()
@@ -86,24 +81,33 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     # Compute intersection
     Intersections = pysurf.tsurf_tools.compute_intersections([wing,body])
 
-    # Get intersection name
-    intName = Intersections.keys()[0]
-
     # Reorder curve so that it starts at the trailing edge
-    Intersections[intName].shift_end_nodes(criteria='maxX')
+    for intName in Intersections:
+        Intersections[intName].shift_end_nodes(criteria='maxX')
+
+    # Split curves
+    pysurf.tsurf_tools.split_curves(Intersections)
 
     # Remesh curve to get better spacing
-    Intersections[intName] = Intersections[intName].remesh(nNewNodes=300)
+    curveNames = Intersections.keys()
+    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=300)
+    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=5)
 
     # Check if we need to flip the curve
-    if Intersections[intName].coor[2,0] > Intersections[intName].coor[2,-1]:
-        Intersections[intName].flip()
+    if Intersections[curveNames[0]].coor[2,0] > Intersections[curveNames[0]].coor[2,-1]:
+        Intersections[curveNames[0]].flip()
+        Intersections[curveNames[1]].flip()
 
-    Intersections[intName].export_plot3d('curve')
+    # Merge curves
+    mergedCurve = pysurf.tsurf_tools.merge_curves(Intersections,'intersection')
+
+    # Export intersection curve
+    mergedCurve.export_plot3d('curve')
+    print 'Saved intersection curve'
 
     # Add intersection curve to each component
-    wing.add_curve('intersection',Intersections[intName])
-    body.add_curve('intersection',Intersections[intName])
+    wing.add_curve('intersection',mergedCurve)
+    body.add_curve('intersection',mergedCurve)
 
     # GENERATE WING MESH
 
@@ -117,10 +121,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set problem
         curve = 'intersection'
-        bc1 = 'curve:te_low_curve'
+        bc1 = 'curve:te_upp_curve'
         bc2 = 'curve:te_upp_curve'
-        # bc1 = 'continuous'
-        # bc2 = 'continuous'
 
         # Set parameters
         epsE0 = 9.5
@@ -176,12 +178,10 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
 
     # Run tecplot in bash mode to save picture
-    # os.system('tec360 -b plotMesh.mcr')
-    
-    os.system('tec360 layout_mesh.lay')
+    os.system('tec360 -b plotMesh.mcr')
 
     # Rename image file
-    # os.system('mv images/image.png images/image%03d.png'%(meshIndex))
+    os.system('mv images/image.png images/image%03d.png'%(meshIndex))
 
 
     # Revert transformations to the wing

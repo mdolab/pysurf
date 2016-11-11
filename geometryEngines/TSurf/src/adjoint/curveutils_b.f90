@@ -111,4 +111,68 @@ CONTAINS
 ! Compute the new projected point coordinates in the global frame
     xf = x1 + u*x21
   END SUBROUTINE BARPROJECTION
+!  Differentiation of computetangent in reverse (adjoint) mode:
+!   gradient     of useful results: tangent x1 x2
+!   with respect to varying inputs: tangent x1 x2
+!   RW status of diff variables: tangent:in-zero x1:incr x2:incr
+  SUBROUTINE COMPUTETANGENT_B(x1, x1b, x2, x2b, tangent, tangentb)
+! This subroutine computes a normalized vector pointing from x1 to x2
+!
+! Ney Secco 2016-11
+    USE UTILITIES_B
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1, x2
+    REAL(kind=realtype), DIMENSION(3) :: x1b, x2b
+! Output variables
+    REAL(kind=realtype), DIMENSION(3) :: tangent
+    REAL(kind=realtype), DIMENSION(3) :: tangentb
+! Working variables
+    REAL(kind=realtype), DIMENSION(3) :: x21
+    REAL(kind=realtype), DIMENSION(3) :: x21b
+    REAL(kind=realtype) :: dotresult
+    REAL(kind=realtype) :: dotresultb
+    INTRINSIC SQRT
+    REAL(kind=realtype) :: temp
+! EXECUTION
+! Get the relative vectors for the bar element
+    x21 = x2 - x1
+! Normalize vector (dot defined in Utilities.F90)
+    CALL DOT(x21, x21, dotresult)
+    x21b = 0.0
+    temp = SQRT(dotresult)
+    x21b = tangentb/temp
+    IF (dotresult .EQ. 0.0) THEN
+      dotresultb = 0.0
+    ELSE
+      dotresultb = SUM(-(x21*tangentb/temp))/(temp**2*2.0)
+    END IF
+    CALL DOT_B0(x21, x21b, x21, x21b, dotresult, dotresultb)
+    x2b = x2b + x21b
+    x1b = x1b - x21b
+    tangentb = 0.0
+  END SUBROUTINE COMPUTETANGENT_B
+  SUBROUTINE COMPUTETANGENT(x1, x2, tangent)
+! This subroutine computes a normalized vector pointing from x1 to x2
+!
+! Ney Secco 2016-11
+    USE UTILITIES_B
+    IMPLICIT NONE
+! DECLARATIONS
+! Input variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(IN) :: x1, x2
+! Output variables
+    REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: tangent
+! Working variables
+    REAL(kind=realtype), DIMENSION(3) :: x21
+    REAL(kind=realtype) :: dotresult
+    INTRINSIC SQRT
+! EXECUTION
+! Get the relative vectors for the bar element
+    x21 = x2 - x1
+! Normalize vector (dot defined in Utilities.F90)
+    CALL DOT(x21, x21, dotresult)
+    tangent = x21/SQRT(dotresult)
+  END SUBROUTINE COMPUTETANGENT
 END MODULE CURVEUTILS_B

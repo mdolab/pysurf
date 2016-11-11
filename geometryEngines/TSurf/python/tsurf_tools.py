@@ -516,6 +516,54 @@ def merge_surface_sections(sectionDict, selectedSections):
 
 #=================================================================
 
+def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
+
+    '''
+    This function will merge curves in the curveDict dictonary whose
+    name is included in curveNames.
+    If curvesToMerge=None, we will merge all curves in curveDict
+
+    Ney Secco 2016-11
+    '''
+
+    # Initialize set of coordinates and connectivities
+    mergedCoor = np.zeros((3,0),order='F')
+    mergedBarsConn = np.zeros((2,0),dtype='int32',order='F')
+
+    # Merge all curves if user provided none
+    if curvesToMerge == None:
+        curvesToMerge = curveDict.keys()
+
+    # Initialize index offset. The new curves cannot reference
+    # nodes of the old ones.
+    indexOffset = 0
+
+    # Loop over every curve
+    for curveName in curveDict:
+        
+        # Check if we want to merge this curve
+        if curveName in curvesToMerge:
+
+            # Get coor and connectivities of this curve.
+            # Remember to apply the offset to the connectivities
+            coor = curveDict[curveName].coor
+            barsConn = curveDict[curveName].barsConn + indexOffset
+
+            # Update offset for nwext curve
+            indexOffset = indexOffset + coor.shape[1]
+
+            # Merge data
+            mergedCoor = np.array(np.hstack([mergedCoor, coor]),order='F')
+            mergedBarsConn = np.array(np.hstack([mergedBarsConn, barsConn]),order='F')
+
+    # Create new curve with the merged data
+    mergedCurve = tsurf_component.TSurfCurve(mergedCoor, mergedBarsConn, mergedCurveName)
+
+    # Return merged curve
+    return mergedCurve
+
+#=================================================================
+
 def split_curves(curveDict, criteria='sharpness'):
 
     '''
@@ -563,6 +611,9 @@ def split_curve_single(curve, curveName, criteria):
     Ney Secco 2016-08
     '''
 
+    # PARAMETERS
+    sharpAngle = 60*np.pi/180.0
+
     # READING INPUTS
 
     # Get coordinates and connectivities
@@ -600,7 +651,7 @@ def split_curve_single(curve, curveName, criteria):
             angle = np.arccos(prevTan.dot(currTan))
 
             # Check if the angle is beyond a certain threshold
-            if angle > 60*np.pi/180.0:
+            if angle > sharpAngle:
 
                 # Store the current element as a break position
                 breakList.append(elemID)
@@ -608,6 +659,30 @@ def split_curve_single(curve, curveName, criteria):
             # Now the current tangent will become the previous tangent of
             # the next iteration
             prevTan = currTan.copy()
+
+        # If the curve is periodic, we need to check for breaks between the first and last elements.
+        if barsConn[0,0] == barsConn[1,-1]:
+
+            # Compute tangent direction of the current element
+            prevTan = coor[:,barsConn[1,-1]-1] - coor[:,barsConn[0,-1]-1]
+            prevTan = prevTan/np.linalg.norm(prevTan)
+
+            # Get the tangent direction of the first bar element
+            currTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
+            currTan = currTan/np.linalg.norm(currTan)
+
+            # Compute change in direction between consecutive tangents
+            angle = np.arccos(prevTan.dot(currTan))
+
+            # Check if the angle is beyond a certain threshold
+            if angle > sharpAngle:
+
+                # We should break the curve at the initial point
+                # so it will not be periodic anymore
+                isPeriodic = False
+
+            else:
+                isPeriodic = True
 
     # CHECK IF BREAKS WERE DETECTED
     # We can stop this function earlier if we detect no break points
@@ -639,7 +714,7 @@ def split_curve_single(curve, curveName, criteria):
 
     # CREATE SPLIT CURVE OBJECTS
 
-    # Now that we have the list of split points (given in splitList), we can create multiple
+    # Now that we have the list of break points (given in breakList), we can create multiple
     # curve objects.
 
     # Count the number of curves that should be between the first and last break point
@@ -675,7 +750,7 @@ def split_curve_single(curve, curveName, criteria):
     # We need to treat periodic curves differently. We use the same check to determine
     # the number of split curves. The periodic case will have minus one curve compared
     # to a non-periodic one.
-    if barsConn[0,0] == barsConn[1,-1]: # Curve is periodic, so we need to define one curve
+    if isPeriodic: # Curve is periodic, so we need to define one curve
 
         # For now copy the original set of nodes
         splitCoor = coor.copy()
@@ -749,13 +824,21 @@ def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='lin
 
     # Get the number of nodes and elements in the curve
     nElem = barsConn.shape[1]
-    nNodes = nElem + 1
+    nNodes = coor.shape[1]
+
+    # Check if the baseline curve is periodic
+    if barsConn[0,0] == barsConn[1,-1]:
+        periodic = True
+        nNewElems = nNewNodes
+    else:
+        periodic = False
+        nNewElems = nNewNodes-1
 
     # Use the original number of nodes if the user did not specify any
     if nNewNodes is None:
         nNewNodes = nNodes
 
-    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
+    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing)
 
     return coorb
 
@@ -769,13 +852,21 @@ def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear
 
     # Get the number of nodes and elements in the curve
     nElem = barsConn.shape[1]
-    nNodes = nElem + 1
+    nNodes = coor.shape[1]
+
+    # Check if the baseline curve is periodic
+    if barsConn[0,0] == barsConn[1,-1]:
+        periodic = True
+        nNewElems = nNewNodes
+    else:
+        periodic = False
+        nNewElems = nNewNodes-1
 
     # Use the original number of nodes if the user did not specify any
     if nNewNodes is None:
         nNewNodes = nNodes
 
-    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
+    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing)
 
     return newCoord
 
@@ -796,27 +887,34 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
     '''
 
     # Get number of components
-    numGeometrys = len(TSurfGeometryList)
+    numGeometries = len(TSurfGeometryList)
 
     # Stop if user gives only one component
-    if numGeometrys < 2:
+    if numGeometries < 2:
         print 'ERROR: Cannot compute intersections with just one component'
         quit()
 
-    # Initialize list of intersections
-    Intersections = []
+    # Initialize dictionary of intersections
+    Intersections = {}
 
     # Call intersection function for each pair
-    for ii in range(numGeometrys):
-        for jj in range(ii+1,numGeometrys):
+    for ii in range(numGeometries):
+        for jj in range(ii+1,numGeometries):
 
             # Compute new intersections for the current pair
             newIntersections = _compute_pair_intersection(TSurfGeometryList[ii],
-                                                         TSurfGeometryList[jj],
+                                                          TSurfGeometryList[jj],
                                                           distTol, comm)
 
-            # Append new curve objects to the list
-            Intersections = Intersections + newIntersections
+            # Create base name for the new intersection
+            baseName = 'int_'+TSurfGeometryList[ii].name+'_'+TSurfGeometryList[jj].name
+
+            # Append new curve objects to the dictionary
+            intID = 0
+            for curve in newIntersections:
+                intName = baseName + '_%03d'%intID
+                Intersections[intName] = curve
+                intID = intID+1
 
     # Print log
     print 'Computed',len(Intersections),'intersection curves.'

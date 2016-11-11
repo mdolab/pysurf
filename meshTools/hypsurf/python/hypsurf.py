@@ -76,6 +76,12 @@ class HypSurfMesh(object):
         self.numNodes = self.curve.shape[0]
         self.mesh = np.zeros((3, self.numNodes, self.optionsDict['numLayers']))
 
+        # Initialize list to gather dictionary with projection information
+        # that will be used to compute derivatives
+        self.projDict = []
+        self.curveProjDict1 = []
+        self.curveProjDict2 = []
+
         guideIndices = []
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
@@ -166,9 +172,15 @@ class HypSurfMesh(object):
             # Derivative check
             if deriv_check:
                 rStartd = np.random.random_sample(rStart.shape)
-
                 rStartd_copy = rStartd.copy()
-                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+
+                # Set derivatives for underlying surfaces and curves
+                self.coord = np.random.random_sample(self.ref_geom.coor.shape)
+                self.curveCoord = {}
+                for curveName in self.ref_geom.curves:
+                    self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
+
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
@@ -376,65 +388,83 @@ class HypSurfMesh(object):
         # RETURNS
         return rNext, NNext
 
-    def projection(self, rNext):
+    def projection(self, r):
 
         # Initialize normals array
         NNext = np.zeros((3, self.numNodes))
 
         # Save endpoints
-        node1 = rNext[:3]
-        node2 = rNext[-3:]
+        node1 = r[:3]
+        node2 = r[-3:]
 
         # Project onto surface and compute surface normals
-        rNext, NNext, projDict = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
+        rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((self.numNodes, 3)))
         rNext = rNext.flatten()
         NNext = NNext.T
 
+        # Store projection dictionaries in their corresponding lists
+        self.projDict = self.projDict + [projDict]
+
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):
-            rNext[:3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
+            rNext[:3], NNextAux, curveProjDict1 = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
             NNext[:, 0] = NNextAux.T[:, 0]
+            self.curveProjDict1 = self.curveProjDict1 + [curveProjDict1]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            rNext[-3:], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+            rNext[-3:], NNextAux, curveProjDict2 = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
             NNext[:, -1] = NNextAux.T[:, 0]
+            self.curveProjDict2 = self.curveProjDict2 + [curveProjDict2]
 
         if self.guideIndices:
             for i, index in enumerate(self.guideIndices):
                 curve = self.optionsDict['guideCurves'][i]
                 node = rNext[3*index:3*index+3]
-                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)), curveCandidates=[curve])
+                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)),
+                                                                                                   curveCandidates=[curve])
                 NNext[:, index] = NNextAux.T[:, 0]
-
 
         return rNext, NNext
 
-    '''
-    def projection_d(self, rNext, rNext):
-
-        # Initialize normals array
-        NNext = np.zeros((3, self.numNodes))
+    def projection_d(self, r, rd, rNext, NNext):
 
         # Save endpoints
-        node1 = rNext[:3]
-        node2 = rNext[-3:]
+        node1 = r[:3].reshape((1, 3))
+        node2 = r[-3:].reshape((1, 3))
+        node1d = rd[:3].reshape((1, 3))
+        node2d = rd[-3:].reshape((1, 3))
+
+        # Pop the first projection dictionary from the list (since we are propagating derivatives forward)
+        projDict = self.projDict.pop(0)
 
         # Project onto surface and compute surface normals
-        rNext, NNext, projDict = self.ref_geom.project_on_surface(rNext.reshape((self.numNodes, 3)))
-        rNext = rNext.flatten()
-        NNext = NNext.T
+        rNextd, NNextd = self.ref_geom.project_on_surface_d(r.reshape((self.numNodes, 3)),
+                                                            rd.reshape((self.numNodes, 3)),
+                                                            rNext.reshape((self.numNodes, 3)),
+                                                            NNext.T,
+                                                            projDict,
+                                                            self.coord)
+        rNextd = rNextd.flatten()
+        NNextd = NNextd.T
 
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):
-            rNext[:3], NNextAux = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
-            NNext[:, 0] = NNextAux.T[:, 0]
+            curveProjDict1 = self.curveProjDict1.pop(0)
+            rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(node1, node1d,
+                                                                     self.curveCoord,
+                                                                     rNext[:3], NNext[:,0],
+                                                                     curveProjDict1)
+            NNextd[:, 0] = NNextAuxd.T[:, 0]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            rNext[-3:], NNextAux = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
-            NNext[:, -1] = NNextAux.T[:, 0]
+            curveProjDict2 = self.curveProjDict2.pop(0)
+            rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(node2, node2d,
+                                                                      self.curveCoord,
+                                                                      rNext[-3:], NNext[:,-1],
+                                                                      curveProjDict2)
+            NNextd[:, -1] = NNextAuxd.T[:, -1]
 
-        return rNext, NNext
-    '''
+        return rNextd, NNextd
 
     def areaFactor(self, r0, d):
 
@@ -757,13 +787,37 @@ class HypSurfMesh(object):
             # Set guideCurve matrix contributions
             if self.guideIndices:
                 if index in self.guideIndices:
+
+
                     # Populate matrix
                     K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)/2
                     K[3*index:3*index+3,3*index-3:3*index-3+3] = np.eye(3)/4
                     K[3*index:3*index+3,3*index+3:3*index+3+3] = np.eye(3)/4
 
                     f[3*index:3*index+3] = S0[index] * N0[:,index]
+                    '''
 
+                    # Call assembly routine
+                    matrixBuilder(index)
+
+                    # Get dissipation factor from original matrix
+                    epsI_local = (K[3*index,3*index] - 1.0)/2.0
+                    epsE_local = epsI_local/2.0
+
+                    # Here we keep the same diagonal matrix, but we modify
+                    # the neighbors' matrices to keep only dissipation terms
+                    K[3*index:3*index+3,3*index-3:3*index-3+3] = -epsI_local*np.eye(3)
+                    K[3*index:3*index+3,3*index+3:3*index+3+3] = -epsI_local*np.eye(3)
+
+                    # Compute dissipation term for RHS
+                    r_prev = r0[3*(index-1):3*(index-1)+3]
+                    r_curr = r0[3*(index):3*(index)+3]
+                    r_next = r0[3*(index+1):3*(index+1)+3]
+                    De = epsE_local*(r_prev - 2*r_curr + r_next)
+
+                    # Replace RHS to keep marching direction and dissipation term
+                    f[3*index:3*index+3] = S0[index] * N0[:,index] + De
+                    '''
                 else:
                     # Call assembly routine
                     matrixBuilder(index)
@@ -1252,6 +1306,7 @@ def plotGrid(X,Y,Z,show=False):
     ax.set_axis_off()
 
     if show:
+        # Show
         plt.show()
 
     # Return the figure handle
