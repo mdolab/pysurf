@@ -11,6 +11,7 @@ from mpi4py import MPI
 import copy
 
 # USER INPUTS
+guideCurves = ['te_low_curve','te_upp_curve',]
 
 # Define translation cases for the wing
 nStates = 11
@@ -27,7 +28,7 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','w_ted','te_low_curve','te_upp_curve'])
+wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','w_ted','te_low_curve','te_upp_curve','w_le_curve'])
 body = pysurf.TSurfGeometry('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 # Flip some curves
@@ -65,6 +66,10 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         }
 
+        # Set guideCurves for the wing case
+        if output_name == 'wing.xyz':
+            options['guideCurves'] = guideCurves
+
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
         mesh.createMesh()
@@ -87,23 +92,29 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # Split curves
     pysurf.tsurf_tools.split_curves(Intersections)
+    pysurf.tsurf_tools.split_curve_with_curve(Intersections, Intersections.keys()[1], wing.curves['w_le_curve'])
 
     # Remesh curve to get better spacing
     curveNames = Intersections.keys()
-    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=300)
-    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=5)
+    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=5)
+    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.1, finalSpacing=.5)
+    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.5, finalSpacing=.1)
+
+    # Currently 1 is upper, 2 is lower surface
 
     # Check if we need to flip the curve
-    if Intersections[curveNames[0]].coor[2,0] > Intersections[curveNames[0]].coor[2,-1]:
-        Intersections[curveNames[0]].flip()
-        Intersections[curveNames[1]].flip()
+    # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
+    #     Intersections[curveNames[0]].flip()
+    #     Intersections[curveNames[1]].flip()
+    #     Intersections[curveNames[2]].flip()
 
     # Merge curves
     mergedCurve = pysurf.tsurf_tools.merge_curves(Intersections,'intersection')
 
+    mergedCurve.shift_end_nodes(criteria='maxX')
+
     # Export intersection curve
     mergedCurve.export_plot3d('curve')
-    print 'Saved intersection curve'
 
     # Add intersection curve to each component
     wing.add_curve('intersection',mergedCurve)
@@ -136,9 +147,9 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         ratioGuess = 20
 
         # Options
-        sBaseline = 3.5
-        numLayers = 30
-        extension = 1.5
+        sBaseline = .2
+        numLayers = 60
+        extension = 1.4
 
         # Call meshing function
         generateMesh(curve, wing, 'wing.xyz')
@@ -178,10 +189,12 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
 
     # Run tecplot in bash mode to save picture
-    os.system('tec360 -b plotMesh.mcr')
+    # os.system('tec360 -b plotMesh.mcr')
+    os.system('tec360 layout_mesh.lay')
+
 
     # Rename image file
-    os.system('mv images/image.png images/image%03d.png'%(meshIndex))
+    # os.system('mv images/image.png images/image%03d.png'%(meshIndex))
 
 
     # Revert transformations to the wing

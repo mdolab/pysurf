@@ -540,7 +540,7 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
     # Loop over every curve
     for curveName in curveDict:
-        
+
         # Check if we want to merge this curve
         if curveName in curvesToMerge:
 
@@ -549,7 +549,7 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
             coor = curveDict[curveName].coor
             barsConn = curveDict[curveName].barsConn + indexOffset
 
-            # Update offset for nwext curve
+            # Update offset for next curve
             indexOffset = indexOffset + coor.shape[1]
 
             # Merge data
@@ -581,14 +581,39 @@ def split_curves(curveDict, criteria='sharpness'):
         curve = curveDict.pop(curveName)
 
         # Now we run the split function for this single curve
-        splitcurves = split_curve_single(curve, curveName, criteria)
+        splitcurves = split_curve_single(curve, curveName, criteria=criteria)
 
         # Now we add the split curves to the original curves dictionary
         curveDict.update(splitcurves)
 
 #=============================================================
 
-def split_curve_single(curve, curveName, criteria):
+def split_curve_with_curve(curveDict, curveToBeSplit, splittingCurve):
+
+    '''
+    This function splits a curve using another curve.
+    Must provide the entire curveDict, then the curve that will be used to
+    split the other curve; the splittingCurve used to split the curveToBeSplit.
+
+    John Jasa 2016-11
+    '''
+
+    # Loop over every curve to check for splits
+    for curveName in curveDict.keys():
+        if curveToBeSplit == curveName:
+
+            # First we remove the curve component from the dictionary
+            curve = curveDict.pop(curveName)
+
+            # Now we run the split function for this single curve
+            splitcurves = split_curve_single(curve, curveName, splittingCurve=splittingCurve, criteria='curve')
+
+            # Now we add the split curves to the original curves dictionary
+            curveDict.update(splitcurves)
+
+#=============================================================
+
+def split_curve_single(curve, curveName, splittingCurve=None, criteria="sharpness"):
 
     '''
     This function receives a single curve object, splits it according to a criteria,
@@ -601,6 +626,11 @@ def split_curve_single(curve, curveName, criteria):
 
     curveName: string -> Name of the original curve. This name will be used
                to name the split curves.
+
+    splittingCurve: Curve object -> Curve that will be used to intersect
+                                    the curve to be split. Think of this curve
+                                    as a sharp needle that will break up the
+                                    other curve.
 
     criteria: string -> Criteria that will be used to split curves. The options
               available for now are: ['sharpness']
@@ -622,6 +652,8 @@ def split_curve_single(curve, curveName, criteria):
 
     # Get the number of elements
     nElem = barsConn.shape[1]
+
+    isPeriodic = False
 
     # DETECT KINKS
 
@@ -660,29 +692,39 @@ def split_curve_single(curve, curveName, criteria):
             # the next iteration
             prevTan = currTan.copy()
 
-        # If the curve is periodic, we need to check for breaks between the first and last elements.
-        if barsConn[0,0] == barsConn[1,-1]:
+    # If the curve is periodic, we need to check for breaks between the first and last elements.
+    if barsConn[0,0] == barsConn[1,-1]:
 
-            # Compute tangent direction of the current element
-            prevTan = coor[:,barsConn[1,-1]-1] - coor[:,barsConn[0,-1]-1]
-            prevTan = prevTan/np.linalg.norm(prevTan)
+        # Compute tangent direction of the current element
+        prevTan = coor[:,barsConn[1,-1]-1] - coor[:,barsConn[0,-1]-1]
+        prevTan = prevTan/np.linalg.norm(prevTan)
 
-            # Get the tangent direction of the first bar element
-            currTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
-            currTan = currTan/np.linalg.norm(currTan)
+        # Get the tangent direction of the first bar element
+        currTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
+        currTan = currTan/np.linalg.norm(currTan)
 
-            # Compute change in direction between consecutive tangents
-            angle = np.arccos(prevTan.dot(currTan))
+        # Compute change in direction between consecutive tangents
+        angle = np.arccos(prevTan.dot(currTan))
 
-            # Check if the angle is beyond a certain threshold
-            if angle > sharpAngle:
+        # Check if the angle is beyond a certain threshold
+        if angle > sharpAngle:
 
-                # We should break the curve at the initial point
-                # so it will not be periodic anymore
-                isPeriodic = False
+            # We should break the curve at the initial point
+            # so it will not be periodic anymore
+            isPeriodic = False
 
-            else:
-                isPeriodic = True
+        else:
+            isPeriodic = True
+
+    if criteria == 'curve':
+        guideCurve = splittingCurve.extract_points()
+        split_index = closest_node(guideCurve, coor.T)
+
+        elemID = np.where(barsConn[0, :] == split_index+1)[0]
+
+        if elemID:
+            # Store the current element as a break position
+            breakList.append(elemID[0])
 
     # CHECK IF BREAKS WERE DETECTED
     # We can stop this function earlier if we detect no break points
@@ -1642,11 +1684,11 @@ def tanDist(Sp1,Sp2,N):
     # N: number of nodes
     #
     # Ney Secco 2016-11
-    
+
     # IMPORTS
     from numpy import tan, arange, pi
     from scipy.optimize import minimize
-    
+
     # Convert number of nodes to number of cells
     N = N-1
 
@@ -1695,7 +1737,7 @@ def tanDist(Sp1,Sp2,N):
     # Generate spacing
     index = arange(N+1)
     S = a*tan(b*index/N+c)+d
-        
+
     # Return spacing
     return S
 
@@ -1711,11 +1753,11 @@ def cubicDist(Sp1,Sp2,N):
     # N: number of nodes
     #
     # Ney Secco 2016-11
-    
+
     # IMPORTS
     from numpy import array, arange
     from numpy.linalg import inv
-    
+
     # Convert number of nodes to number of cells
     N = N-1
 
@@ -1734,7 +1776,7 @@ def cubicDist(Sp1,Sp2,N):
     # Generate spacing
     index = arange(N+1)/N
     S = a*index**3 + b*index**2 + c*index
-        
+
     # Return spacing
     return S
 
@@ -1853,7 +1895,7 @@ def normalize_d(vec, vecd):
     '''
 
     vecNorms = np.array([np.sum(vec**2,axis=1)]).T
-    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)]).T 
+    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)]).T
 
     vecNorms = np.sqrt(vecNorms)
     vecNormsd = 0.5*vecNormsd/vecNorms
@@ -1886,3 +1928,17 @@ def normalize_b(vec, normalVecb):
     vecb = vecb + 2.0*vec*vecNorms1b
 
     return vecb
+
+### HELPER FUNCTIONS ###
+
+def closest_node(guideCurve, curve):
+    """ Find closest node from a list of node coordinates. """
+    minDist = 1e9
+    for node in guideCurve:
+        curve = np.asarray(curve)
+        deltas = curve - node
+        dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+        if minDist > np.min(dist_2):
+            minDist = np.min(dist_2)
+            ind = np.argmin(dist_2)
+    return ind
