@@ -420,8 +420,7 @@ class HypSurfMesh(object):
             for i, index in enumerate(self.guideIndices):
                 curve = self.optionsDict['guideCurves'][i]
                 node = rNext[3*index:3*index+3]
-                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)),
-                                                                                                   curveCandidates=[curve])
+                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)), curveCandidates=[curve])
                 NNext[:, index] = NNextAux.T[:, 0]
 
         return rNext, NNext
@@ -1340,11 +1339,17 @@ def view_mat(mat):
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
     minDist = 1e9
+    curve = np.asarray(curve)
     for node in guideCurve:
-        curve = np.asarray(curve)
         deltas = curve - node
         dist_2 = np.einsum('ij,ij->i', deltas, deltas)
         if minDist > np.min(dist_2):
             minDist = np.min(dist_2)
             ind = np.argmin(dist_2)
+            guideNode = node
+
+    deltas = curve - guideNode
+    dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+    indices = dist_2.argsort()[:10]
+
     return ind

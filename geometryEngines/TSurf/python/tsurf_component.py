@@ -9,7 +9,7 @@ import tsurf_tools as tst
 import adtAPI
 import copy
 
-fortran_flag = True
+fortran_flag = False
 
 class TSurfGeometry(Geometry):
 
@@ -654,7 +654,7 @@ class TSurfCurve(Curve):
             sortedConn = barsConn
             # Print message
             print ''
-            print 'Curve','"'+name+'"','could not be sorted. It might be composed by disconnect curves.'
+            print 'Curve','"'+name+'"','could not be sorted. It might be composed of disconnected curves.'
             print ''
 
         # Assing coor and barsConn. Remember to crop coor to get unique nodes only
@@ -662,6 +662,14 @@ class TSurfCurve(Curve):
         self.barsConn = sortedConn
         self.name = name
         self.extra_data = {}
+
+        # Check if curve is periodic by seeing if the initial and final points
+        # are the same
+        diff = self.coor[:,self.barsConn[0,0]-1] - coor[:,self.barsConn[1,-1]-1]
+        if np.all(diff <= 1e-5):
+            self.isPeriodic = True
+        else:
+            self.isPeriodic = False
 
     def extract_points(self):
 
@@ -672,16 +680,16 @@ class TSurfCurve(Curve):
 
         # Get the number of elements
         numElems = self.barsConn.shape[1]
-
+        
         # Initialize coordinates matrix
         pts = np.zeros((numElems+1, 3))
+
+        # Get the last point
+        pts[-1,:] = self.coor[:, self.barsConn[-1,-1]-1]
 
         # Get coordinates
         for ii in range(numElems):
             pts[ii,:] = self.coor[:, self.barsConn[0,ii]-1]
-
-        # Get the last point
-        pts[-1,:] = self.coor[:, self.barsConn[-1,-1]-1]
 
         # Return coordinates
         return pts
@@ -859,7 +867,8 @@ class TSurfCurve(Curve):
                                                          elemIDs, curveMask)
 
     def remesh(self, nNewNodes=None, method='linear', spacing='linear',
-               initialSpacing=0.1, finalSpacing=0.1):
+               initialSpacing=0.1, finalSpacing=0.1, guideCurves=[],
+               ref_geom=None):
 
         '''
         This function will redistribute the nodes along the curve to get
@@ -885,6 +894,10 @@ class TSurfCurve(Curve):
                                  used by 'hypTan' and 'tangent'.
         finalSpacing: float -> Desired distance between the last two nodes. Only
                                used by 'hypTan' and 'tangent'.
+        guideCurves: list of strings -> Curves to snap nodes to. Especially
+                                        useful for blunt trailing edges.
+        ref_geom: geometry object -> Container with the data for each curve
+                                     used in guideCurves.
 
         OUTPUTS:
         This method has no explicit outputs. It will update self.coor and self.barsConn instead.
@@ -986,7 +999,7 @@ class TSurfCurve(Curve):
             elif spacing.lower() == 'cosine':
                 newArcLength = 0.5*(1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
 
-            elif spacing.lower() == 'hypTan':
+            elif spacing.lower() == 'hyptan':
                 newArcLength = tst.hypTanDist(initialSpacing/arcLength[-1], finalSpacing/arcLength[-1], nNewNodes)
 
             elif spacing.lower() == 'tangent':
@@ -1011,6 +1024,17 @@ class TSurfCurve(Curve):
             newNodeCoor[0,:] = fX(newArcLength)
             newNodeCoor[1,:] = fY(newArcLength)
             newNodeCoor[2,:] = fZ(newArcLength)
+
+            guideIndices = []
+            for curve in guideCurves:
+                guideCurve = ref_geom.curves[curve].extract_points()
+                guideIndices.append(closest_node(guideCurve, newNodeCoor.T))
+
+            if guideIndices:
+                for i, index in enumerate(guideIndices):
+                    curve = guideCurves[i]
+                    node = newNodeCoor[:, index]
+                    newNodeCoor[:, index], _, __ = ref_geom.project_on_curve((node.reshape(1, 3)), curveCandidates=[curve])
 
             # ASSIGN NEW COORDINATES AND CONNECTIVITIES
 
@@ -1141,3 +1165,18 @@ class TSurfCurve(Curve):
         # Create plot3d curve object and export
         p3dCurve = plot3d_interface.Curve(self.coor, self.barsConn)
         p3dCurve.export_plot3d(outputName)
+
+
+### HELPER FUNCTIONS ###
+
+def closest_node(guideCurve, curve):
+    """ Find closest node from a list of node coordinates. """
+    minDist = 1e9
+    for node in guideCurve:
+        curve = np.asarray(curve)
+        deltas = curve - node
+        dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+        if minDist > np.min(dist_2):
+            minDist = np.min(dist_2)
+            ind = np.argmin(dist_2)
+    return ind
