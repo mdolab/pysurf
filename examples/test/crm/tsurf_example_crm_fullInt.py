@@ -39,8 +39,8 @@ wing.curves['te_upp_curve'].flip()
 def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # OPTIONS
-    generate_wing = True
-    generate_body = False
+    generate_wing = False
+    generate_body = True
 
     # DEFINE FUNCTION TO GENERATE MESH
 
@@ -165,23 +165,23 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set problem
         curve = 'intersection'
-        bc1 = 'splay'
-        bc2 = 'splay'
+        bc1 = 'continuous'
+        bc2 = 'continuous'
 
         # Set parameters
-        epsE0 = 4.5
+        epsE0 = 6.5
         theta = 0.0
         alphaP0 = 0.25
         numSmoothingPasses = 0
         nuArea = 0.16
-        numAreaPasses = 0
+        numAreaPasses = 5
         sigmaSplay = 0.3
-        cMax = 1000.0
+        cMax = 10.0
         ratioGuess = 20
 
         # Options
-        sBaseline = 3.0
-        numLayers = 20
+        sBaseline = 0.2
+        numLayers = 60
         extension = 1.3
 
         # Call meshing function
