@@ -11,15 +11,16 @@ from mpi4py import MPI
 import copy
 
 # USER INPUTS
+guideCurves = ['curve_te_upp','curve_te_low']
 
 # Define translation cases for the wing
-nStates = 1
+nStates = 11
 
 wingTranslation = np.zeros((nStates,3))
 wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
 wingTranslation[:,2] = np.linspace(0.0, 140.0, nStates)
 
-wingTranslation = [wingTranslation[0,:]]
+wingTranslation = [[0.0, 0.0, 0.0]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -27,12 +28,19 @@ wingRotation = [0.0 for s in range(len(wingTranslation))]
 fps = 2
 
 # Load components
-wing = pysurf.TSurfGeometry('../../inputs/crm.cgns',['w_upp','w_low','te_low_curve','te_upp_curve','w_le_curve'])
-body = pysurf.TSurfGeometry('../../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+wing = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+body = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
+
+# Load TE curves and append them to the wing component
+curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt')
+curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt')
+curveName = curve_te_upp.keys()[0]
+wing.add_curve(curveName, curve_te_upp[curveName])
+curveName = curve_te_low.keys()[0]
+wing.add_curve(curveName, curve_te_low[curveName])
 
 # Flip some curves
-wing.curves['te_upp_curve'].flip()
-
+wing.curves['curve_te_low'].flip()
 
 # Define function to generate a wing body mesh for a given wing position and angle
 
@@ -68,7 +76,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set guideCurves for the wing case
         if output_name == 'wing.xyz':
-            options['guideCurves'] = ['w_le_curve']
+            #pass
+            options['guideCurves'] = guideCurves
 
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
@@ -86,24 +95,45 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     # Compute intersection
     Intersections = pysurf.tsurf_tools.compute_intersections([wing,body])
 
-    # Get intersection name
-    intName = Intersections.keys()[0]
-
     # Reorder curve so that it starts at the trailing edge
-    Intersections[intName].shift_end_nodes(criteria='maxX')
+    for intName in Intersections:
+        Intersections[intName].shift_end_nodes(criteria='maxX')
+
+    # Split curves
+    pysurf.tsurf_tools.split_curves(Intersections) # This splits based on sharpness
+    # Find the biggest curve
+    curveNames = Intersections.keys()
+
+    if Intersections[curveNames[0]].coor.shape[1] > Intersections[curveNames[1]].coor.shape[1]:
+        pysurf.tsurf_tools.split_curve_with_curve(Intersections, Intersections.keys()[0], wing.curves['curve_le'])
+    else:
+        pysurf.tsurf_tools.split_curve_with_curve(Intersections, Intersections.keys()[1], wing.curves['curve_le'])
 
     # Remesh curve to get better spacing
-    Intersections[intName] = Intersections[intName].remesh(nNewNodes=300)
+    curveNames = Intersections.keys()
+    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=5)
+    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
+    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
+
+    # Currently 1 is upper, 2 is lower surface
 
     # Check if we need to flip the curve
-    if Intersections[intName].coor[2,0] > Intersections[intName].coor[2,-1]:
-        Intersections[intName].flip()
+    # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
+    #     Intersections[curveNames[0]].flip()
+    #     Intersections[curveNames[1]].flip()
+    #     Intersections[curveNames[2]].flip()
 
-    Intersections[intName].export_tecplot('curve')
+    # Merge curves
+    mergedCurve = pysurf.tsurf_tools.merge_curves(Intersections,'intersection')
+
+    mergedCurve.shift_end_nodes(criteria='maxX')
+
+    # Export intersection curve
+    mergedCurve.export_tecplot('curve')
 
     # Add intersection curve to each component
-    wing.add_curve('intersection',Intersections[intName])
-    body.add_curve('intersection',Intersections[intName])
+    wing.add_curve('intersection',mergedCurve)
+    body.add_curve('intersection',mergedCurve)
 
     # GENERATE WING MESH
 
@@ -117,26 +147,24 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set problem
         curve = 'intersection'
-        bc1 = 'curve:te_low_curve'
-        bc2 = 'curve:te_upp_curve'
-        # bc1 = 'continuous'
-        # bc2 = 'continuous'
+        bc1 = 'curve:curve_te_upp'
+        bc2 = 'curve:curve_te_upp'
 
         # Set parameters
         epsE0 = 9.5
-        theta = 1.0
+        theta = 0.0
         alphaP0 = 0.25
         numSmoothingPasses = 0
         nuArea = 0.16
         numAreaPasses = 0
         sigmaSplay = 0.
-        cMax = 1000.0
+        cMax = 10.0
         ratioGuess = 20
 
         # Options
-        sBaseline = 3.5
-        numLayers = 30
-        extension = 1.5
+        sBaseline = 0.01
+        numLayers = 60
+        extension = 1.4
 
         # Call meshing function
         generateMesh(curve, wing, 'wing.xyz')
@@ -152,8 +180,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set problem
         curve = 'intersection'
-        bc1 = 'splay'
-        bc2 = 'splay'
+        bc1 = 'continuous'
+        bc2 = 'continuous'
 
         # Set parameters
         epsE0 = 4.5
@@ -161,14 +189,14 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         alphaP0 = 0.25
         numSmoothingPasses = 0
         nuArea = 0.16
-        numAreaPasses = 0
+        numAreaPasses = 5
         sigmaSplay = 0.3
-        cMax = 1000.0
+        cMax = 10.0
         ratioGuess = 20
 
         # Options
-        sBaseline = 3.0
-        numLayers = 20
+        sBaseline = 0.01
+        numLayers = 60
         extension = 1.3
 
         # Call meshing function
@@ -177,8 +205,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # Run tecplot in bash mode to save picture
     # os.system('tec360 -b plotMesh.mcr')
-    
     os.system('tec360 layout_mesh.lay')
+
 
     # Rename image file
     # os.system('mv images/image.png images/image%03d.png'%(meshIndex))
@@ -203,4 +231,4 @@ for index in range(len(wingTranslation)):
         #pass
 
 #Generate a video with all the images using the ffmpeg command
-os.system('ffmpeg -f image2 -r ' + str(fps) + ' -i images/image%03d.png -vcodec mpeg4 -y movie.mp4')
+#os.system('ffmpeg -f image2 -r ' + str(fps) + ' -i images/image%03d.png -vcodec mpeg4 -y movie.mp4')
