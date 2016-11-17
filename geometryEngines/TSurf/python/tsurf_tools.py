@@ -97,6 +97,37 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
 #========================================
 
+def read_tecplot_curves(fileName):
+
+    '''
+    This function reads curve described in tecplot format
+
+    Ney Secco 2016-11
+    '''
+
+    # IMPORTS
+    from ....utilities import plot3d_interface as p3d
+
+    # Get curve data
+    tecCurves = p3d.read_tecplot_curves(fileName)
+
+    # Create curve objects and append them to a dictionary
+    curves = {}
+
+    # Now we convert every Tecplot data curve to a TSurf curve
+    for curveID in range(len(tecCurves)):
+
+        # Get current tecplot curve
+        currTecCurve = tecCurves[curveID]
+
+        # Create new curve object
+        currCurve = tsurf_component.TSurfCurve(currTecCurve.coor, currTecCurve.barsConn, currTecCurve.name)
+
+        # Add it to the TSurf curve dictionary
+        curves[currTecCurve.name] = currCurve
+
+    # Return dictionary with TSurf curves
+    return curves
 
 #=================================================================
 # AUXILIARY COMPONENT FUNCTIONS
@@ -1349,22 +1380,43 @@ def FEsort(barsConn):
         # Define FE counter
         FEcounter = 0
 
-        for FE in curveFE:
+        while FEcounter < len(curveFE):
+
+            # Get current finite element
+            FE = curveFE[FEcounter]
 
             # Check if the start and end points are the same
             if FE[0] == FE[1]:
 
                 # Remove FE
-                curveFE.remove(FE)
+                curveFE.pop(FEcounter)
 
                 # Remove mapping
                 currMap.pop(FEcounter)
+                
+            else:
 
-            # Increment counter
-            FEcounter = FEcounter + 1
+                # Increment counter
+                FEcounter = FEcounter + 1
 
         # Convert connectivity back to numpy array
         newConnFE[curveID] = np.array(curveFE, order='F').T
+
+    # Now remove empty curves
+    curveID = 0
+    while curveID < len(newConnFE):
+
+        # Check if current curve has no element
+        if len(newConnFE[curveID].T.tolist()) == 0:
+
+            # If this is the case, remove the curve and its mapping
+            newConnFE.pop(curveID)
+            newMap.pop(curveID)
+
+        else:
+
+            # Increment counter
+            curveID = curveID + 1
 
     # Return the sorted array and the mapping
     return newConnFE, newMap

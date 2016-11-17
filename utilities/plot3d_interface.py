@@ -117,29 +117,16 @@ class Grid():
 
 class Curve():
 
-    def __init__(self, coors, barsConn):
-        self.coors = coors
+    def __init__(self, coor, barsConn, curveName):
+        self.coor = coor
         self.barsConn = barsConn
+        self.name = curveName
 
-    def export_plot3d(self, name='curve'):
-        filename = name + '.plt'
-        self._file = open(filename, 'w')
-        self._file.write('Title = \"Curve FE output\" \n')
-        self._file.write('Variables = ')
-        var_names = ['X', 'Y', 'Z']
-        for name in var_names:
-            self._file.write('\"Coordinate' + name + '\" ')
-        self._file.write('\n')
+    def export_tecplot(self, fileName='curve'):
 
-        nNodes = self.coors.shape[1]
-        nBars = self.barsConn.shape[1]
-        self._file.write('Zone T= \"Curve_tec_data\"\n')
-        self._file.write('Nodes=' + str(nNodes) + ', Elements=' + str(nBars) + ', ZONETYPE=FELineSeg\n')
-        self._file.write('DATAPACKING=POINT\n')
+        import tecplot_interface as ti
 
-        np.savetxt(self._file, self.coors.T)
-        np.savetxt(self._file, self.barsConn.T, fmt='%i')
-        self._file.close()
+        ti.writeTecplotFEdata(self.coor, self.barsConn, self.name, fileName)
 
 #===========================================
 
@@ -366,3 +353,40 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
 
     # Now we can finally export the new grid
     export_plot3d(mergedGrid, outputFile)
+
+#===========================================
+#===========================================
+#===========================================
+
+def read_tecplot_curves(fileName):
+
+    '''
+    This function will read a curve definition from a Tecplot FE data file
+    and assign coor and barsConn.
+
+    Written by Ney Secco 2016-11
+    '''
+    
+    # IMPORTS
+    import tecplot_interface as ti        
+    
+    # Read information from file
+    sectionName, sectionData, sectionConn = ti.readTecplotFEdata(fileName)
+
+    # Create curves for every section
+    curves = []
+    for secID in range(len(sectionName)):
+
+        # Gather data
+        coor = np.array(sectionData[secID],order='F').T
+        barsConn = np.array(sectionConn[secID],order='F',dtype='int32').T
+        curveName = sectionName[secID]
+
+        # Create curve object
+        currCurve = Curve(coor, barsConn, curveName)
+
+        # Append new curve to the dictionary
+        curves.append(currCurve)
+
+    # Return curves
+    return curves

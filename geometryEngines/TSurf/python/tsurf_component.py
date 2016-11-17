@@ -723,7 +723,7 @@ class TSurfCurve(Curve):
     def project(self, xyz, dist2=None, xyzProj=None, tangents=None, elemIDs=None):
 
         '''
-        This function will take the points given in xyz and project them to the surface.
+        This function will take the points given in xyz and project them to the curve.
 
         INPUTS:
         xyz -> float[nPoints,3] : coordinates of the points that should be projected
@@ -1154,17 +1154,17 @@ class TSurfCurve(Curve):
         # Then we shift the connectivity list so that startElemID becomes the first element
         self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:], barsConn[:,:startElemID]])
 
-    def export_plot3d(self,outputName='curve'):
+    def export_tecplot(self,outputName='curve'):
 
         '''
-        This function will export the current curve in plot3d format
+        This function will export the current curve in tecplot FE format
 
         Ney Secco 2016-08
         '''
 
-        # Create plot3d curve object and export
-        p3dCurve = plot3d_interface.Curve(self.coor, self.barsConn)
-        p3dCurve.export_plot3d(outputName)
+        # Create tecplot curve object and export
+        tecCurve = plot3d_interface.Curve(self.coor, self.barsConn, self.name)
+        tecCurve.export_tecplot(outputName)
 
 
 ### HELPER FUNCTIONS ###

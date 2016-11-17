@@ -85,7 +85,7 @@ class HypSurfMesh(object):
         guideIndices = []
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
-                guideCurve = ref_geom.curves[curve].extract_points()
+                guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
         self.guideIndices = guideIndices
@@ -787,7 +787,13 @@ class HypSurfMesh(object):
             if self.guideIndices:
                 if index in self.guideIndices:
 
+                    # Populate matrix
+                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
 
+                    f[3*index:3*index+3] = S0[index] * N0[:,index]
+
+                    '''
+                    # Neighbor average
                     # Populate matrix
                     K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)/2
                     K[3*index:3*index+3,3*index-3:3*index-3+3] = np.eye(3)/4
@@ -795,6 +801,9 @@ class HypSurfMesh(object):
 
                     f[3*index:3*index+3] = S0[index] * N0[:,index]
                     '''
+
+                    '''
+                    # Dissipation coefficients
 
                     # Call assembly routine
                     matrixBuilder(index)
@@ -1338,18 +1347,22 @@ def view_mat(mat):
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
-    minDist = 1e9
     curve = np.asarray(curve)
-    for node in guideCurve:
-        deltas = curve - node
-        dist_2 = np.einsum('ij,ij->i', deltas, deltas)
-        if minDist > np.min(dist_2):
-            minDist = np.min(dist_2)
-            ind = np.argmin(dist_2)
-            guideNode = node
 
-    deltas = curve - guideNode
-    dist_2 = np.einsum('ij,ij->i', deltas, deltas)
-    indices = dist_2.argsort()[:10]
+    # Get number of points in the seed curve
+    nPoints = curve.shape[0]
+
+    # Initialize arrays to call projection function
+    dist2 = np.ones(nPoints)*1e10
+    xyzProj = np.zeros((nPoints,3))
+    tangents = np.zeros((nPoints,3))
+    elemIDs = np.zeros((nPoints),dtype='int32')
+
+    # Call projection function to find the distance between every node of the
+    # seed curve to the guide curve
+    guideCurve.project(curve, dist2, xyzProj, tangents, elemIDs)
+    
+    # Find closes point
+    ind = np.argmin(dist2)
 
     return ind
