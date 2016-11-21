@@ -133,6 +133,12 @@ class TFIMesh(Mesh):
         nu = len(Xleft)
         nv = len(Xbottom)
 
+        print 'nu'
+        print nu
+        print 'nv'
+        print nv
+        print Xright.shape
+
         # Initialize matrices
         X = np.zeros((nu, nv))
         Y = np.zeros((nu, nv))
@@ -240,7 +246,7 @@ class TFIMesh(Mesh):
                           Z.flatten()]).T
 
         # Project all points
-        coor, normals = self.refComp.project_on_surface(coor)
+        coor, normals, projDict = self.refComp.project_on_surface(coor)
 
         # Now we replace the old coordinates
         X[:,:] = coor[:,0].reshape((nu,nv))
