@@ -974,11 +974,21 @@ class TSurfCurve(Curve):
                 # Compute distance between nodes
                 dist = np.linalg.norm(node1 - node2)
 
-                # Store nodal arc-length
-                arcLength[elemID+1] = arcLength[elemID] + dist
+                if periodic and elemID == nElem:
 
-                # Store coordinates of the next node
-                nodeCoor[:,elemID+1] = node2
+                    # Store nodal arc-length
+                    arcLength[elemID+1] = arcLength[elemID] + dist
+
+                    # Store coordinates of the next node
+                    nodeCoor[:,elemID+1] = node2
+
+                else:
+
+                    # Store nodal arc-length
+                    arcLength[elemID+1] = arcLength[elemID] + dist
+
+                    # Store coordinates of the next node
+                    nodeCoor[:,elemID+1] = node2
 
             # SAMPLING POSITION FOR NEW NODES
 

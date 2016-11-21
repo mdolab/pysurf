@@ -595,56 +595,50 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
 #=================================================================
 
-def split_curves(curveDict, criteria='sharpness'):
+def split_curves(curveDict, optionsDict={}, criteria='sharpness'):
 
     '''
     This function will loop over all curves in curveDict and split
     them based on a given criteria. The available criteria are:
-    criteria=['sharpness']
+    criteria=['sharpness', 'curve']
+
+    Returns
+    =======
+    breakList, list -> List of bar element IDs where the guideCurves split
+                       the initial intersection. These are outputted and can
+                       be used to always split the curves at the same bar
+                       elements, which avoids an issue where the mesh may
+                       become discontinuous.
 
     Ney Secco 2016-08
-    '''
-
-    # Loop over every curve to check for splits
-    for curveName in curveDict.keys():
-
-        # First we remove the curve component from the dictionary
-        curve = curveDict.pop(curveName)
-
-        # Now we run the split function for this single curve
-        splitcurves = split_curve_single(curve, curveName, criteria=criteria)
-
-        # Now we add the split curves to the original curves dictionary
-        curveDict.update(splitcurves)
-
-#=============================================================
-
-def split_curve_with_curve(curveDict, curveToBeSplit, splittingCurve):
-
-    '''
-    This function splits a curve using another curve.
-    Must provide the entire curveDict, then the curve that will be used to
-    split the other curve; the splittingCurve used to split the curveToBeSplit.
-
     John Jasa 2016-11
     '''
 
+    # Set the default curvesToBeSplit; useful if criteria = 'sharpness'
+    options = {'curvesToBeSplit' : []}
+    options.update(optionsDict)
+
     # Loop over every curve to check for splits
     for curveName in curveDict.keys():
-        if curveToBeSplit == curveName:
+
+        if curveName in options['curvesToBeSplit'] or criteria == 'sharpness':
 
             # First we remove the curve component from the dictionary
             curve = curveDict.pop(curveName)
 
             # Now we run the split function for this single curve
-            splitcurves = split_curve_single(curve, curveName, splittingCurve=splittingCurve, criteria='curve')
+            splitcurves, breakList = split_curve_single(curve, curveName,
+                optionsDict=options, criteria=criteria)
 
             # Now we add the split curves to the original curves dictionary
             curveDict.update(splitcurves)
 
+    return breakList
+
+
 #=============================================================
 
-def split_curve_single(curve, curveName, splittingCurve=None, criteria="sharpness"):
+def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, criteria="sharpness"):
 
     '''
     This function receives a single curve object, splits it according to a criteria,
@@ -664,7 +658,7 @@ def split_curve_single(curve, curveName, splittingCurve=None, criteria="sharpnes
                                     other curve.
 
     criteria: string -> Criteria that will be used to split curves. The options
-              available for now are: ['sharpness']
+              available for now are: ['sharpness', 'curve']
 
     OUTPUTS:
     splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
@@ -748,14 +742,24 @@ def split_curve_single(curve, curveName, splittingCurve=None, criteria="sharpnes
             isPeriodic = True
 
     if criteria == 'curve':
-        guideCurve = splittingCurve.extract_points()
-        split_index = closest_node(guideCurve, coor.T)
+        if 'splittingNodes' in optionsDict.keys():
+            for node in optionsDict['splittingNodes']:
+                breakList.append(node)
+        else:
+            for guideCurve in optionsDict['splittingCurves']:
+                split_index = closest_node(guideCurve, coor.T)
 
-        elemID = np.where(barsConn[0, :] == split_index+1)[0]
+                elemID = np.where(barsConn[0, :] == split_index+1)[0]
 
-        if elemID:
-            # Store the current element as a break position
-            breakList.append(elemID[0])
+                # Store the current element as a break position
+                breakList.append(elemID[0])
+
+    # Make sure that the obtained breakList is in order so that we get
+    # the correct split curves
+    breakList = sorted(breakList)
+
+    if 0 in breakList:
+        breakList.remove(0)
 
     # CHECK IF BREAKS WERE DETECTED
     # We can stop this function earlier if we detect no break points
@@ -883,8 +887,8 @@ def split_curve_single(curve, curveName, splittingCurve=None, criteria="sharpnes
         # Append new curve object to the dictionary
         splitcurvesDict[splitCurveName] = splitCurve
 
-    # Return the dictionary of new curves
-    return splitcurvesDict
+    # Return the dictionary of new curves and the list of breaking elements
+    return splitcurvesDict, breakList
 
 #=================================================================
 
@@ -1393,7 +1397,7 @@ def FEsort(barsConn):
 
                 # Remove mapping
                 currMap.pop(FEcounter)
-                
+
             else:
 
                 # Increment counter
@@ -1985,12 +1989,22 @@ def normalize_b(vec, normalVecb):
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
-    minDist = 1e9
-    for node in guideCurve:
-        curve = np.asarray(curve)
-        deltas = curve - node
-        dist_2 = np.einsum('ij,ij->i', deltas, deltas)
-        if minDist > np.min(dist_2):
-            minDist = np.min(dist_2)
-            ind = np.argmin(dist_2)
+    curve = np.asarray(curve)
+
+    # Get number of points in the seed curve
+    nPoints = curve.shape[0]
+
+    # Initialize arrays to call projection function
+    dist2 = np.ones(nPoints)*1e10
+    xyzProj = np.zeros((nPoints,3))
+    tangents = np.zeros((nPoints,3))
+    elemIDs = np.zeros((nPoints),dtype='int32')
+
+    # Call projection function to find the distance between every node of the
+    # seed curve to the guide curve
+    guideCurve.project(curve, dist2, xyzProj, tangents, elemIDs)
+
+    # Find closest point
+    ind = np.argmin(dist2)
+
     return ind

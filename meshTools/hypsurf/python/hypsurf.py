@@ -10,6 +10,7 @@ from time import time
 import numpy as np
 import pdb
 import hypsurfAPI
+import pysurf
 
 fortran_flag = False
 deriv_check = False
@@ -384,6 +385,75 @@ class HypSurfMesh(object):
         rNext_ = self.smoothing(rNext,layerIndex+2)
 
         rNext, NNext = self.projection(rNext_)
+
+        ### ==========================================================
+        # This is currently hardcoded for the wing-body case
+        ### ==========================================================
+        if self.optionsDict['remesh']:
+
+            # Reshape flattened array into coor format and create barsConn
+            coor = rNext.reshape(3, -1, order='F')
+            coor = np.fliplr(coor)
+            numCoords = coor.shape[1]
+            barsConn = np.zeros((2, numCoords))
+            barsConn[0, :] = range(numCoords)
+            barsConn[1, :] = range(1, numCoords+1)
+            curveName = 'marchedMesh'
+
+            # Save the marched mesh points as a TSurfCurve object
+            marchedCurve = {curveName : pysurf.TSurfCurve(coor, barsConn, curveName)}
+
+            # Set the curves that we will use to split the marched curve
+            optionsDict = {'splittingCurves' : [self.ref_geom.curves['curve_le'], self.ref_geom.curves['curve_te_upp'], self.ref_geom.curves['curve_te_low']]}
+
+            # Set the curvesToBeSplit as the one curve produced by the mesh marching
+            optionsDict['curvesToBeSplit'] = [marchedCurve.keys()[0]]
+
+            # Save the element indices where the guideCurves split the original
+            # intersection curve. This is done because the number of grid
+            # points on either side of the leading edge curve might change
+            # causing large jumps in the mesh.
+            if layerIndex == 0:
+                self.breakList = pysurf.tsurf_tools.split_curves(marchedCurve, optionsDict, criteria='curve')
+            else:
+                optionsDict['splittingNodes'] = self.breakList
+                pysurf.tsurf_tools.split_curves(marchedCurve, optionsDict, criteria='curve')
+
+            # Remesh curve to get better spacing
+            curveNames = marchedCurve.keys()
+            for i, cur in enumerate(curveNames):
+                nNewNodes = marchedCurve[cur].coor.shape[1]
+                coords = marchedCurve[cur].extract_points()
+
+                # Obtain the spacing between the first nodes in this curve
+                # to determine if it is the upper or lower curve.
+                first_spacing = np.linalg.norm(coords[1, :] - coords[0, :])
+
+                # This is the blunt trailing edge curve.
+                if nNewNodes < 7:
+                    marchedCurve[cur] = marchedCurve[cur].remesh(nNewNodes=5)
+
+                # These are the upper and lower curves.
+                # Note that these values are hardcoded here and would need
+                # to be chnaged for the general case.
+                elif np.abs(first_spacing) < .01:
+                    marchedCurve[cur] = marchedCurve[cur].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
+                else:
+                    marchedCurve[cur] = marchedCurve[cur].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
+
+            # Merge curves
+            mergedCurve = pysurf.tsurf_tools.merge_curves(marchedCurve,'mergedCurve')
+
+            # Shift nodes so they start at the top of the blunt trailing edge
+            mergedCurve.shift_end_nodes(criteria='maxX')
+
+            # Convert the curve node points into the format required for meshing
+            rNext_ = mergedCurve.extract_points().T.reshape(-1, order='F')
+
+            # Project the remeshed curve back onto the surface
+            rNext, NNext = self.projection(rNext_)
+
+            ### ==========================================================
 
         # RETURNS
         return rNext, NNext
@@ -1129,7 +1199,8 @@ class HypSurfMesh(object):
             'ratioGuess' : 20,
             'plotQuality' : False,
             'growthRatio' : 1.2,
-            'guideCurves' : []
+            'guideCurves' : [],
+            'remesh' : False,
             }
 
     def _applyUserOptions(self, options):
@@ -1361,8 +1432,8 @@ def closest_node(guideCurve, curve):
     # Call projection function to find the distance between every node of the
     # seed curve to the guide curve
     guideCurve.project(curve, dist2, xyzProj, tangents, elemIDs)
-    
-    # Find closes point
+
+    # Find closest point
     ind = np.argmin(dist2)
 
     return ind

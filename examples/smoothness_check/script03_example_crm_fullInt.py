@@ -48,7 +48,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # OPTIONS
     generate_wing = True
-    generate_body = True
+    generate_body = False
 
     # DEFINE FUNCTION TO GENERATE MESH
 
@@ -76,8 +76,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set guideCurves for the wing case
         if output_name == 'wing.xyz':
-            #pass
             options['guideCurves'] = guideCurves
+            options['remesh'] = True
 
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
@@ -100,22 +100,19 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         Intersections[intName].shift_end_nodes(criteria='maxX')
 
     # Split curves
-    pysurf.tsurf_tools.split_curves(Intersections) # This splits based on sharpness
-    # Find the biggest curve
-    curveNames = Intersections.keys()
+    optionsDict = {'splittingCurves' : [wing.curves['curve_le'], wing.curves['curve_te_upp'], wing.curves['curve_te_low']]}
 
-    if Intersections[curveNames[0]].coor.shape[1] > Intersections[curveNames[1]].coor.shape[1]:
-        pysurf.tsurf_tools.split_curve_with_curve(Intersections, Intersections.keys()[0], wing.curves['curve_le'])
-    else:
-        pysurf.tsurf_tools.split_curve_with_curve(Intersections, Intersections.keys()[1], wing.curves['curve_le'])
+    optionsDict['curvesToBeSplit'] = [Intersections.keys()[0]]
+
+    pysurf.tsurf_tools.split_curves(Intersections, optionsDict, criteria='curve')
+
 
     # Remesh curve to get better spacing
     curveNames = Intersections.keys()
-    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=5)
-    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
-    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
 
-    # Currently 1 is upper, 2 is lower surface
+    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=5)
+    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
+    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
 
     # Check if we need to flip the curve
     # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
@@ -205,7 +202,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # Run tecplot in bash mode to save picture
     # os.system('tec360 -b plotMesh.mcr')
-    os.system('tec360 layout_mesh.lay')
+    # os.system('tec360 layout_mesh.lay')
 
 
     # Rename image file
