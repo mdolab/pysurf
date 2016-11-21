@@ -99,6 +99,22 @@ class TSurfGeometry(Geometry):
 
         self.curves[name] = copy.deepcopy(curve)
 
+    def remove_curve(self, name):
+
+        '''
+        Removes a given curve instance from the self.curves dictionary.
+        '''
+
+        self.curves.pop(name)
+
+    def rename_curve(self, oldName, newName):
+
+        '''
+        Renames a given curve instance to the self.curves dictionary.
+        '''
+
+        self.curves[newName] = self.curves.pop(oldName)
+
     def update(self, coor):
 
         '''
@@ -654,7 +670,7 @@ class TSurfCurve(Curve):
             sortedConn = barsConn
             # Print message
             print ''
-            print 'Curve','"'+name+'"','could not be sorted. It might be composed of disconnected curves.'
+            print 'Curve','"'+name+'"','could not be sorted. It might be composed by disconnected curves.'
             print ''
 
         # Assing coor and barsConn. Remember to crop coor to get unique nodes only
@@ -1072,6 +1088,206 @@ class TSurfCurve(Curve):
 
         return newCurve
 
+    def condense_disconnect_curves(self,guessNode=0):
+
+        '''
+        This function takes a curve defined by multiple discontinuous
+        curves (in the FE connectivity sense) and tries to merge them in
+        a single continuous curve. This is useful to heal curves exported by
+        ICEM where it defines multiple overlapping bar elements.
+        '''
+
+        # First we try to sort the curve to how many disconnect FE sets define it
+        sortedConn, dummy_map = tst.FEsort(self.barsConn.T.tolist())
+
+        # Get number of disconnect curves
+        numCurves = len(sortedConn)
+
+        # Check the number of connected FE sets
+        if False:#numCurves == 1:
+            # The sorting works just fine and it found a single curve!
+            # There is no need to condense nodes
+            print ''
+            print 'tsurf_component:condense_nodes'
+            print 'Curve is already composed by a single FE set.'
+            print 'There is no need to condense curves.'
+            print ''
+        else:
+            
+            # Initialize
+            FEcurves = []
+            # Create one curve object for each disconnect curve
+            for (curveID, currConn) in enumerate(sortedConn):
+                curveName = 'FEcurve_%03d'%curveID
+                FEcurves.append(TSurfCurve(curveName, self.coor, currConn))
+
+            '''
+            # Now we need to figure out the end point of the curve to start the merging process.
+            # We will project the end of each curve onto the other curves, and the end point that
+            # moves most during the projection will be the end point of the merged curve:
+            #
+            #                                             A
+            # curve1 ...----+-----+------+----+-----+-----+
+            #                             B                            C
+            # curve 2                     +------+------+-------+------+
+            #
+            # Three end points are illustrated above: A, B, and C. The projection of point C will
+            # be the far from its original point, compared to the projection of the other end nodes.
+            # Therefore, C will be taken as the end point of the merged curve.
+
+            # Initialize ID of the curve and node that contains the most promising node
+            bestCurveID = 0 # Will be index in FEcurves
+            bestNodeID = 0 # Will be index in coor
+            bestDist = 0
+
+            for refCurveID in range(numCurves):
+
+                # Get reference curve object
+                refCurve = FEcurves[refCurveID]
+
+                # Get IDs of the end nodes
+                node1id = refCurve.barsConn[0,0]-1
+                node2id = refCurve.barsConn[-1,-1]-1
+
+                # Get the ends of the reference curve
+                node1 = refCurve.coor[:,node1id]
+                node2 = refCurve.coor[:,node2id]
+
+                for projCurveID in range(refCurveID,numCurves):
+
+                    # Get curve that will receive projections
+                    projCurve = FEcurves[projCurveID]
+
+                    # Project end points of the reference curve onto projCurve
+                    xyz = np.array([node1,node2],order='F')
+                    dist2 = np.ones(2)*1e10
+                    projCurve.project(xyz, dist2=dist2)
+
+                    # Check distances of the projections
+                    if dist2[0] > bestDist:
+                        bestDist = dist2[0]
+                        bestCurveID = refCurveID
+                        bestNodeID = node1id
+                    if dist2[1] > bestDist:
+                        bestDist = dist2[1]
+                        bestCurveID = refCurveID
+                        bestNodeID = node2id
+
+
+            # Now that we know the best start point, we will chain the closer nodes to make
+            # a single curve.
+
+            # Make a list out of all coordinates so we can pop nodes
+            coorList = self.coor.T.tolist()
+
+            # Initialize node to be searched
+            prevNodeID = bestNodeID
+
+            # Initialize coordinate list
+            newCoor = []
+
+            # Loop to chain nodes
+            while len(coorList) > 1:
+
+                # Get coordinates of the previous node
+                prevNode = coorList.pop(prevNodeID)
+
+                # Append this node to the coordinate list
+                newCoor.append(prevNode)
+
+                # Compute distance of this node to all other nodes
+                dist2 = np.linalg.norm(np.array(coorList)-np.array(prevNode),axis=1)
+
+                # Get index of the closest point to start next iteration
+                prevNodeID = np.argmin(dist2)
+
+            # Now append the last remaining node
+            prevNode = coorList.pop(prevNodeID)
+            newCoor.append(prevNode)
+                
+            # Get number of nodes
+            numNodes = len(newCoor)
+
+            # Convert nodal coordinates to array
+            newCoor = np.array(newCoor,order='F')
+
+            # Now we create bar element connectivity for these nodes
+            newBarsConn = np.zeros((numNodes-1,2),order='F')
+            newBarsConn[:,0] = np.arange(numNodes-1)+1
+            newBarsConn[:,1] = np.arange(numNodes-1)+2
+
+            # Replace information of the current curve
+            self.coor = newCoor.T
+            self.barsConn = newBarsConn.T
+
+            '''
+
+            # Now we will chain the closer nodes to make a single curve.
+            # We will always check both ends of the chain and append the node that is
+            # closer to one of the ends.
+
+            # Make a list out of all coordinates so we can pop nodes
+            coorList = self.coor.T.tolist()
+
+            # Start chain of new coordinates with an arbitrary node
+            newCoor = [coorList.pop(guessNode)]
+
+            # Loop to chain nodes
+            while len(coorList) > 0:
+
+                # Get coordinates of the first and last nodes of the chain
+                firstNode = newCoor[0]
+                lastNode = newCoor[-1]
+
+                # Compute distance of all remaining nodes to the first node of the chain
+                dist2first = np.linalg.norm(np.array(coorList)-np.array(firstNode),axis=1)
+
+                # Compute distance of all remaining nodes to the first node of the chain
+                dist2last = np.linalg.norm(np.array(coorList)-np.array(lastNode),axis=1)
+
+                # Find if which end of the chain has the closest new node
+                if np.min(dist2first) < np.min(dist2last):
+
+                    # The first node of the chain has the closest point.
+                    # So we will add a node before the first point
+                    
+                    # Get id of the closest node
+                    nextNodeID = np.argmin(dist2first)
+
+                    # Pop the element from the remaining nodes list
+                    nextNode = coorList.pop(nextNodeID)
+
+                    # Insert the next node at the beginning of the list
+                    newCoor.insert(0, nextNode)
+
+                else:
+
+                    # The last node of the chain has the closest point.
+                    # So we will add a node after the last point
+                    
+                    # Get id of the closest node
+                    nextNodeID = np.argmin(dist2last)
+
+                    # Pop the element from the remaining nodes list
+                    nextNode = coorList.pop(nextNodeID)
+
+                    # Insert the next node at the beginning of the list
+                    newCoor.append(nextNode)
+
+            # Get number of nodes
+            numNodes = len(newCoor)
+
+            # Convert nodal coordinates to array
+            newCoor = np.array(newCoor,order='F')
+
+            # Now we create bar element connectivity for these nodes
+            newBarsConn = np.zeros((numNodes-1,2),order='F')
+            newBarsConn[:,0] = np.arange(numNodes-1)+1
+            newBarsConn[:,1] = np.arange(numNodes-1)+2
+
+            # Replace information of the current curve
+            self.coor = newCoor.T
+            self.barsConn = newBarsConn.T
 
     def shift_end_nodes(self, criteria='maxX'):
 

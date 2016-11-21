@@ -148,10 +148,10 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         bc2 = 'curve:curve_te_upp'
 
         # Set parameters
-        epsE0 = 9.5
+        epsE0 = 8.5
         theta = 0.0
         alphaP0 = 0.25
-        numSmoothingPasses = 0
+        numSmoothingPasses = 4
         nuArea = 0.16
         numAreaPasses = 0
         sigmaSplay = 0.
