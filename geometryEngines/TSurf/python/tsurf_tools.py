@@ -627,13 +627,11 @@ def split_curves(curveDict, optionsDict={}, criteria='sharpness'):
             curve = curveDict.pop(curveName)
 
             # Now we run the split function for this single curve
-            splitcurves, breakList = split_curve_single(curve, curveName,
+            splitcurves = split_curve_single(curve, curveName,
                 optionsDict=options, criteria=criteria)
 
             # Now we add the split curves to the original curves dictionary
             curveDict.update(splitcurves)
-
-    return breakList
 
 
 #=============================================================
@@ -888,7 +886,7 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         splitcurvesDict[splitCurveName] = splitCurve
 
     # Return the dictionary of new curves and the list of breaking elements
-    return splitcurvesDict, breakList
+    return splitcurvesDict
 
 #=================================================================
 

@@ -110,7 +110,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     # Remesh curve to get better spacing
     curveNames = Intersections.keys()
 
-    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=5)
+    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=10)
     Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
     Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
 
