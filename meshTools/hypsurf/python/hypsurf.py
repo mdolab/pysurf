@@ -34,6 +34,8 @@ class HypSurfMesh(object):
 
     def __init__(self, curve, ref_geom, options={}):
 
+        self.input_curve = curve
+
         # Check to see if the marching extension (distance) is given
         try:
             _ = options['extension']
@@ -83,6 +85,45 @@ class HypSurfMesh(object):
         self.curveProjDict1 = []
         self.curveProjDict2 = []
 
+        self.arcLength = []
+
+        # Sort of hardcoded for now
+        if 'curve_te_upp' in ref_geom.curves.keys():
+
+            # COMPUTE ARC-LENGTH
+
+            # Save the marched mesh points as a TSurfCurve object
+            marchedCurve = {'curve' : ref_geom.curves[curve]}
+
+            pysurf.tsurf_tools.split_curves(marchedCurve, criteria='sharpness')
+
+            curveNames = marchedCurve.keys()
+            numCurves = len(curveNames)
+
+            for i, cur in enumerate(curveNames):
+                coords = marchedCurve[cur].extract_points()
+                nNodes = coords.shape[0]
+
+                # Initialize an array that will store the arclength of each node.
+                # That is, the distance, along the curve from the current node to
+                # the first node of the curve.
+                arcLength = np.zeros(nNodes)
+
+                # Loop over each element to increment arcLength
+                for elemID in xrange(nNodes-1):
+
+                    # Get node positions (the -1 is due Fortran indexing)
+                    node1 = coords[elemID, :]
+                    node2 = coords[elemID+1, :]
+
+                    # Compute distance between nodes
+                    dist = np.linalg.norm(node1 - node2)
+
+                    # Store nodal arc-length
+                    arcLength[elemID+1] = arcLength[elemID] + dist
+
+                self.arcLength.append(arcLength)
+
         guideIndices = []
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
@@ -90,31 +131,6 @@ class HypSurfMesh(object):
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
         self.guideIndices = guideIndices
-
-        # COMPUTE ARC-LENGTH
-
-        # Get the number of nodes in the curve
-        nNodes = self.curve.shape[0]
-
-        # Initialize an array that will store the arclength of each node.
-        # That is, the distance, along the curve from the current node to
-        # the first node of the curve.
-        arcLength = np.zeros(nNodes)
-
-        # Loop over each element to increment arcLength
-        for elemID in xrange(nNodes-1):
-
-            # Get node positions (the -1 is due Fortran indexing)
-            node1 = self.curve[elemID, :]
-            node2 = self.curve[elemID+1, :]
-
-            # Compute distance between nodes
-            dist = np.linalg.norm(node1 - node2)
-
-            # Store nodal arc-length
-            arcLength[elemID+1] = arcLength[elemID] + dist
-
-        self.arcLength = arcLength
 
     def createMesh(self):
         '''
@@ -413,53 +429,90 @@ class HypSurfMesh(object):
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
 
-            # COMPUTE MARCHED ARC-LENGTH
+            # Reshape flattened array into coor format and create barsConn
+            coor = rNext.reshape(3, -1, order='F')
+            coor = np.fliplr(coor)
+            numCoords = coor.shape[1]
+            barsConn = np.zeros((2, numCoords))
+            barsConn[0, :] = range(numCoords)
+            barsConn[1, :] = range(1, numCoords+1)
+            curveName = 'marchedMesh'
 
-            coor = rNext.reshape(-1, 3)
+            # COMPUTE ARC-LENGTH
 
-            # Get the number of nodes in the curve
-            nNodes = coor.shape[0]
+            # Save the marched mesh points as a TSurfCurve object
+            marchedCurve = {'curve' : self.ref_geom.curves[self.input_curve]}
 
-            # Initialize an array that will store the arclength of each node.
-            # That is, the distance, along the curve from the current node to
-            # the first node of the curve.
-            marchedArcLength = np.zeros(nNodes)
+            pysurf.tsurf_tools.split_curves(marchedCurve, criteria='sharpness')
 
-            # Loop over each element to increment arcLength
-            for elemID in xrange(nNodes-1):
+            curveNames = marchedCurve.keys()
+            numCurves = len(curveNames)
 
-                # Get node positions (the -1 is due Fortran indexing)
-                node1 = coor[elemID, :]
-                node2 = coor[elemID+1, :]
+            fullMarchedArcLength = []
 
-                # Compute distance between nodes
-                dist = np.linalg.norm(node1 - node2)
+            for i, cur in enumerate(curveNames):
+                coords = marchedCurve[cur].extract_points()
+                nNodes = coords.shape[0]
 
-                # Store nodal arc-length
-                marchedArcLength[elemID+1] = marchedArcLength[elemID] + dist
+                # Initialize an array that will store the arclength of each node.
+                # That is, the distance, along the curve from the current node to
+                # the first node of the curve.
+                marchedArcLength = np.zeros(nNodes)
 
-            # Normalize so the range is [0, 1]
-            arcLength = self.arcLength / self.arcLength[-1] * marchedArcLength[-1]
+                # Loop over each element to increment arcLength
+                for elemID in xrange(nNodes-1):
 
-            # INTERPOLATE NEW NODES
+                    # Get node positions (the -1 is due Fortran indexing)
+                    node1 = coords[elemID, :]
+                    node2 = coords[elemID+1, :]
 
-            # Now we sample the new coordinates based on the interpolation method given by the user
+                    # Compute distance between nodes
+                    dist = np.linalg.norm(node1 - node2)
 
-            # Import interpolation function
-            from scipy.interpolate import interp1d
+                    # Store nodal arc-length
+                    marchedArcLength[elemID+1] = marchedArcLength[elemID] + dist
 
-            # Create interpolants for x, y, and z
-            fX = interp1d(marchedArcLength, coor[:, 0])
-            fY = interp1d(marchedArcLength, coor[:, 1])
-            fZ = interp1d(marchedArcLength, coor[:, 2])
+                # Normalize so the range is [0, 1]
+                arcLength = self.arcLength[i] / self.arcLength[i][-1] * marchedArcLength[-1]
 
-            # Sample new points using the interpolation functions
-            coor[:, 0] = fX(arcLength)
-            coor[:, 1] = fY(arcLength)
-            coor[:, 2] = fZ(arcLength)
+                # INTERPOLATE NEW NODES
+
+                # Now we sample the new coordinates based on the interpolation method given by the user
+
+                # Import interpolation function
+                from scipy.interpolate import interp1d
+
+                # Create interpolants for x, y, and z
+                fX = interp1d(marchedArcLength, coords[:, 0])
+                fY = interp1d(marchedArcLength, coords[:, 1])
+                fZ = interp1d(marchedArcLength, coords[:, 2])
+
+                # Sample new points using the interpolation functions
+                coords[:, 0] = fX(arcLength)
+                coords[:, 1] = fY(arcLength)
+                coords[:, 2] = fZ(arcLength)
+
+                coords = coords.T
+                coords = np.fliplr(coords)
+                numCoords = coords.shape[1]
+                barsConn = np.zeros((2, numCoords))
+                barsConn[0, :] = range(numCoords)
+                barsConn[1, :] = range(1, numCoords+1)
+                curveName = 'marchedMesh_{}'.format(i)
+
+                marchedCurve[cur] = pysurf.TSurfCurve(coords, barsConn, curveName)
+
+            # Merge curves
+            mergedCurve = pysurf.tsurf_tools.merge_curves(marchedCurve,'mergedCurve')
+
+            # Shift nodes so they start at the top of the blunt trailing edge
+            mergedCurve.shift_end_nodes(criteria='maxX')
 
             # Convert the curve node points into the format required for meshing
-            rNext_ = coor.reshape(-1)
+            rNext_ = mergedCurve.extract_points().T.reshape(-1, order='F')
+
+            print rNext_.shape
+            print dr.shape
 
             # Project the remeshed curve back onto the surface
             rNext, NNext = self.projection(rNext_)
@@ -469,15 +522,17 @@ class HypSurfMesh(object):
 
     def projection(self, r):
 
+        numNodes = int(r.shape[0] / 3)
+
         # Initialize normals array
-        NNext = np.zeros((3, self.numNodes))
+        NNext = np.zeros((3, numNodes))
 
         # Save endpoints
         node1 = r[:3]
         node2 = r[-3:]
 
         # Project onto surface and compute surface normals
-        rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((self.numNodes, 3)))
+        rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((numNodes, 3)))
         rNext = rNext.flatten()
         NNext = NNext.T
 
