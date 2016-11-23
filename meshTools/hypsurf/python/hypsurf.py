@@ -15,8 +15,6 @@ import pysurf
 fortran_flag = False
 deriv_check = False
 
-epsEhist = []
-
 '''
 TO DO
 
@@ -358,6 +356,9 @@ class HypSurfMesh(object):
                     Sm1, maxStretch = self.areaFactor(rm1, dPseudo)
                     S0, maxStretch = self.areaFactor(r0, dPseudo)
 
+                    # Update r0
+                    r0 = rNext[:]
+
                     # Update the Normals with the values computed in the last iteration.
                     # We do this because, the last iteration already projected the new
                     # points to the surface and also computed the normals. So we don't
@@ -373,9 +374,6 @@ class HypSurfMesh(object):
 
                     # Update rm1
                     rm1 = r0[:]
-
-                    # Update r0
-                    r0 = rNext[:]
 
                 # Store grid points
                 R[layerIndex+1,:] = rNext
@@ -404,12 +402,6 @@ class HypSurfMesh(object):
 
         if self.optionsDict['plotQuality']:
             view_mat(ratios)
-
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(epsEhist)
-        plt.show()
-
 
         # Convert to X, Y and Z
         X = R[:,::3]
@@ -853,11 +845,6 @@ class HypSurfMesh(object):
                     K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
                     f[3*(curr_index):3*(curr_index)+3] = f_block
 
-            #plt
-            if curr_index == 129:
-                #pass
-                epsEhist.append(r0_eta)
-
         #####################################
         # END OF HELPER FUNCTION            #
         #####################################
@@ -1091,7 +1078,7 @@ class HypSurfMesh(object):
         ltrans = int(3/4*numLayers)
 
         if l <= ltrans:
-            Sl = np.sqrt((l-1)/(ltrans-1))
+            Sl = np.sqrt((l-1)/(numLayers-1))
         else:
             Sl = np.sqrt((ltrans-1)/(numLayers-1))
 
