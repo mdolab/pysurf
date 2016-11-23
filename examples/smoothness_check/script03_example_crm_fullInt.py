@@ -11,7 +11,7 @@ from mpi4py import MPI
 import copy
 
 # USER INPUTS
-guideCurves = ['curve_te_upp','curve_te_low']
+guideCurves = ['curve_te_low']
 
 # Define translation cases for the wing
 nStates = 11
@@ -47,8 +47,8 @@ wing.curves['curve_te_low'].flip()
 def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # OPTIONS
-    generate_wing = True
-    generate_body = False
+    generate_wing = False
+    generate_body = True
 
     # DEFINE FUNCTION TO GENERATE MESH
 
@@ -111,8 +111,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     curveNames = Intersections.keys()
 
     Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=10)
-    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.005, finalSpacing=.05)
-    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=150, spacing='hypTan', initialSpacing=0.05, finalSpacing=.005)
+    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=130, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
+    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=130, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
 
     # Check if we need to flip the curve
     # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
@@ -148,7 +148,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         bc2 = 'curve:curve_te_upp'
 
         # Set parameters
-        epsE0 = 8.5
+        epsE0 = 12.5
         theta = 0.0
         alphaP0 = 0.25
         numSmoothingPasses = 4
@@ -181,14 +181,14 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
         bc2 = 'continuous'
 
         # Set parameters
-        epsE0 = 4.5
+        epsE0 = 8.5
         theta = 0.0
         alphaP0 = 0.25
         numSmoothingPasses = 0
         nuArea = 0.16
-        numAreaPasses = 5
+        numAreaPasses = 20
         sigmaSplay = 0.3
-        cMax = 10.0
+        cMax = 100.0
         ratioGuess = 20
 
         # Options

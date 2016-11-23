@@ -68,7 +68,8 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
         # Set guideCurves for the wing case
         if output_name == 'wing.xyz':
-            options['guideCurves'] = ['w_le_curve']
+            pass
+            #options['guideCurves'] = ['w_le_curve']
 
         mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 

@@ -40,7 +40,8 @@ class tfi(object):
 
     def __init__(self, nu, nv,
                  alpha00, alpha01, alpha10, alpha11, 
-                 beta00,  beta01,  beta10,  beta11):
+                 beta00,  beta01,  beta10,  beta11,
+                 u='uniform',  v='uniform'):
 
         '''
         INPUTS
@@ -65,15 +66,17 @@ class tfi(object):
 
         # Store the function handles
         # but do not compute matrices yet because we did not set the size
-        self.setTFI(nu, nv,
+        self.setTFI(nu,      nv,
                     alpha00, alpha01, alpha10, alpha11,
-                    beta00, beta01, beta10, beta11)
+                    beta00,  beta01,  beta10,  beta11,
+                    u,       v)
 
     #===============================================
 
     def setTFI(self, nu=None, nv=None,
                alpha00=None, alpha01=None, alpha10=None, alpha11=None,
-               beta00=None, beta01=None, beta10=None, beta11=None):
+               beta00=None,  beta01=None,  beta10=None,  beta11=None,
+               u=None,       v=None):
 
         '''
         This function will update the TFI size and interpolation functions.
@@ -83,23 +86,38 @@ class tfi(object):
 
         INPUTS
         nu:     integer --> number of nodes in u direction (including end points)
+
         nv:     integer --> number of nodes in v direction (including end points)
+
         alpha00: function alpha00(u) --> univariate function used to interpolate functions in u
                                          alpha00(0) = 1.0 and alpha00(1) = 0.0
+
         alpha01: function alpha01(u) --> univariate function used to interpolate derivatives in u
+
         alpha10: function alpha10(u) --> univariate function used to interpolate functions in u
                                          alpha10(0) = 0.0 and alpha10(1) = 1.0
+
         alpha11: function alpha11(u) --> univariate function used to interpolate derivatives in u
+
         beta00:  function beta00(v) --> univariate function used to interpolate functions in v
                                         beta0(0) = 1.0 and beta0(1) = 0.0
+
         beta01:  function beta01(v) --> univariate function used to interpolate derivatives in v
+
         beta10:  function beta10(v) --> univariate function used to interpolate functions in v
                                         beta1(0) = 0.0 and beta1(1) = 1.0
+
         beta11:  function beta11(v) --> univariate function used to interpolate derivatives in v
+
+        u: array[nu] --> Parametric coordinates (ranging from 0 to 1) that correspond to each u-layer.
+
+        v: array[nv] --> Parametric coordinates (ranging from 0 to 1) that correspond to each v-layer.
 
         CHANGES
         self.__nu
         self.__nv
+        self.__u
+        self.__v
         self.__baseFuncs.alpha00
         self.__baseFuncs.alpha01
         self.__baseFuncs.alpha10
@@ -108,7 +126,7 @@ class tfi(object):
         self.__baseFuncs.beta01
         self.__baseFuncs.beta10
         self.__baseFuncs.beta11
-        what self.__computeArray changes
+        what self.__computeInterpolationArrays changes
         '''
 
         # Values that have None will not be updated
@@ -137,6 +155,12 @@ class tfi(object):
             self.__beta10 = beta10
         if beta11 is not None:
             self.__beta11 = beta11
+
+        # Update parametric coordinates
+        if u is not None:
+            self.__u = u
+        if v is not None:
+            self.__v = v
 
         # Update interpolation arrays
         self.__computeInterpolationArrays()
@@ -231,6 +255,9 @@ class tfi(object):
         the interpolation function values throughout the domain.
         This way, we can use the the same arrays to interpolate multiple functions.
 
+        We can also provide non-uniform values for u and v. The literature recommends
+        setting parametric coordinates based on the actual arc-length of the curve.
+
         CHANGES
         self.__A
         self.__B
@@ -240,9 +267,31 @@ class tfi(object):
         nu = self.__nu
         nv = self.__nv
 
-        # Initialize parametric coordinates
-        u = np.linspace(0,1,nu)
-        v = np.linspace(0,1,nv)
+        # Get parametric coordinates
+        u = self.__u
+        v = self.__v
+
+        # Initialize parametric coordinates (if None is provided) or check
+        # their size
+        if u is 'uniform':
+            u = np.linspace(0,1,nu)
+        else:
+            if len(u) is not nu:
+                print ''
+                print 'TFI error: __computeInterpolation Arrays'
+                print ' The number of parametric coordinates provided does not match'
+                print ' the number of points.'
+                print ''
+
+        if v is 'uniform':
+            v = np.linspace(0,1,nv)
+        else:
+            if len(v) is not nv:
+                print ''
+                print 'TFI error: __computeInterpolation Arrays'
+                print ' The number of parametric coordinates provided does not match'
+                print ' the number of points.'
+                print ''
 
         # Initialize matrices
         self.__A = np.zeros((4, nu))
