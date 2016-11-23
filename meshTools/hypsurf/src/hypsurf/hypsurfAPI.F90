@@ -431,6 +431,7 @@
         rm1 = rNext
         rm1d = rNextd
         N0 = NNext
+        N0d = NNextd
 
         !===========================================================
 
@@ -484,7 +485,6 @@
             eta = layerIndex+2
 
             rNextd = 0.
-            N0d = 0.
             call computeMatrices_main_d(r0, r0d, N0, N0d, S0, S0d, rm1, rm1d, &
             Sm1, Sm1d, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
             numLayers, epsE0, rNext, rNextd, numNodes)
@@ -516,7 +516,7 @@
             ! points to the surface and also computed the normals, so we don't
             ! have to repeat the projection step
             N0 = NNext
-            N0d = 0.
+            N0d = NNextd
 
           end do
 

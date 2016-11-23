@@ -474,6 +474,16 @@ def computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v, blendingFactor=0.6):
 #======================================
 #======================================
 
+def computeArcLengths(X,Y,Z):
+
+    '''
+    This function will compute the normalized arc-lengths
+    '''
+
+#======================================
+#======================================
+#======================================
+
 def exportPlot3d(X, Y, Z, filename):
 
     '''

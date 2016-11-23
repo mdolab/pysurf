@@ -15,6 +15,8 @@ import pysurf
 fortran_flag = False
 deriv_check = False
 
+epsEhist = []
+
 '''
 TO DO
 
@@ -81,56 +83,70 @@ class HypSurfMesh(object):
 
         # Initialize list to gather dictionary with projection information
         # that will be used to compute derivatives
+        stepSize = 1e-7
+
         self.projDict = []
         self.curveProjDict1 = []
         self.curveProjDict2 = []
 
-        self.arcLength = []
+        self.coord = np.random.random_sample(self.ref_geom.coor.shape)
+        self.coord = self.coord/np.linalg.norm(self.coord)*stepSize
+        self.curveCoord = {}
+        for curveName in self.ref_geom.curves:
+            self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
+            self.curveCoord[curveName] = self.curveCoord[curveName]/np.linalg.norm(self.curveCoord[curveName])*stepSize
 
-        # Sort of hardcoded for now
-        if 'curve_te_upp' in ref_geom.curves.keys():
+        self.coorb = np.zeros(self.ref_geom.coor.shape)
+        self.curveCoorb = {}
+        for curveName in self.ref_geom.curves:
+            self.curveCoorb[curveName] = np.zeros(self.ref_geom.curves[curveName].coor.shape)
 
-            # COMPUTE ARC-LENGTH
-
-            # Save the marched mesh points as a TSurfCurve object
-            marchedCurve = {'curve' : ref_geom.curves[curve]}
-
-            pysurf.tsurf_tools.split_curves(marchedCurve, criteria='sharpness')
-
-            curveNames = marchedCurve.keys()
-            numCurves = len(curveNames)
-
-            for i, cur in enumerate(curveNames):
-                coords = marchedCurve[cur].extract_points()
-                nNodes = coords.shape[0]
-
-                # Initialize an array that will store the arclength of each node.
-                # That is, the distance, along the curve from the current node to
-                # the first node of the curve.
-                arcLength = np.zeros(nNodes)
-
-                # Loop over each element to increment arcLength
-                for elemID in xrange(nNodes-1):
-
-                    # Get node positions (the -1 is due Fortran indexing)
-                    node1 = coords[elemID, :]
-                    node2 = coords[elemID+1, :]
-
-                    # Compute distance between nodes
-                    dist = np.linalg.norm(node1 - node2)
-
-                    # Store nodal arc-length
-                    arcLength[elemID+1] = arcLength[elemID] + dist
-
-                self.arcLength.append(arcLength)
-
+        # Detect nodes that should follow guide curves
         guideIndices = []
+
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
         self.guideIndices = guideIndices
+
+        # COMPUTE NORMALIZED ARC-LENGTHS
+        # If we detect guide curves, we will record separate arc-lengths for
+        # each subinterval defined by these guide curves.
+
+        # Initialize list of arc-lengths.
+        # Each entry of this list will correspond to an arc-length subinterval
+        # defined by the guide curves.
+        self.arcLength = []
+
+        # Now we define a list of nodes that define the boundaries of the subintervals.
+        # These are the nodes that follow guide curves (and also the first and last nodes)
+        breakNodes = [0] + guideIndices + [self.numNodes-1]
+        breakNodes = sorted(set(breakNodes)) # Remove duplicates
+
+        # Compute the number of subinterval based on the number of break nodes
+        numIntervals = len(breakNodes) - 1
+
+        # Flatten the curve coordinates so we could use the arc-length functions
+        rStart = self.curve.flatten().astype(float)
+
+        # Store the normalized arc-lengths of each subinterval
+        for intervalID in range(numIntervals):
+
+            # Get indices of the first and last nodes of the interval
+            node1 = breakNodes[intervalID]
+            node2 = breakNodes[intervalID+1]
+
+            # Take the slice of the nodal coordinates that corresponds to the
+            # current subinterval
+            rInterval = rStart[3*node1:3*(node2+1)]
+
+            # Compute the normalized arc-lengths of this interval
+            arcLength = compute_arc_length(rInterval)
+
+            # Store the arc-lengths of the current interval
+            self.arcLength.append(arcLength)
 
     def createMesh(self):
         '''
@@ -213,17 +229,23 @@ class HypSurfMesh(object):
 
             # Derivative check
             if deriv_check:
+                stepSize = 1e-7
+
                 rStartd = np.random.random_sample(rStart.shape)
+                rStartd = rStartd/np.linalg.norm(rStartd)*stepSize
                 rStartd_copy = rStartd.copy()
 
                 # Set derivatives for underlying surfaces and curves
                 self.coord = np.random.random_sample(self.ref_geom.coor.shape)
+                self.coord = self.coord/np.linalg.norm(self.coord)*stepSize
                 self.curveCoord = {}
                 for curveName in self.ref_geom.curves:
                     self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
+                    self.curveCoord[curveName] = self.curveCoord[curveName]/np.linalg.norm(self.curveCoord[curveName])*stepSize
 
                 R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
+                # Reverse mode
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
 
@@ -231,6 +253,26 @@ class HypSurfMesh(object):
 
                 print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb), '(unless the surface is curved; don\'t have projections working)'
                 print
+
+                '''
+                # Finite difference
+                # Perform the marching algorithm and output the results into R,
+                # which contains the mesh.
+                # fail is a flag set to true if the marching algo failed
+                # ratios is the ratios of quality for the mesh
+                rStart_step = rStart+rStartd
+                self.ref_geom.coor = self.ref_geom.coor + self.coord
+                for curveName in self.ref_geom.curves:
+                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]
+                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+                self.ref_geom.coor = self.ref_geom.coor - self.coord
+                for curveName in self.ref_geom.curves:
+                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]
+
+                Rd_FD = (R_step-R)/stepSize
+                print 'FD test'
+                print np.max(Rd_FD-Rd)
+                '''
 
             # Release the pseudomesh information from the hypsurfAPI instance
             hypsurfAPI.hypsurfapi.releasememory()
@@ -313,6 +355,7 @@ class HypSurfMesh(object):
                 for indexSubIter in range(cFactor):
 
                     # Recompute areas with the pseudo-step
+                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo)
                     S0, maxStretch = self.areaFactor(r0, dPseudo)
 
                     # Update the Normals with the values computed in the last iteration.
@@ -361,6 +404,11 @@ class HypSurfMesh(object):
 
         if self.optionsDict['plotQuality']:
             view_mat(ratios)
+
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(epsEhist)
+        plt.show()
 
 
         # Convert to X, Y and Z
@@ -429,91 +477,33 @@ class HypSurfMesh(object):
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
 
-            # Reshape flattened array into coor format and create barsConn
-            coor = rNext.reshape(3, -1, order='F')
-            coor = np.fliplr(coor)
-            numCoords = coor.shape[1]
-            barsConn = np.zeros((2, numCoords))
-            barsConn[0, :] = range(numCoords)
-            barsConn[1, :] = range(1, numCoords+1)
-            curveName = 'marchedMesh'
+            # Now we will redistribute the nodes based on the original curve arc-length.
+            # Remember that we should do this for each subinterval defined by guide curves.
 
-            # COMPUTE ARC-LENGTH
+            # Initialize array for redistributed coordinates
+            rNext_ = np.zeros(rNext.shape)
 
-            # Save the marched mesh points as a TSurfCurve object
-            marchedCurve = {'curve' : self.ref_geom.curves[self.input_curve]}
+            # Initialize offset index for the initial node of the subinterval
+            nodeID_offset = 0
 
-            pysurf.tsurf_tools.split_curves(marchedCurve, criteria='sharpness')
+            # Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
+            for intervalID in range(len(self.arcLength)):
 
-            curveNames = marchedCurve.keys()
-            numCurves = len(curveNames)
+                # Get the number of nodes in the current subinterval
+                numNodes = len(self.arcLength[intervalID])
 
-            fullMarchedArcLength = []
+                # Slice the coordinate array to get only nodes of the current subinterval
+                rInterval = rNext[nodeID_offset*3:(nodeID_offset+numNodes)*3]
+            
+                # Redistribute the nodes
+                rNew = redistribute_nodes_by_arc_length(rInterval,self.arcLength[intervalID])
 
-            for i, cur in enumerate(curveNames):
-                coords = marchedCurve[cur].extract_points()
-                nNodes = coords.shape[0]
+                # Save the redistributed nodes in the original array
+                rNext_[nodeID_offset*3:(nodeID_offset+numNodes)*3] = rNew
 
-                # Initialize an array that will store the arclength of each node.
-                # That is, the distance, along the curve from the current node to
-                # the first node of the curve.
-                marchedArcLength = np.zeros(nNodes)
-
-                # Loop over each element to increment arcLength
-                for elemID in xrange(nNodes-1):
-
-                    # Get node positions (the -1 is due Fortran indexing)
-                    node1 = coords[elemID, :]
-                    node2 = coords[elemID+1, :]
-
-                    # Compute distance between nodes
-                    dist = np.linalg.norm(node1 - node2)
-
-                    # Store nodal arc-length
-                    marchedArcLength[elemID+1] = marchedArcLength[elemID] + dist
-
-                # Normalize so the range is [0, 1]
-                arcLength = self.arcLength[i] / self.arcLength[i][-1] * marchedArcLength[-1]
-
-                # INTERPOLATE NEW NODES
-
-                # Now we sample the new coordinates based on the interpolation method given by the user
-
-                # Import interpolation function
-                from scipy.interpolate import interp1d
-
-                # Create interpolants for x, y, and z
-                fX = interp1d(marchedArcLength, coords[:, 0])
-                fY = interp1d(marchedArcLength, coords[:, 1])
-                fZ = interp1d(marchedArcLength, coords[:, 2])
-
-                # Sample new points using the interpolation functions
-                coords[:, 0] = fX(arcLength)
-                coords[:, 1] = fY(arcLength)
-                coords[:, 2] = fZ(arcLength)
-
-                coords = coords.T
-                coords = np.fliplr(coords)
-                numCoords = coords.shape[1]
-                barsConn = np.zeros((2, numCoords))
-                barsConn[0, :] = range(numCoords)
-                barsConn[1, :] = range(1, numCoords+1)
-                curveName = 'marchedMesh_{}'.format(i)
-
-                marchedCurve[cur] = pysurf.TSurfCurve(coords, barsConn, curveName)
-
-            # Merge curves
-            mergedCurve = pysurf.tsurf_tools.merge_curves(marchedCurve,'mergedCurve')
-
-            # Shift nodes so they start at the top of the blunt trailing edge
-            mergedCurve.shift_end_nodes(criteria='maxX')
-
-            # Convert the curve node points into the format required for meshing
-            rNext_ = mergedCurve.extract_points().T.reshape(-1, order='F')
-
-            print rNext_.shape
-            print dr.shape
-
+                # Update the offset
+                nodeID_offset = nodeID_offset + numNodes - 1
+    
             # Project the remeshed curve back onto the surface
             rNext, NNext = self.projection(rNext_)
 
@@ -690,6 +680,10 @@ class HypSurfMesh(object):
         K = np.zeros((3*self.numNodes, 3*self.numNodes))
         f = np.zeros(3*self.numNodes)
 
+        #####################################
+        # HELPER FUNCTION TO BUILD MATRICES #
+        #####################################
+
         def matrixBuilder(curr_index):
 
             if curr_index == 0:  # forward case
@@ -768,8 +762,8 @@ class HypSurfMesh(object):
 
             # Assemble A0 matrix
             A0 = np.array([[x0_eta, y0_eta, z0_eta],
-                        [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
-                        [0, 0, 0]])
+                           [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
+                           [0, 0, 0]])
 
             # Compute grid distribution sensor (Eq. 6.8a)
             dnum = np.linalg.norm(rm1[3*(neighbor2_index):3*(neighbor2_index)+3]-rm1[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(rm1[3*(neighbor1_index):3*(neighbor1_index)+3]-rm1[3*(curr_index):3*(curr_index)+3])
@@ -858,6 +852,15 @@ class HypSurfMesh(object):
                     K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
                     K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
                     f[3*(curr_index):3*(curr_index)+3] = f_block
+
+            #plt
+            if curr_index == 129:
+                #pass
+                epsEhist.append(r0_eta)
+
+        #####################################
+        # END OF HELPER FUNCTION            #
+        #####################################
 
         # Now loop over each node
 
@@ -1099,7 +1102,7 @@ class HypSurfMesh(object):
         if angle <= np.pi: # Convex corner
             a = 1.0
         else:
-            a = 1.0/(1.0 - np.cos(angle/2)*np.cos(angle/2))
+            a = 1.0/(1.0 - np.cos(angle/2)**2)
 
         # Compute auxiliary variable R (Eq. 6.4)
         R = Sl*dbar*a
@@ -1501,3 +1504,95 @@ def closest_node(guideCurve, curve):
     ind = np.argmin(dist2)
 
     return ind
+
+def compute_arc_length(r):
+
+    '''
+    This function will compute normalized arclengths of
+    the coordinates given in r.
+    Remember that r is a flat vector containing the x, y, and z coordinates
+    of each node in the following order:
+    r = [x1, y1, z1, x2, y2, x2, x3, y3, z3, ... ]
+
+    The first node will be at arc-length of 0.0
+    The last node will be at arc-length of 1.0
+
+    Ney Secco 2016-11
+    '''
+
+    # Get the number of nodes
+    nNodes = int(len(r)/3)
+
+    # Initialize an array that will store the arclength of each node.
+    # That is, the distance, along the curve from the current node to
+    # the first node of the curve.
+    arcLength = np.zeros(nNodes)
+    
+    # Store coordinates of the first node (the other nodes will be covered in the loop)
+    node1 = r[0:3]
+    
+    # Loop over each element to increment arcLength
+    for nodeID in range(1,nNodes):
+        
+        # Get coordinates of the next node
+        node2 = r[3*nodeID:3*nodeID+3]
+        
+        # Compute distance between nodes
+        dist = np.linalg.norm(node1 - node2)
+        
+        # Store nodal arc-length
+        arcLength[nodeID] = arcLength[nodeID-1] + dist
+        
+        # Store coordinates for the next loop
+        node1 = node2
+
+    # Normalize the arc-lengths
+    arcLength = arcLength/arcLength[-1]
+
+    # Return arc-lengths
+    return arcLength
+
+def redistribute_nodes_by_arc_length(r,arcLength):
+
+    '''
+    This function will receive a set of nodal coordinates defined in r and
+    redistribute them along the same curve using the normalized arc-lengths
+    provided in arcLength.
+
+    Remember that r is a flat vector containing the x, y, and z coordinates
+    of each node in the following order:
+    r = [x1, y1, z1, x2, y2, x2, x3, y3, z3, ... ]
+
+    The first and last nodes will remain at the same place.
+
+    Ney Secco 2016-11
+    '''
+
+    # Import interpolation function
+    from scipy.interpolate import interp1d
+
+    # Get the number of nodes
+    nNodes = int(len(r)/3)
+
+    # Compute arc-lengths of the current curve
+    origArcLength = compute_arc_length(r)
+
+    # INTERPOLATE NEW NODES
+
+    # Now we sample the new coordinates based on the interpolation method given by the user
+
+    # Create interpolants for x, y, and z
+    fX = interp1d(origArcLength, r[0::3])
+    fY = interp1d(origArcLength, r[1::3])
+    fZ = interp1d(origArcLength, r[2::3])
+    
+    # Initialize array of new coordinates
+    rNew = np.zeros(r.shape)
+
+    # Sample new points using the interpolation functions
+    rNew[0::3] = fX(arcLength)
+    rNew[1::3] = fY(arcLength)
+    rNew[2::3] = fZ(arcLength)
+
+    # Return the remeshed curve
+    return rNew
