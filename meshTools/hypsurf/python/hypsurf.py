@@ -405,10 +405,10 @@ class HypSurfMesh(object):
         if self.optionsDict['plotQuality']:
             view_mat(ratios)
 
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(epsEhist)
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.plot(epsEhist)
+        # plt.show()
 
 
         # Convert to X, Y and Z
@@ -494,7 +494,7 @@ class HypSurfMesh(object):
 
                 # Slice the coordinate array to get only nodes of the current subinterval
                 rInterval = rNext[nodeID_offset*3:(nodeID_offset+numNodes)*3]
-            
+
                 # Redistribute the nodes
                 rNew = redistribute_nodes_by_arc_length(rInterval,self.arcLength[intervalID])
 
@@ -503,7 +503,7 @@ class HypSurfMesh(object):
 
                 # Update the offset
                 nodeID_offset = nodeID_offset + numNodes - 1
-    
+
             # Project the remeshed curve back onto the surface
             rNext, NNext = self.projection(rNext_)
 
@@ -856,7 +856,7 @@ class HypSurfMesh(object):
             #plt
             if curr_index == 129:
                 #pass
-                epsEhist.append(r0_eta)
+                epsEhist.append(dSensor)
 
         #####################################
         # END OF HELPER FUNCTION            #
@@ -1527,22 +1527,22 @@ def compute_arc_length(r):
     # That is, the distance, along the curve from the current node to
     # the first node of the curve.
     arcLength = np.zeros(nNodes)
-    
+
     # Store coordinates of the first node (the other nodes will be covered in the loop)
     node1 = r[0:3]
-    
+
     # Loop over each element to increment arcLength
     for nodeID in range(1,nNodes):
-        
+
         # Get coordinates of the next node
         node2 = r[3*nodeID:3*nodeID+3]
-        
+
         # Compute distance between nodes
         dist = np.linalg.norm(node1 - node2)
-        
+
         # Store nodal arc-length
         arcLength[nodeID] = arcLength[nodeID-1] + dist
-        
+
         # Store coordinates for the next loop
         node1 = node2
 
@@ -1585,7 +1585,7 @@ def redistribute_nodes_by_arc_length(r,arcLength):
     fX = interp1d(origArcLength, r[0::3])
     fY = interp1d(origArcLength, r[1::3])
     fZ = interp1d(origArcLength, r[2::3])
-    
+
     # Initialize array of new coordinates
     rNew = np.zeros(r.shape)
 

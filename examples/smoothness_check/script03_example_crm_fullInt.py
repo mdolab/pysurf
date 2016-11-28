@@ -47,7 +47,7 @@ wing.curves['curve_te_low'].flip()
 def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     # OPTIONS
-    generate_wing = False
+    generate_wing = True
     generate_body = True
 
     # DEFINE FUNCTION TO GENERATE MESH

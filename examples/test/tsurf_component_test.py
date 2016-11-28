@@ -41,7 +41,7 @@ class TestTSurfProjection(unittest.TestCase):
         #xyzProjd, normProjd = self.cube.project_on_surface_d(self.pts, ptsd, xyzProj, normProj, projDict, np.zeros(self.cube.coor.shape))
 
     def test_orig_cube_edge_projection(self):
-        xyzProj, normProj = self.cube.project_on_curve(self.pts)
+        xyzProj, normProj, curveProjDict = self.cube.project_on_curve(self.pts)
 
         print
         print 'Original cube edge projection:'
@@ -71,7 +71,7 @@ class TestTSurfProjection(unittest.TestCase):
 
     def test_mod_cube_edge_projection(self):
         self.cube.translate(0, 0, 3)
-        xyzProj, normProj = self.cube.project_on_curve(self.pts)
+        xyzProj, normProj, curveProjDict = self.cube.project_on_curve(self.pts)
         self.cube.translate(0, 0, -3)
 
         print
