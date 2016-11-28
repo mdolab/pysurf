@@ -18,7 +18,7 @@ distTol = 1e-7
 
 #========================================================
 
-def test_curve_intersection(comp1,comp2,deltaZ,ii):
+def curve_intersection(comp1,comp2,deltaZ,ii):
 
     # Set communicator
     comm = MPI.COMM_WORLD
@@ -77,9 +77,10 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
             # Print results; should be 0
             print 'dotProd test'
             print dotProd
+            np.testing.assert_almost_equal(dotProd, 0.)
 
             # Save the curve
-            newIntCurve.export_plot3d('curve_%03d'%ii)
+            # newIntCurve.export_tecplot('curve_%03d'%ii)
 
             # Find the trailing edge point
             pt0 = newIntCurve.barsConn[0,0]###
@@ -126,7 +127,7 @@ def test_curve_intersection(comp1,comp2,deltaZ,ii):
 
 #========================================================
 
-def test_cylinder_level(level):
+def cylinder_level(level):
 
     # Load plate as component 1
     comp1 = pysurf.TSurfGeometry('../inputs/plate.cgns',['geom','geom_1d'])
@@ -140,7 +141,7 @@ def test_cylinder_level(level):
 
     comp2.scale(2.0)
 
-    nStates = 21
+    nStates = 11
     Z = np.linspace(0.0, 0.6, nStates)
 
     Y = np.zeros(nStates)
@@ -150,7 +151,7 @@ def test_cylinder_level(level):
         print ''
         print 'translation'
         print Z[ii]
-        Y[ii], dYdZ[ii] = test_curve_intersection(comp1,comp2,Z[ii],ii)
+        Y[ii], dYdZ[ii] = curve_intersection(comp1,comp2,Z[ii],ii)
         print 'results'
         print Y[ii]
         print dYdZ[ii]
@@ -162,9 +163,17 @@ def test_cylinder_level(level):
 
 #========================================================
 
+# TESTING FUNCTION
+class TestCylinderDerivs(unittest.TestCase):
+
+    def test_cylinder_3(self):
+        cylinder_level(3)
+
 # MAIN PROGRAM
+if __name__ == "__main__":
+    unittest.main()
 
-levels = range(4)
-
-for level in levels:
-    test_cylinder_level(3-level)
+    # levels = range(4)
+    #
+    # for level in levels:
+    #     cylinder_level(3-level)

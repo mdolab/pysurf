@@ -26,10 +26,10 @@ curve2 = np.vstack([X[:,-1], Y[:,-1], Z[:,-1]]).T
 curve3 = np.vstack([X[0,:], Y[0,:], Z[0,:]]).T
 curve4 = np.vstack([X[-1,::-1], Y[-1,::-1], Z[-1,::-1]]).T
 
-leftCurve, bottomCurve, rightCurve, topCurve = pysurf.tfi_mesh.link_curves(curve1,
-                                                                           curve2,
-                                                                           curve3,
-                                                                           curve4)
+leftCurve, bottomCurve, rightCurve, topCurve = pysurf.tfi_mesh.link_curves([curve1,
+                                                                            curve2,
+                                                                            curve3,
+                                                                            curve4])
 
 refComp = pysurf.TSurfGeometry('../inputs/plate.cgns')
 
