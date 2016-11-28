@@ -696,7 +696,7 @@ class TSurfCurve(Curve):
 
         # Get the number of elements
         numElems = self.barsConn.shape[1]
-        
+
         # Initialize coordinates matrix
         pts = np.zeros((numElems+1, 3))
 
@@ -1113,7 +1113,7 @@ class TSurfCurve(Curve):
             print 'There is no need to condense curves.'
             print ''
         else:
-            
+
             # Initialize
             FEcurves = []
             # Create one curve object for each disconnect curve
@@ -1204,7 +1204,7 @@ class TSurfCurve(Curve):
             # Now append the last remaining node
             prevNode = coorList.pop(prevNodeID)
             newCoor.append(prevNode)
-                
+
             # Get number of nodes
             numNodes = len(newCoor)
 
@@ -1250,7 +1250,7 @@ class TSurfCurve(Curve):
 
                     # The first node of the chain has the closest point.
                     # So we will add a node before the first point
-                    
+
                     # Get id of the closest node
                     nextNodeID = np.argmin(dist2first)
 
@@ -1264,7 +1264,7 @@ class TSurfCurve(Curve):
 
                     # The last node of the chain has the closest point.
                     # So we will add a node after the last point
-                    
+
                     # Get id of the closest node
                     nextNodeID = np.argmin(dist2last)
 

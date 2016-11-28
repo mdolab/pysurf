@@ -901,6 +901,10 @@ def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='lin
     nElem = barsConn.shape[1]
     nNodes = coor.shape[1]
 
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
     # Check if the baseline curve is periodic
     if barsConn[0,0] == barsConn[1,-1]:
         periodic = True
@@ -909,11 +913,7 @@ def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='lin
         periodic = False
         nNewElems = nNewNodes-1
 
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
-
-    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing)
+    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
 
     return coorb
 
@@ -929,6 +929,10 @@ def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear
     nElem = barsConn.shape[1]
     nNodes = coor.shape[1]
 
+    # Use the original number of nodes if the user did not specify any
+    if nNewNodes is None:
+        nNewNodes = nNodes
+
     # Check if the baseline curve is periodic
     if barsConn[0,0] == barsConn[1,-1]:
         periodic = True
@@ -937,11 +941,9 @@ def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear
         periodic = False
         nNewElems = nNewNodes-1
 
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
+    print coor.shape
 
-    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing)
+    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
 
     return newCoord
 
