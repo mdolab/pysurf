@@ -22,7 +22,7 @@ distTol = 1e-7
 
 #========================================================
 
-def test_curve_intersection(deltaZ,ii):
+def curve_intersection(deltaZ,ii):
 
     # Set communicator
     comm = MPI.COMM_WORLD
@@ -76,12 +76,13 @@ def test_curve_intersection(deltaZ,ii):
             # Print results; should be 0
             print 'dotProd test'
             print dotProd
+            np.testing.assert_almost_equal(dotProd, 0.)
 
             # Remesh the curve in a linear spacing
             newIntCurve = intCurve.remesh()
 
             # Save the curve
-            newIntCurve.export_plot3d('curve_%03d'%ii)
+            newIntCurve.export_tecplot('curve_%03d'%ii)
 
             # Find the upper skin trailing edge point
             pt0 = newIntCurve.barsConn[0,0]
@@ -127,23 +128,33 @@ def test_curve_intersection(deltaZ,ii):
 
 #========================================================
 
-# MIN PROGRAM
-nStates = 15
-Z = np.linspace(0.0, 140.0, nStates)
+# TESTING FUNCTION
+class TestIntersectionDerivs(unittest.TestCase):
 
-Y = np.zeros(len(Z))
-dYdZ = np.zeros(len(Z))
+    def test_intersection_derivative(self):
+        curve_intersection(50, 0)
 
-for ii in range(len(Z)):
-    print ''
-    print 'translation'
-    print Z[ii]
-    Y[ii], dYdZ[ii] = test_curve_intersection(Z[ii],ii)
-    print 'results'
-    print Y[ii]
-    print dYdZ[ii]
-    print ''
+# MAIN PROGRAM
+if __name__ == "__main__":
+    unittest.main()
 
-results = np.vstack([Z,Y,dYdZ])
-with open('results.pickle','w') as fid:
-    pickle.dump(results,fid)
+    # # MAIN PROGRAM
+    # nStates = 15
+    # Z = np.linspace(0.0, 140.0, nStates)
+    #
+    # Y = np.zeros(len(Z))
+    # dYdZ = np.zeros(len(Z))
+    #
+    # for ii in range(len(Z)):
+    #     print ''
+    #     print 'translation'
+    #     print Z[ii]
+    #     Y[ii], dYdZ[ii] = curve_intersection(Z[ii],ii)
+    #     print 'results'
+    #     print Y[ii]
+    #     print dYdZ[ii]
+    #     print ''
+    #
+    # results = np.vstack([Z,Y,dYdZ])
+    # with open('results.pickle','w') as fid:
+    #     pickle.dump(results,fid)

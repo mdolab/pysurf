@@ -25,6 +25,8 @@ wing.add_curve(curveName, curve_te_upp[curveName])
 curveName = curve_te_low.keys()[0]
 wing.add_curve(curveName, curve_te_low[curveName])
 
+print wing.curves.keys()
+
 # Remove tip section from the trailing edge curves
 pysurf.tsurf_tools.split_curve_with_curve(wing.curves, 'curve_te_upp', wing.curves['curve_tip_upp'])
 wing.remove_curve('curve_te_upp_01')
@@ -51,7 +53,7 @@ print ' Number of curves found:',len(curveDict)
 # Export curves in plot3d format
 curveID = 0
 for curve in curveDict.itervalues():
-    curveID = curveID + 1 
+    curveID = curveID + 1
     curve.export_plot3d('curve_%03d'%curveID)
 '''
 
