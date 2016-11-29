@@ -6,6 +6,9 @@ cgns_utils scale primary_meshes/wing_L1_hyp.cgns 0.0254 wing_L1_temp.cgns
 #cgns_utils coarsen collar.cgns collar_L1_temp.cgns
 cp collar.cgns collar_L1_temp.cgns
 
+# Translate wing primary mesh
+cgns_utils translate wing_L1_temp.cgns 0.0 0.0 3.0
+
 # Combine meshes in a single CGNS file
 cgns_utils combine fuse_L1_temp.cgns wing_L1_temp.cgns collar_L1_temp.cgns crm_wb.cgns
 
@@ -23,7 +26,7 @@ rm collar_L1_temp.cgns
 #  sym         Normal for possible sym plane
 #  mgcycle     Minimum MG cycle to enforce
 #  outFile     Name of output CGNS file
-#cgns_utils simpleOCart crm_wb.cgns 0.6 1500.0 65 y 3 background.cgns
+# cgns_utils simpleOCart crm_wb.cgns 0.4 1500.0 65 y 3 background.cgns
 
 # Now combine everything in a single file
 cgns_utils combine crm_wb.cgns background.cgns crm_wb.cgns

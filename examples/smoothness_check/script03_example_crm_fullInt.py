@@ -14,13 +14,9 @@ import copy
 guideCurves = ['curve_te_low']
 
 # Define translation cases for the wing
-nStates = 11
+nStates = 2
 
-wingTranslation = np.zeros((nStates,3))
-wingTranslation[:,1] = np.linspace(-10.0, -100.0, nStates)
-wingTranslation[:,2] = np.linspace(0.0, 140.0, nStates)
-
-wingTranslation = [[0.0, 0.0, 0.0]]
+wingTranslation = [[0.0, 0.0, 3.0]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -106,13 +102,35 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     pysurf.tsurf_tools.split_curves(Intersections, optionsDict, criteria='curve')
 
-
     # Remesh curve to get better spacing
+    # Dirty hard-coded logic that works for this specific case.
+    # In the future we'll have a more sophisticated and robust method to sort
+    # the curve results.
     curveNames = Intersections.keys()
+    maxCoor = -99999.
+    for cur in curveNames:
+        curveMax = np.max(Intersections[cur].coor, axis=1)[2]
+        if maxCoor < curveMax:
+            maxCoor = curveMax
 
-    Intersections[curveNames[1]] = Intersections[curveNames[1]].remesh(nNewNodes=9)
-    Intersections[curveNames[2]] = Intersections[curveNames[2]].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
-    Intersections[curveNames[0]] = Intersections[curveNames[0]].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
+    for cur in curveNames:
+        if Intersections[cur].coor.shape[1] < 20:
+            Intersections[cur] = Intersections[cur].remesh(nNewNodes=9)
+        else:
+            end_to_end = Intersections[cur].extract_points()[0, :] - Intersections[cur].extract_points()[-1, :]
+            if np.max(Intersections[cur].coor, axis=1)[2] < maxCoor:
+                if end_to_end[0] > 0:
+                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
+                else:
+                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
+                    Intersections[cur].flip()
+            else:
+                if end_to_end[0] < 0:
+                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
+                else:
+                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
+                    Intersections[cur].flip()
+
 
     # Check if we need to flip the curve
     # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:

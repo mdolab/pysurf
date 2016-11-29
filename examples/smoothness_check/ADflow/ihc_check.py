@@ -44,7 +44,7 @@ aeroOptions = {
     'gridFile':gridFile,
     'outputDirectory':outputDirectory,
     #'restartFile':'fc_restart_vol.cgns',
-    
+
     # Physics Parameters
     'equationType':'rans',
     'smoother':'dadi',
@@ -59,25 +59,26 @@ aeroOptions = {
     'monitorvariables':['resrho','cl','cd'],
     'volumevariables':['resrho','blank'],
     'surfacevariables':['cp','vx', 'vy','vz', 'mach','blank'],
-    'nearWallDist':0.001,
+    'nearWallDist':0.1,
     'nsubiterturb':3,
     'useNKSolver':useNK,
     # Convergence Parameters
     'L2Convergence':1e-6,
     'L2ConvergenceCoarse':1e-2,
     #'miniterationnum':100,
-    
+
     # Adjoint Parameters
     'adjointL2Convergence':1e-8,
     'ADPC':False,
     'adjointMaxIter': 500,
-    'adjointSubspaceSize':150, 
+    'adjointSubspaceSize':150,
     'ILUFill':2,
     'ASMOverlap':1,
     'outerPreconIts':3,
 
     # Debugging parameters
-    'debugzipper':False,
+    'debugzipper':True,
+    #'overlapfactor':0.99,
 }
 
 # Create solver
