@@ -23,7 +23,7 @@ rm collar_L1_temp.cgns
 #  sym         Normal for possible sym plane
 #  mgcycle     Minimum MG cycle to enforce
 #  outFile     Name of output CGNS file
-#cgns_utils simpleOCart crm_wb.cgns 0.6 1500.0 65 y 3 background.cgns
+#cgns_utils simpleOCart crm_wb.cgns 0.4 1500.0 65 y 3 background.cgns
 
 # Now combine everything in a single file
 cgns_utils combine crm_wb.cgns background.cgns crm_wb.cgns
@@ -32,7 +32,7 @@ cgns_utils combine crm_wb.cgns background.cgns crm_wb.cgns
 cgns_utils symmzero crm_wb.cgns y crm_wb.cgns
 
 # Use cgns_utils to merge contiguous blocks
-cgns_utils merge crm_wb.cgns
+#cgns_utils merge crm_wb.cgns
 
 # Check block-to-block connectivities
 cgns_utils connect crm_wb.cgns
