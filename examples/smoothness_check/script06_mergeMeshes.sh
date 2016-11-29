@@ -26,7 +26,7 @@ rm collar_L1_temp.cgns
 #  sym         Normal for possible sym plane
 #  mgcycle     Minimum MG cycle to enforce
 #  outFile     Name of output CGNS file
-# cgns_utils simpleOCart crm_wb.cgns 0.4 1500.0 65 y 3 background.cgns
+#cgns_utils simpleOCart crm_wb.cgns 0.4 1500.0 65 y 3 background.cgns
 
 # Now combine everything in a single file
 cgns_utils combine crm_wb.cgns background.cgns crm_wb.cgns
