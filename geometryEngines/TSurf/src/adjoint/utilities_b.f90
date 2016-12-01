@@ -92,18 +92,22 @@ CONTAINS
     END DO
   END SUBROUTINE CONDENSEBARNODES_MAIN
 !  Differentiation of remesh_main in reverse (adjoint) mode:
-!   gradient     of useful results: coor newcoor
+!   gradient     of useful results: newcoor
 !   with respect to varying inputs: coor newcoor
-!   RW status of diff variables: coor:incr newcoor:in-out
-  SUBROUTINE REMESH_MAIN_B(nnodes, nnewnodes, coor, coorb, barsconn, &
-&   method, spacing, newcoor, newcoorb, newbarsconn)
+!   RW status of diff variables: coor:out newcoor:in-out
+  SUBROUTINE REMESH_MAIN_B(nnodes, nelem, nnewnodes, coor, coorb, &
+&   barsconn, method, spacing, periodic, sp1, sp2, newcoor, newcoorb, &
+&   newbarsconn)
     IMPLICIT NONE
 ! Input variables
-    INTEGER(kind=inttype), INTENT(IN) :: nnodes, nnewnodes
+    INTEGER(kind=inttype), INTENT(IN) :: nnewnodes, nelem
+    INTEGER(kind=inttype), INTENT(INOUT) :: nnodes
     CHARACTER(len=32), INTENT(IN) :: method, spacing
-    REAL(kind=realtype), DIMENSION(3, nnodes) :: coor
+    REAL(kind=realtype), DIMENSION(3, nnodes), INTENT(IN) :: coor
     REAL(kind=realtype), DIMENSION(3, nnodes) :: coorb
-    INTEGER(kind=inttype), DIMENSION(2, nnodes - 1) :: barsconn
+    INTEGER(kind=inttype), DIMENSION(2, nelem), INTENT(IN) :: barsconn
+    LOGICAL, INTENT(IN) :: periodic
+    REAL(kind=realtype), INTENT(IN) :: sp1, sp2
 ! Output variables
     REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
     REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoorb
@@ -113,21 +117,24 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoorb
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
     REAL(kind=realtype), DIMENSION(nnodes) :: arclengthb
-    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, nelem
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
     REAL(kind=realtype) :: dist
     REAL(kind=realtype) :: distb
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclengthb
     REAL(kind=realtype), DIMENSION(3) :: node1, node2
     REAL(kind=realtype), DIMENSION(3) :: node1b, node2b
-    LOGICAL :: periodic
     INTRINSIC COS
     REAL(kind=realtype), DIMENSION(3) :: arg1
     REAL(kind=realtype), DIMENSION(3) :: arg1b
+    REAL(kind=realtype) :: arg10
+    REAL(kind=realtype) :: arg10b
+    REAL(kind=realtype) :: arg2
+    REAL(kind=realtype) :: arg2b
     INTEGER :: ad_count
     INTEGER :: i
     INTEGER :: branch
-    nelem = nnodes - 1
+    nnodes = nelem + 1
     ad_count = 1
 ! First we check if the FE data is ordered
     DO elemid=2,nelem
@@ -167,10 +174,19 @@ CONTAINS
 ! These statements should initially create parametric coordinates in the interval
 ! [0.0, 1.0]. We will rescale it after the if statements.
     IF (spacing .EQ. 'linear') THEN
+      CALL PUSHCONTROL2B(0)
       CALL LINSPACE(0.0_8, 1.0_8, nnewnodes, newarclength)
     ELSE IF (spacing .EQ. 'cosine') THEN
+      CALL PUSHCONTROL2B(1)
       CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
+    ELSE IF (spacing .EQ. 'hyptan') THEN
+      arg10 = sp1/arclength(nelem+1)
+      arg2 = sp2/arclength(nelem+1)
+      CALL GETHYPTANDIST(arg10, arg2, nnewnodes, newarclength)
+      CALL PUSHCONTROL2B(2)
+    ELSE
+      CALL PUSHCONTROL2B(3)
     END IF
 ! Rescale newArcLength based on the final distance
     CALL PUSHREAL4ARRAY(newarclength, realtype*nnewnodes/4)
@@ -178,8 +194,6 @@ CONTAINS
 ! INTERPOLATE NEW NODES
 ! Now we sample the new coordinates based on the interpolation method given by the user
 ! Create interpolants for x, y, and z
-! ASSIGN NEW COORDINATES AND CONNECTIVITIES
-! Check if the baseline curve is periodic
     arclengthb = 0.0
     nodecoorb = 0.0
     newarclengthb = 0.0
@@ -195,6 +209,17 @@ CONTAINS
     CALL POPREAL4ARRAY(newarclength, realtype*nnewnodes/4)
     arclengthb(nnodes) = arclengthb(nnodes) + SUM(newarclength*&
 &     newarclengthb)
+    newarclengthb = arclength(nnodes)*newarclengthb
+    CALL POPCONTROL2B(branch)
+    IF (branch .GE. 2) THEN
+      IF (branch .EQ. 2) THEN
+        CALL GETHYPTANDIST_B(arg10, arg10b, arg2, arg2b, nnewnodes, &
+&                      newarclength, newarclengthb)
+        arclengthb(nelem+1) = arclengthb(nelem+1) - sp1*arg10b/arclength&
+&         (nelem+1)**2 - sp2*arg2b/arclength(nelem+1)**2
+      END IF
+    END IF
+    coorb = 0.0
     DO elemid=nelem,1,-1
       node2 = coor(:, barsconn(2, elemid))
       node2b = 0.0
@@ -220,31 +245,38 @@ CONTAINS
     CALL PUSHINTEGER4(ad_count)
  110 CALL POPINTEGER4(ad_count)
     DO i=1,ad_count
-      IF (i .EQ. 1) CALL POPCONTROL1B(branch)
+      IF (i .EQ. 1) THEN
+        CALL POPCONTROL1B(branch)
+        IF (branch .NE. 0) coorb = 0.0
+      END IF
     END DO
   END SUBROUTINE REMESH_MAIN_B
-  SUBROUTINE REMESH_MAIN(nnodes, nnewnodes, coor, barsconn, method, &
-&   spacing, newcoor, newbarsconn)
+  SUBROUTINE REMESH_MAIN(nnodes, nelem, nnewnodes, coor, barsconn, &
+&   method, spacing, periodic, sp1, sp2, newcoor, newbarsconn)
     IMPLICIT NONE
 ! Input variables
-    INTEGER(kind=inttype), INTENT(IN) :: nnodes, nnewnodes
+    INTEGER(kind=inttype), INTENT(IN) :: nnewnodes, nelem
+    INTEGER(kind=inttype), INTENT(INOUT) :: nnodes
     CHARACTER(len=32), INTENT(IN) :: method, spacing
-    REAL(kind=realtype), DIMENSION(3, nnodes) :: coor
-    INTEGER(kind=inttype), DIMENSION(2, nnodes - 1) :: barsconn
+    REAL(kind=realtype), DIMENSION(3, nnodes), INTENT(IN) :: coor
+    INTEGER(kind=inttype), DIMENSION(2, nelem), INTENT(IN) :: barsconn
+    LOGICAL, INTENT(IN) :: periodic
+    REAL(kind=realtype), INTENT(IN) :: sp1, sp2
 ! Output variables
     REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
     INTEGER(kind=inttype), DIMENSION(2, nnewnodes - 1) :: newbarsconn
 ! Working variables
     REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoor
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
-    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, nelem
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
     REAL(kind=realtype) :: dist
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
     REAL(kind=realtype), DIMENSION(3) :: node1, node2
-    LOGICAL :: periodic
     INTRINSIC COS
     REAL(kind=realtype), DIMENSION(3) :: arg1
-    nelem = nnodes - 1
+    REAL(kind=realtype) :: arg10
+    REAL(kind=realtype) :: arg2
+    nnodes = nelem + 1
 ! First we check if the FE data is ordered
     DO elemid=2,nelem
 ! Get node indices
@@ -287,6 +319,10 @@ CONTAINS
     ELSE IF (spacing .EQ. 'cosine') THEN
       CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
+    ELSE IF (spacing .EQ. 'hyptan') THEN
+      arg10 = sp1/arclength(nelem+1)
+      arg2 = sp2/arclength(nelem+1)
+      CALL GETHYPTANDIST(arg10, arg2, nnewnodes, newarclength)
     END IF
 ! Rescale newArcLength based on the final distance
     newarclength = arclength(nnodes)*newarclength
@@ -300,20 +336,12 @@ CONTAINS
     CALL INTERP1D(1, nnodes, arclength, nodecoor(3, :), nnewnodes, &
 &           newarclength, newcoor(3, :))
 ! ASSIGN NEW COORDINATES AND CONNECTIVITIES
-! Check if the baseline curve is periodic
-    IF (barsconn(1, 1) .EQ. barsconn(2, nnodes-1)) THEN
-      periodic = .true.
-    ELSE
-      periodic = .false.
-    END IF
 ! Generate new connectivity (the nodes are already in order so we just
 ! need to assign an ordered set to barsConn).
     DO elemid=1,nnewnodes-1
       newbarsconn(1, elemid) = elemid
       newbarsconn(2, elemid) = elemid + 1
     END DO
-! We still need to keep periodicity if the original curve is periodic
-    IF (periodic) newbarsconn(2, nnewnodes-1) = newbarsconn(1, 1)
   END SUBROUTINE REMESH_MAIN
 !============================================================
   SUBROUTINE LINSPACE(l, k, n, z)
@@ -484,6 +512,189 @@ CONTAINS
     INTRINSIC SQRT
     norm_ = SQRT(a(1)*a(1) + a(2)*a(2) + a(3)*a(3))
   END SUBROUTINE NORM
+!  Differentiation of gethyptandist in reverse (adjoint) mode:
+!   gradient     of useful results: spacings
+!   with respect to varying inputs: sp1 sp2
+  SUBROUTINE GETHYPTANDIST_B(sp1, sp1b, sp2, sp2b, n, spacings, &
+&   spacingsb)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: sp1, sp2
+    REAL(kind=realtype) :: sp1b, sp2b
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), DIMENSION(n) :: spacings
+    REAL(kind=realtype), DIMENSION(n) :: spacingsb
+    INTEGER(kind=inttype) :: i
+    REAL(kind=realtype) :: b, step, b_out, b_out_step, f_prime, b_old
+    REAL(kind=realtype) :: bb, b_outb, b_out_stepb, f_primeb
+    REAL(kind=realtype) :: a, u, r
+    REAL(kind=realtype) :: ab, ub
+    INTRINSIC ABS
+    INTRINSIC SQRT
+    INTRINSIC FLOAT
+    INTRINSIC TANH
+    REAL(kind=realtype) :: arg1
+    REAL(kind=realtype) :: arg1b
+    INTEGER :: ad_count
+    INTEGER :: i0
+    INTEGER :: branch
+    REAL(kind=realtype) :: temp0
+    REAL(kind=realtype) :: tempb0
+    REAL(kind=realtype) :: tempb
+    REAL(kind=realtype) :: abs0
+    REAL(kind=realtype) :: temp
+! Manually created secant method for the above solve
+    b = 4.
+    step = 1.e-6
+    ad_count = 1
+    DO i=1,1000
+      CALL PUSHREAL4ARRAY(b_out, realtype/4)
+      CALL FINDROOTB(b, sp1, sp2, n, b_out)
+      arg1 = b - step
+      CALL FINDROOTB(arg1, sp1, sp2, n, b_out_step)
+      b_old = b
+      CALL PUSHREAL4ARRAY(f_prime, realtype/4)
+      f_prime = (b_out-b_out_step)/step
+      CALL PUSHREAL4ARRAY(b, realtype/4)
+      b = b - b_out/f_prime
+      IF (b_old - b .GE. 0.) THEN
+        abs0 = b_old - b
+      ELSE
+        abs0 = -(b_old-b)
+      END IF
+      IF (abs0 .LT. 1.e-10) THEN
+        GOTO 100
+      ELSE
+        ad_count = ad_count + 1
+      END IF
+    END DO
+    CALL PUSHCONTROL1B(0)
+    CALL PUSHINTEGER4(ad_count)
+    GOTO 110
+ 100 CALL PUSHCONTROL1B(1)
+    CALL PUSHINTEGER4(ad_count)
+! Compute parameter A
+ 110 a = SQRT(sp1/sp2)
+    DO i=1,n
+      CALL PUSHREAL4ARRAY(r, realtype/4)
+      r = FLOAT(i-1)/FLOAT(n-1) - .5
+      CALL PUSHREAL4ARRAY(u, realtype/4)
+      u = 1 + TANH(b*r)/TANH(b/2)
+    END DO
+    ab = 0.0
+    bb = 0.0
+    DO i=n,1,-1
+      temp0 = 2*a + (-a+1)*u
+      tempb0 = -(u*spacingsb(i)/temp0**2)
+      ub = (1-a)*tempb0 + spacingsb(i)/temp0
+      ab = ab + (2-u)*tempb0
+      spacingsb(i) = 0.0
+      CALL POPREAL4ARRAY(u, realtype/4)
+      temp = TANH(b/2)
+      bb = bb + ((1.0-TANH(r*b)**2)*r/temp-(1.0-TANH(b/2)**2)*TANH(r*b)/&
+&       (temp**2*2))*ub
+      CALL POPREAL4ARRAY(r, realtype/4)
+    END DO
+    IF (sp1/sp2 .EQ. 0.0) THEN
+      tempb = 0.0
+    ELSE
+      tempb = ab/(2.0*SQRT(sp1/sp2)*sp2)
+    END IF
+    sp1b = tempb
+    sp2b = -(sp1*tempb/sp2)
+    CALL POPINTEGER4(ad_count)
+    DO 120 i0=1,ad_count
+      IF (i0 .EQ. 1) THEN
+        CALL POPCONTROL1B(branch)
+        IF (branch .EQ. 0) GOTO 120
+      END IF
+      f_primeb = b_out*bb/f_prime**2
+      CALL POPREAL4ARRAY(b, realtype/4)
+      b_outb = f_primeb/step - bb/f_prime
+      CALL POPREAL4ARRAY(f_prime, realtype/4)
+      b_out_stepb = -(f_primeb/step)
+      arg1 = b - step
+      arg1b = 0.0
+      CALL FINDROOTB_B(arg1, arg1b, sp1, sp1b, sp2, sp2b, n, b_out_step&
+&                , b_out_stepb)
+      bb = bb + arg1b
+      CALL POPREAL4ARRAY(b_out, realtype/4)
+      CALL FINDROOTB_B(b, bb, sp1, sp1b, sp2, sp2b, n, b_out, b_outb)
+ 120 CONTINUE
+  END SUBROUTINE GETHYPTANDIST_B
+  SUBROUTINE GETHYPTANDIST(sp1, sp2, n, spacings)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: sp1, sp2
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), DIMENSION(n), INTENT(OUT) :: spacings
+    INTEGER(kind=inttype) :: i
+    REAL(kind=realtype) :: b, step, b_out, b_out_step, f_prime, b_old
+    REAL(kind=realtype) :: a, u, r
+    INTRINSIC ABS
+    INTRINSIC SQRT
+    INTRINSIC FLOAT
+    INTRINSIC TANH
+    REAL(kind=realtype) :: arg1
+    REAL(kind=realtype) :: abs0
+! Manually created secant method for the above solve
+    b = 4.
+    step = 1.e-6
+    DO i=1,1000
+      CALL FINDROOTB(b, sp1, sp2, n, b_out)
+      arg1 = b - step
+      CALL FINDROOTB(arg1, sp1, sp2, n, b_out_step)
+      b_old = b
+      f_prime = (b_out-b_out_step)/step
+      b = b - b_out/f_prime
+      IF (b_old - b .GE. 0.) THEN
+        abs0 = b_old - b
+      ELSE
+        abs0 = -(b_old-b)
+      END IF
+      IF (abs0 .LT. 1.e-10) GOTO 100
+    END DO
+! Compute parameter A
+ 100 a = SQRT(sp1/sp2)
+    DO i=1,n
+      r = FLOAT(i-1)/FLOAT(n-1) - .5
+      u = 1 + TANH(b*r)/TANH(b/2)
+      spacings(i) = u/(2*a+(1-a)*u)
+    END DO
+  END SUBROUTINE GETHYPTANDIST
+!  Differentiation of findrootb in reverse (adjoint) mode:
+!   gradient     of useful results: b_out sp1 sp2 b
+!   with respect to varying inputs: sp1 sp2 b
+  SUBROUTINE FINDROOTB_B(b, bb, sp1, sp1b, sp2, sp2b, n, b_out, b_outb)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: b, sp1, sp2
+    REAL(kind=realtype) :: bb, sp1b, sp2b
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype) :: b_out
+    REAL(kind=realtype) :: b_outb
+    INTRINSIC SINH
+    INTRINSIC SQRT
+    REAL(kind=realtype) :: tempb0
+    REAL(kind=realtype) :: tempb
+    REAL(kind=realtype) :: temp
+    temp = SQRT(sp1*sp2)
+    tempb = -(b_outb/((n-1)*temp))
+    IF (sp1*sp2 .EQ. 0.0) THEN
+      tempb0 = 0.0
+    ELSE
+      tempb0 = -(b*tempb/(temp**2*2.0))
+    END IF
+    bb = bb + tempb + COSH(b)*b_outb
+    sp1b = sp1b + sp2*tempb0
+    sp2b = sp2b + sp1*tempb0
+  END SUBROUTINE FINDROOTB_B
+  SUBROUTINE FINDROOTB(b, sp1, sp2, n, b_out)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: b, sp1, sp2
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), INTENT(OUT) :: b_out
+    INTRINSIC SINH
+    INTRINSIC SQRT
+    b_out = SINH(b) - b/(n-1)/SQRT(sp1*sp2)
+  END SUBROUTINE FINDROOTB
 !============================================================
 ! BOUNDING BOX ROUTINES
 !============================================================
