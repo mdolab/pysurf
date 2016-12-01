@@ -891,59 +891,80 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
 #=================================================================
 
 
-def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear'):
+def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+
+    spacing = spacing.lower()
 
     # Get connectivities and coordinates of the current Curve object
-    coor = origCurve.coor
-    barsConn = origCurve.barsConn
+    coor = np.array(origCurve.coor,dtype=type(origCurve.coor[0,0]),order='F')
+    barsConn = np.array(origCurve.barsConn,dtype=type(origCurve.barsConn[0,0]),order='F')
 
-    # Get the number of nodes and elements in the curve
+    # Get the number of elements in the curve
     nElem = barsConn.shape[1]
-    nNodes = coor.shape[1]
+    nNodes = nElem+1
+
+    # Check if the baseline curve is periodic. If this is the case, we artificially repeat
+    # the last point so that we could use the same code of the non-periodic case
+    if barsConn[0,0] == barsConn[1,-1]:
+        periodic = True
+        coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(origCurve.coor[0,0]),order='F')
+        newCoorb = np.array(np.hstack([newCoorb, newCoorb[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(newCoorb[0,0]),order='F')
+        barsConn[-1,-1] = nNodes
+
+    else:
+        periodic = False
 
     # Use the original number of nodes if the user did not specify any
     if nNewNodes is None:
         nNewNodes = nNodes
 
-    # Check if the baseline curve is periodic
-    if barsConn[0,0] == barsConn[1,-1]:
-        periodic = True
-        nNewElems = nNewNodes
-    else:
-        periodic = False
-        nNewElems = nNewNodes-1
+    nNewElems = nNewNodes - 1
 
-    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(coor, newCoorb, barsConn, method, spacing)
+    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
+
+    # Adjust seeds if curve is periodic
+    if periodic:
+        coorb[:, 0] += coorb[:, -1]
+        coorb = coorb[:,:-1]
 
     return coorb
 
 #=================================================================
 
-def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear'):
+def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+
+    spacing = spacing.lower()
 
     # Get connectivities and coordinates of the current Curve object
-    coor = origCurve.coor
-    barsConn = origCurve.barsConn
+    coor = np.array(origCurve.coor,dtype=type(origCurve.coor[0,0]),order='F')
+    barsConn = np.array(origCurve.barsConn,dtype=type(origCurve.barsConn[0,0]),order='F')
 
-    # Get the number of nodes and elements in the curve
+    # Get the number of elements in the curve
     nElem = barsConn.shape[1]
-    nNodes = coor.shape[1]
+    nNodes = nElem+1
+
+    # Check if the baseline curve is periodic. If this is the case, we artificially repeat
+    # the last point so that we could use the same code of the non-periodic case
+    if barsConn[0,0] == barsConn[1,-1]:
+        periodic = True
+        coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(origCurve.coor[0,0]),order='F')
+        coord = np.array(np.hstack([coord, coord[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(coord[0,0]),order='F')
+        barsConn[-1,-1] = nNodes
+    else:
+        periodic = False
 
     # Use the original number of nodes if the user did not specify any
     if nNewNodes is None:
         nNewNodes = nNodes
 
-    # Check if the baseline curve is periodic
-    if barsConn[0,0] == barsConn[1,-1]:
-        periodic = True
-        nNewElems = nNewNodes
-    else:
-        periodic = False
-        nNewElems = nNewNodes-1
+    nNewElems = nNewNodes - 1
 
-    print coor.shape
+    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
 
-    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, coor, coord, barsConn, method, spacing)
+    # Adjust seeds if curve is periodic
+    if periodic:
+        newCoord[:, 0] += newCoord[:, -1]
+        newCoord = newCoord[:, :-1]
 
     return newCoord
 
@@ -1681,7 +1702,7 @@ def hypTanDist(Sp1,Sp2,N):
 
     # This is the hyperbolic tangential spacing developed by ICEMCFD
     # I got the equations from the ICEM manual
-    # This bunching law is coarser at the middle an finer at the ends
+    # This bunching law is coarser at the middle and finer at the ends
     # of the interval, just like shown below:
     # || |   |    |    |   |  | ||
 
@@ -1704,6 +1725,16 @@ def hypTanDist(Sp1,Sp2,N):
     def findRootb(b):
         return sinh(b) - b/(N-1)/sqrt(Sp1*Sp2)
     b = broyden1(findRootb, 20, f_tol=1e-10)
+
+    # # Manually created secant method for the above solve
+    # b = 4.
+    # step = 1.e-6
+    # for i in range(1000):
+    #     b_old = b
+    #     f_prime = (findRootb(b) - findRootb(b-step)) / step
+    #     b = b - findRootb(b) / f_prime
+    #     if np.abs(b_old - b) < 1.e-10:
+    #         break
 
     # Compute parameter A
     A = sqrt(Sp1/Sp2)
@@ -1731,7 +1762,7 @@ def hypTanDist(Sp1,Sp2,N):
 def tanDist(Sp1,Sp2,N):
 
     # This is the tangential spacing developed by Ney Secco
-    # This bunching law is coarses at the ends an finer at the middle
+    # This bunching law is coarser at the ends and finer at the middle
     # of the interval, just like shown below:
     # |    |   |  | || |  |   |    |
 

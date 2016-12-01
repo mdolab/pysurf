@@ -1,7 +1,7 @@
 import subprocess
 import numpy as np
 
-def full_run(wingTranslation):
+def full_run(i, wingTranslation):
 
     # print "Extracting curves.\n"
     # subprocess.call(["python script01_curveExtraction.py"], shell=True)
@@ -11,10 +11,12 @@ def full_run(wingTranslation):
 
     print "Replacing values in scripts with desired translation.\n"
     python_string_replacement = "sed -i -e 's/wingTranslation =.*/wingTranslation = [[{}, {}, {}]]/g' script03_example_crm_fullInt.py".format(wingTranslation[0], wingTranslation[1], wingTranslation[2])
+    subprocess.call([python_string_replacement], shell=True)
 
     cgns_string_replacement = "sed -i -e 's/cgns_utils translate wing_L1_temp.cgns .*/cgns_utils translate wing_L1_temp.cgns {} {} {}/g' script06_mergeMeshes.sh".format(wingTranslation[0], wingTranslation[1], wingTranslation[2])
+    subprocess.call([cgns_string_replacement], shell=True)
 
-    subprocess.call([python_string_replacement], shell=True)
+    cgns_string_replacement = "sed -i -e 's/cgns_utils coarsen crm_wb.cgns .*/cgns_utils coarsen crm_wb.cgns crm_wb_L2_" + str(i).zfill(2) + ".cgns/g' script06_mergeMeshes.sh"
     subprocess.call([cgns_string_replacement], shell=True)
 
     print "Computing intersections and marching collar mesh.\n"
@@ -34,10 +36,10 @@ def full_run(wingTranslation):
 
 if __name__ == "__main__":
 
-    nStates = 2
+    nStates = 11
 
     wingTranslation = np.zeros((nStates,3))
-    wingTranslation[:,2] = np.linspace(-.1, 3., nStates)
+    wingTranslation[:,2] = np.linspace(1.47, 1.53, nStates)
 
-    for wingT in wingTranslation:
-        full_run(wingT)
+    for i, wingT in enumerate(wingTranslation):
+        full_run(i, wingT)

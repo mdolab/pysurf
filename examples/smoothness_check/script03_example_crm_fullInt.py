@@ -16,7 +16,7 @@ guideCurves = ['curve_te_low']
 # Define translation cases for the wing
 nStates = 2
 
-wingTranslation = [[0.0, 0.0, 3.0]]
+wingTranslation = [[0.0, 0.0, 1.47]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 

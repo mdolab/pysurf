@@ -5,10 +5,10 @@ cpp -traditional -P -DUSE_TAPENADE ../common/constants.F90 constants.f90
 # INTERSECTION AND CURVE DERIVATIVES
 
 # Generate forward mode
-tapenade -d -head "triTriIntersect remesh_main barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90
+tapenade -d -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90
 
 # Generate backward mode
-tapenade -b -head "triTriIntersect remesh_main barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90
+tapenade -b -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90
 
 # PROJECTION DERIVATIVES
 

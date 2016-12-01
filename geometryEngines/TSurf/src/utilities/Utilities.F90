@@ -149,7 +149,8 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
 end subroutine condenseBarNodes_main
 
 
-subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCoor, newBarsConn)
+subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
+  spacing, periodic, Sp1, Sp2, newCoor, newBarsConn)
 
   ! This function will redistribute the nodes along the curve to get
   ! better spacing among the nodes.
@@ -176,6 +177,13 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   ! spacing: string -> Desired spacing criteria for new nodes. Current options are:
   !          ['linear']
   !
+  ! periodic: logical -> Flag that is true if the curve is periodic; that is, if
+  !                      the first and last nodes are at the same point
+  !
+  ! Sp1: real -> Desired initial spacing for tangent/hypTan remeshes.
+  !
+  ! Sp2: real -> Desired final spacing for tangent/hypTan remeshes.
+  !
   !
   ! OUTPUTS:
   !
@@ -188,10 +196,13 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   implicit none
 
   ! Input variables
-  integer(kind=intType), intent(in) :: nNodes, nNewNodes
+  integer(kind=intType), intent(in) :: nNewNodes, nElem
+  integer(kind=intType), intent(inout) :: nNodes
   character(32), intent(in) :: method, spacing
-  real(kind=realType), dimension(3,nNodes) :: coor
-  integer(kind=intType), dimension(2,nNodes-1) :: barsConn
+  real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+  integer(kind=intType), dimension(2,nElem), intent(in) :: barsConn
+  logical, intent(in) :: periodic
+  real(kind=realType), intent(in) :: Sp1, Sp2
 
   ! Output variables
   real(kind=realType), dimension(3,nNewNodes) :: newCoor
@@ -200,14 +211,13 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   ! Working variables
   real(kind=realType), dimension(3,nNodes) :: nodeCoor
   real(kind=realType), dimension(nNodes) :: arcLength
-  integer(kind=intType) :: elemID, prevNodeID, currNodeID, nElem
+  integer(kind=intType) :: elemID, prevNodeID, currNodeID
   real(kind=realType) :: dist
 
   real(kind=realType), dimension(nNewNodes) :: newArcLength
   real(kind=realType), dimension(3) :: node1, node2
-  logical :: periodic
 
-  nElem = nNodes - 1
+  nNodes = nElem + 1
 
   ! First we check if the FE data is ordered
   do elemID=2,nElem
@@ -263,6 +273,8 @@ subroutine remesh_main(nNodes, nNewNodes, coor, barsConn, method, spacing, newCo
   else if (spacing .eq. 'cosine') then
     call linspace(0.0_8, 3.141592653589793_8, nNewNodes, newArcLength)
     newArcLength = 0.5 * (1.0 - cos(newArcLength))
+  else if (spacing .eq. 'hyptan') then
+    call getHypTanDist(Sp1/arcLength(nElem+1), Sp2/arcLength(nElem+1), nNewNodes, newArcLength)
   end if
 
   ! Rescale newArcLength based on the final distance
@@ -505,6 +517,60 @@ subroutine norm(A, norm_)
 
 end subroutine norm
 
+subroutine getHypTanDist(Sp1, Sp2, N, spacings)
+
+  implicit none
+
+  real(kind=realType), intent(in) :: Sp1, Sp2
+  integer(kind=intType), intent(in) :: N
+
+  real(kind=realType), intent(out), dimension(N) :: spacings
+
+  integer(kind=intType) :: i
+  real(kind=realType) :: b, step, b_out, b_out_step, f_prime, b_old
+  real(kind=realType) :: A, U, R
+
+  ! Manually created secant method for the above solve
+  b = 4.
+  step = 1.e-6
+  do i=1,1000
+    call findRootb(b, Sp1, Sp2, N, b_out)
+    call findRootb(b-step, Sp1, Sp2, N, b_out_step)
+
+    b_old = b
+    f_prime = (b_out - b_out_step) / step
+    b = b - b_out / f_prime
+
+    if (abs(b_old - b) .lt. 1.e-10) then
+      exit
+    end if
+  end do
+
+  ! Compute parameter A
+  A = sqrt(Sp1/Sp2)
+
+  do i = 1,N
+    R = float(i-1) / float(N-1) - .5
+    U = 1 + tanh(b*R) / tanh(b/2)
+    spacings(i) = U/(2*A + (1-A)*U)
+  end do
+
+end subroutine
+
+subroutine findRootb(b, Sp1, Sp2, N, b_out)
+
+  implicit none
+
+  real(kind=realType), intent(in) :: b, Sp1, Sp2
+  integer(kind=intType), intent(in) :: N
+
+  real(kind=realType), intent(out) :: b_out
+
+  b_out = sinh(b) - b/(N-1)/sqrt(Sp1*Sp2)
+
+end subroutine
+
+
 !============================================================
 ! BOUNDING BOX ROUTINES
 !============================================================
@@ -598,7 +664,7 @@ subroutine computeBBoxPerElements(nNodes, nTria, nQuads, &
      ! based on the nodal coordinates.
      triaBBox(1:3, elemID) = minval(triaCoor, 2)
      triaBBox(4:6, elemID) = maxval(triaCoor, 2)
-     
+
   end do
 
   ! Loop over all quads
@@ -614,7 +680,7 @@ subroutine computeBBoxPerElements(nNodes, nTria, nQuads, &
      ! based on the nodal coordinates.
      quadsBBox(1:3, elemID) = minval(quadsCoor, 2)
      quadsBBox(4:6, elemID) = maxval(quadsCoor, 2)
-     
+
   end do
 
 end subroutine computeBBoxPerElements
@@ -644,7 +710,7 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   ! overlap: logical -> logical indicating if there is an intersection
   !          between boxes A and B. If overlap = .false., disregard all
   !          values given in BBoxAB.
-  
+
   implicit none
 
   ! INPUTS

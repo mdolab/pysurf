@@ -9,7 +9,7 @@ import tsurf_tools as tst
 import adtAPI
 import copy
 
-fortran_flag = False
+fortran_flag = True
 
 class TSurfGeometry(Geometry):
 
@@ -921,20 +921,23 @@ class TSurfCurve(Curve):
         Ney Secco 2016-08
         '''
 
+
+        spacing = spacing.lower()
+
         # Get connectivities and coordinates of the current Curve object
         coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
         barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
 
         # Get the number of elements in the curve
         nElem = barsConn.shape[1]
-        nNodes = coor.shape[1]
+        nNodes = nElem+1
 
         # Check if the baseline curve is periodic. If this is the case, we artificially repeat
         # the last point so that we could use the same code of the non-periodic case
         if barsConn[0,0] == barsConn[1,-1]:
             periodic = True
             coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
-            barsConn[-1,-1] = nNodes+1
+            barsConn[-1,-1] = nNodes
         else:
             periodic = False
 
@@ -943,7 +946,7 @@ class TSurfCurve(Curve):
             nNewNodes = nNodes
 
         if fortran_flag:
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing)
+            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
 
         else:
 
@@ -990,21 +993,11 @@ class TSurfCurve(Curve):
                 # Compute distance between nodes
                 dist = np.linalg.norm(node1 - node2)
 
-                if periodic and elemID == nElem:
+                # Store nodal arc-length
+                arcLength[elemID+1] = arcLength[elemID] + dist
 
-                    # Store nodal arc-length
-                    arcLength[elemID+1] = arcLength[elemID] + dist
-
-                    # Store coordinates of the next node
-                    nodeCoor[:,elemID+1] = node2
-
-                else:
-
-                    # Store nodal arc-length
-                    arcLength[elemID+1] = arcLength[elemID] + dist
-
-                    # Store coordinates of the next node
-                    nodeCoor[:,elemID+1] = node2
+                # Store coordinates of the next node
+                nodeCoor[:,elemID+1] = node2
 
             # SAMPLING POSITION FOR NEW NODES
 
