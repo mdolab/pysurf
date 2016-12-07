@@ -7,7 +7,7 @@ cgns_utils scale primary_meshes/wing_L1_hyp.cgns 0.0254 wing_L1_temp.cgns
 cp collar.cgns collar_L1_temp.cgns
 
 # Translate wing primary mesh
-cgns_utils translate wing_L1_temp.cgns 0.0 0.0 1.47
+cgns_utils translate wing_L1_temp.cgns 0.0 0.0 1.007
 
 # Combine meshes in a single CGNS file
 cgns_utils combine fuse_L1_temp.cgns wing_L1_temp.cgns collar_L1_temp.cgns crm_wb.cgns
@@ -41,4 +41,4 @@ cgns_utils merge crm_wb.cgns
 cgns_utils connect crm_wb.cgns
 
 # Coarsen collar grid
-cgns_utils coarsen crm_wb.cgns crm_wb_L2_00.cgns
+cgns_utils coarsen crm_wb.cgns crm_wb_L2.cgns

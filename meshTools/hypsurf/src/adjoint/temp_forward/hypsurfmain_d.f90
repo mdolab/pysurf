@@ -23,270 +23,6 @@ MODULE HYPSURFMAIN_D
   IMPLICIT NONE
 
 CONTAINS
-  SUBROUTINE QUALITYCHECK(r, layerindex, numlayers, numnodes, fail, &
-&   ratios)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: numlayers, numnodes
-    INTEGER(kind=inttype), INTENT(IN), OPTIONAL :: layerindex
-    REAL(kind=realtype), INTENT(IN) :: r(numlayers, 3*numnodes)
-    REAL(kind=realtype), INTENT(OUT) :: ratios(numlayers-1, numnodes-1)
-    INTEGER(kind=inttype), INTENT(OUT) :: fail
-    REAL(kind=realtype) :: xyz(3, numlayers, numnodes), nodalnormals(3, &
-&   numlayers, numnodes)
-    REAL(kind=realtype) :: panelnormals(3, numlayers-1, numnodes-1), &
-&   norm_vec(3)
-    REAL(kind=realtype) :: vec1(3, numlayers-1, numnodes-1), vec2(3, &
-&   numlayers-1, numnodes-1)
-    REAL(kind=realtype) :: vec3(3, numlayers-2, numnodes-2), vec4(3, &
-&   numlayers-2, numnodes-2)
-    REAL(kind=realtype) :: nodalderivs(3, 2, numlayers, numnodes), det(&
-&   numlayers, numnodes)
-    REAL(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
-&   nodaljacs(3, 3, numlayers, numnodes), norm_val
-    INTEGER(kind=inttype) :: i, j
-    REAL(kind=realtype) :: zero
-    INTRINSIC MINVAL
-    INTRINSIC MAXVAL
-    REAL :: result1
-    REAL :: result2
-    REAL :: result10
-    zero = 0.
-! Convert the flattened array R into a 3 x numNodes x numLayers array.
-! numLayers -> number of layers in the marching direction
-! numNodes -> number of nodes in direction of curve
-    DO i=1,numnodes
-      xyz(1, :, i) = r(:, 3*(i-1)+1)
-      xyz(2, :, i) = r(:, 3*(i-1)+2)
-      xyz(3, :, i) = r(:, 3*(i-1)+3)
-    END DO
-! Setup nodal normals
-    nodalnormals(:, :, :) = zero
-! Get the panel normals from the interior points of the mesh.
-! Here we take the cross product of the diagonals of each face
-    vec1 = xyz(:, 2:, 2:) - xyz(:, :numlayers-1, :numnodes-1)
-    vec2 = xyz(:, 2:, :numnodes-1) - xyz(:, :numlayers-1, 2:)
-    DO i=1,numnodes-1
-      DO j=1,numlayers-1
-        CALL CROSS(vec2(:, j, i), vec1(:, j, i), norm_vec)
-        CALL NORM(norm_vec, norm_val)
-        panelnormals(:, j, i) = norm_vec/norm_val
-      END DO
-    END DO
-! Set the interior normals using an average of the panel normals
-    vec3 = panelnormals(:, 2:, 2:) + panelnormals(:, :numlayers-2, :&
-&     numnodes-2)
-    vec4 = panelnormals(:, 2:, :numnodes-2) + panelnormals(:, :numlayers&
-&     -2, 2:)
-    normals = vec3 + vec4
-    DO i=2,numnodes-1
-      DO j=2,numlayers-1
-        CALL NORM(normals(:, j-1, i-1), norm_val)
-        nodalnormals(:, j, i) = normals(:, j-1, i-1)/norm_val
-      END DO
-    END DO
-! Set the boundary normals
-    nodalnormals(:, 2:, 1) = panelnormals(:, :, 1)
-    nodalnormals(:, 1, :numnodes-1) = panelnormals(:, 1, :)
-    nodalnormals(:, :numlayers-1, numnodes) = panelnormals(:, :, &
-&     numnodes-1)
-    nodalnormals(:, numlayers, 2:) = panelnormals(:, numlayers-1, :)
-! Setup nodal derivatives
-    nodalderivs(:, :, :, :) = zero
-! Compute interior derivatives using 2nd order central differencing
-    nodalderivs(:, 1, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 3:, 2:&
-&     numnodes-1)-xyz(:, :numlayers-2, 2:numnodes-1))/2.
-    nodalderivs(:, 2, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 2:numlayers&
-&     -1, 3:)-xyz(:, 2:numlayers-1, :numnodes-2))/2.
-! Compute i derivatives using 1st order differencing
-    nodalderivs(:, 1, 1, :) = xyz(:, 2, :) - xyz(:, 1, :)
-    nodalderivs(:, 1, numlayers, :) = xyz(:, numlayers, :) - xyz(:, &
-&     numlayers-1, :)
-    nodalderivs(:, 1, 2:numlayers-1, 1) = (xyz(:, 3:, 1)-xyz(:, :&
-&     numlayers-2, 1))/2.
-    nodalderivs(:, 1, 2:numlayers-1, numnodes) = (xyz(:, 3:, numnodes)-&
-&     xyz(:, :numlayers-2, numnodes))/2.
-! Compute j derivatives using 1st order differencing
-    nodalderivs(:, 2, :, 1) = xyz(:, :, 2) - xyz(:, :, 1)
-    nodalderivs(:, 2, :, numnodes) = xyz(:, :, numnodes) - xyz(:, :, &
-&     numnodes-1)
-    nodalderivs(:, 2, 1, 2:numnodes-1) = (xyz(:, 1, 3:)-xyz(:, 1, :&
-&     numnodes-2))/2.
-    nodalderivs(:, 2, numlayers, 2:numnodes-1) = (xyz(:, numlayers, 3:)-&
-&     xyz(:, numlayers, :numnodes-2))/2.
-! Assemble nodal Jacobians
-    nodaljacs(:, :, :, :) = zero
-    nodaljacs(1, :, :, :) = nodalderivs(:, 1, :, :)
-    nodaljacs(2, :, :, :) = nodalderivs(:, 2, :, :)
-    nodaljacs(3, :, :, :) = nodalnormals(:, :, :)
-! Compute determinants of Jacobians and find ratio of min to max per face
-    ratios(:, :) = zero
-! Compute the determinants of each nodal Jacobian
-    DO i=1,numnodes
-      DO j=1,numlayers
-        CALL M33DET(nodaljacs(:, :, j, i), det(j, i))
-      END DO
-    END DO
-! Find the ratio of the minimum valued determinant to the maximum
-! valued determinant.
-! This is a measure of quality, with 1 being desirable and anything
-! less than 0 meaning the mesh is no longer valid.
-    DO i=1,numnodes-1
-      DO j=1,numlayers-1
-        result1 = MINVAL(det(j:j+1, i:i+1))
-        result2 = MAXVAL(det(j:j+1, i:i+1))
-        ratios(j, i) = result1/result2
-      END DO
-    END DO
-    fail = 0
-! Throw an error and set the failure flag if the mesh is not valid
-    DO i=1,numnodes-1
-      DO j=1,numlayers-1
-        IF ((ratios(j, i) .NE. ratios(j, i) .OR. ratios(j, i) .LE. zero)&
-&           .AND. layerindex .GE. 1) THEN
-          PRINT*, '========= FAILURE DETECTED ============'
-          fail = 1
-        END IF
-      END DO
-    END DO
-    IF (fail .EQ. 1) PRINT*, 'The mesh is not valid after step', &
-&                    layerindex + 1
-! Throw a warning if the mesh is low quality
-    result10 = MINVAL(ratios)
-    IF (result10 .LE. .2 .AND. layerindex .GE. 1) PRINT*, &
-&                               'The mesh may be low quality after step'&
-&                                                 , layerindex + 1
-  END SUBROUTINE QUALITYCHECK
-!  Differentiation of march_main in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: r
-!   with respect to varying inputs: rstart
-!   RW status of diff variables: r:out rstart:in
-  SUBROUTINE MARCH_MAIN_D(rstart, rstartd, dstart, theta, sigmasplay, &
-&   bc1, bc2, epse0, alphap0, extension, nuarea, ratioguess, cmax, &
-&   numsmoothingpasses, numareapasses, numlayers, numnodes, r, rd, fail&
-&   , ratios, majorindices)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: numnodes, numlayers, &
-&   numareapasses
-    REAL(kind=realtype), INTENT(IN) :: rstart(3*numnodes), dstart, theta&
-&   , sigmasplay
-    REAL(kind=realtype), INTENT(IN) :: rstartd(3*numnodes)
-    REAL(kind=realtype), INTENT(IN) :: epse0, extension, nuarea
-    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(IN) :: alphap0, ratioguess, cmax
-    INTEGER(kind=inttype), INTENT(IN) :: numsmoothingpasses
-    INTEGER(kind=inttype), INTENT(OUT) :: fail
-    REAL(kind=realtype), INTENT(OUT) :: ratios(numlayers-1, numnodes-1)&
-&   , r(numlayers, 3*numnodes)
-    REAL(kind=realtype), INTENT(OUT) :: rd(numlayers, 3*numnodes)
-    INTEGER(kind=inttype), INTENT(OUT) :: majorindices(numlayers)
-    REAL(kind=realtype) :: r0(3*numnodes), n0(3, numnodes), s0(numnodes)
-    REAL(kind=realtype) :: r0d(3*numnodes), n0d(3, numnodes), s0d(&
-&   numnodes)
-    REAL(kind=realtype) :: rm1(3*numnodes), sm1(numnodes), rsmoothed(3*&
-&   numnodes)
-    REAL(kind=realtype) :: rm1d(3*numnodes), sm1d(numnodes), rsmoothedd(&
-&   3*numnodes)
-    REAL(kind=realtype) :: rnext(3*numnodes), nnext(3, numnodes)
-    REAL(kind=realtype) :: rnextd(3*numnodes)
-    REAL(kind=realtype) :: rnext_in(3*numnodes)
-    REAL(kind=realtype) :: dr(3*numnodes), d, dtot, dmax, dgrowth
-    REAL(kind=realtype) :: dd, dmaxd, dgrowthd
-    REAL(kind=realtype) :: dpseudo, maxstretch, radius, eta, min_ratio, &
-&   ratios_small(3, numnodes-1)
-    REAL(kind=realtype) :: dpseudod, radiusd
-    INTEGER(kind=inttype) :: layerindex, indexsubiter, cfactor
-    INTEGER(kind=inttype) :: arraysize, nallocations
-    INTRINSIC INT
-    REAL(kind=realtype) :: dstartd
-    rnextd = rstartd
-    rnext = rstart
-    nnext = 0.
-    DO layerindex=1,numnodes
-      nnext(3, layerindex) = -1.
-    END DO
-! Initialize step size and total marched distance
-    d = dstart
-! Find the characteristic radius of the mesh
-    CALL FINDRADIUS_D(rnext, rnextd, numnodes, radius, radiusd)
-! Find the desired marching distance
-    dmaxd = (extension-1.)*radiusd
-    dmax = radius*(extension-1.)
-! Compute the growth ratio necessary to match this distance
-    dstartd = 0.0_8
-    CALL FINDRATIO_D(dmax, dmaxd, dstart, dstartd, numlayers, ratioguess&
-&              , dgrowth, dgrowthd)
-! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-    rm1d = rnextd
-    rm1 = rnext
-    n0 = nnext
-!===========================================================
-! Some functions require the area factors of the first-before-last curve
-! We will repeat the first curve areas for simplicity.
-! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-! But we still need to find Sm1
-    sm1d = 0.0_8
-    dd = 0.0_8
-    CALL AREAFACTOR_D(rnext, rnextd, d, dd, nuarea, numareapasses, bc1, &
-&               bc2, numnodes, sm1, sm1d, maxstretch)
-    rd = 0.0_8
-    rd(1, :) = rnextd
-    r(1, :) = rnext
-    dd = 0.0_8
-    DO layerindex=1,numlayers-1
-! Get the coordinates computed by the previous iteration
-      r0d = rnextd
-      r0 = rnext
-! Compute the new area factor for the desired marching distance
-      s0d = 0.0_8
-      CALL AREAFACTOR_D(r0, r0d, d, dd, nuarea, numareapasses, bc1, bc2&
-&                 , numnodes, s0, s0d, maxstretch)
-      cfactor = INT(maxstretch/cmax) + 1
-! Constrain the marching distance if the stretching ratio is too high
-      dpseudod = dd/cfactor
-      dpseudo = d/cfactor
-! Subiteration
-! The number of subiterations is the one required to meet the desired marching distance
-      DO indexsubiter=1,cfactor
-! Recompute areas with the pseudo-step
-        s0d = 0.0_8
-        CALL AREAFACTOR_D(r0, r0d, dpseudo, dpseudod, nuarea, &
-&                   numareapasses, bc1, bc2, numnodes, s0, s0d, &
-&                   maxstretch)
-! March using the pseudo-marching distance
-        eta = layerindex + 2
-! Generate matrices of the linear system
-        rnextd = 0.0_8
-        n0d = 0.0_8
-        CALL COMPUTEMATRICES_MAIN_D(r0, r0d, n0, n0d, s0, s0d, rm1, rm1d&
-&                             , sm1, sm1d, layerindex - 1, theta, &
-&                             sigmasplay, bc1, bc2, numlayers, epse0, &
-&                             rnext, rnextd, numnodes)
-! Smooth coordinates
-        rsmoothedd = 0.0_8
-        CALL SMOOTHING_MAIN_D(rnext, rnextd, eta, alphap0, &
-&                       numsmoothingpasses, numlayers, numnodes, &
-&                       rsmoothed, rsmoothedd)
-! Placeholder for projection
-        rnextd = rsmoothedd
-        rnext = rsmoothed
-        nnext = n0
-        sm1d = s0d
-        sm1 = s0
-        rm1d = r0d
-        rm1 = r0
-        r0d = rnextd
-        r0 = rnext
-        n0 = nnext
-      END DO
-! Store grid points
-      rd(layerindex+1, :) = rnextd
-      r(layerindex+1, :) = rnext
-! Update step size
-      dd = dd*dgrowth + d*dgrowthd
-      d = d*dgrowth
-    END DO
-  END SUBROUTINE MARCH_MAIN_D
 !  Differentiation of computematrices_main in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: f
 !   with respect to varying inputs: s0 sm1 n0 rm1 r0
@@ -296,7 +32,7 @@ CONTAINS
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN_D(r0, r0d, n0, n0d, s0, s0d, rm1, rm1d&
 &   , sm1, sm1d, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, f, fd, numnodes)
+&   epse0, guideindices, f, fd, numnodes, numguides)
     USE SOLVEROUTINES, ONLY : solve
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -311,6 +47,8 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     REAL(kind=realtype), INTENT(OUT) :: f(3*numnodes)
     REAL(kind=realtype), INTENT(OUT) :: fd(3*numnodes)
+    INTEGER(kind=inttype), INTENT(IN) :: numguides
+    INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
     REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     REAL(kind=realtype) :: r_currd(3), r_nextd(3), r_prevd(3), d_vecd(3)&
@@ -322,6 +60,7 @@ CONTAINS
     INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
     REAL(kind=realtype) :: one, zero, rhs(3*numnodes)
     REAL(kind=realtype) :: rhsd(3*numnodes)
+    LOGICAL :: guide
     EXTERNAL SOLVE
     EXTERNAL SOLVE_D
     one = 1.
@@ -422,10 +161,26 @@ CONTAINS
       d_vec_rotd = 0.0_8
     END IF
     DO index=2,numnodes-1
+      guide = .false.
+      DO i=1,numguides
+        IF (index .EQ. guideindices(i)) guide = .true.
+      END DO
+      IF (guide) THEN
+        kd(3*(index-1)+1, 3*(index-1)+1) = 0.0_8
+        k(3*(index-1)+1, 3*(index-1)+1) = one
+        kd(3*(index-1)+2, 3*(index-1)+2) = 0.0_8
+        k(3*(index-1)+2, 3*(index-1)+2) = one
+        kd(3*(index-1)+3, 3*(index-1)+3) = 0.0_8
+        k(3*(index-1)+3, 3*(index-1)+3) = one
+        fd(3*(index-1)+1:3*(index-1)+3) = s0d(index)*n0(:, index) + s0(&
+&         index)*n0d(:, index)
+        f(3*(index-1)+1:3*(index-1)+3) = s0(index)*n0(:, index)
+      ELSE
 ! Call assembly routine
-      CALL MATRIXBUILDER_D(index, bc1, bc2, r0, r0d, rm1, rm1d, n0, n0d&
-&                    , s0, s0d, sm1, sm1d, numlayers, epse0, layerindex&
-&                    , theta, numnodes, k, kd, f, fd)
+        CALL MATRIXBUILDER_D(index, bc1, bc2, r0, r0d, rm1, rm1d, n0, &
+&                      n0d, s0, s0d, sm1, sm1d, numlayers, epse0, &
+&                      layerindex, theta, numnodes, k, kd, f, fd)
+      END IF
     END DO
     index = numnodes
     IF (bc2 .EQ. 'continuous') THEN
@@ -542,6 +297,196 @@ CONTAINS
     fd = r0d + fd
     f = r0 + f
   END SUBROUTINE COMPUTEMATRICES_MAIN_D
+!=================================================================
+!=================================================================
+  SUBROUTINE COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex, &
+&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, f, &
+&   numnodes, numguides)
+    USE SOLVEROUTINES_D, ONLY : solve
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
+    REAL(kind=realtype), INTENT(IN) :: r0(3*numnodes), n0(3, numnodes), &
+&   s0(numnodes)
+    REAL(kind=realtype), INTENT(IN) :: rm1(3*numnodes), sm1(numnodes), &
+&   theta
+    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
+    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
+    REAL(kind=realtype), INTENT(OUT) :: f(3*numnodes)
+    INTEGER(kind=inttype), INTENT(IN) :: numguides
+    INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
+&   d_vec_rot(3), eye(3, 3)
+    REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
+    INTEGER(kind=inttype) :: index, i
+    INTEGER(kind=inttype) :: ipiv(3*numnodes)
+    INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
+    REAL(kind=realtype) :: one, zero, rhs(3*numnodes)
+    LOGICAL :: guide
+    EXTERNAL SOLVE
+    one = 1.
+    zero = 0.
+! Initialize arrays
+    k(:, :) = zero
+    f(:) = zero
+    eye(:, :) = zero
+    DO i=1,3
+      eye(i, i) = one
+    END DO
+! Now loop over each node
+    index = 1
+    IF (bc1 .EQ. 'splay') THEN
+! Get coordinates
+      r_curr = r0(:3)
+      r_next = r0(4:6)
+! Get vector that connects r_next to r_curr
+      d_vec = r_next - r_curr
+! Get marching direction vector (orthogonal to the curve and to the surface normal)
+      CALL CROSS(n0(:, 1), d_vec, d_vec_rot)
+! Populate matrix
+      k(1, :3) = d_vec_rot
+      k(2, :3) = n0(:, index)
+      k(3, :3) = d_vec
+      f(:3) = zero
+      f(1) = s0(1)*(1-sigmasplay)
+    ELSE IF (bc1 .EQ. 'constx') THEN
+! Populate matrix
+      k(2, 4) = zero
+      k(2, 5) = -one
+      k(2, 6) = zero
+      k(3, 4) = zero
+      k(3, 5) = zero
+      k(3, 6) = -one
+      DO i=1,3
+        k(i, i) = one
+      END DO
+    ELSE IF (bc1 .EQ. 'consty') THEN
+! Populate matrix
+      k(1, 4) = -one
+      k(1, 5) = zero
+      k(1, 6) = zero
+      k(3, 4) = zero
+      k(3, 5) = zero
+      k(3, 6) = -one
+      DO i=1,3
+        k(i, i) = one
+      END DO
+    ELSE IF (bc1 .EQ. 'constz') THEN
+! Populate matrix
+      k(1, 4) = -one
+      k(1, 5) = zero
+      k(1, 6) = zero
+      k(2, 4) = zero
+      k(2, 5) = -one
+      k(2, 6) = zero
+      DO i=1,3
+        k(i, i) = one
+      END DO
+    ELSE IF (bc1(:5) .EQ. 'curve') THEN
+! Populate matrix
+      DO i=1,3
+        k(i, i) = one
+      END DO
+      f(:3) = s0(1)*n0(:, 1)
+    ELSE
+! Call assembly routine
+      CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
+    END IF
+    DO index=2,numnodes-1
+      guide = .false.
+      DO i=1,numguides
+        IF (index .EQ. guideindices(i)) guide = .true.
+      END DO
+      IF (guide) THEN
+        k(3*(index-1)+1, 3*(index-1)+1) = one
+        k(3*(index-1)+2, 3*(index-1)+2) = one
+        k(3*(index-1)+3, 3*(index-1)+3) = one
+        f(3*(index-1)+1:3*(index-1)+3) = s0(index)*n0(:, index)
+      ELSE
+! Call assembly routine
+        CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                    numlayers, epse0, layerindex, theta, numnodes, k, f&
+&                   )
+      END IF
+    END DO
+    index = numnodes
+    IF (bc2 .EQ. 'continuous') THEN
+! Populate matrix (use same displacements of first node)
+      k(3*(index-1)+1:, 3*(index-1)+1:) = eye
+      k(3*(index-1)+1:, :3) = -eye
+    ELSE IF (bc2 .EQ. 'splay') THEN
+! Get coordinates
+      r_curr = r0(3*(index-1)+1:)
+      r_prev = r0(3*(index-2)+1:3*(index-2)+3)
+! Get vector that connects r_next to r_curr
+      d_vec = r_curr - r_prev
+! Get marching direction vector (orthogonal to the curve and to the surface normal)
+      CALL CROSS(n0(:, index), d_vec, d_vec_rot)
+! Populate matrix
+      k(3*index-2, 3*index-2:) = d_vec_rot
+      k(3*index-1, 3*index-2:) = n0(:, index)
+      k(3*index-0, 3*index-2:) = d_vec
+      f(3*(index-1)+1:3*index) = zero
+      f(3*(index-1)+1) = s0(index)*(1-sigmasplay)
+    ELSE IF (bc2 .EQ. 'constx') THEN
+! Populate matrix
+      k(3*index-0, 3*(index-2)+1) = zero
+      k(3*index-0, 3*(index-2)+2) = zero
+      k(3*index-0, 3*(index-2)+3) = -one
+      k(3*index-1, 3*(index-2)+1) = zero
+      k(3*index-1, 3*(index-2)+2) = -one
+      k(3*index-1, 3*(index-2)+3) = zero
+      DO i=3*index-2,3*index
+        k(i, i) = one
+      END DO
+    ELSE IF (bc2 .EQ. 'consty') THEN
+! Populate matrix
+      k(3*index-2, 3*(index-2)+1) = -one
+      k(3*index-2, 3*(index-2)+2) = zero
+      k(3*index-2, 3*(index-2)+3) = zero
+      k(3*index-0, 3*(index-2)+1) = zero
+      k(3*index-0, 3*(index-2)+2) = zero
+      k(3*index-0, 3*(index-2)+3) = -one
+      DO i=3*index-2,3*index
+        k(i, i) = one
+      END DO
+    ELSE IF (bc2 .EQ. 'constz') THEN
+! Populate matrix
+      k(3*index-2, 3*(index-2)+1) = -one
+      k(3*index-2, 3*(index-2)+2) = zero
+      k(3*index-2, 3*(index-2)+3) = zero
+      k(3*index-1, 3*(index-2)+1) = zero
+      k(3*index-1, 3*(index-2)+2) = -one
+      k(3*index-1, 3*(index-2)+3) = zero
+      DO i=3*index-2,3*index
+        k(i, i) = one
+      END DO
+    ELSE IF (bc2(:5) .EQ. 'curve') THEN
+! Populate matrix
+      DO i=3*index-2,3*index
+        k(i, i) = one
+      END DO
+      f(3*index-2:) = s0(index)*n0(:, index)
+    ELSE
+! Call assembly routine
+      CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                  numlayers, epse0, layerindex, theta, index, k, f)
+    END IF
+! Set other parameters
+! Problem size
+    n = 3*numnodes
+! number of right hand sides in f
+    nrhs = 1
+! leading dimension of K (should be = n unless we work with submatrices)
+    ldk = n
+! leading dimension of f (should be = n unless we work with submatrices)
+    ldf = n
+! call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
+    rhs = f
+    CALL SOLVE(k, f, rhs, n, ipiv)
+! Note that this f is rNext when outputted from computeMatrices_main
+    f = r0 + f
+  END SUBROUTINE COMPUTEMATRICES_MAIN
 !  Differentiation of matrixbuilder in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: f k
 !   with respect to varying inputs: f k s0 sm1 n0 rm1 r0
@@ -841,631 +786,6 @@ CONTAINS
       END IF
     END IF
   END SUBROUTINE MATRIXBUILDER_D
-!  Differentiation of dissipationcoefficients in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: epse epsi
-!   with respect to varying inputs: r0_eta dsensor angle r0_xi
-  SUBROUTINE DISSIPATIONCOEFFICIENTS_D(layerindex, r0_xi, r0_xid, r0_eta&
-&   , r0_etad, dsensor, dsensord, angle, angled, numlayers, epse0, epse&
-&   , epsed, epsi, epsid)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: layerindex, numlayers
-    REAL(kind=realtype), INTENT(IN) :: dsensor, angle, epse0, r0_xi(3), &
-&   r0_eta(3)
-    REAL(kind=realtype), INTENT(IN) :: dsensord, angled, r0_xid(3), &
-&   r0_etad(3)
-    REAL(kind=realtype), INTENT(OUT) :: epse, epsi
-    REAL(kind=realtype), INTENT(OUT) :: epsed, epsid
-    REAL(kind=realtype) :: sl, dbar, a, pi, n, r, normeta, normxi
-    REAL(kind=realtype) :: dbard, ad, nd, rd, normetad, normxid
-    INTEGER(kind=inttype) :: l, ltrans
-    INTRINSIC INT
-    INTRINSIC FLOAT
-    INTRINSIC DSQRT
-    INTRINSIC MAX
-    INTRINSIC COS
-    REAL*8 :: arg1
-    REAL(kind=realtype) :: pwy1
-    REAL(kind=realtype) :: pwr1
-    pi = 3.14159265358979323846264338
-! Compute N (Eq. 6.3)
-    CALL NORM_D0(r0_eta, r0_etad, normeta, normetad)
-    CALL NORM_D0(r0_xi, r0_xid, normxi, normxid)
-    nd = (normetad*normxi-normeta*normxid)/normxi**2
-    n = normeta/normxi
-! Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
-    l = layerindex + 2
-    ltrans = INT(3./4.*numlayers)
-    IF (l .LE. ltrans) THEN
-      arg1 = FLOAT(l-1)/FLOAT(ltrans-1)
-      sl = DSQRT(arg1)
-    ELSE
-      arg1 = FLOAT(ltrans-1)/FLOAT(numlayers-1)
-      sl = DSQRT(arg1)
-    END IF
-    pwy1 = 2./sl
-    pwr1 = dsensor**pwy1
-    IF (pwr1 .LT. 0.1) THEN
-      dbar = 0.1
-      dbard = 0.0_8
-    ELSE
-      pwy1 = 2./sl
-      IF (dsensor .GT. 0.0_8 .OR. (dsensor .LT. 0.0_8 .AND. pwy1 .EQ. &
-&         INT(pwy1))) THEN
-        dbard = pwy1*dsensor**(pwy1-1)*dsensord
-      ELSE IF (dsensor .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
-        dbard = dsensord
-      ELSE
-        dbard = 0.0_8
-      END IF
-      dbar = dsensor**pwy1
-    END IF
-! Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
-    IF (angle .LE. pi) THEN
-! Convex corner
-      a = 1.0
-      ad = 0.0_8
-    ELSE
-      ad = -((angled*SIN(angle/2)*COS(angle/2)/2+COS(angle/2)*angled*SIN&
-&       (angle/2)/2)/(1.0-COS(angle/2)*COS(angle/2))**2)
-      a = 1.0/(1.0-COS(angle/2)*COS(angle/2))
-    END IF
-! Compute auxiliary variable R (Eq. 6.4)
-    rd = sl*(dbard*a+dbar*ad)
-    r = sl*dbar*a
-! Compute the dissipation coefficients
-    epsed = epse0*(rd*n+r*nd)
-    epse = epse0*r*n
-    epsid = 2*epsed
-    epsi = 2*epse
-  END SUBROUTINE DISSIPATIONCOEFFICIENTS_D
-!  Differentiation of areafactor in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: s
-!   with respect to varying inputs: d r0
-!   RW status of diff variables: d:in s:out r0:in
-  SUBROUTINE AREAFACTOR_D(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-&   bc2, n, s, sd, maxstretch)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: n
-    REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
-    REAL(kind=realtype), INTENT(IN) :: r0d(3*n), dd
-    INTEGER(kind=inttype), INTENT(IN) :: numareapasses
-    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
-    REAL(kind=realtype), INTENT(OUT) :: sd(n)
-    REAL(kind=realtype) :: r0_extrap(3*(2+n))
-    REAL(kind=realtype) :: r0_extrapd(3*(2+n))
-    REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
-    REAL(kind=realtype) :: neighbordistd(n), norm_1d(n), norm_2d(n)
-    REAL(kind=realtype) :: sminus, splus, stretchratio(n)
-    REAL(kind=realtype) :: sminusd, splusd
-    INTEGER(kind=inttype) :: index
-! Extrapolate the end points and copy starting curve
-    r0_extrapd = 0.0_8
-    r0_extrapd(:3) = 2*r0d(:3) - r0d(4:6)
-    r0_extrap(:3) = 2*r0(:3) - r0(4:6)
-    r0_extrapd(4:3*(n+1)) = r0d
-    r0_extrap(4:3*(n+1)) = r0
-    r0_extrapd(3*(n+1)+1:) = 2*r0d(3*(n-1)+1:) - r0d(3*(n-2)+1:3*(n-1))
-    r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
-    norm_1d = 0.0_8
-    norm_2d = 0.0_8
-! Compute the distance of each node to its neighbors
-    DO index=1,n
-      CALL NORM_D0(r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:&
-&            3*index), r0_extrapd(3*index+1:3*index+3) - r0_extrapd(3*&
-&            index-2:3*index), norm_1(index), norm_1d(index))
-      CALL NORM_D0(r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:&
-&            3*index+3), r0_extrapd(3*index+4:3*index+6) - r0_extrapd(3*&
-&            index+1:3*index+3), norm_2(index), norm_2d(index))
-    END DO
-    neighbordistd = 0.5*(norm_1d+norm_2d)
-    neighbordist = 0.5*(norm_1+norm_2)
-! Multiply distances by the step size to get the areas
-    sd = dd*neighbordist + d*neighbordistd
-    s = d*neighbordist
-! Divide the marching distance and the neighbor distance to get the stretch ratios
-    stretchratio = d/neighbordist
-! Get the maximum stretch ratio
-    maxstretch = -1.e20
-    DO index=1,n
-      IF (stretchratio(index) .GT. maxstretch) maxstretch = stretchratio&
-&         (index)
-    END DO
-! Do the requested number of averagings
-    DO index=1,numareapasses
-! Store previous values
-      splusd = sd(2)
-      splus = s(2)
-      sminusd = sd(n-2)
-      sminus = s(n-2)
-! Do the averaging for the central nodes
-      sd(2:n-1) = (1-nuarea)*sd(2:n-1) + nuarea*(sd(:n-2)+sd(3:))/2
-      s(2:n-1) = (1-nuarea)*s(2:n-1) + nuarea/2*(s(:n-2)+s(3:))
-! Average for the extremum nodes
-      sd(1) = (1-nuarea)*sd(1) + nuarea*splusd
-      s(1) = (1-nuarea)*s(1) + nuarea*splus
-      sd(n) = (1-nuarea)*sd(n) + nuarea*sminusd
-      s(n) = (1-nuarea)*s(n) + nuarea*sminus
-    END DO
-! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
-    IF (bc1(:5) .EQ. 'curve') THEN
-      sd(1) = dd
-      s(1) = d
-    END IF
-    IF (bc2(:5) .EQ. 'curve') THEN
-      sd(n) = dd
-      s(n) = d
-    END IF
-  END SUBROUTINE AREAFACTOR_D
-!  Differentiation of smoothing_main in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: rout
-!   with respect to varying inputs: r
-!   RW status of diff variables: r:in rout:out
-  SUBROUTINE SMOOTHING_MAIN_D(r, rd, eta, alphap0, numsmoothingpasses, &
-&   numlayers, n, rout, routd)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: n
-    REAL(kind=realtype), INTENT(IN) :: eta, alphap0
-    INTEGER(kind=inttype), INTENT(IN) :: numsmoothingpasses, numlayers
-    REAL(kind=realtype), INTENT(IN) :: r(3*n)
-    REAL(kind=realtype), INTENT(IN) :: rd(3*n)
-    REAL(kind=realtype), INTENT(OUT) :: rout(3*n)
-    REAL(kind=realtype), INTENT(OUT) :: routd(3*n)
-    REAL(kind=realtype) :: r_next(3), r_curr(3), r_prev(3), lp, lm, &
-&   alphap
-    REAL(kind=realtype) :: r_nextd(3), r_currd(3), r_prevd(3), lpd, lmd
-    REAL(kind=realtype) :: r_smooth(3*n)
-    REAL(kind=realtype) :: r_smoothd(3*n)
-    INTEGER(kind=inttype) :: index, index_pass
-    INTRINSIC MIN
-    IF (alphap0 .GT. alphap0*(eta-3)/numlayers) THEN
-      alphap = alphap0*(eta-3)/numlayers
-    ELSE
-      alphap = alphap0
-    END IF
-    routd = rd
-    rout = r
-! This function does the grid smoothing
-! Loop over the desired number of smoothing passes
-    DO index_pass=1,numsmoothingpasses
-! Copy nodes
-      r_smoothd = routd
-      r_smooth = rout
-! Smooth every node
-      DO index=2,n-1
-! Get coordinates
-        r_currd = routd(3*(index-1)+1:3*(index-1)+3)
-        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
-        r_nextd = routd(3*index+1:3*index+3)
-        r_next = rout(3*index+1:3*index+3)
-        r_prevd = routd(3*(index-2)+1:3*(index-2)+3)
-        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
-! Compute distances
-        CALL NORM_D0(r_next - r_curr, r_nextd - r_currd, lp, lpd)
-        CALL NORM_D0(r_curr - r_prev, r_currd - r_prevd, lm, lmd)
-! Compute smoothed coordinates
-        r_smoothd(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_currd + (&
-&         alphap*(lmd*r_next+lm*r_nextd+lpd*r_prev+lp*r_prevd)*(lp+lm)-&
-&         alphap*(lm*r_next+lp*r_prev)*(lpd+lmd))/(lp+lm)**2
-        r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
-&         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
-      END DO
-! Copy coordinates to allow next pass
-      routd = r_smoothd
-      rout = r_smooth
-    END DO
-  END SUBROUTINE SMOOTHING_MAIN_D
-!  Differentiation of findradius in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: radius
-!   with respect to varying inputs: r
-!   RW status of diff variables: radius:out r:in
-  SUBROUTINE FINDRADIUS_D(r, rd, numnodes, radius, radiusd)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: numnodes
-    REAL(kind=realtype), INTENT(IN) :: r(3*numnodes)
-    REAL(kind=realtype), INTENT(IN) :: rd(3*numnodes)
-    REAL(kind=realtype), INTENT(OUT) :: radius
-    REAL(kind=realtype), INTENT(OUT) :: radiusd
-    REAL(kind=realtype) :: x, y, z
-    REAL(kind=realtype) :: xd, yd, zd
-    REAL(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    REAL(kind=realtype) :: minxd, maxxd, minyd, maxyd, minzd, maxzd
-    INTEGER(kind=inttype) :: i
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-    minxd = 0.0_8
-    minyd = 0.0_8
-    minzd = 0.0_8
-    maxxd = 0.0_8
-    maxyd = 0.0_8
-    maxzd = 0.0_8
-! Split coordinates and find max and min values
-    DO i=1,numnodes
-      xd = rd(3*(i-1)+1)
-      x = r(3*(i-1)+1)
-      IF (x .GT. maxx) THEN
-        maxxd = xd
-        maxx = x
-      END IF
-      IF (x .LT. minx) THEN
-        minxd = xd
-        minx = x
-      END IF
-      yd = rd(3*(i-1)+2)
-      y = r(3*(i-1)+2)
-      IF (y .GT. maxy) THEN
-        maxyd = yd
-        maxy = y
-      END IF
-      IF (y .LT. miny) THEN
-        minyd = yd
-        miny = y
-      END IF
-      zd = rd(3*(i-1)+3)
-      z = r(3*(i-1)+3)
-      IF (z .GT. maxz) THEN
-        maxzd = zd
-        maxz = z
-      END IF
-      IF (z .LT. minz) THEN
-        minzd = zd
-        minz = z
-      END IF
-    END DO
-! Find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    IF (maxx - minx .GT. radius) THEN
-      radiusd = maxxd - minxd
-      radius = maxx - minx
-    ELSE
-      radiusd = 0.0_8
-    END IF
-    IF (maxy - miny .GT. radius) THEN
-      radiusd = maxyd - minyd
-      radius = maxy - miny
-    END IF
-    IF (maxz - minz .GT. radius) THEN
-      radiusd = maxzd - minzd
-      radius = maxz - minz
-    END IF
-    radiusd = radiusd/2.
-    radius = radius/2.
-  END SUBROUTINE FINDRADIUS_D
-!  Differentiation of findratio in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: q
-!   with respect to varying inputs: d0 dmax
-!   RW status of diff variables: q:out d0:in dmax:in
-  SUBROUTINE FINDRATIO_D(dmax, dmaxd, d0, d0d, numlayers, ratioguess, q&
-&   , qd)
-    IMPLICIT NONE
-    REAL(kind=realtype), INTENT(IN) :: dmax, d0, ratioguess
-    REAL(kind=realtype), INTENT(IN) :: dmaxd, d0d
-    INTEGER(kind=inttype), INTENT(IN) :: numlayers
-    REAL(kind=realtype), INTENT(OUT) :: q
-    REAL(kind=realtype), INTENT(OUT) :: qd
-    REAL(kind=realtype) :: rdot, r
-    REAL(kind=realtype) :: rdotd, rd
-    INTEGER(kind=inttype) :: niters
-! Note that this counter is not the intType that we use for all other integers.
-! This is done so that Tapenade correctly backwards differentiates this subroutine.
-    INTEGER :: i
-    INTEGER :: pwy1
-    REAL(kind=realtype) :: pwr1
-    REAL(kind=realtype) :: pwr1d
-! Extra parameters
-! Maximum number of iterations for Newton search
-    niters = 200
-! Initialize ratio
-    q = ratioguess
-    qd = 0.0_8
-! Newton search loop
-    DO i=1,niters
-! Residual function
-      pwy1 = numlayers - 1
-      IF (q .GT. 0.0_8 .OR. (q .LT. 0.0_8 .AND. pwy1 .EQ. INT(pwy1))) &
-&     THEN
-        pwr1d = pwy1*q**(pwy1-1)*qd
-      ELSE IF (q .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
-        pwr1d = qd
-      ELSE
-        pwr1d = 0.0_8
-      END IF
-      pwr1 = q**pwy1
-      rd = d0d*(1.-pwr1) - d0*pwr1d - dmaxd*(1.-q) + dmax*qd
-      r = d0*(1.-pwr1) - dmax*(1.-q)
-! Residual derivative
-      pwy1 = numlayers - 2
-      IF (q .GT. 0.0_8 .OR. (q .LT. 0.0_8 .AND. pwy1 .EQ. INT(pwy1))) &
-&     THEN
-        pwr1d = pwy1*q**(pwy1-1)*qd
-      ELSE IF (q .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
-        pwr1d = qd
-      ELSE
-        pwr1d = 0.0_8
-      END IF
-      pwr1 = q**pwy1
-      rdotd = dmaxd - (numlayers-1)*(d0d*pwr1+d0*pwr1d)
-      rdot = -((numlayers-1)*d0*pwr1) + dmax
-! Update ratio with Newton search
-      qd = qd - (rd*rdot-r*rdotd)/rdot**2
-      q = q - r/rdot
-    END DO
-! Check if we got a reasonable value
-    IF (q .LE. 1 .OR. q .GE. ratioguess) THEN
-      PRINT*, ''
-      PRINT*, ''
-      STOP
-    END IF
-  END SUBROUTINE FINDRATIO_D
-  SUBROUTINE MARCH_MAIN(rstart, dstart, theta, sigmasplay, bc1, bc2, &
-&   epse0, alphap0, extension, nuarea, ratioguess, cmax, &
-&   numsmoothingpasses, numareapasses, numlayers, numnodes, r, fail, &
-&   ratios, majorindices)
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: numnodes, numlayers, &
-&   numareapasses
-    REAL(kind=realtype), INTENT(IN) :: rstart(3*numnodes), dstart, theta&
-&   , sigmasplay
-    REAL(kind=realtype), INTENT(IN) :: epse0, extension, nuarea
-    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(IN) :: alphap0, ratioguess, cmax
-    INTEGER(kind=inttype), INTENT(IN) :: numsmoothingpasses
-    INTEGER(kind=inttype), INTENT(OUT) :: fail
-    REAL(kind=realtype), INTENT(OUT) :: ratios(numlayers-1, numnodes-1)&
-&   , r(numlayers, 3*numnodes)
-    INTEGER(kind=inttype), INTENT(OUT) :: majorindices(numlayers)
-    REAL(kind=realtype) :: r0(3*numnodes), n0(3, numnodes), s0(numnodes)
-    REAL(kind=realtype) :: rm1(3*numnodes), sm1(numnodes), rsmoothed(3*&
-&   numnodes)
-    REAL(kind=realtype) :: rnext(3*numnodes), nnext(3, numnodes)
-    REAL(kind=realtype) :: rnext_in(3*numnodes)
-    REAL(kind=realtype) :: dr(3*numnodes), d, dtot, dmax, dgrowth
-    REAL(kind=realtype) :: dpseudo, maxstretch, radius, eta, min_ratio, &
-&   ratios_small(3, numnodes-1)
-    INTEGER(kind=inttype) :: layerindex, indexsubiter, cfactor
-    INTEGER(kind=inttype) :: arraysize, nallocations
-    INTRINSIC INT
-    rnext = rstart
-    nnext = 0.
-    DO layerindex=1,numnodes
-      nnext(3, layerindex) = -1.
-    END DO
-! Initialize step size and total marched distance
-    d = dstart
-! Find the characteristic radius of the mesh
-    CALL FINDRADIUS(rnext, numnodes, radius)
-! Find the desired marching distance
-    dmax = radius*(extension-1.)
-! Compute the growth ratio necessary to match this distance
-    CALL FINDRATIO(dmax, dstart, numlayers, ratioguess, dgrowth)
-! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-    rm1 = rnext
-    n0 = nnext
-!===========================================================
-! Some functions require the area factors of the first-before-last curve
-! We will repeat the first curve areas for simplicity.
-! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-! But we still need to find Sm1
-    CALL AREAFACTOR(rnext, d, nuarea, numareapasses, bc1, bc2, numnodes&
-&             , sm1, maxstretch)
-    r(1, :) = rnext
-    DO layerindex=1,numlayers-1
-! Get the coordinates computed by the previous iteration
-      r0 = rnext
-! Compute the new area factor for the desired marching distance
-      CALL AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, numnodes, &
-&               s0, maxstretch)
-      cfactor = INT(maxstretch/cmax) + 1
-! Constrain the marching distance if the stretching ratio is too high
-      dpseudo = d/cfactor
-! Subiteration
-! The number of subiterations is the one required to meet the desired marching distance
-      DO indexsubiter=1,cfactor
-! Recompute areas with the pseudo-step
-        CALL AREAFACTOR(r0, dpseudo, nuarea, numareapasses, bc1, bc2, &
-&                 numnodes, s0, maxstretch)
-! March using the pseudo-marching distance
-        eta = layerindex + 2
-! Generate matrices of the linear system
-        CALL COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex - 1, &
-&                           theta, sigmasplay, bc1, bc2, numlayers, &
-&                           epse0, rnext, numnodes)
-! Smooth coordinates
-        CALL SMOOTHING_MAIN(rnext, eta, alphap0, numsmoothingpasses, &
-&                     numlayers, numnodes, rsmoothed)
-! Placeholder for projection
-        rnext = rsmoothed
-        nnext = n0
-        sm1 = s0
-        rm1 = r0
-        r0 = rnext
-        n0 = nnext
-      END DO
-! Store grid points
-      r(layerindex+1, :) = rnext
-! Update step size
-      d = d*dgrowth
-    END DO
-  END SUBROUTINE MARCH_MAIN
-!=================================================================
-!=================================================================
-  SUBROUTINE COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex, &
-&   theta, sigmasplay, bc1, bc2, numlayers, epse0, f, numnodes)
-    USE SOLVEROUTINES_D, ONLY : solve
-    IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
-    REAL(kind=realtype), INTENT(IN) :: r0(3*numnodes), n0(3, numnodes), &
-&   s0(numnodes)
-    REAL(kind=realtype), INTENT(IN) :: rm1(3*numnodes), sm1(numnodes), &
-&   theta
-    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
-    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(OUT) :: f(3*numnodes)
-    REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
-&   d_vec_rot(3), eye(3, 3)
-    REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
-    INTEGER(kind=inttype) :: index, i
-    INTEGER(kind=inttype) :: ipiv(3*numnodes)
-    INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
-    REAL(kind=realtype) :: one, zero, rhs(3*numnodes)
-    EXTERNAL SOLVE
-    one = 1.
-    zero = 0.
-! Initialize arrays
-    k(:, :) = zero
-    f(:) = zero
-    eye(:, :) = zero
-    DO i=1,3
-      eye(i, i) = one
-    END DO
-! Now loop over each node
-    index = 1
-    IF (bc1 .EQ. 'splay') THEN
-! Get coordinates
-      r_curr = r0(:3)
-      r_next = r0(4:6)
-! Get vector that connects r_next to r_curr
-      d_vec = r_next - r_curr
-! Get marching direction vector (orthogonal to the curve and to the surface normal)
-      CALL CROSS(n0(:, 1), d_vec, d_vec_rot)
-! Populate matrix
-      k(1, :3) = d_vec_rot
-      k(2, :3) = n0(:, index)
-      k(3, :3) = d_vec
-      f(:3) = zero
-      f(1) = s0(1)*(1-sigmasplay)
-    ELSE IF (bc1 .EQ. 'constx') THEN
-! Populate matrix
-      k(2, 4) = zero
-      k(2, 5) = -one
-      k(2, 6) = zero
-      k(3, 4) = zero
-      k(3, 5) = zero
-      k(3, 6) = -one
-      DO i=1,3
-        k(i, i) = one
-      END DO
-    ELSE IF (bc1 .EQ. 'consty') THEN
-! Populate matrix
-      k(1, 4) = -one
-      k(1, 5) = zero
-      k(1, 6) = zero
-      k(3, 4) = zero
-      k(3, 5) = zero
-      k(3, 6) = -one
-      DO i=1,3
-        k(i, i) = one
-      END DO
-    ELSE IF (bc1 .EQ. 'constz') THEN
-! Populate matrix
-      k(1, 4) = -one
-      k(1, 5) = zero
-      k(1, 6) = zero
-      k(2, 4) = zero
-      k(2, 5) = -one
-      k(2, 6) = zero
-      DO i=1,3
-        k(i, i) = one
-      END DO
-    ELSE IF (bc1(:5) .EQ. 'curve') THEN
-! Populate matrix
-      DO i=1,3
-        k(i, i) = one
-      END DO
-      f(:3) = s0(1)*n0(:, 1)
-    ELSE
-! Call assembly routine
-      CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
-    END IF
-    DO index=2,numnodes-1
-! Call assembly routine
-      CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
-    END DO
-    index = numnodes
-    IF (bc2 .EQ. 'continuous') THEN
-! Populate matrix (use same displacements of first node)
-      k(3*(index-1)+1:, 3*(index-1)+1:) = eye
-      k(3*(index-1)+1:, :3) = -eye
-    ELSE IF (bc2 .EQ. 'splay') THEN
-! Get coordinates
-      r_curr = r0(3*(index-1)+1:)
-      r_prev = r0(3*(index-2)+1:3*(index-2)+3)
-! Get vector that connects r_next to r_curr
-      d_vec = r_curr - r_prev
-! Get marching direction vector (orthogonal to the curve and to the surface normal)
-      CALL CROSS(n0(:, index), d_vec, d_vec_rot)
-! Populate matrix
-      k(3*index-2, 3*index-2:) = d_vec_rot
-      k(3*index-1, 3*index-2:) = n0(:, index)
-      k(3*index-0, 3*index-2:) = d_vec
-      f(3*(index-1)+1:3*index) = zero
-      f(3*(index-1)+1) = s0(index)*(1-sigmasplay)
-    ELSE IF (bc2 .EQ. 'constx') THEN
-! Populate matrix
-      k(3*index-0, 3*(index-2)+1) = zero
-      k(3*index-0, 3*(index-2)+2) = zero
-      k(3*index-0, 3*(index-2)+3) = -one
-      k(3*index-1, 3*(index-2)+1) = zero
-      k(3*index-1, 3*(index-2)+2) = -one
-      k(3*index-1, 3*(index-2)+3) = zero
-      DO i=3*index-2,3*index
-        k(i, i) = one
-      END DO
-    ELSE IF (bc2 .EQ. 'consty') THEN
-! Populate matrix
-      k(3*index-2, 3*(index-2)+1) = -one
-      k(3*index-2, 3*(index-2)+2) = zero
-      k(3*index-2, 3*(index-2)+3) = zero
-      k(3*index-0, 3*(index-2)+1) = zero
-      k(3*index-0, 3*(index-2)+2) = zero
-      k(3*index-0, 3*(index-2)+3) = -one
-      DO i=3*index-2,3*index
-        k(i, i) = one
-      END DO
-    ELSE IF (bc2 .EQ. 'constz') THEN
-! Populate matrix
-      k(3*index-2, 3*(index-2)+1) = -one
-      k(3*index-2, 3*(index-2)+2) = zero
-      k(3*index-2, 3*(index-2)+3) = zero
-      k(3*index-1, 3*(index-2)+1) = zero
-      k(3*index-1, 3*(index-2)+2) = -one
-      k(3*index-1, 3*(index-2)+3) = zero
-      DO i=3*index-2,3*index
-        k(i, i) = one
-      END DO
-    ELSE IF (bc2(:5) .EQ. 'curve') THEN
-! Populate matrix
-      DO i=3*index-2,3*index
-        k(i, i) = one
-      END DO
-      f(3*index-2:) = s0(index)*n0(:, index)
-    ELSE
-! Call assembly routine
-      CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, index, k, f)
-    END IF
-! Set other parameters
-! Problem size
-    n = 3*numnodes
-! number of right hand sides in f
-    nrhs = 1
-! leading dimension of K (should be = n unless we work with submatrices)
-    ldk = n
-! leading dimension of f (should be = n unless we work with submatrices)
-    ldf = n
-! call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
-    rhs = f
-    CALL SOLVE(k, f, rhs, n, ipiv)
-! Note that this f is rNext when outputted from computeMatrices_main
-    f = r0 + f
-  END SUBROUTINE COMPUTEMATRICES_MAIN
   SUBROUTINE MATRIXBUILDER(curr_index, bc1, bc2, r0, rm1, n0, s0, sm1, &
 &   numlayers, epse0, layerindex, theta, numnodes, k, f)
     IMPLICIT NONE
@@ -1640,6 +960,83 @@ CONTAINS
       END IF
     END IF
   END SUBROUTINE MATRIXBUILDER
+!  Differentiation of dissipationcoefficients in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: epse epsi
+!   with respect to varying inputs: r0_eta dsensor angle r0_xi
+  SUBROUTINE DISSIPATIONCOEFFICIENTS_D(layerindex, r0_xi, r0_xid, r0_eta&
+&   , r0_etad, dsensor, dsensord, angle, angled, numlayers, epse0, epse&
+&   , epsed, epsi, epsid)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: layerindex, numlayers
+    REAL(kind=realtype), INTENT(IN) :: dsensor, angle, epse0, r0_xi(3), &
+&   r0_eta(3)
+    REAL(kind=realtype), INTENT(IN) :: dsensord, angled, r0_xid(3), &
+&   r0_etad(3)
+    REAL(kind=realtype), INTENT(OUT) :: epse, epsi
+    REAL(kind=realtype), INTENT(OUT) :: epsed, epsid
+    REAL(kind=realtype) :: sl, dbar, a, pi, n, r, normeta, normxi
+    REAL(kind=realtype) :: dbard, ad, nd, rd, normetad, normxid
+    INTEGER(kind=inttype) :: l, ltrans
+    INTRINSIC INT
+    INTRINSIC FLOAT
+    INTRINSIC DSQRT
+    INTRINSIC MAX
+    INTRINSIC COS
+    REAL*8 :: arg1
+    REAL(kind=realtype) :: pwy1
+    REAL(kind=realtype) :: pwr1
+    pi = 3.14159265358979323846264338
+! Compute N (Eq. 6.3)
+    CALL NORM_D0(r0_eta, r0_etad, normeta, normetad)
+    CALL NORM_D0(r0_xi, r0_xid, normxi, normxid)
+    nd = (normetad*normxi-normeta*normxid)/normxi**2
+    n = normeta/normxi
+! Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
+    l = layerindex + 2
+    ltrans = INT(3./4.*numlayers)
+    IF (l .LE. ltrans) THEN
+      arg1 = FLOAT(l-1)/FLOAT(numlayers-1)
+      sl = DSQRT(arg1)
+    ELSE
+      arg1 = FLOAT(ltrans-1)/FLOAT(numlayers-1)
+      sl = DSQRT(arg1)
+    END IF
+    pwy1 = 2./sl
+    pwr1 = dsensor**pwy1
+    IF (pwr1 .LT. 0.1) THEN
+      dbar = 0.1
+      dbard = 0.0_8
+    ELSE
+      pwy1 = 2./sl
+      IF (dsensor .GT. 0.0_8 .OR. (dsensor .LT. 0.0_8 .AND. pwy1 .EQ. &
+&         INT(pwy1))) THEN
+        dbard = pwy1*dsensor**(pwy1-1)*dsensord
+      ELSE IF (dsensor .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
+        dbard = dsensord
+      ELSE
+        dbard = 0.0_8
+      END IF
+      dbar = dsensor**pwy1
+    END IF
+! Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
+    IF (angle .LE. pi) THEN
+! Convex corner
+      a = 1.0
+      ad = 0.0_8
+    ELSE
+      ad = -((angled*SIN(angle/2)*COS(angle/2)/2+COS(angle/2)*angled*SIN&
+&       (angle/2)/2)/(1.0-COS(angle/2)*COS(angle/2))**2)
+      a = 1.0/(1.0-COS(angle/2)*COS(angle/2))
+    END IF
+! Compute auxiliary variable R (Eq. 6.4)
+    rd = sl*(dbard*a+dbar*ad)
+    r = sl*dbar*a
+! Compute the dissipation coefficients
+    epsed = epse0*(rd*n+r*nd)
+    epse = epse0*r*n
+    epsid = 2*epsed
+    epsi = 2*epse
+  END SUBROUTINE DISSIPATIONCOEFFICIENTS_D
   SUBROUTINE DISSIPATIONCOEFFICIENTS(layerindex, r0_xi, r0_eta, dsensor&
 &   , angle, numlayers, epse0, epse, epsi)
     IMPLICIT NONE
@@ -1666,7 +1063,7 @@ CONTAINS
     l = layerindex + 2
     ltrans = INT(3./4.*numlayers)
     IF (l .LE. ltrans) THEN
-      arg1 = FLOAT(l-1)/FLOAT(ltrans-1)
+      arg1 = FLOAT(l-1)/FLOAT(numlayers-1)
       sl = DSQRT(arg1)
     ELSE
       arg1 = FLOAT(ltrans-1)/FLOAT(numlayers-1)
@@ -1693,18 +1090,107 @@ CONTAINS
     epse = epse0*r*n
     epsi = 2*epse
   END SUBROUTINE DISSIPATIONCOEFFICIENTS
-  SUBROUTINE AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, n, s, &
-&   maxstretch)
+!  Differentiation of areafactor in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: s
+!   with respect to varying inputs: d r0
+!   RW status of diff variables: d:in s:out r0:in
+  SUBROUTINE AREAFACTOR_D(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
+&   bc2, guideindices, numguides, n, s, sd, maxstretch)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
+    REAL(kind=realtype), INTENT(IN) :: r0d(3*n), dd
+    INTEGER(kind=inttype), INTENT(IN) :: numareapasses
+    CHARACTER(len=32), INTENT(IN) :: bc1, bc2
+    REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
+    REAL(kind=realtype), INTENT(OUT) :: sd(n)
+    INTEGER(kind=inttype), INTENT(IN) :: numguides
+    INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    REAL(kind=realtype) :: r0_extrap(3*(2+n))
+    REAL(kind=realtype) :: r0_extrapd(3*(2+n))
+    REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
+    REAL(kind=realtype) :: neighbordistd(n), norm_1d(n), norm_2d(n)
+    REAL(kind=realtype) :: sminus, splus, stretchratio(n)
+    REAL(kind=realtype) :: sminusd, splusd
+    INTEGER(kind=inttype) :: index, i
+! Extrapolate the end points and copy starting curve
+    r0_extrapd = 0.0_8
+    r0_extrapd(:3) = 2*r0d(:3) - r0d(4:6)
+    r0_extrap(:3) = 2*r0(:3) - r0(4:6)
+    r0_extrapd(4:3*(n+1)) = r0d
+    r0_extrap(4:3*(n+1)) = r0
+    r0_extrapd(3*(n+1)+1:) = 2*r0d(3*(n-1)+1:) - r0d(3*(n-2)+1:3*(n-1))
+    r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
+    norm_1d = 0.0_8
+    norm_2d = 0.0_8
+! Compute the distance of each node to its neighbors
+    DO index=1,n
+      CALL NORM_D0(r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:&
+&            3*index), r0_extrapd(3*index+1:3*index+3) - r0_extrapd(3*&
+&            index-2:3*index), norm_1(index), norm_1d(index))
+      CALL NORM_D0(r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:&
+&            3*index+3), r0_extrapd(3*index+4:3*index+6) - r0_extrapd(3*&
+&            index+1:3*index+3), norm_2(index), norm_2d(index))
+    END DO
+    neighbordistd = 0.5*(norm_1d+norm_2d)
+    neighbordist = 0.5*(norm_1+norm_2)
+! Multiply distances by the step size to get the areas
+    sd = dd*neighbordist + d*neighbordistd
+    s = d*neighbordist
+! Divide the marching distance and the neighbor distance to get the stretch ratios
+    stretchratio = d/neighbordist
+! Get the maximum stretch ratio
+    maxstretch = -1.e20
+    DO index=1,n
+      IF (stretchratio(index) .GT. maxstretch) maxstretch = stretchratio&
+&         (index)
+    END DO
+! Do the requested number of averagings
+    DO index=1,numareapasses
+! Store previous values
+      splusd = sd(2)
+      splus = s(2)
+      sminusd = sd(n-1)
+      sminus = s(n-1)
+! Do the averaging for the central nodes
+      sd(2:n-1) = (1-nuarea)*sd(2:n-1) + nuarea*(sd(:n-2)+sd(3:))/2
+      s(2:n-1) = (1-nuarea)*s(2:n-1) + nuarea/2*(s(:n-2)+s(3:))
+! Average for the extremum nodes
+      sd(1) = (1-nuarea)*sd(1) + nuarea*splusd
+      s(1) = (1-nuarea)*s(1) + nuarea*splus
+      sd(n) = (1-nuarea)*sd(n) + nuarea*sminusd
+      s(n) = (1-nuarea)*s(n) + nuarea*sminus
+    END DO
+! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
+    IF (bc1(:5) .EQ. 'curve') THEN
+      sd(1) = dd
+      s(1) = d
+    END IF
+    IF (bc2(:5) .EQ. 'curve') THEN
+      sd(n) = dd
+      s(n) = d
+    END IF
+! Set guideCurve marching distances
+    DO i=1,numguides
+      index = guideindices(i)
+      sd(index) = dd
+      s(index) = d
+    END DO
+  END SUBROUTINE AREAFACTOR_D
+  SUBROUTINE AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, &
+&   guideindices, numguides, n, s, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
     INTEGER(kind=inttype), INTENT(IN) :: numareapasses
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
+    INTEGER(kind=inttype), INTENT(IN) :: numguides
+    INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
     REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
     REAL(kind=realtype) :: sminus, splus, stretchratio(n)
-    INTEGER(kind=inttype) :: index
+    INTEGER(kind=inttype) :: index, i
 ! Extrapolate the end points and copy starting curve
     r0_extrap(:3) = 2*r0(:3) - r0(4:6)
     r0_extrap(4:3*(n+1)) = r0
@@ -1731,7 +1217,7 @@ CONTAINS
     DO index=1,numareapasses
 ! Store previous values
       splus = s(2)
-      sminus = s(n-2)
+      sminus = s(n-1)
 ! Do the averaging for the central nodes
       s(2:n-1) = (1-nuarea)*s(2:n-1) + nuarea/2*(s(:n-2)+s(3:))
 ! Average for the extremum nodes
@@ -1741,7 +1227,70 @@ CONTAINS
 ! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     IF (bc1(:5) .EQ. 'curve') s(1) = d
     IF (bc2(:5) .EQ. 'curve') s(n) = d
+! Set guideCurve marching distances
+    DO i=1,numguides
+      index = guideindices(i)
+      s(index) = d
+    END DO
   END SUBROUTINE AREAFACTOR
+!  Differentiation of smoothing_main in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: rout
+!   with respect to varying inputs: r
+!   RW status of diff variables: r:in rout:out
+  SUBROUTINE SMOOTHING_MAIN_D(r, rd, eta, alphap0, numsmoothingpasses, &
+&   numlayers, n, rout, routd)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: n
+    REAL(kind=realtype), INTENT(IN) :: eta, alphap0
+    INTEGER(kind=inttype), INTENT(IN) :: numsmoothingpasses, numlayers
+    REAL(kind=realtype), INTENT(IN) :: r(3*n)
+    REAL(kind=realtype), INTENT(IN) :: rd(3*n)
+    REAL(kind=realtype), INTENT(OUT) :: rout(3*n)
+    REAL(kind=realtype), INTENT(OUT) :: routd(3*n)
+    REAL(kind=realtype) :: r_next(3), r_curr(3), r_prev(3), lp, lm, &
+&   alphap
+    REAL(kind=realtype) :: r_nextd(3), r_currd(3), r_prevd(3), lpd, lmd
+    REAL(kind=realtype) :: r_smooth(3*n)
+    REAL(kind=realtype) :: r_smoothd(3*n)
+    INTEGER(kind=inttype) :: index, index_pass
+    INTRINSIC MIN
+    IF (alphap0 .GT. alphap0*(eta-3)/numlayers) THEN
+      alphap = alphap0*(eta-3)/numlayers
+    ELSE
+      alphap = alphap0
+    END IF
+    routd = rd
+    rout = r
+! This function does the grid smoothing
+! Loop over the desired number of smoothing passes
+    DO index_pass=1,numsmoothingpasses
+! Copy nodes
+      r_smoothd = routd
+      r_smooth = rout
+! Smooth every node
+      DO index=2,n-1
+! Get coordinates
+        r_currd = routd(3*(index-1)+1:3*(index-1)+3)
+        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
+        r_nextd = routd(3*index+1:3*index+3)
+        r_next = rout(3*index+1:3*index+3)
+        r_prevd = routd(3*(index-2)+1:3*(index-2)+3)
+        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
+! Compute distances
+        CALL NORM_D0(r_next - r_curr, r_nextd - r_currd, lp, lpd)
+        CALL NORM_D0(r_curr - r_prev, r_currd - r_prevd, lm, lmd)
+! Compute smoothed coordinates
+        r_smoothd(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_currd + (&
+&         alphap*(lmd*r_next+lm*r_nextd+lpd*r_prev+lp*r_prevd)*(lp+lm)-&
+&         alphap*(lm*r_next+lp*r_prev)*(lpd+lmd))/(lp+lm)**2
+        r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
+&         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
+      END DO
+! Copy coordinates to allow next pass
+      routd = r_smoothd
+      rout = r_smooth
+    END DO
+  END SUBROUTINE SMOOTHING_MAIN_D
   SUBROUTINE SMOOTHING_MAIN(r, eta, alphap0, numsmoothingpasses, &
 &   numlayers, n, rout)
     IMPLICIT NONE
@@ -1783,6 +1332,219 @@ CONTAINS
       rout = r_smooth
     END DO
   END SUBROUTINE SMOOTHING_MAIN
+  SUBROUTINE QUALITYCHECK(r, layerindex, numlayers, numnodes, fail, &
+&   ratios)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: numlayers, numnodes
+    INTEGER(kind=inttype), INTENT(IN) :: layerindex
+    REAL(kind=realtype), INTENT(IN) :: r(numlayers, 3*numnodes)
+    REAL(kind=realtype), INTENT(OUT) :: ratios(numlayers-1, numnodes-1)
+    INTEGER(kind=inttype), INTENT(OUT) :: fail
+    REAL(kind=realtype) :: xyz(3, numlayers, numnodes), nodalnormals(3, &
+&   numlayers, numnodes)
+    REAL(kind=realtype) :: panelnormals(3, numlayers-1, numnodes-1), &
+&   norm_vec(3)
+    REAL(kind=realtype) :: vec1(3, numlayers-1, numnodes-1), vec2(3, &
+&   numlayers-1, numnodes-1)
+    REAL(kind=realtype) :: vec3(3, numlayers-2, numnodes-2), vec4(3, &
+&   numlayers-2, numnodes-2)
+    REAL(kind=realtype) :: nodalderivs(3, 2, numlayers, numnodes), det(&
+&   numlayers, numnodes)
+    REAL(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
+&   nodaljacs(3, 3, numlayers, numnodes), norm_val
+    INTEGER(kind=inttype) :: i, j
+    REAL(kind=realtype) :: zero
+    INTRINSIC MINVAL
+    INTRINSIC MAXVAL
+    REAL :: result1
+    REAL :: result2
+    REAL :: result10
+    zero = 0.
+! Convert the flattened array R into a 3 x numNodes x numLayers array.
+! numLayers -> number of layers in the marching direction
+! numNodes -> number of nodes in direction of curve
+    DO i=1,numnodes
+      xyz(1, :, i) = r(:, 3*(i-1)+1)
+      xyz(2, :, i) = r(:, 3*(i-1)+2)
+      xyz(3, :, i) = r(:, 3*(i-1)+3)
+    END DO
+! Setup nodal normals
+    nodalnormals(:, :, :) = zero
+! Get the panel normals from the interior points of the mesh.
+! Here we take the cross product of the diagonals of each face
+    vec1 = xyz(:, 2:, 2:) - xyz(:, :numlayers-1, :numnodes-1)
+    vec2 = xyz(:, 2:, :numnodes-1) - xyz(:, :numlayers-1, 2:)
+    DO i=1,numnodes-1
+      DO j=1,numlayers-1
+        CALL CROSS(vec2(:, j, i), vec1(:, j, i), norm_vec)
+        CALL NORM(norm_vec, norm_val)
+        panelnormals(:, j, i) = norm_vec/norm_val
+      END DO
+    END DO
+! Set the interior normals using an average of the panel normals
+    vec3 = panelnormals(:, 2:, 2:) + panelnormals(:, :numlayers-2, :&
+&     numnodes-2)
+    vec4 = panelnormals(:, 2:, :numnodes-2) + panelnormals(:, :numlayers&
+&     -2, 2:)
+    normals = vec3 + vec4
+    DO i=2,numnodes-1
+      DO j=2,numlayers-1
+        CALL NORM(normals(:, j-1, i-1), norm_val)
+        nodalnormals(:, j, i) = normals(:, j-1, i-1)/norm_val
+      END DO
+    END DO
+! Set the boundary normals
+    nodalnormals(:, 2:, 1) = panelnormals(:, :, 1)
+    nodalnormals(:, 1, :numnodes-1) = panelnormals(:, 1, :)
+    nodalnormals(:, :numlayers-1, numnodes) = panelnormals(:, :, &
+&     numnodes-1)
+    nodalnormals(:, numlayers, 2:) = panelnormals(:, numlayers-1, :)
+! Setup nodal derivatives
+    nodalderivs(:, :, :, :) = zero
+! Compute interior derivatives using 2nd order central differencing
+    nodalderivs(:, 1, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 3:, 2:&
+&     numnodes-1)-xyz(:, :numlayers-2, 2:numnodes-1))/2.
+    nodalderivs(:, 2, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 2:numlayers&
+&     -1, 3:)-xyz(:, 2:numlayers-1, :numnodes-2))/2.
+! Compute i derivatives using 1st order differencing
+    nodalderivs(:, 1, 1, :) = xyz(:, 2, :) - xyz(:, 1, :)
+    nodalderivs(:, 1, numlayers, :) = xyz(:, numlayers, :) - xyz(:, &
+&     numlayers-1, :)
+    nodalderivs(:, 1, 2:numlayers-1, 1) = (xyz(:, 3:, 1)-xyz(:, :&
+&     numlayers-2, 1))/2.
+    nodalderivs(:, 1, 2:numlayers-1, numnodes) = (xyz(:, 3:, numnodes)-&
+&     xyz(:, :numlayers-2, numnodes))/2.
+! Compute j derivatives using 1st order differencing
+    nodalderivs(:, 2, :, 1) = xyz(:, :, 2) - xyz(:, :, 1)
+    nodalderivs(:, 2, :, numnodes) = xyz(:, :, numnodes) - xyz(:, :, &
+&     numnodes-1)
+    nodalderivs(:, 2, 1, 2:numnodes-1) = (xyz(:, 1, 3:)-xyz(:, 1, :&
+&     numnodes-2))/2.
+    nodalderivs(:, 2, numlayers, 2:numnodes-1) = (xyz(:, numlayers, 3:)-&
+&     xyz(:, numlayers, :numnodes-2))/2.
+! Assemble nodal Jacobians
+    nodaljacs(:, :, :, :) = zero
+    nodaljacs(1, :, :, :) = nodalderivs(:, 1, :, :)
+    nodaljacs(2, :, :, :) = nodalderivs(:, 2, :, :)
+    nodaljacs(3, :, :, :) = nodalnormals(:, :, :)
+! Compute determinants of Jacobians and find ratio of min to max per face
+    ratios(:, :) = zero
+! Compute the determinants of each nodal Jacobian
+    DO i=1,numnodes
+      DO j=1,numlayers
+        CALL M33DET(nodaljacs(:, :, j, i), det(j, i))
+      END DO
+    END DO
+! Find the ratio of the minimum valued determinant to the maximum
+! valued determinant.
+! This is a measure of quality, with 1 being desirable and anything
+! less than 0 meaning the mesh is no longer valid.
+    DO i=1,numnodes-1
+      DO j=1,numlayers-1
+        result1 = MINVAL(det(j:j+1, i:i+1))
+        result2 = MAXVAL(det(j:j+1, i:i+1))
+        ratios(j, i) = result1/result2
+      END DO
+    END DO
+    fail = 0
+! Throw an error and set the failure flag if the mesh is not valid
+    DO i=1,numnodes-1
+      DO j=1,numlayers-1
+        IF ((ratios(j, i) .NE. ratios(j, i) .OR. ratios(j, i) .LE. zero)&
+&           .AND. layerindex .GE. 1) THEN
+          PRINT*, '========= FAILURE DETECTED ============'
+          fail = 1
+        END IF
+      END DO
+    END DO
+    IF (fail .EQ. 1) PRINT*, 'The mesh is not valid after step', &
+&                    layerindex + 1
+! Throw a warning if the mesh is low quality
+    result10 = MINVAL(ratios)
+    IF (result10 .LE. .2 .AND. layerindex .GE. 1) PRINT*, &
+&                               'The mesh may be low quality after step'&
+&                                                 , layerindex + 1
+  END SUBROUTINE QUALITYCHECK
+!  Differentiation of findradius in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: radius
+!   with respect to varying inputs: r
+!   RW status of diff variables: radius:out r:in
+  SUBROUTINE FINDRADIUS_D(r, rd, numnodes, radius, radiusd)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: numnodes
+    REAL(kind=realtype), INTENT(IN) :: r(3*numnodes)
+    REAL(kind=realtype), INTENT(IN) :: rd(3*numnodes)
+    REAL(kind=realtype), INTENT(OUT) :: radius
+    REAL(kind=realtype), INTENT(OUT) :: radiusd
+    REAL(kind=realtype) :: x, y, z
+    REAL(kind=realtype) :: xd, yd, zd
+    REAL(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
+    REAL(kind=realtype) :: minxd, maxxd, minyd, maxyd, minzd, maxzd
+    INTEGER(kind=inttype) :: i
+    minx = 1.e20
+    miny = 1.e20
+    minz = 1.e20
+    maxx = -1.e20
+    maxy = -1.e20
+    maxz = -1.e20
+    minxd = 0.0_8
+    minyd = 0.0_8
+    minzd = 0.0_8
+    maxxd = 0.0_8
+    maxyd = 0.0_8
+    maxzd = 0.0_8
+! Split coordinates and find max and min values
+    DO i=1,numnodes
+      xd = rd(3*(i-1)+1)
+      x = r(3*(i-1)+1)
+      IF (x .GT. maxx) THEN
+        maxxd = xd
+        maxx = x
+      END IF
+      IF (x .LT. minx) THEN
+        minxd = xd
+        minx = x
+      END IF
+      yd = rd(3*(i-1)+2)
+      y = r(3*(i-1)+2)
+      IF (y .GT. maxy) THEN
+        maxyd = yd
+        maxy = y
+      END IF
+      IF (y .LT. miny) THEN
+        minyd = yd
+        miny = y
+      END IF
+      zd = rd(3*(i-1)+3)
+      z = r(3*(i-1)+3)
+      IF (z .GT. maxz) THEN
+        maxzd = zd
+        maxz = z
+      END IF
+      IF (z .LT. minz) THEN
+        minzd = zd
+        minz = z
+      END IF
+    END DO
+! Find largest radius (we give only half of the largest side to be considered as radius)
+    radius = -1.e20
+    IF (maxx - minx .GT. radius) THEN
+      radiusd = maxxd - minxd
+      radius = maxx - minx
+    ELSE
+      radiusd = 0.0_8
+    END IF
+    IF (maxy - miny .GT. radius) THEN
+      radiusd = maxyd - minyd
+      radius = maxy - miny
+    END IF
+    IF (maxz - minz .GT. radius) THEN
+      radiusd = maxzd - minzd
+      radius = maxz - minz
+    END IF
+    radiusd = radiusd/2.
+    radius = radius/2.
+  END SUBROUTINE FINDRADIUS_D
   SUBROUTINE FINDRADIUS(r, numnodes, radius)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: numnodes
@@ -1816,6 +1578,72 @@ CONTAINS
     IF (maxz - minz .GT. radius) radius = maxz - minz
     radius = radius/2.
   END SUBROUTINE FINDRADIUS
+!  Differentiation of findratio in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: q
+!   with respect to varying inputs: d0 dmax
+!   RW status of diff variables: q:out d0:in dmax:in
+  SUBROUTINE FINDRATIO_D(dmax, dmaxd, d0, d0d, numlayers, ratioguess, q&
+&   , qd)
+    IMPLICIT NONE
+    REAL(kind=realtype), INTENT(IN) :: dmax, d0, ratioguess
+    REAL(kind=realtype), INTENT(IN) :: dmaxd, d0d
+    INTEGER(kind=inttype), INTENT(IN) :: numlayers
+    REAL(kind=realtype), INTENT(OUT) :: q
+    REAL(kind=realtype), INTENT(OUT) :: qd
+    REAL(kind=realtype) :: rdot, r
+    REAL(kind=realtype) :: rdotd, rd
+    INTEGER(kind=inttype) :: niters
+! Note that this counter is not the intType that we use for all other integers.
+! This is done so that Tapenade correctly backwards differentiates this subroutine.
+    INTEGER :: i
+    INTEGER :: pwy1
+    REAL(kind=realtype) :: pwr1
+    REAL(kind=realtype) :: pwr1d
+! Extra parameters
+! Maximum number of iterations for Newton search
+    niters = 200
+! Initialize ratio
+    q = ratioguess
+    qd = 0.0_8
+! Newton search loop
+    DO i=1,niters
+! Residual function
+      pwy1 = numlayers - 1
+      IF (q .GT. 0.0_8 .OR. (q .LT. 0.0_8 .AND. pwy1 .EQ. INT(pwy1))) &
+&     THEN
+        pwr1d = pwy1*q**(pwy1-1)*qd
+      ELSE IF (q .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
+        pwr1d = qd
+      ELSE
+        pwr1d = 0.0_8
+      END IF
+      pwr1 = q**pwy1
+      rd = d0d*(1.-pwr1) - d0*pwr1d - dmaxd*(1.-q) + dmax*qd
+      r = d0*(1.-pwr1) - dmax*(1.-q)
+! Residual derivative
+      pwy1 = numlayers - 2
+      IF (q .GT. 0.0_8 .OR. (q .LT. 0.0_8 .AND. pwy1 .EQ. INT(pwy1))) &
+&     THEN
+        pwr1d = pwy1*q**(pwy1-1)*qd
+      ELSE IF (q .EQ. 0.0_8 .AND. pwy1 .EQ. 1.0) THEN
+        pwr1d = qd
+      ELSE
+        pwr1d = 0.0_8
+      END IF
+      pwr1 = q**pwy1
+      rdotd = dmaxd - (numlayers-1)*(d0d*pwr1+d0*pwr1d)
+      rdot = -((numlayers-1)*d0*pwr1) + dmax
+! Update ratio with Newton search
+      qd = qd - (rd*rdot-r*rdotd)/rdot**2
+      q = q - r/rdot
+    END DO
+! Check if we got a reasonable value
+    IF (q .LE. 1 .OR. q .GE. ratioguess) THEN
+      PRINT*, ''
+      PRINT*, ''
+      STOP
+    END IF
+  END SUBROUTINE FINDRATIO_D
   SUBROUTINE FINDRATIO(dmax, d0, numlayers, ratioguess, q)
     IMPLICIT NONE
     REAL(kind=realtype), INTENT(IN) :: dmax, d0, ratioguess
@@ -1853,6 +1681,81 @@ CONTAINS
       STOP
     END IF
   END SUBROUTINE FINDRATIO
+  SUBROUTINE COMPUTE_ARC_LENGTH(r, nnodes, arclength)
+    IMPLICIT NONE
+! ! Store coordinates of the first node (the other nodes will be covered in the loop)
+! node1 = r(1:3)
+!
+! ! Loop over each element to increment arcLength
+! do nodeID=2,nNodes
+!
+!   ! Get coordinates of the next node
+!   node2 = r(3*(nodeID-1)+1:3*(nodeID-1)+3)
+!
+!   ! Compute distance between nodes
+!   call norm(node1 - node2, dist)
+!
+!   ! Store nodal arc-length
+!   arcLength(nodeID) = arcLength(nodeID-1) + dist
+!
+!   ! Store coordinates for the next loop
+!   node1 = node2
+!
+! end do
+!
+! ! Normalize the arc-lengths
+! arcLength = arcLength/arcLength(nNodes)
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes
+    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
+    REAL(kind=realtype), INTENT(OUT) :: arclength(nnodes)
+    REAL(kind=realtype) :: node1(3), node2(3), dist
+    INTEGER(kind=inttype) :: nodeid
+  END SUBROUTINE COMPUTE_ARC_LENGTH
+  SUBROUTINE INTERP1D(m, data_num, t_data, p_data, interp_num, t_interp&
+&   , p_interp)
+    IMPLICIT NONE
+    INTEGER(kind=inttype) :: data_num
+    INTEGER(kind=inttype) :: m
+    INTEGER(kind=inttype) :: interp_num
+    INTEGER(kind=inttype) :: interp
+    INTEGER(kind=inttype) :: left
+    REAL(kind=realtype) :: p_data(data_num)
+    REAL(kind=realtype) :: p_interp(interp_num)
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: t
+    REAL(kind=realtype) :: t_data(data_num)
+    REAL(kind=realtype) :: t_interp(interp_num)
+    DO interp=1,interp_num
+      t = t_interp(interp)
+!
+!  Find the interval [ TDATA(LEFT), TDATA(RIGHT) ] that contains, or is
+!  nearest to, TVAL.
+!
+      CALL R8VEC_BRACKET(data_num, t_data, t, left, right)
+      p_interp(interp) = ((t_data(right)-t)*p_data(left)+(t-t_data(left)&
+&       )*p_data(right))/(t_data(right)-t_data(left))
+    END DO
+    RETURN
+  END SUBROUTINE INTERP1D
+  SUBROUTINE R8VEC_BRACKET(n, x, xval, left, right)
+    IMPLICIT NONE
+    INTEGER(kind=inttype) :: n
+    INTEGER(kind=inttype) :: i
+    INTEGER(kind=inttype) :: left
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: x(n)
+    REAL(kind=realtype) :: xval
+    DO i=2,n-1
+      IF (xval .LT. x(i)) THEN
+        left = i - 1
+        right = i
+        RETURN
+      END IF
+    END DO
+    left = n - 1
+    right = n
+    RETURN
+  END SUBROUTINE R8VEC_BRACKET
 !  Differentiation of matinv3 in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: b
 !   with respect to varying inputs: a

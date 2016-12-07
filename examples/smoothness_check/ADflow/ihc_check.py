@@ -59,7 +59,7 @@ aeroOptions = {
     'monitorvariables':['resrho','cl','cd'],
     'volumevariables':['resrho','blank'],
     'surfacevariables':['cp','vx', 'vy','vz', 'mach','blank'],
-    'nearWallDist':0.1,
+    'nearWallDist':0.05,
     'nsubiterturb':3,
     'useNKSolver':useNK,
     # Convergence Parameters
@@ -77,14 +77,15 @@ aeroOptions = {
     'outerPreconIts':3,
 
     # Debugging parameters
-    'debugzipper':True,
+    'debugzipper':False,
+    'writeTecplotSurfaceSolution':True,
     #'overlapfactor':0.99,
 }
 
 # Create solver
-CFDSolver = AEROSOLVER(options=aeroOptions, comm=comm, debug=True)
+CFDSolver = AEROSOLVER(options=aeroOptions, comm=comm, debug=False)
 
-# Uncoment this if just want to check flooding
+# Uncomment this if just want to check flooding
 CFDSolver.setAeroProblem(ap)
 CFDSolver.writeSolution()
 

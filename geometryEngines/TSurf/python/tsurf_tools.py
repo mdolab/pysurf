@@ -421,7 +421,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
 
     # CURVE DETECTION
 
-    # Phew! Now sharedBarInfo has all the information we need! It teels which elements
+    # Phew! Now sharedBarInfo has all the information we need! It tells which elements
     # share a given edge. Just to recap, here's the sharedBarInfo structure:
     #
     # For instance, assume that we have a bar that connects nodes 14 and 52,

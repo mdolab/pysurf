@@ -23,329 +23,16 @@ module hypsurfmain_b
   implicit none
 
 contains
-  subroutine qualitycheck(r, layerindex, numlayers, numnodes, fail, &
-&   ratios)
-    implicit none
-    integer(kind=inttype), intent(in) :: numlayers, numnodes
-    integer(kind=inttype), intent(in), optional :: layerindex
-    real(kind=realtype), intent(in) :: r(numlayers, 3*numnodes)
-    real(kind=realtype), intent(out) :: ratios(numlayers-1, numnodes-1)
-    integer(kind=inttype), intent(out) :: fail
-    real(kind=realtype) :: xyz(3, numlayers, numnodes), nodalnormals(3, &
-&   numlayers, numnodes)
-    real(kind=realtype) :: panelnormals(3, numlayers-1, numnodes-1), &
-&   norm_vec(3)
-    real(kind=realtype) :: vec1(3, numlayers-1, numnodes-1), vec2(3, &
-&   numlayers-1, numnodes-1)
-    real(kind=realtype) :: vec3(3, numlayers-2, numnodes-2), vec4(3, &
-&   numlayers-2, numnodes-2)
-    real(kind=realtype) :: nodalderivs(3, 2, numlayers, numnodes), det(&
-&   numlayers, numnodes)
-    real(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
-&   nodaljacs(3, 3, numlayers, numnodes), norm_val
-    integer(kind=inttype) :: i, j
-    real(kind=realtype) :: zero
-    intrinsic minval
-    intrinsic maxval
-    real :: result1
-    real :: result2
-    real :: result10
-    zero = 0.
-! convert the flattened array r into a 3 x numnodes x numlayers array.
-! numlayers -> number of layers in the marching direction
-! numnodes -> number of nodes in direction of curve
-    do i=1,numnodes
-      xyz(1, :, i) = r(:, 3*(i-1)+1)
-      xyz(2, :, i) = r(:, 3*(i-1)+2)
-      xyz(3, :, i) = r(:, 3*(i-1)+3)
-    end do
-! setup nodal normals
-    nodalnormals(:, :, :) = zero
-! get the panel normals from the interior points of the mesh.
-! here we take the cross product of the diagonals of each face
-    vec1 = xyz(:, 2:, 2:) - xyz(:, :numlayers-1, :numnodes-1)
-    vec2 = xyz(:, 2:, :numnodes-1) - xyz(:, :numlayers-1, 2:)
-    do i=1,numnodes-1
-      do j=1,numlayers-1
-        call cross(vec2(:, j, i), vec1(:, j, i), norm_vec)
-        call norm(norm_vec, norm_val)
-        panelnormals(:, j, i) = norm_vec/norm_val
-      end do
-    end do
-! set the interior normals using an average of the panel normals
-    vec3 = panelnormals(:, 2:, 2:) + panelnormals(:, :numlayers-2, :&
-&     numnodes-2)
-    vec4 = panelnormals(:, 2:, :numnodes-2) + panelnormals(:, :numlayers&
-&     -2, 2:)
-    normals = vec3 + vec4
-    do i=2,numnodes-1
-      do j=2,numlayers-1
-        call norm(normals(:, j-1, i-1), norm_val)
-        nodalnormals(:, j, i) = normals(:, j-1, i-1)/norm_val
-      end do
-    end do
-! set the boundary normals
-    nodalnormals(:, 2:, 1) = panelnormals(:, :, 1)
-    nodalnormals(:, 1, :numnodes-1) = panelnormals(:, 1, :)
-    nodalnormals(:, :numlayers-1, numnodes) = panelnormals(:, :, &
-&     numnodes-1)
-    nodalnormals(:, numlayers, 2:) = panelnormals(:, numlayers-1, :)
-! setup nodal derivatives
-    nodalderivs(:, :, :, :) = zero
-! compute interior derivatives using 2nd order central differencing
-    nodalderivs(:, 1, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 3:, 2:&
-&     numnodes-1)-xyz(:, :numlayers-2, 2:numnodes-1))/2.
-    nodalderivs(:, 2, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 2:numlayers&
-&     -1, 3:)-xyz(:, 2:numlayers-1, :numnodes-2))/2.
-! compute i derivatives using 1st order differencing
-    nodalderivs(:, 1, 1, :) = xyz(:, 2, :) - xyz(:, 1, :)
-    nodalderivs(:, 1, numlayers, :) = xyz(:, numlayers, :) - xyz(:, &
-&     numlayers-1, :)
-    nodalderivs(:, 1, 2:numlayers-1, 1) = (xyz(:, 3:, 1)-xyz(:, :&
-&     numlayers-2, 1))/2.
-    nodalderivs(:, 1, 2:numlayers-1, numnodes) = (xyz(:, 3:, numnodes)-&
-&     xyz(:, :numlayers-2, numnodes))/2.
-! compute j derivatives using 1st order differencing
-    nodalderivs(:, 2, :, 1) = xyz(:, :, 2) - xyz(:, :, 1)
-    nodalderivs(:, 2, :, numnodes) = xyz(:, :, numnodes) - xyz(:, :, &
-&     numnodes-1)
-    nodalderivs(:, 2, 1, 2:numnodes-1) = (xyz(:, 1, 3:)-xyz(:, 1, :&
-&     numnodes-2))/2.
-    nodalderivs(:, 2, numlayers, 2:numnodes-1) = (xyz(:, numlayers, 3:)-&
-&     xyz(:, numlayers, :numnodes-2))/2.
-! assemble nodal jacobians
-    nodaljacs(:, :, :, :) = zero
-    nodaljacs(1, :, :, :) = nodalderivs(:, 1, :, :)
-    nodaljacs(2, :, :, :) = nodalderivs(:, 2, :, :)
-    nodaljacs(3, :, :, :) = nodalnormals(:, :, :)
-! compute determinants of jacobians and find ratio of min to max per face
-    ratios(:, :) = zero
-! compute the determinants of each nodal jacobian
-    do i=1,numnodes
-      do j=1,numlayers
-        call m33det(nodaljacs(:, :, j, i), det(j, i))
-      end do
-    end do
-! find the ratio of the minimum valued determinant to the maximum
-! valued determinant.
-! this is a measure of quality, with 1 being desirable and anything
-! less than 0 meaning the mesh is no longer valid.
-    do i=1,numnodes-1
-      do j=1,numlayers-1
-        result1 = minval(det(j:j+1, i:i+1))
-        result2 = maxval(det(j:j+1, i:i+1))
-        ratios(j, i) = result1/result2
-      end do
-    end do
-    fail = 0
-! throw an error and set the failure flag if the mesh is not valid
-    do i=1,numnodes-1
-      do j=1,numlayers-1
-        if ((ratios(j, i) .ne. ratios(j, i) .or. ratios(j, i) .le. zero)&
-&           .and. layerindex .ge. 1) then
-          print*, '========= failure detected ============'
-          fail = 1
-        end if
-      end do
-    end do
-    if (fail .eq. 1) print*, 'the mesh is not valid after step', &
-&                    layerindex + 1
-! throw a warning if the mesh is low quality
-    result10 = minval(ratios)
-    if (result10 .le. .2 .and. layerindex .ge. 1) print*, &
-&                               'the mesh may be low quality after step'&
-&                                                 , layerindex + 1
-  end subroutine qualitycheck
-!  differentiation of march_main in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: r
-!   with respect to varying inputs: r rstart
-!   rw status of diff variables: r:in-out rstart:out
-  subroutine march_main_b(rstart, rstartb, dstart, theta, sigmasplay, &
-&   bc1, bc2, epse0, alphap0, extension, nuarea, ratioguess, cmax, &
-&   numsmoothingpasses, numareapasses, numlayers, numnodes, r, rb, fail&
-&   , ratios, majorindices)
-    implicit none
-    integer(kind=inttype), intent(in) :: numnodes, numlayers, &
-&   numareapasses
-    real(kind=realtype), intent(in) :: rstart(3*numnodes), dstart, theta&
-&   , sigmasplay
-    real(kind=realtype) :: rstartb(3*numnodes), dstartb
-    real(kind=realtype), intent(in) :: epse0, extension, nuarea
-    character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(in) :: alphap0, ratioguess, cmax
-    integer(kind=inttype), intent(in) :: numsmoothingpasses
-    integer(kind=inttype), intent(out) :: fail
-    real(kind=realtype) :: ratios(numlayers-1, numnodes-1), r(numlayers&
-&   , 3*numnodes)
-    real(kind=realtype) :: rb(numlayers, 3*numnodes)
-    integer(kind=inttype), intent(out) :: majorindices(numlayers)
-    real(kind=realtype) :: r0(3*numnodes), n0(3, numnodes), s0(numnodes)
-    real(kind=realtype) :: r0b(3*numnodes), n0b(3, numnodes), s0b(&
-&   numnodes)
-    real(kind=realtype) :: rm1(3*numnodes), sm1(numnodes), rsmoothed(3*&
-&   numnodes)
-    real(kind=realtype) :: rm1b(3*numnodes), sm1b(numnodes), rsmoothedb(&
-&   3*numnodes)
-    real(kind=realtype) :: rnext(3*numnodes), nnext(3, numnodes)
-    real(kind=realtype) :: rnextb(3*numnodes)
-    real(kind=realtype) :: rnext_in(3*numnodes)
-    real(kind=realtype) :: dr(3*numnodes), d, dtot, dmax, dgrowth
-    real(kind=realtype) :: db, dmaxb, dgrowthb
-    real(kind=realtype) :: dpseudo, maxstretch, radius, eta, min_ratio, &
-&   ratios_small(3, numnodes-1)
-    real(kind=realtype) :: dpseudob, radiusb
-    integer(kind=inttype) :: layerindex, indexsubiter, cfactor
-    integer(kind=inttype) :: arraysize, nallocations
-    intrinsic int
-    integer :: arg1
-    integer :: ad_to
-    rnext = rstart
-    nnext = 0.
-    do layerindex=1,numnodes
-      nnext(3, layerindex) = -1.
-    end do
-! initialize step size and total marched distance
-    d = dstart
-! find the characteristic radius of the mesh
-    call findradius(rnext, numnodes, radius)
-! find the desired marching distance
-    dmax = radius*(extension-1.)
-! compute the growth ratio necessary to match this distance
-    call findratio(dmax, dstart, numlayers, ratioguess, dgrowth)
-! we need a guess for the first-before-last curve in order to compute the grid distribution sensor
-! as we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-    rm1 = rnext
-    n0 = nnext
-!===========================================================
-! some functions require the area factors of the first-before-last curve
-! we will repeat the first curve areas for simplicity.
-! rnext, nnext, rm1 for the first iteration are computed at the beginning of the function.
-! but we still need to find sm1
-    call areafactor(rnext, d, nuarea, numareapasses, bc1, bc2, numnodes&
-&             , sm1, maxstretch)
-    do layerindex=1,numlayers-1
-! get the coordinates computed by the previous iteration
-      r0 = rnext
-! compute the new area factor for the desired marching distance
-      call pushreal8array(s0, realtype*numnodes/8)
-      call areafactor(r0, d, nuarea, numareapasses, bc1, bc2, numnodes, &
-&               s0, maxstretch)
-      call pushinteger4array(cfactor, inttype/4)
-      cfactor = int(maxstretch/cmax) + 1
-! constrain the marching distance if the stretching ratio is too high
-      dpseudo = d/cfactor
-! subiteration
-! the number of subiterations is the one required to meet the desired marching distance
-      do indexsubiter=1,cfactor
-! recompute areas with the pseudo-step
-        call pushreal8array(s0, realtype*numnodes/8)
-        call areafactor(r0, dpseudo, nuarea, numareapasses, bc1, bc2, &
-&                 numnodes, s0, maxstretch)
-! march using the pseudo-marching distance
-        eta = layerindex + 2
-! generate matrices of the linear system
-        arg1 = layerindex - 1
-        call pushreal8array(rnext, realtype*3*numnodes/8)
-        call computematrices_main(r0, n0, s0, rm1, sm1, arg1, theta, &
-&                           sigmasplay, bc1, bc2, numlayers, epse0, &
-&                           rnext, numnodes)
-! smooth coordinates
-        call smoothing_main(rnext, eta, alphap0, numsmoothingpasses, &
-&                     numlayers, numnodes, rsmoothed)
-! placeholder for projection
-        call pushreal8array(rnext, realtype*3*numnodes/8)
-        rnext = rsmoothed
-        nnext = n0
-        call pushreal8array(sm1, realtype*numnodes/8)
-        sm1 = s0
-        call pushreal8array(rm1, realtype*3*numnodes/8)
-        rm1 = r0
-        call pushreal8array(r0, realtype*3*numnodes/8)
-        r0 = rnext
-        call pushreal8array(n0, realtype*3*numnodes/8)
-        n0 = nnext
-      end do
-      call pushinteger4array(indexsubiter - 1, inttype/4)
-! store grid points
-! update step size
-      call pushreal8array(d, realtype/8)
-      d = d*dgrowth
-    end do
-    db = 0.0_8
-    rnextb = 0.0_8
-    sm1b = 0.0_8
-    rm1b = 0.0_8
-    dgrowthb = 0.0_8
-    do layerindex=numlayers-1,1,-1
-      call popreal8array(d, realtype/8)
-      dgrowthb = dgrowthb + d*db
-      db = dgrowth*db
-      rnextb = rnextb + rb(layerindex+1, :)
-      rb(layerindex+1, :) = 0.0_8
-      dpseudo = d/cfactor
-      dpseudob = 0.0_8
-      r0b = 0.0_8
-      call popinteger4(ad_to)
-      do indexsubiter=ad_to,1,-1
-        call popreal8array(n0, realtype*3*numnodes/8)
-        call popreal8array(r0, realtype*3*numnodes/8)
-        rnextb = rnextb + r0b
-        r0b = 0.0_8
-        call popreal8array(rm1, realtype*3*numnodes/8)
-        r0b = rm1b
-        s0b = 0.0_8
-        call popreal8array(sm1, realtype*numnodes/8)
-        s0b = sm1b
-        rsmoothedb = 0.0_8
-        call popreal8array(rnext, realtype*3*numnodes/8)
-        rsmoothedb = rnextb
-        eta = layerindex + 2
-        call smoothing_main_b(rnext, rnextb, eta, alphap0, &
-&                       numsmoothingpasses, numlayers, numnodes, &
-&                       rsmoothed, rsmoothedb)
-        arg1 = layerindex - 1
-        call popreal8array(rnext, realtype*3*numnodes/8)
-        call computematrices_main_b(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
-&                             , sm1, sm1b, arg1, theta, sigmasplay, bc1&
-&                             , bc2, numlayers, epse0, rnext, rnextb, &
-&                             numnodes)
-        call popreal8array(s0, realtype*numnodes/8)
-        call areafactor_b(r0, r0b, dpseudo, dpseudob, nuarea, &
-&                   numareapasses, bc1, bc2, numnodes, s0, s0b, &
-&                   maxstretch)
-        rnextb = 0.0_8
-      end do
-      db = db + dpseudob/cfactor
-      call popinteger4array(cfactor, inttype/4)
-      call popreal8array(s0, realtype*numnodes/8)
-      s0b = 0.0_8
-      call areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, bc2&
-&                 , numnodes, s0, s0b, maxstretch)
-      rnextb = rnextb + r0b
-    end do
-    rnextb = rnextb + rb(1, :)
-    rb(1, :) = 0.0_8
-    db = 0.0_8
-    call areafactor_b(rnext, rnextb, d, db, nuarea, numareapasses, bc1, &
-&               bc2, numnodes, sm1, sm1b, maxstretch)
-    rnextb = rnextb + rm1b
-    call findratio_b(dmax, dmaxb, dstart, dstartb, numlayers, ratioguess&
-&              , dgrowth, dgrowthb)
-    radiusb = (extension-1.)*dmaxb
-    call findradius_b(rnext, rnextb, numnodes, radius, radiusb)
-    rstartb = 0.0_8
-    rstartb = rnextb
-  end subroutine march_main_b
 !  differentiation of computematrices_main in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: f s0 r0
+!   gradient     of useful results: f
 !   with respect to varying inputs: f s0 sm1 n0 rm1 r0
-!   rw status of diff variables: f:in-zero s0:incr sm1:out n0:out
-!                rm1:out r0:incr
+!   rw status of diff variables: f:in-zero s0:out sm1:out n0:out
+!                rm1:out r0:out
 !=================================================================
 !=================================================================
   subroutine computematrices_main_b(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
 &   , sm1, sm1b, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, f, fb, numnodes)
+&   epse0, guideindices, f, fb, numnodes, numguides)
     use solveroutines, only : solve_b
     implicit none
     integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
@@ -360,6 +47,8 @@ contains
     character(len=32), intent(in) :: bc1, bc2
     real(kind=realtype) :: f(3*numnodes)
     real(kind=realtype) :: fb(3*numnodes)
+    integer(kind=inttype), intent(in) :: numguides
+    integer(kind=inttype), intent(in) :: guideindices(numguides)
     real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     real(kind=realtype) :: r_currb(3), r_nextb(3), r_prevb(3), d_vecb(3)&
@@ -371,12 +60,12 @@ contains
     integer(kind=inttype) :: n, nrhs, ldk, ldf, info
     real(kind=realtype) :: one, zero, rhs(3*numnodes)
     real(kind=realtype) :: rhsb(3*numnodes)
+    logical :: guide
     integer :: branch
     one = 1.
     zero = 0.
 ! initialize arrays
     k(:, :) = zero
-    call pushreal8array(f, realtype*3*numnodes/8)
     f(:) = zero
     eye(:, :) = zero
     do i=1,3
@@ -450,9 +139,23 @@ contains
     end if
     call pushinteger4array(index, inttype/4)
     do index=2,numnodes-1
+      guide = .false.
+      do i=1,numguides
+        if (index .eq. guideindices(i)) guide = .true.
+      end do
+      if (guide) then
+        k(3*(index-1)+1, 3*(index-1)+1) = one
+        k(3*(index-1)+2, 3*(index-1)+2) = one
+        k(3*(index-1)+3, 3*(index-1)+3) = one
+        f(3*(index-1)+1:3*(index-1)+3) = s0(index)*n0(:, index)
+        call pushcontrol1b(1)
+      else
 ! call assembly routine
-      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
+        call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                    numlayers, epse0, layerindex, theta, numnodes, k, f&
+&                   )
+        call pushcontrol1b(0)
+      end if
     end do
     index = numnodes
     if (bc2 .eq. 'continuous') then
@@ -533,7 +236,8 @@ contains
 ! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
     rhs = f
 ! note that this f is rnext when outputted from computematrices_main
-    r0b = r0b + fb
+    r0b = 0.0_8
+    r0b = fb
     kb = 0.0_8
     rhsb = 0.0_8
     call solve_b(k, kb, f, fb, rhs, rhsb, n, ipiv)
@@ -543,12 +247,14 @@ contains
       if (branch .eq. 0) then
         kb(3*(index-1)+1:3*numnodes, 1:3) = 0.0_8
         kb(3*(index-1)+1:3*numnodes, 3*(index-1)+1:3*numnodes) = 0.0_8
+        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
         d_vec_rotb = 0.0_8
         goto 100
       else if (branch .eq. 1) then
+        s0b = 0.0_8
         s0b(index) = s0b(index) + (1-sigmasplay)*fb(3*(index-1)+1)
         fb(3*(index-1)+1) = 0.0_8
         fb(3*(index-1)+1:3*index) = 0.0_8
@@ -585,6 +291,7 @@ contains
         kb(3*index-0, 3*(index-2)+3) = 0.0_8
         kb(3*index-0, 3*(index-2)+2) = 0.0_8
         kb(3*index-0, 3*(index-2)+1) = 0.0_8
+        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
@@ -600,6 +307,7 @@ contains
         kb(3*index-2, 3*(index-2)+3) = 0.0_8
         kb(3*index-2, 3*(index-2)+2) = 0.0_8
         kb(3*index-2, 3*(index-2)+1) = 0.0_8
+        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
@@ -613,11 +321,13 @@ contains
         kb(3*index-2, 3*(index-2)+3) = 0.0_8
         kb(3*index-2, 3*(index-2)+2) = 0.0_8
         kb(3*index-2, 3*(index-2)+1) = 0.0_8
+        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
       end if
     else if (branch .eq. 5) then
+      s0b = 0.0_8
       n0b = 0.0_8
       s0b(index) = s0b(index) + sum(n0(:, index)*fb(3*index-2:))
       n0b(:, index) = n0b(:, index) + s0(index)*fb(3*index-2:3*numnodes)
@@ -630,6 +340,7 @@ contains
     else
       rm1b = 0.0_8
       n0b = 0.0_8
+      s0b = 0.0_8
       sm1b = 0.0_8
       call matrixbuilder_b(index, bc1, bc2, r0, r0b, rm1, rm1b, n0, n0b&
 &                    , s0, s0b, sm1, sm1b, numlayers, epse0, layerindex&
@@ -637,9 +348,21 @@ contains
     end if
     d_vec_rotb = 0.0_8
  100 do index=numnodes-1,2,-1
-      call matrixbuilder_b(index, bc1, bc2, r0, r0b, rm1, rm1b, n0, n0b&
-&                    , s0, s0b, sm1, sm1b, numlayers, epse0, layerindex&
-&                    , theta, numnodes, k, kb, f, fb)
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        call matrixbuilder_b(index, bc1, bc2, r0, r0b, rm1, rm1b, n0, &
+&                      n0b, s0, s0b, sm1, sm1b, numlayers, epse0, &
+&                      layerindex, theta, numnodes, k, kb, f, fb)
+      else
+        s0b(index) = s0b(index) + sum(n0(:, index)*fb(3*(index-1)+1:3*(&
+&         index-1)+3))
+        n0b(:, index) = n0b(:, index) + s0(index)*fb(3*(index-1)+1:3*(&
+&         index-1)+3)
+        fb(3*(index-1)+1:3*(index-1)+3) = 0.0_8
+        kb(3*(index-1)+3, 3*(index-1)+3) = 0.0_8
+        kb(3*(index-1)+2, 3*(index-1)+2) = 0.0_8
+        kb(3*(index-1)+1, 3*(index-1)+1) = 0.0_8
+      end if
     end do
     call popinteger4array(index, inttype/4)
     call popcontrol3b(branch)
@@ -675,9 +398,197 @@ contains
         r0b(1:3) = r0b(1:3) + r_currb
       end if
     end if
-    call popreal8array(f, realtype*3*numnodes/8)
     fb = 0.0_8
   end subroutine computematrices_main_b
+!=================================================================
+!=================================================================
+  subroutine computematrices_main(r0, n0, s0, rm1, sm1, layerindex, &
+&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, f, &
+&   numnodes, numguides)
+    use solveroutines, only : solve
+    implicit none
+    integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
+    real(kind=realtype), intent(in) :: r0(3*numnodes), n0(3, numnodes), &
+&   s0(numnodes)
+    real(kind=realtype), intent(in) :: rm1(3*numnodes), sm1(numnodes), &
+&   theta
+    real(kind=realtype), intent(in) :: sigmasplay, epse0
+    character(len=32), intent(in) :: bc1, bc2
+    real(kind=realtype), intent(out) :: f(3*numnodes)
+    integer(kind=inttype), intent(in) :: numguides
+    integer(kind=inttype), intent(in) :: guideindices(numguides)
+    real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
+&   d_vec_rot(3), eye(3, 3)
+    real(kind=realtype) :: k(3*numnodes, 3*numnodes)
+    integer(kind=inttype) :: index, i
+    integer(kind=inttype) :: ipiv(3*numnodes)
+    integer(kind=inttype) :: n, nrhs, ldk, ldf, info
+    real(kind=realtype) :: one, zero, rhs(3*numnodes)
+    logical :: guide
+    one = 1.
+    zero = 0.
+! initialize arrays
+    k(:, :) = zero
+    f(:) = zero
+    eye(:, :) = zero
+    do i=1,3
+      eye(i, i) = one
+    end do
+! now loop over each node
+    index = 1
+    if (bc1 .eq. 'splay') then
+! get coordinates
+      r_curr = r0(:3)
+      r_next = r0(4:6)
+! get vector that connects r_next to r_curr
+      d_vec = r_next - r_curr
+! get marching direction vector (orthogonal to the curve and to the surface normal)
+      call cross(n0(:, 1), d_vec, d_vec_rot)
+! populate matrix
+      k(1, :3) = d_vec_rot
+      k(2, :3) = n0(:, index)
+      k(3, :3) = d_vec
+      f(:3) = zero
+      f(1) = s0(1)*(1-sigmasplay)
+    else if (bc1 .eq. 'constx') then
+! populate matrix
+      k(2, 4) = zero
+      k(2, 5) = -one
+      k(2, 6) = zero
+      k(3, 4) = zero
+      k(3, 5) = zero
+      k(3, 6) = -one
+      do i=1,3
+        k(i, i) = one
+      end do
+    else if (bc1 .eq. 'consty') then
+! populate matrix
+      k(1, 4) = -one
+      k(1, 5) = zero
+      k(1, 6) = zero
+      k(3, 4) = zero
+      k(3, 5) = zero
+      k(3, 6) = -one
+      do i=1,3
+        k(i, i) = one
+      end do
+    else if (bc1 .eq. 'constz') then
+! populate matrix
+      k(1, 4) = -one
+      k(1, 5) = zero
+      k(1, 6) = zero
+      k(2, 4) = zero
+      k(2, 5) = -one
+      k(2, 6) = zero
+      do i=1,3
+        k(i, i) = one
+      end do
+    else if (bc1(:5) .eq. 'curve') then
+! populate matrix
+      do i=1,3
+        k(i, i) = one
+      end do
+      f(:3) = s0(1)*n0(:, 1)
+    else
+! call assembly routine
+      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
+    end if
+    do index=2,numnodes-1
+      guide = .false.
+      do i=1,numguides
+        if (index .eq. guideindices(i)) guide = .true.
+      end do
+      if (guide) then
+        k(3*(index-1)+1, 3*(index-1)+1) = one
+        k(3*(index-1)+2, 3*(index-1)+2) = one
+        k(3*(index-1)+3, 3*(index-1)+3) = one
+        f(3*(index-1)+1:3*(index-1)+3) = s0(index)*n0(:, index)
+      else
+! call assembly routine
+        call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                    numlayers, epse0, layerindex, theta, numnodes, k, f&
+&                   )
+      end if
+    end do
+    index = numnodes
+    if (bc2 .eq. 'continuous') then
+! populate matrix (use same displacements of first node)
+      k(3*(index-1)+1:, 3*(index-1)+1:) = eye
+      k(3*(index-1)+1:, :3) = -eye
+    else if (bc2 .eq. 'splay') then
+! get coordinates
+      r_curr = r0(3*(index-1)+1:)
+      r_prev = r0(3*(index-2)+1:3*(index-2)+3)
+! get vector that connects r_next to r_curr
+      d_vec = r_curr - r_prev
+! get marching direction vector (orthogonal to the curve and to the surface normal)
+      call cross(n0(:, index), d_vec, d_vec_rot)
+! populate matrix
+      k(3*index-2, 3*index-2:) = d_vec_rot
+      k(3*index-1, 3*index-2:) = n0(:, index)
+      k(3*index-0, 3*index-2:) = d_vec
+      f(3*(index-1)+1:3*index) = zero
+      f(3*(index-1)+1) = s0(index)*(1-sigmasplay)
+    else if (bc2 .eq. 'constx') then
+! populate matrix
+      k(3*index-0, 3*(index-2)+1) = zero
+      k(3*index-0, 3*(index-2)+2) = zero
+      k(3*index-0, 3*(index-2)+3) = -one
+      k(3*index-1, 3*(index-2)+1) = zero
+      k(3*index-1, 3*(index-2)+2) = -one
+      k(3*index-1, 3*(index-2)+3) = zero
+      do i=3*index-2,3*index
+        k(i, i) = one
+      end do
+    else if (bc2 .eq. 'consty') then
+! populate matrix
+      k(3*index-2, 3*(index-2)+1) = -one
+      k(3*index-2, 3*(index-2)+2) = zero
+      k(3*index-2, 3*(index-2)+3) = zero
+      k(3*index-0, 3*(index-2)+1) = zero
+      k(3*index-0, 3*(index-2)+2) = zero
+      k(3*index-0, 3*(index-2)+3) = -one
+      do i=3*index-2,3*index
+        k(i, i) = one
+      end do
+    else if (bc2 .eq. 'constz') then
+! populate matrix
+      k(3*index-2, 3*(index-2)+1) = -one
+      k(3*index-2, 3*(index-2)+2) = zero
+      k(3*index-2, 3*(index-2)+3) = zero
+      k(3*index-1, 3*(index-2)+1) = zero
+      k(3*index-1, 3*(index-2)+2) = -one
+      k(3*index-1, 3*(index-2)+3) = zero
+      do i=3*index-2,3*index
+        k(i, i) = one
+      end do
+    else if (bc2(:5) .eq. 'curve') then
+! populate matrix
+      do i=3*index-2,3*index
+        k(i, i) = one
+      end do
+      f(3*index-2:) = s0(index)*n0(:, index)
+    else
+! call assembly routine
+      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
+&                  numlayers, epse0, layerindex, theta, index, k, f)
+    end if
+! set other parameters
+! problem size
+    n = 3*numnodes
+! number of right hand sides in f
+    nrhs = 1
+! leading dimension of k (should be = n unless we work with submatrices)
+    ldk = n
+! leading dimension of f (should be = n unless we work with submatrices)
+    ldf = n
+! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
+    rhs = f
+    call solve(k, f, rhs, n, ipiv)
+! note that this f is rnext when outputted from computematrices_main
+    f = r0 + f
+  end subroutine computematrices_main
 !  differentiation of matrixbuilder in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: f k s0 sm1 n0 rm1 r0
 !   with respect to varying inputs: f k s0 sm1 n0 rm1 r0
@@ -1070,781 +981,6 @@ contains
 &       neighbor2_index-1)+1:3*(neighbor2_index-1)+3) + neigh2_pointb
     end if
   end subroutine matrixbuilder_b
-!  differentiation of dissipationcoefficients in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: epse epsi
-!   with respect to varying inputs: r0_eta dsensor angle r0_xi
-  subroutine dissipationcoefficients_b(layerindex, r0_xi, r0_xib, r0_eta&
-&   , r0_etab, dsensor, dsensorb, angle, angleb, numlayers, epse0, epse&
-&   , epseb, epsi, epsib)
-    implicit none
-    integer(kind=inttype), intent(in) :: layerindex, numlayers
-    real(kind=realtype), intent(in) :: dsensor, angle, epse0, r0_xi(3), &
-&   r0_eta(3)
-    real(kind=realtype) :: dsensorb, angleb, r0_xib(3), r0_etab(3)
-    real(kind=realtype) :: epse, epsi
-    real(kind=realtype) :: epseb, epsib
-    real(kind=realtype) :: sl, dbar, a, pi, n, r, normeta, normxi
-    real(kind=realtype) :: dbarb, ab, nb, rb, normetab, normxib
-    integer(kind=inttype) :: l, ltrans
-    intrinsic int
-    intrinsic float
-    intrinsic dsqrt
-    intrinsic max
-    intrinsic cos
-    integer :: branch
-    real(kind=realtype) :: temp
-    pi = 3.14159265358979323846264338
-! compute n (eq. 6.3)
-    call norm(r0_eta, normeta)
-    call norm(r0_xi, normxi)
-    n = normeta/normxi
-! compute sl (eq. 6.5) based on a transition l of 3/4 of max
-    l = layerindex + 2
-    ltrans = int(3./4.*numlayers)
-    if (l .le. ltrans) then
-      sl = dsqrt(float(l-1)/float(ltrans-1))
-    else
-      sl = dsqrt(float(ltrans-1)/float(numlayers-1))
-    end if
-    if (dsensor**(2./sl) .lt. 0.1) then
-      dbar = 0.1
-      call pushcontrol1b(0)
-    else
-      dbar = dsensor**(2./sl)
-      call pushcontrol1b(1)
-    end if
-! compute a (eq 6.12 adjusted for entire angle (angle=2*alpha))
-    if (angle .le. pi) then
-! convex corner
-      a = 1.0
-      call pushcontrol1b(0)
-    else
-      a = 1.0/(1.0-cos(angle/2)*cos(angle/2))
-      call pushcontrol1b(1)
-    end if
-! compute auxiliary variable r (eq. 6.4)
-    r = sl*dbar*a
-! compute the dissipation coefficients
-    epseb = epseb + 2*epsib
-    rb = epse0*n*epseb
-    nb = epse0*r*epseb
-    dbarb = sl*a*rb
-    ab = sl*dbar*rb
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      angleb = 0.0_8
-    else
-      temp = cos(angle/2)
-      angleb = -(sin(angle/2)*temp*ab/(1.0-temp**2)**2)
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      dsensorb = 0.0_8
-    else if (dsensor .le. 0.0_8 .and. (2./sl .eq. 0.0_8 .or. 2./sl .ne. &
-&       int(2./sl))) then
-      dsensorb = 0.0
-    else
-      dsensorb = 2.*dsensor**(2./sl-1)*dbarb/sl
-    end if
-    normetab = nb/normxi
-    normxib = -(normeta*nb/normxi**2)
-    call norm_b0(r0_xi, r0_xib, normxi, normxib)
-    call norm_b0(r0_eta, r0_etab, normeta, normetab)
-  end subroutine dissipationcoefficients_b
-!  differentiation of areafactor in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: d s r0
-!   with respect to varying inputs: d s r0
-!   rw status of diff variables: d:incr s:in-zero r0:incr
-  subroutine areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-&   bc2, n, s, sb, maxstretch)
-    implicit none
-    integer(kind=inttype), intent(in) :: n
-    real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
-    real(kind=realtype) :: r0b(3*n), db
-    integer(kind=inttype), intent(in) :: numareapasses
-    character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype) :: s(n), maxstretch
-    real(kind=realtype) :: sb(n)
-    real(kind=realtype) :: r0_extrap(3*(2+n))
-    real(kind=realtype) :: r0_extrapb(3*(2+n))
-    real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
-    real(kind=realtype) :: neighbordistb(n), norm_1b(n), norm_2b(n)
-    real(kind=realtype) :: sminus, splus, stretchratio(n)
-    real(kind=realtype) :: sminusb, splusb
-    integer(kind=inttype) :: index
-    real(kind=realtype), dimension(3) :: arg1
-    real(kind=realtype), dimension(3) :: arg1b
-    real(kind=realtype), dimension(n-2) :: tmp
-    integer :: branch
-    real(kind=realtype) :: tmpb(n-2)
-    real(kind=realtype) :: tempb(n-2)
-! extrapolate the end points and copy starting curve
-    r0_extrap(:3) = 2*r0(:3) - r0(4:6)
-    r0_extrap(4:3*(n+1)) = r0
-    r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
-! compute the distance of each node to its neighbors
-    do index=1,n
-      arg1(:) = r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*&
-&       index)
-      call norm(arg1(:), norm_1(index))
-      arg1(:) = r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*&
-&       index+3)
-      call norm(arg1(:), norm_2(index))
-    end do
-    neighbordist = 0.5*(norm_1+norm_2)
-! multiply distances by the step size to get the areas
-! divide the marching distance and the neighbor distance to get the stretch ratios
-! get the maximum stretch ratio
-! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
-    if (bc1(:5) .eq. 'curve') then
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    if (bc2(:5) .eq. 'curve') then
-      db = db + sb(n)
-      sb(n) = 0.0_8
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      db = db + sb(1)
-      sb(1) = 0.0_8
-    end if
-    do index=numareapasses,1,-1
-      sminusb = nuarea*sb(n)
-      sb(n) = (1-nuarea)*sb(n)
-      splusb = nuarea*sb(1)
-      sb(1) = (1-nuarea)*sb(1)
-      tmpb(1:n-2) = sb(2:n-1)
-      sb(2:n-1) = (1-nuarea)*tmpb(1:n-2)
-      tempb = nuarea*tmpb(1:n-2)/2
-      sb(1:n-2) = sb(1:n-2) + tempb
-      sb(3:n) = sb(3:n) + tempb
-      sb(n-2) = sb(n-2) + sminusb
-      sb(2) = sb(2) + splusb
-    end do
-    neighbordistb = 0.0_8
-    db = db + sum(neighbordist*sb)
-    neighbordistb = d*sb
-    norm_1b = 0.0_8
-    norm_2b = 0.0_8
-    norm_1b = 0.5*neighbordistb
-    norm_2b = 0.5*neighbordistb
-    r0_extrapb = 0.0_8
-    do index=n,1,-1
-      arg1(:) = r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*&
-&       index+3)
-      call norm_b0(arg1(:), arg1b(:), norm_2(index), norm_2b(index))
-      norm_2b(index) = 0.0_8
-      r0_extrapb(3*index+4:3*index+6) = r0_extrapb(3*index+4:3*index+6) &
-&       + arg1b
-      r0_extrapb(3*index+1:3*index+3) = r0_extrapb(3*index+1:3*index+3) &
-&       - arg1b
-      arg1(:) = r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*&
-&       index)
-      call norm_b0(arg1(:), arg1b(:), norm_1(index), norm_1b(index))
-      norm_1b(index) = 0.0_8
-      r0_extrapb(3*index+1:3*index+3) = r0_extrapb(3*index+1:3*index+3) &
-&       + arg1b
-      r0_extrapb(3*index-2:3*index) = r0_extrapb(3*index-2:3*index) - &
-&       arg1b
-    end do
-    r0b(3*(n-1)+1:3*n) = r0b(3*(n-1)+1:3*n) + 2*r0_extrapb(3*(n+1)+1:3*(&
-&     2+n))
-    r0b(3*(n-2)+1:3*(n-1)) = r0b(3*(n-2)+1:3*(n-1)) - r0_extrapb(3*(n+1)&
-&     +1:3*(2+n))
-    r0_extrapb(3*(n+1)+1:3*(2+n)) = 0.0_8
-    r0b = r0b + r0_extrapb(4:3*(n+1))
-    r0_extrapb(4:3*(n+1)) = 0.0_8
-    r0b(1:3) = r0b(1:3) + 2*r0_extrapb(1:3)
-    r0b(4:6) = r0b(4:6) - r0_extrapb(1:3)
-    sb = 0.0_8
-  end subroutine areafactor_b
-!  differentiation of smoothing_main in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: rout
-!   with respect to varying inputs: r rout
-!   rw status of diff variables: r:out rout:in-zero
-  subroutine smoothing_main_b(r, rb, eta, alphap0, numsmoothingpasses, &
-&   numlayers, n, rout, routb)
-    implicit none
-    integer(kind=inttype), intent(in) :: n
-    real(kind=realtype), intent(in) :: eta, alphap0
-    integer(kind=inttype), intent(in) :: numsmoothingpasses, numlayers
-    real(kind=realtype), intent(in) :: r(3*n)
-    real(kind=realtype) :: rb(3*n)
-    real(kind=realtype) :: rout(3*n)
-    real(kind=realtype) :: routb(3*n)
-    real(kind=realtype) :: r_next(3), r_curr(3), r_prev(3), lp, lm, &
-&   alphap
-    real(kind=realtype) :: r_nextb(3), r_currb(3), r_prevb(3), lpb, lmb
-    real(kind=realtype) :: r_smooth(3*n)
-    real(kind=realtype) :: r_smoothb(3*n)
-    integer(kind=inttype) :: index, index_pass
-    intrinsic min
-    real(kind=realtype), dimension(3) :: arg1
-    real(kind=realtype), dimension(3) :: arg1b
-    real(kind=realtype) :: tempb0
-    real(kind=realtype) :: tempb(3)
-    if (alphap0 .gt. alphap0*(eta-3)/numlayers) then
-      alphap = alphap0*(eta-3)/numlayers
-    else
-      alphap = alphap0
-    end if
-    rout = r
-! this function does the grid smoothing
-! loop over the desired number of smoothing passes
-    do index_pass=1,numsmoothingpasses
-! copy nodes
-      r_smooth = rout
-! smooth every node
-      do index=2,n-1
-! get coordinates
-        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
-        r_next = rout(3*index+1:3*index+3)
-        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
-! compute distances
-        arg1(:) = r_next - r_curr
-        call pushreal8array(lp, realtype/8)
-        call norm(arg1(:), lp)
-        arg1(:) = r_curr - r_prev
-        call pushreal8array(lm, realtype/8)
-        call norm(arg1(:), lm)
-! compute smoothed coordinates
-        r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
-&         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
-      end do
-! copy coordinates to allow next pass
-      call pushreal8array(rout, realtype*3*n/8)
-      rout = r_smooth
-    end do
-    do index_pass=numsmoothingpasses,1,-1
-      r_smoothb = 0.0_8
-      call popreal8array(rout, realtype*3*n/8)
-      r_smoothb = routb
-      routb = 0.0_8
-      do index=n-1,2,-1
-        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
-        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
-        r_next = rout(3*index+1:3*index+3)
-        r_currb = 0.0_8
-        r_prevb = 0.0_8
-        r_nextb = 0.0_8
-        tempb = alphap*r_smoothb(3*(index-1)+1:3*(index-1)+3)/(lp+lm)
-        tempb0 = sum(-((lm*r_next+lp*r_prev)*tempb/(lp+lm)))
-        lmb = tempb0 + sum(r_next*tempb)
-        r_nextb = lm*tempb
-        lpb = tempb0 + sum(r_prev*tempb)
-        arg1(:) = r_curr - r_prev
-        call popreal8array(lm, realtype/8)
-        call norm_b0(arg1(:), arg1b(:), lm, lmb)
-        r_currb = arg1b(:) + (1.-alphap)*r_smoothb(3*(index-1)+1:3*(&
-&         index-1)+3)
-        r_prevb = lp*tempb - arg1b(:)
-        r_smoothb(3*(index-1)+1:3*(index-1)+3) = 0.0_8
-        arg1(:) = r_next - r_curr
-        call popreal8array(lp, realtype/8)
-        call norm_b0(arg1(:), arg1b(:), lp, lpb)
-        r_nextb = r_nextb + arg1b
-        r_currb = r_currb - arg1b
-        routb(3*(index-2)+1:3*(index-2)+3) = routb(3*(index-2)+1:3*(&
-&         index-2)+3) + r_prevb
-        routb(3*index+1:3*index+3) = routb(3*index+1:3*index+3) + &
-&         r_nextb
-        routb(3*(index-1)+1:3*(index-1)+3) = routb(3*(index-1)+1:3*(&
-&         index-1)+3) + r_currb
-      end do
-      routb = routb + r_smoothb
-    end do
-    rb = 0.0_8
-    rb = routb
-    routb = 0.0_8
-  end subroutine smoothing_main_b
-!  differentiation of findradius in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: radius r
-!   with respect to varying inputs: radius r
-!   rw status of diff variables: radius:in-zero r:incr
-  subroutine findradius_b(r, rb, numnodes, radius, radiusb)
-    implicit none
-    integer(kind=inttype), intent(in) :: numnodes
-    real(kind=realtype), intent(in) :: r(3*numnodes)
-    real(kind=realtype) :: rb(3*numnodes)
-    real(kind=realtype) :: radius
-    real(kind=realtype) :: radiusb
-    real(kind=realtype) :: x, y, z
-    real(kind=realtype) :: xb, yb, zb
-    real(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    real(kind=realtype) :: minxb, maxxb, minyb, maxyb, minzb, maxzb
-    integer(kind=inttype) :: i
-    integer :: branch
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-! split coordinates and find max and min values
-    do i=1,numnodes
-      x = r(3*(i-1)+1)
-      if (x .gt. maxx) then
-        maxx = x
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (x .lt. minx) then
-        minx = x
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      y = r(3*(i-1)+2)
-      if (y .gt. maxy) then
-        maxy = y
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (y .lt. miny) then
-        miny = y
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      z = r(3*(i-1)+3)
-      if (z .gt. maxz) then
-        maxz = z
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (z .lt. minz) then
-        minz = z
-        call pushcontrol1b(1)
-      else
-        call pushcontrol1b(0)
-      end if
-    end do
-! find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    if (maxx - minx .gt. radius) then
-      radius = maxx - minx
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    if (maxy - miny .gt. radius) then
-      radius = maxy - miny
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    if (maxz - minz .gt. radius) then
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    radiusb = radiusb/2.
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxzb = radiusb
-      minzb = -radiusb
-      radiusb = 0.0_8
-    else
-      minzb = 0.0_8
-      maxzb = 0.0_8
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxyb = radiusb
-      minyb = -radiusb
-      radiusb = 0.0_8
-    else
-      minyb = 0.0_8
-      maxyb = 0.0_8
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxxb = radiusb
-      minxb = -radiusb
-    else
-      minxb = 0.0_8
-      maxxb = 0.0_8
-    end if
-    do i=numnodes,1,-1
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        zb = 0.0_8
-      else
-        zb = minzb
-        minzb = 0.0_8
-      end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        zb = zb + maxzb
-        maxzb = 0.0_8
-      end if
-      rb(3*(i-1)+3) = rb(3*(i-1)+3) + zb
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        yb = minyb
-        minyb = 0.0_8
-      else
-        yb = 0.0_8
-      end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        yb = yb + maxyb
-        maxyb = 0.0_8
-      end if
-      rb(3*(i-1)+2) = rb(3*(i-1)+2) + yb
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        xb = minxb
-        minxb = 0.0_8
-      else
-        xb = 0.0_8
-      end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        xb = xb + maxxb
-        maxxb = 0.0_8
-      end if
-      rb(3*(i-1)+1) = rb(3*(i-1)+1) + xb
-    end do
-    radiusb = 0.0_8
-  end subroutine findradius_b
-!  differentiation of findratio in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: q
-!   with respect to varying inputs: q d0 dmax
-!   rw status of diff variables: q:in-zero d0:out dmax:out
-  subroutine findratio_b(dmax, dmaxb, d0, d0b, numlayers, ratioguess, q&
-&   , qb)
-    implicit none
-    real(kind=realtype), intent(in) :: dmax, d0, ratioguess
-    real(kind=realtype) :: dmaxb, d0b
-    integer(kind=inttype), intent(in) :: numlayers
-    real(kind=realtype) :: q
-    real(kind=realtype) :: qb
-    real(kind=realtype) :: rdot, r
-    real(kind=realtype) :: rdotb, rb
-    integer(kind=inttype) :: niters
-! note that this counter is not the inttype that we use for all other integers.
-! this is done so that tapenade correctly backwards differentiates this subroutine.
-    integer :: i
-    integer :: ad_to
-! extra parameters
-! maximum number of iterations for newton search
-    niters = 200
-! initialize ratio
-    q = ratioguess
-! newton search loop
-    do i=1,niters
-! residual function
-      call pushreal8array(r, realtype/8)
-      r = d0*(1.-q**(numlayers-1)) - dmax*(1.-q)
-! residual derivative
-      call pushreal8array(rdot, realtype/8)
-      rdot = -((numlayers-1)*d0*q**(numlayers-2)) + dmax
-! update ratio with newton search
-      call pushreal8array(q, realtype/8)
-      q = q - r/rdot
-    end do
-    call pushinteger4(i - 1)
-! check if we got a reasonable value
-    if (q .le. 1 .or. q .ge. ratioguess) then
-      stop
-    else
-      d0b = 0.0_8
-      dmaxb = 0.0_8
-      call popinteger4(ad_to)
-      do i=ad_to,1,-1
-        call popreal8array(q, realtype/8)
-        rb = -(qb/rdot)
-        rdotb = r*qb/rdot**2
-        call popreal8array(rdot, realtype/8)
-        dmaxb = dmaxb + rdotb - (1.-q)*rb
-        d0b = d0b + (1.-q**(numlayers-1))*rb - (numlayers-1)*q**(&
-&         numlayers-2)*rdotb
-        if (.not.(q .le. 0.0_8 .and. (numlayers - 2 .eq. 0.0_8 .or. &
-&           numlayers - 2 .ne. int(numlayers - 2)))) qb = qb - d0*(&
-&           numlayers-1)*(numlayers-2)*q**(numlayers-3)*rdotb
-        call popreal8array(r, realtype/8)
-        if (q .le. 0.0_8 .and. (numlayers - 1 .eq. 0.0_8 .or. numlayers &
-&           - 1 .ne. int(numlayers - 1))) then
-          qb = qb + dmax*rb
-        else
-          qb = qb + (dmax-d0*(numlayers-1)*q**(numlayers-2))*rb
-        end if
-      end do
-      qb = 0.0_8
-    end if
-  end subroutine findratio_b
-  subroutine march_main(rstart, dstart, theta, sigmasplay, bc1, bc2, &
-&   epse0, alphap0, extension, nuarea, ratioguess, cmax, &
-&   numsmoothingpasses, numareapasses, numlayers, numnodes, r, fail, &
-&   ratios, majorindices)
-    implicit none
-    integer(kind=inttype), intent(in) :: numnodes, numlayers, &
-&   numareapasses
-    real(kind=realtype), intent(in) :: rstart(3*numnodes), dstart, theta&
-&   , sigmasplay
-    real(kind=realtype), intent(in) :: epse0, extension, nuarea
-    character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(in) :: alphap0, ratioguess, cmax
-    integer(kind=inttype), intent(in) :: numsmoothingpasses
-    integer(kind=inttype), intent(out) :: fail
-    real(kind=realtype), intent(out) :: ratios(numlayers-1, numnodes-1)&
-&   , r(numlayers, 3*numnodes)
-    integer(kind=inttype), intent(out) :: majorindices(numlayers)
-    real(kind=realtype) :: r0(3*numnodes), n0(3, numnodes), s0(numnodes)
-    real(kind=realtype) :: rm1(3*numnodes), sm1(numnodes), rsmoothed(3*&
-&   numnodes)
-    real(kind=realtype) :: rnext(3*numnodes), nnext(3, numnodes)
-    real(kind=realtype) :: rnext_in(3*numnodes)
-    real(kind=realtype) :: dr(3*numnodes), d, dtot, dmax, dgrowth
-    real(kind=realtype) :: dpseudo, maxstretch, radius, eta, min_ratio, &
-&   ratios_small(3, numnodes-1)
-    integer(kind=inttype) :: layerindex, indexsubiter, cfactor
-    integer(kind=inttype) :: arraysize, nallocations
-    intrinsic int
-    integer :: arg1
-    rnext = rstart
-    nnext = 0.
-    do layerindex=1,numnodes
-      nnext(3, layerindex) = -1.
-    end do
-! initialize step size and total marched distance
-    d = dstart
-! find the characteristic radius of the mesh
-    call findradius(rnext, numnodes, radius)
-! find the desired marching distance
-    dmax = radius*(extension-1.)
-! compute the growth ratio necessary to match this distance
-    call findratio(dmax, dstart, numlayers, ratioguess, dgrowth)
-! we need a guess for the first-before-last curve in order to compute the grid distribution sensor
-! as we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-    rm1 = rnext
-    n0 = nnext
-!===========================================================
-! some functions require the area factors of the first-before-last curve
-! we will repeat the first curve areas for simplicity.
-! rnext, nnext, rm1 for the first iteration are computed at the beginning of the function.
-! but we still need to find sm1
-    call areafactor(rnext, d, nuarea, numareapasses, bc1, bc2, numnodes&
-&             , sm1, maxstretch)
-    r(1, :) = rnext
-    do layerindex=1,numlayers-1
-! get the coordinates computed by the previous iteration
-      r0 = rnext
-! compute the new area factor for the desired marching distance
-      call areafactor(r0, d, nuarea, numareapasses, bc1, bc2, numnodes, &
-&               s0, maxstretch)
-      cfactor = int(maxstretch/cmax) + 1
-! constrain the marching distance if the stretching ratio is too high
-      dpseudo = d/cfactor
-! subiteration
-! the number of subiterations is the one required to meet the desired marching distance
-      do indexsubiter=1,cfactor
-! recompute areas with the pseudo-step
-        call areafactor(r0, dpseudo, nuarea, numareapasses, bc1, bc2, &
-&                 numnodes, s0, maxstretch)
-! march using the pseudo-marching distance
-        eta = layerindex + 2
-! generate matrices of the linear system
-        arg1 = layerindex - 1
-        call computematrices_main(r0, n0, s0, rm1, sm1, arg1, theta, &
-&                           sigmasplay, bc1, bc2, numlayers, epse0, &
-&                           rnext, numnodes)
-! smooth coordinates
-        call smoothing_main(rnext, eta, alphap0, numsmoothingpasses, &
-&                     numlayers, numnodes, rsmoothed)
-! placeholder for projection
-        rnext = rsmoothed
-        nnext = n0
-        sm1 = s0
-        rm1 = r0
-        r0 = rnext
-        n0 = nnext
-      end do
-! store grid points
-      r(layerindex+1, :) = rnext
-! update step size
-      d = d*dgrowth
-    end do
-  end subroutine march_main
-!=================================================================
-!=================================================================
-  subroutine computematrices_main(r0, n0, s0, rm1, sm1, layerindex, &
-&   theta, sigmasplay, bc1, bc2, numlayers, epse0, f, numnodes)
-    use solveroutines, only : solve
-    implicit none
-    integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
-    real(kind=realtype), intent(in) :: r0(3*numnodes), n0(3, numnodes), &
-&   s0(numnodes)
-    real(kind=realtype), intent(in) :: rm1(3*numnodes), sm1(numnodes), &
-&   theta
-    real(kind=realtype), intent(in) :: sigmasplay, epse0
-    character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(out) :: f(3*numnodes)
-    real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
-&   d_vec_rot(3), eye(3, 3)
-    real(kind=realtype) :: k(3*numnodes, 3*numnodes)
-    integer(kind=inttype) :: index, i
-    integer(kind=inttype) :: ipiv(3*numnodes)
-    integer(kind=inttype) :: n, nrhs, ldk, ldf, info
-    real(kind=realtype) :: one, zero, rhs(3*numnodes)
-    one = 1.
-    zero = 0.
-! initialize arrays
-    k(:, :) = zero
-    f(:) = zero
-    eye(:, :) = zero
-    do i=1,3
-      eye(i, i) = one
-    end do
-! now loop over each node
-    index = 1
-    if (bc1 .eq. 'splay') then
-! get coordinates
-      r_curr = r0(:3)
-      r_next = r0(4:6)
-! get vector that connects r_next to r_curr
-      d_vec = r_next - r_curr
-! get marching direction vector (orthogonal to the curve and to the surface normal)
-      call cross(n0(:, 1), d_vec, d_vec_rot)
-! populate matrix
-      k(1, :3) = d_vec_rot
-      k(2, :3) = n0(:, index)
-      k(3, :3) = d_vec
-      f(:3) = zero
-      f(1) = s0(1)*(1-sigmasplay)
-    else if (bc1 .eq. 'constx') then
-! populate matrix
-      k(2, 4) = zero
-      k(2, 5) = -one
-      k(2, 6) = zero
-      k(3, 4) = zero
-      k(3, 5) = zero
-      k(3, 6) = -one
-      do i=1,3
-        k(i, i) = one
-      end do
-    else if (bc1 .eq. 'consty') then
-! populate matrix
-      k(1, 4) = -one
-      k(1, 5) = zero
-      k(1, 6) = zero
-      k(3, 4) = zero
-      k(3, 5) = zero
-      k(3, 6) = -one
-      do i=1,3
-        k(i, i) = one
-      end do
-    else if (bc1 .eq. 'constz') then
-! populate matrix
-      k(1, 4) = -one
-      k(1, 5) = zero
-      k(1, 6) = zero
-      k(2, 4) = zero
-      k(2, 5) = -one
-      k(2, 6) = zero
-      do i=1,3
-        k(i, i) = one
-      end do
-    else if (bc1(:5) .eq. 'curve') then
-! populate matrix
-      do i=1,3
-        k(i, i) = one
-      end do
-      f(:3) = s0(1)*n0(:, 1)
-    else
-! call assembly routine
-      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
-    end if
-    do index=2,numnodes-1
-! call assembly routine
-      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, numnodes, k, f)
-    end do
-    index = numnodes
-    if (bc2 .eq. 'continuous') then
-! populate matrix (use same displacements of first node)
-      k(3*(index-1)+1:, 3*(index-1)+1:) = eye
-      k(3*(index-1)+1:, :3) = -eye
-    else if (bc2 .eq. 'splay') then
-! get coordinates
-      r_curr = r0(3*(index-1)+1:)
-      r_prev = r0(3*(index-2)+1:3*(index-2)+3)
-! get vector that connects r_next to r_curr
-      d_vec = r_curr - r_prev
-! get marching direction vector (orthogonal to the curve and to the surface normal)
-      call cross(n0(:, index), d_vec, d_vec_rot)
-! populate matrix
-      k(3*index-2, 3*index-2:) = d_vec_rot
-      k(3*index-1, 3*index-2:) = n0(:, index)
-      k(3*index-0, 3*index-2:) = d_vec
-      f(3*(index-1)+1:3*index) = zero
-      f(3*(index-1)+1) = s0(index)*(1-sigmasplay)
-    else if (bc2 .eq. 'constx') then
-! populate matrix
-      k(3*index-0, 3*(index-2)+1) = zero
-      k(3*index-0, 3*(index-2)+2) = zero
-      k(3*index-0, 3*(index-2)+3) = -one
-      k(3*index-1, 3*(index-2)+1) = zero
-      k(3*index-1, 3*(index-2)+2) = -one
-      k(3*index-1, 3*(index-2)+3) = zero
-      do i=3*index-2,3*index
-        k(i, i) = one
-      end do
-    else if (bc2 .eq. 'consty') then
-! populate matrix
-      k(3*index-2, 3*(index-2)+1) = -one
-      k(3*index-2, 3*(index-2)+2) = zero
-      k(3*index-2, 3*(index-2)+3) = zero
-      k(3*index-0, 3*(index-2)+1) = zero
-      k(3*index-0, 3*(index-2)+2) = zero
-      k(3*index-0, 3*(index-2)+3) = -one
-      do i=3*index-2,3*index
-        k(i, i) = one
-      end do
-    else if (bc2 .eq. 'constz') then
-! populate matrix
-      k(3*index-2, 3*(index-2)+1) = -one
-      k(3*index-2, 3*(index-2)+2) = zero
-      k(3*index-2, 3*(index-2)+3) = zero
-      k(3*index-1, 3*(index-2)+1) = zero
-      k(3*index-1, 3*(index-2)+2) = -one
-      k(3*index-1, 3*(index-2)+3) = zero
-      do i=3*index-2,3*index
-        k(i, i) = one
-      end do
-    else if (bc2(:5) .eq. 'curve') then
-! populate matrix
-      do i=3*index-2,3*index
-        k(i, i) = one
-      end do
-      f(3*index-2:) = s0(index)*n0(:, index)
-    else
-! call assembly routine
-      call matrixbuilder(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
-&                  numlayers, epse0, layerindex, theta, index, k, f)
-    end if
-! set other parameters
-! problem size
-    n = 3*numnodes
-! number of right hand sides in f
-    nrhs = 1
-! leading dimension of k (should be = n unless we work with submatrices)
-    ldk = n
-! leading dimension of f (should be = n unless we work with submatrices)
-    ldf = n
-! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
-    rhs = f
-    call solve(k, f, rhs, n, ipiv)
-! note that this f is rnext when outputted from computematrices_main
-    f = r0 + f
-  end subroutine computematrices_main
   subroutine matrixbuilder(curr_index, bc1, bc2, r0, rm1, n0, s0, sm1, &
 &   numlayers, epse0, layerindex, theta, numnodes, k, f)
     implicit none
@@ -2024,6 +1160,87 @@ contains
       end if
     end if
   end subroutine matrixbuilder
+!  differentiation of dissipationcoefficients in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: epse epsi
+!   with respect to varying inputs: r0_eta dsensor angle r0_xi
+  subroutine dissipationcoefficients_b(layerindex, r0_xi, r0_xib, r0_eta&
+&   , r0_etab, dsensor, dsensorb, angle, angleb, numlayers, epse0, epse&
+&   , epseb, epsi, epsib)
+    implicit none
+    integer(kind=inttype), intent(in) :: layerindex, numlayers
+    real(kind=realtype), intent(in) :: dsensor, angle, epse0, r0_xi(3), &
+&   r0_eta(3)
+    real(kind=realtype) :: dsensorb, angleb, r0_xib(3), r0_etab(3)
+    real(kind=realtype) :: epse, epsi
+    real(kind=realtype) :: epseb, epsib
+    real(kind=realtype) :: sl, dbar, a, pi, n, r, normeta, normxi
+    real(kind=realtype) :: dbarb, ab, nb, rb, normetab, normxib
+    integer(kind=inttype) :: l, ltrans
+    intrinsic int
+    intrinsic float
+    intrinsic dsqrt
+    intrinsic max
+    intrinsic cos
+    integer :: branch
+    real(kind=realtype) :: temp
+    pi = 3.14159265358979323846264338
+! compute n (eq. 6.3)
+    call norm(r0_eta, normeta)
+    call norm(r0_xi, normxi)
+    n = normeta/normxi
+! compute sl (eq. 6.5) based on a transition l of 3/4 of max
+    l = layerindex + 2
+    ltrans = int(3./4.*numlayers)
+    if (l .le. ltrans) then
+      sl = dsqrt(float(l-1)/float(numlayers-1))
+    else
+      sl = dsqrt(float(ltrans-1)/float(numlayers-1))
+    end if
+    if (dsensor**(2./sl) .lt. 0.1) then
+      dbar = 0.1
+      call pushcontrol1b(0)
+    else
+      dbar = dsensor**(2./sl)
+      call pushcontrol1b(1)
+    end if
+! compute a (eq 6.12 adjusted for entire angle (angle=2*alpha))
+    if (angle .le. pi) then
+! convex corner
+      a = 1.0
+      call pushcontrol1b(0)
+    else
+      a = 1.0/(1.0-cos(angle/2)*cos(angle/2))
+      call pushcontrol1b(1)
+    end if
+! compute auxiliary variable r (eq. 6.4)
+    r = sl*dbar*a
+! compute the dissipation coefficients
+    epseb = epseb + 2*epsib
+    rb = epse0*n*epseb
+    nb = epse0*r*epseb
+    dbarb = sl*a*rb
+    ab = sl*dbar*rb
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      angleb = 0.0_8
+    else
+      temp = cos(angle/2)
+      angleb = -(sin(angle/2)*temp*ab/(1.0-temp**2)**2)
+    end if
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      dsensorb = 0.0_8
+    else if (dsensor .le. 0.0_8 .and. (2./sl .eq. 0.0_8 .or. 2./sl .ne. &
+&       int(2./sl))) then
+      dsensorb = 0.0
+    else
+      dsensorb = 2.*dsensor**(2./sl-1)*dbarb/sl
+    end if
+    normetab = nb/normxi
+    normxib = -(normeta*nb/normxi**2)
+    call norm_b0(r0_xi, r0_xib, normxi, normxib)
+    call norm_b0(r0_eta, r0_etab, normeta, normetab)
+  end subroutine dissipationcoefficients_b
   subroutine dissipationcoefficients(layerindex, r0_xi, r0_eta, dsensor&
 &   , angle, numlayers, epse0, epse, epsi)
     implicit none
@@ -2047,7 +1264,7 @@ contains
     l = layerindex + 2
     ltrans = int(3./4.*numlayers)
     if (l .le. ltrans) then
-      sl = dsqrt(float(l-1)/float(ltrans-1))
+      sl = dsqrt(float(l-1)/float(numlayers-1))
     else
       sl = dsqrt(float(ltrans-1)/float(numlayers-1))
     end if
@@ -2069,18 +1286,144 @@ contains
     epse = epse0*r*n
     epsi = 2*epse
   end subroutine dissipationcoefficients
-  subroutine areafactor(r0, d, nuarea, numareapasses, bc1, bc2, n, s, &
-&   maxstretch)
+!  differentiation of areafactor in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: s
+!   with respect to varying inputs: d s r0
+!   rw status of diff variables: d:out s:in-zero r0:out
+  subroutine areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
+&   bc2, guideindices, numguides, n, s, sb, maxstretch)
+    implicit none
+    integer(kind=inttype), intent(in) :: n
+    real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
+    real(kind=realtype) :: r0b(3*n), db
+    integer(kind=inttype), intent(in) :: numareapasses
+    character(len=32), intent(in) :: bc1, bc2
+    real(kind=realtype) :: s(n), maxstretch
+    real(kind=realtype) :: sb(n)
+    integer(kind=inttype), intent(in) :: numguides
+    integer(kind=inttype), intent(in) :: guideindices(numguides)
+    real(kind=realtype) :: r0_extrap(3*(2+n))
+    real(kind=realtype) :: r0_extrapb(3*(2+n))
+    real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
+    real(kind=realtype) :: neighbordistb(n), norm_1b(n), norm_2b(n)
+    real(kind=realtype) :: sminus, splus, stretchratio(n)
+    real(kind=realtype) :: sminusb, splusb
+    integer(kind=inttype) :: index, i
+    real(kind=realtype), dimension(3) :: arg1
+    real(kind=realtype), dimension(3) :: arg1b
+    real(kind=realtype), dimension(n-2) :: tmp
+    integer :: branch
+    real(kind=realtype) :: tmpb(n-2)
+    real(kind=realtype) :: tempb(n-2)
+! extrapolate the end points and copy starting curve
+    r0_extrap(:3) = 2*r0(:3) - r0(4:6)
+    r0_extrap(4:3*(n+1)) = r0
+    r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
+! compute the distance of each node to its neighbors
+    do index=1,n
+      arg1(:) = r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*&
+&       index)
+      call norm(arg1(:), norm_1(index))
+      arg1(:) = r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*&
+&       index+3)
+      call norm(arg1(:), norm_2(index))
+    end do
+    neighbordist = 0.5*(norm_1+norm_2)
+! multiply distances by the step size to get the areas
+! divide the marching distance and the neighbor distance to get the stretch ratios
+! get the maximum stretch ratio
+! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
+    if (bc1(:5) .eq. 'curve') then
+      call pushcontrol1b(0)
+    else
+      call pushcontrol1b(1)
+    end if
+    if (bc2(:5) .eq. 'curve') then
+      call pushcontrol1b(1)
+    else
+      call pushcontrol1b(0)
+    end if
+    db = 0.0_8
+    do i=numguides,1,-1
+      index = guideindices(i)
+      db = db + sb(index)
+      sb(index) = 0.0_8
+    end do
+    call popcontrol1b(branch)
+    if (branch .ne. 0) then
+      db = db + sb(n)
+      sb(n) = 0.0_8
+    end if
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      db = db + sb(1)
+      sb(1) = 0.0_8
+    end if
+    do index=numareapasses,1,-1
+      sminusb = nuarea*sb(n)
+      sb(n) = (1-nuarea)*sb(n)
+      splusb = nuarea*sb(1)
+      sb(1) = (1-nuarea)*sb(1)
+      tmpb(1:n-2) = sb(2:n-1)
+      sb(2:n-1) = (1-nuarea)*tmpb(1:n-2)
+      tempb = nuarea*tmpb(1:n-2)/2
+      sb(1:n-2) = sb(1:n-2) + tempb
+      sb(3:n) = sb(3:n) + tempb
+      sb(n-1) = sb(n-1) + sminusb
+      sb(2) = sb(2) + splusb
+    end do
+    neighbordistb = 0.0_8
+    db = db + sum(neighbordist*sb)
+    neighbordistb = d*sb
+    norm_1b = 0.0_8
+    norm_2b = 0.0_8
+    norm_1b = 0.5*neighbordistb
+    norm_2b = 0.5*neighbordistb
+    r0_extrapb = 0.0_8
+    do index=n,1,-1
+      arg1(:) = r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*&
+&       index+3)
+      call norm_b0(arg1(:), arg1b(:), norm_2(index), norm_2b(index))
+      norm_2b(index) = 0.0_8
+      r0_extrapb(3*index+4:3*index+6) = r0_extrapb(3*index+4:3*index+6) &
+&       + arg1b
+      r0_extrapb(3*index+1:3*index+3) = r0_extrapb(3*index+1:3*index+3) &
+&       - arg1b
+      arg1(:) = r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*&
+&       index)
+      call norm_b0(arg1(:), arg1b(:), norm_1(index), norm_1b(index))
+      norm_1b(index) = 0.0_8
+      r0_extrapb(3*index+1:3*index+3) = r0_extrapb(3*index+1:3*index+3) &
+&       + arg1b
+      r0_extrapb(3*index-2:3*index) = r0_extrapb(3*index-2:3*index) - &
+&       arg1b
+    end do
+    r0b = 0.0_8
+    r0b(3*(n-1)+1:3*n) = r0b(3*(n-1)+1:3*n) + 2*r0_extrapb(3*(n+1)+1:3*(&
+&     2+n))
+    r0b(3*(n-2)+1:3*(n-1)) = r0b(3*(n-2)+1:3*(n-1)) - r0_extrapb(3*(n+1)&
+&     +1:3*(2+n))
+    r0_extrapb(3*(n+1)+1:3*(2+n)) = 0.0_8
+    r0b = r0b + r0_extrapb(4:3*(n+1))
+    r0_extrapb(4:3*(n+1)) = 0.0_8
+    r0b(1:3) = r0b(1:3) + 2*r0_extrapb(1:3)
+    r0b(4:6) = r0b(4:6) - r0_extrapb(1:3)
+    sb = 0.0_8
+  end subroutine areafactor_b
+  subroutine areafactor(r0, d, nuarea, numareapasses, bc1, bc2, &
+&   guideindices, numguides, n, s, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
     integer(kind=inttype), intent(in) :: numareapasses
     character(len=32), intent(in) :: bc1, bc2
     real(kind=realtype), intent(out) :: s(n), maxstretch
+    integer(kind=inttype), intent(in) :: numguides
+    integer(kind=inttype), intent(in) :: guideindices(numguides)
     real(kind=realtype) :: r0_extrap(3*(2+n))
     real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
     real(kind=realtype) :: sminus, splus, stretchratio(n)
-    integer(kind=inttype) :: index
+    integer(kind=inttype) :: index, i
     real(kind=realtype), dimension(3) :: arg1
 ! extrapolate the end points and copy starting curve
     r0_extrap(:3) = 2*r0(:3) - r0(4:6)
@@ -2110,7 +1453,7 @@ contains
     do index=1,numareapasses
 ! store previous values
       splus = s(2)
-      sminus = s(n-2)
+      sminus = s(n-1)
 ! do the averaging for the central nodes
       s(2:n-1) = (1-nuarea)*s(2:n-1) + nuarea/2*(s(:n-2)+s(3:))
 ! average for the extremum nodes
@@ -2120,7 +1463,111 @@ contains
 ! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     if (bc1(:5) .eq. 'curve') s(1) = d
     if (bc2(:5) .eq. 'curve') s(n) = d
+! set guidecurve marching distances
+    do i=1,numguides
+      index = guideindices(i)
+      s(index) = d
+    end do
   end subroutine areafactor
+!  differentiation of smoothing_main in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: rout
+!   with respect to varying inputs: r rout
+!   rw status of diff variables: r:out rout:in-zero
+  subroutine smoothing_main_b(r, rb, eta, alphap0, numsmoothingpasses, &
+&   numlayers, n, rout, routb)
+    implicit none
+    integer(kind=inttype), intent(in) :: n
+    real(kind=realtype), intent(in) :: eta, alphap0
+    integer(kind=inttype), intent(in) :: numsmoothingpasses, numlayers
+    real(kind=realtype), intent(in) :: r(3*n)
+    real(kind=realtype) :: rb(3*n)
+    real(kind=realtype) :: rout(3*n)
+    real(kind=realtype) :: routb(3*n)
+    real(kind=realtype) :: r_next(3), r_curr(3), r_prev(3), lp, lm, &
+&   alphap
+    real(kind=realtype) :: r_nextb(3), r_currb(3), r_prevb(3), lpb, lmb
+    real(kind=realtype) :: r_smooth(3*n)
+    real(kind=realtype) :: r_smoothb(3*n)
+    integer(kind=inttype) :: index, index_pass
+    intrinsic min
+    real(kind=realtype), dimension(3) :: arg1
+    real(kind=realtype), dimension(3) :: arg1b
+    real(kind=realtype) :: tempb0
+    real(kind=realtype) :: tempb(3)
+    if (alphap0 .gt. alphap0*(eta-3)/numlayers) then
+      alphap = alphap0*(eta-3)/numlayers
+    else
+      alphap = alphap0
+    end if
+    rout = r
+! this function does the grid smoothing
+! loop over the desired number of smoothing passes
+    do index_pass=1,numsmoothingpasses
+! copy nodes
+      r_smooth = rout
+! smooth every node
+      do index=2,n-1
+! get coordinates
+        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
+        r_next = rout(3*index+1:3*index+3)
+        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
+! compute distances
+        arg1(:) = r_next - r_curr
+        call pushreal8array(lp, realtype/8)
+        call norm(arg1(:), lp)
+        arg1(:) = r_curr - r_prev
+        call pushreal8array(lm, realtype/8)
+        call norm(arg1(:), lm)
+! compute smoothed coordinates
+        r_smooth(3*(index-1)+1:3*(index-1)+3) = (1.-alphap)*r_curr + &
+&         alphap*(lm*r_next+lp*r_prev)/(lp+lm)
+      end do
+! copy coordinates to allow next pass
+      call pushreal8array(rout, realtype*3*n/8)
+      rout = r_smooth
+    end do
+    do index_pass=numsmoothingpasses,1,-1
+      r_smoothb = 0.0_8
+      call popreal8array(rout, realtype*3*n/8)
+      r_smoothb = routb
+      routb = 0.0_8
+      do index=n-1,2,-1
+        r_curr = rout(3*(index-1)+1:3*(index-1)+3)
+        r_prev = rout(3*(index-2)+1:3*(index-2)+3)
+        r_next = rout(3*index+1:3*index+3)
+        r_currb = 0.0_8
+        r_prevb = 0.0_8
+        r_nextb = 0.0_8
+        tempb = alphap*r_smoothb(3*(index-1)+1:3*(index-1)+3)/(lp+lm)
+        tempb0 = sum(-((lm*r_next+lp*r_prev)*tempb/(lp+lm)))
+        lmb = tempb0 + sum(r_next*tempb)
+        r_nextb = lm*tempb
+        lpb = tempb0 + sum(r_prev*tempb)
+        arg1(:) = r_curr - r_prev
+        call popreal8array(lm, realtype/8)
+        call norm_b0(arg1(:), arg1b(:), lm, lmb)
+        r_currb = arg1b(:) + (1.-alphap)*r_smoothb(3*(index-1)+1:3*(&
+&         index-1)+3)
+        r_prevb = lp*tempb - arg1b(:)
+        r_smoothb(3*(index-1)+1:3*(index-1)+3) = 0.0_8
+        arg1(:) = r_next - r_curr
+        call popreal8array(lp, realtype/8)
+        call norm_b0(arg1(:), arg1b(:), lp, lpb)
+        r_nextb = r_nextb + arg1b
+        r_currb = r_currb - arg1b
+        routb(3*(index-2)+1:3*(index-2)+3) = routb(3*(index-2)+1:3*(&
+&         index-2)+3) + r_prevb
+        routb(3*index+1:3*index+3) = routb(3*index+1:3*index+3) + &
+&         r_nextb
+        routb(3*(index-1)+1:3*(index-1)+3) = routb(3*(index-1)+1:3*(&
+&         index-1)+3) + r_currb
+      end do
+      routb = routb + r_smoothb
+    end do
+    rb = 0.0_8
+    rb = routb
+    routb = 0.0_8
+  end subroutine smoothing_main_b
   subroutine smoothing_main(r, eta, alphap0, numsmoothingpasses, &
 &   numlayers, n, rout)
     implicit none
@@ -2165,6 +1612,294 @@ contains
       rout = r_smooth
     end do
   end subroutine smoothing_main
+  subroutine qualitycheck(r, layerindex, numlayers, numnodes, fail, &
+&   ratios)
+    implicit none
+    integer(kind=inttype), intent(in) :: numlayers, numnodes
+    integer(kind=inttype), intent(in) :: layerindex
+    real(kind=realtype), intent(in) :: r(numlayers, 3*numnodes)
+    real(kind=realtype), intent(out) :: ratios(numlayers-1, numnodes-1)
+    integer(kind=inttype), intent(out) :: fail
+    real(kind=realtype) :: xyz(3, numlayers, numnodes), nodalnormals(3, &
+&   numlayers, numnodes)
+    real(kind=realtype) :: panelnormals(3, numlayers-1, numnodes-1), &
+&   norm_vec(3)
+    real(kind=realtype) :: vec1(3, numlayers-1, numnodes-1), vec2(3, &
+&   numlayers-1, numnodes-1)
+    real(kind=realtype) :: vec3(3, numlayers-2, numnodes-2), vec4(3, &
+&   numlayers-2, numnodes-2)
+    real(kind=realtype) :: nodalderivs(3, 2, numlayers, numnodes), det(&
+&   numlayers, numnodes)
+    real(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
+&   nodaljacs(3, 3, numlayers, numnodes), norm_val
+    integer(kind=inttype) :: i, j
+    real(kind=realtype) :: zero
+    intrinsic minval
+    intrinsic maxval
+    real :: result1
+    real :: result2
+    real :: result10
+    zero = 0.
+! convert the flattened array r into a 3 x numnodes x numlayers array.
+! numlayers -> number of layers in the marching direction
+! numnodes -> number of nodes in direction of curve
+    do i=1,numnodes
+      xyz(1, :, i) = r(:, 3*(i-1)+1)
+      xyz(2, :, i) = r(:, 3*(i-1)+2)
+      xyz(3, :, i) = r(:, 3*(i-1)+3)
+    end do
+! setup nodal normals
+    nodalnormals(:, :, :) = zero
+! get the panel normals from the interior points of the mesh.
+! here we take the cross product of the diagonals of each face
+    vec1 = xyz(:, 2:, 2:) - xyz(:, :numlayers-1, :numnodes-1)
+    vec2 = xyz(:, 2:, :numnodes-1) - xyz(:, :numlayers-1, 2:)
+    do i=1,numnodes-1
+      do j=1,numlayers-1
+        call cross(vec2(:, j, i), vec1(:, j, i), norm_vec)
+        call norm(norm_vec, norm_val)
+        panelnormals(:, j, i) = norm_vec/norm_val
+      end do
+    end do
+! set the interior normals using an average of the panel normals
+    vec3 = panelnormals(:, 2:, 2:) + panelnormals(:, :numlayers-2, :&
+&     numnodes-2)
+    vec4 = panelnormals(:, 2:, :numnodes-2) + panelnormals(:, :numlayers&
+&     -2, 2:)
+    normals = vec3 + vec4
+    do i=2,numnodes-1
+      do j=2,numlayers-1
+        call norm(normals(:, j-1, i-1), norm_val)
+        nodalnormals(:, j, i) = normals(:, j-1, i-1)/norm_val
+      end do
+    end do
+! set the boundary normals
+    nodalnormals(:, 2:, 1) = panelnormals(:, :, 1)
+    nodalnormals(:, 1, :numnodes-1) = panelnormals(:, 1, :)
+    nodalnormals(:, :numlayers-1, numnodes) = panelnormals(:, :, &
+&     numnodes-1)
+    nodalnormals(:, numlayers, 2:) = panelnormals(:, numlayers-1, :)
+! setup nodal derivatives
+    nodalderivs(:, :, :, :) = zero
+! compute interior derivatives using 2nd order central differencing
+    nodalderivs(:, 1, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 3:, 2:&
+&     numnodes-1)-xyz(:, :numlayers-2, 2:numnodes-1))/2.
+    nodalderivs(:, 2, 2:numlayers-1, 2:numnodes-1) = (xyz(:, 2:numlayers&
+&     -1, 3:)-xyz(:, 2:numlayers-1, :numnodes-2))/2.
+! compute i derivatives using 1st order differencing
+    nodalderivs(:, 1, 1, :) = xyz(:, 2, :) - xyz(:, 1, :)
+    nodalderivs(:, 1, numlayers, :) = xyz(:, numlayers, :) - xyz(:, &
+&     numlayers-1, :)
+    nodalderivs(:, 1, 2:numlayers-1, 1) = (xyz(:, 3:, 1)-xyz(:, :&
+&     numlayers-2, 1))/2.
+    nodalderivs(:, 1, 2:numlayers-1, numnodes) = (xyz(:, 3:, numnodes)-&
+&     xyz(:, :numlayers-2, numnodes))/2.
+! compute j derivatives using 1st order differencing
+    nodalderivs(:, 2, :, 1) = xyz(:, :, 2) - xyz(:, :, 1)
+    nodalderivs(:, 2, :, numnodes) = xyz(:, :, numnodes) - xyz(:, :, &
+&     numnodes-1)
+    nodalderivs(:, 2, 1, 2:numnodes-1) = (xyz(:, 1, 3:)-xyz(:, 1, :&
+&     numnodes-2))/2.
+    nodalderivs(:, 2, numlayers, 2:numnodes-1) = (xyz(:, numlayers, 3:)-&
+&     xyz(:, numlayers, :numnodes-2))/2.
+! assemble nodal jacobians
+    nodaljacs(:, :, :, :) = zero
+    nodaljacs(1, :, :, :) = nodalderivs(:, 1, :, :)
+    nodaljacs(2, :, :, :) = nodalderivs(:, 2, :, :)
+    nodaljacs(3, :, :, :) = nodalnormals(:, :, :)
+! compute determinants of jacobians and find ratio of min to max per face
+    ratios(:, :) = zero
+! compute the determinants of each nodal jacobian
+    do i=1,numnodes
+      do j=1,numlayers
+        call m33det(nodaljacs(:, :, j, i), det(j, i))
+      end do
+    end do
+! find the ratio of the minimum valued determinant to the maximum
+! valued determinant.
+! this is a measure of quality, with 1 being desirable and anything
+! less than 0 meaning the mesh is no longer valid.
+    do i=1,numnodes-1
+      do j=1,numlayers-1
+        result1 = minval(det(j:j+1, i:i+1))
+        result2 = maxval(det(j:j+1, i:i+1))
+        ratios(j, i) = result1/result2
+      end do
+    end do
+    fail = 0
+! throw an error and set the failure flag if the mesh is not valid
+    do i=1,numnodes-1
+      do j=1,numlayers-1
+        if ((ratios(j, i) .ne. ratios(j, i) .or. ratios(j, i) .le. zero)&
+&           .and. layerindex .ge. 1) then
+          print*, '========= failure detected ============'
+          fail = 1
+        end if
+      end do
+    end do
+    if (fail .eq. 1) print*, 'the mesh is not valid after step', &
+&                    layerindex + 1
+! throw a warning if the mesh is low quality
+    result10 = minval(ratios)
+    if (result10 .le. .2 .and. layerindex .ge. 1) print*, &
+&                               'the mesh may be low quality after step'&
+&                                                 , layerindex + 1
+  end subroutine qualitycheck
+!  differentiation of findradius in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: radius
+!   with respect to varying inputs: radius r
+!   rw status of diff variables: radius:in-zero r:out
+  subroutine findradius_b(r, rb, numnodes, radius, radiusb)
+    implicit none
+    integer(kind=inttype), intent(in) :: numnodes
+    real(kind=realtype), intent(in) :: r(3*numnodes)
+    real(kind=realtype) :: rb(3*numnodes)
+    real(kind=realtype) :: radius
+    real(kind=realtype) :: radiusb
+    real(kind=realtype) :: x, y, z
+    real(kind=realtype) :: xb, yb, zb
+    real(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
+    real(kind=realtype) :: minxb, maxxb, minyb, maxyb, minzb, maxzb
+    integer(kind=inttype) :: i
+    integer :: branch
+    minx = 1.e20
+    miny = 1.e20
+    minz = 1.e20
+    maxx = -1.e20
+    maxy = -1.e20
+    maxz = -1.e20
+! split coordinates and find max and min values
+    do i=1,numnodes
+      x = r(3*(i-1)+1)
+      if (x .gt. maxx) then
+        maxx = x
+        call pushcontrol1b(0)
+      else
+        call pushcontrol1b(1)
+      end if
+      if (x .lt. minx) then
+        minx = x
+        call pushcontrol1b(0)
+      else
+        call pushcontrol1b(1)
+      end if
+      y = r(3*(i-1)+2)
+      if (y .gt. maxy) then
+        maxy = y
+        call pushcontrol1b(0)
+      else
+        call pushcontrol1b(1)
+      end if
+      if (y .lt. miny) then
+        miny = y
+        call pushcontrol1b(0)
+      else
+        call pushcontrol1b(1)
+      end if
+      z = r(3*(i-1)+3)
+      if (z .gt. maxz) then
+        maxz = z
+        call pushcontrol1b(0)
+      else
+        call pushcontrol1b(1)
+      end if
+      if (z .lt. minz) then
+        minz = z
+        call pushcontrol1b(1)
+      else
+        call pushcontrol1b(0)
+      end if
+    end do
+! find largest radius (we give only half of the largest side to be considered as radius)
+    radius = -1.e20
+    if (maxx - minx .gt. radius) then
+      radius = maxx - minx
+      call pushcontrol1b(0)
+    else
+      call pushcontrol1b(1)
+    end if
+    if (maxy - miny .gt. radius) then
+      radius = maxy - miny
+      call pushcontrol1b(0)
+    else
+      call pushcontrol1b(1)
+    end if
+    if (maxz - minz .gt. radius) then
+      call pushcontrol1b(0)
+    else
+      call pushcontrol1b(1)
+    end if
+    radiusb = radiusb/2.
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      maxzb = radiusb
+      minzb = -radiusb
+      radiusb = 0.0_8
+    else
+      minzb = 0.0_8
+      maxzb = 0.0_8
+    end if
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      maxyb = radiusb
+      minyb = -radiusb
+      radiusb = 0.0_8
+    else
+      minyb = 0.0_8
+      maxyb = 0.0_8
+    end if
+    call popcontrol1b(branch)
+    if (branch .eq. 0) then
+      maxxb = radiusb
+      minxb = -radiusb
+    else
+      minxb = 0.0_8
+      maxxb = 0.0_8
+    end if
+    rb = 0.0_8
+    do i=numnodes,1,-1
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        zb = 0.0_8
+      else
+        zb = minzb
+        minzb = 0.0_8
+      end if
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        zb = zb + maxzb
+        maxzb = 0.0_8
+      end if
+      rb(3*(i-1)+3) = rb(3*(i-1)+3) + zb
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        yb = minyb
+        minyb = 0.0_8
+      else
+        yb = 0.0_8
+      end if
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        yb = yb + maxyb
+        maxyb = 0.0_8
+      end if
+      rb(3*(i-1)+2) = rb(3*(i-1)+2) + yb
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        xb = minxb
+        minxb = 0.0_8
+      else
+        xb = 0.0_8
+      end if
+      call popcontrol1b(branch)
+      if (branch .eq. 0) then
+        xb = xb + maxxb
+        maxxb = 0.0_8
+      end if
+      rb(3*(i-1)+1) = rb(3*(i-1)+1) + xb
+    end do
+    radiusb = 0.0_8
+  end subroutine findradius_b
   subroutine findradius(r, numnodes, radius)
     implicit none
     integer(kind=inttype), intent(in) :: numnodes
@@ -2198,6 +1933,72 @@ contains
     if (maxz - minz .gt. radius) radius = maxz - minz
     radius = radius/2.
   end subroutine findradius
+!  differentiation of findratio in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: q
+!   with respect to varying inputs: q d0 dmax
+!   rw status of diff variables: q:in-zero d0:out dmax:out
+  subroutine findratio_b(dmax, dmaxb, d0, d0b, numlayers, ratioguess, q&
+&   , qb)
+    implicit none
+    real(kind=realtype), intent(in) :: dmax, d0, ratioguess
+    real(kind=realtype) :: dmaxb, d0b
+    integer(kind=inttype), intent(in) :: numlayers
+    real(kind=realtype) :: q
+    real(kind=realtype) :: qb
+    real(kind=realtype) :: rdot, r
+    real(kind=realtype) :: rdotb, rb
+    integer(kind=inttype) :: niters
+! note that this counter is not the inttype that we use for all other integers.
+! this is done so that tapenade correctly backwards differentiates this subroutine.
+    integer :: i
+    integer :: ad_to
+! extra parameters
+! maximum number of iterations for newton search
+    niters = 200
+! initialize ratio
+    q = ratioguess
+! newton search loop
+    do i=1,niters
+! residual function
+      call pushreal8array(r, realtype/8)
+      r = d0*(1.-q**(numlayers-1)) - dmax*(1.-q)
+! residual derivative
+      call pushreal8array(rdot, realtype/8)
+      rdot = -((numlayers-1)*d0*q**(numlayers-2)) + dmax
+! update ratio with newton search
+      call pushreal8array(q, realtype/8)
+      q = q - r/rdot
+    end do
+    call pushinteger4(i - 1)
+! check if we got a reasonable value
+    if (q .le. 1 .or. q .ge. ratioguess) then
+      stop
+    else
+      d0b = 0.0_8
+      dmaxb = 0.0_8
+      call popinteger4(ad_to)
+      do i=ad_to,1,-1
+        call popreal8array(q, realtype/8)
+        rb = -(qb/rdot)
+        rdotb = r*qb/rdot**2
+        call popreal8array(rdot, realtype/8)
+        dmaxb = dmaxb + rdotb - (1.-q)*rb
+        d0b = d0b + (1.-q**(numlayers-1))*rb - (numlayers-1)*q**(&
+&         numlayers-2)*rdotb
+        if (.not.(q .le. 0.0_8 .and. (numlayers - 2 .eq. 0.0_8 .or. &
+&           numlayers - 2 .ne. int(numlayers - 2)))) qb = qb - d0*(&
+&           numlayers-1)*(numlayers-2)*q**(numlayers-3)*rdotb
+        call popreal8array(r, realtype/8)
+        if (q .le. 0.0_8 .and. (numlayers - 1 .eq. 0.0_8 .or. numlayers &
+&           - 1 .ne. int(numlayers - 1))) then
+          qb = qb + dmax*rb
+        else
+          qb = qb + (dmax-d0*(numlayers-1)*q**(numlayers-2))*rb
+        end if
+      end do
+      qb = 0.0_8
+    end if
+  end subroutine findratio_b
   subroutine findratio(dmax, d0, numlayers, ratioguess, q)
     implicit none
     real(kind=realtype), intent(in) :: dmax, d0, ratioguess
@@ -2229,6 +2030,81 @@ contains
       stop
     end if
   end subroutine findratio
+  subroutine compute_arc_length(r, nnodes, arclength)
+    implicit none
+! ! store coordinates of the first node (the other nodes will be covered in the loop)
+! node1 = r(1:3)
+!
+! ! loop over each element to increment arclength
+! do nodeid=2,nnodes
+!
+!   ! get coordinates of the next node
+!   node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
+!
+!   ! compute distance between nodes
+!   call norm(node1 - node2, dist)
+!
+!   ! store nodal arc-length
+!   arclength(nodeid) = arclength(nodeid-1) + dist
+!
+!   ! store coordinates for the next loop
+!   node1 = node2
+!
+! end do
+!
+! ! normalize the arc-lengths
+! arclength = arclength/arclength(nnodes)
+    integer(kind=inttype), intent(in) :: nnodes
+    real(kind=realtype), intent(in) :: r(nnodes*3)
+    real(kind=realtype), intent(out) :: arclength(nnodes)
+    real(kind=realtype) :: node1(3), node2(3), dist
+    integer(kind=inttype) :: nodeid
+  end subroutine compute_arc_length
+  subroutine interp1d(m, data_num, t_data, p_data, interp_num, t_interp&
+&   , p_interp)
+    implicit none
+    integer(kind=inttype) :: data_num
+    integer(kind=inttype) :: m
+    integer(kind=inttype) :: interp_num
+    integer(kind=inttype) :: interp
+    integer(kind=inttype) :: left
+    real(kind=realtype) :: p_data(data_num)
+    real(kind=realtype) :: p_interp(interp_num)
+    integer(kind=inttype) :: right
+    real(kind=realtype) :: t
+    real(kind=realtype) :: t_data(data_num)
+    real(kind=realtype) :: t_interp(interp_num)
+    do interp=1,interp_num
+      t = t_interp(interp)
+!
+!  find the interval [ tdata(left), tdata(right) ] that contains, or is
+!  nearest to, tval.
+!
+      call r8vec_bracket(data_num, t_data, t, left, right)
+      p_interp(interp) = ((t_data(right)-t)*p_data(left)+(t-t_data(left)&
+&       )*p_data(right))/(t_data(right)-t_data(left))
+    end do
+    return
+  end subroutine interp1d
+  subroutine r8vec_bracket(n, x, xval, left, right)
+    implicit none
+    integer(kind=inttype) :: n
+    integer(kind=inttype) :: i
+    integer(kind=inttype) :: left
+    integer(kind=inttype) :: right
+    real(kind=realtype) :: x(n)
+    real(kind=realtype) :: xval
+    do i=2,n-1
+      if (xval .lt. x(i)) then
+        left = i - 1
+        right = i
+        return
+      end if
+    end do
+    left = n - 1
+    right = n
+    return
+  end subroutine r8vec_bracket
 !  differentiation of matinv3 in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: b
 !   with respect to varying inputs: a
