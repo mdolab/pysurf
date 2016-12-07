@@ -12,7 +12,7 @@ import pdb
 import hypsurfAPI
 import pysurf
 
-fortran_flag = False
+fortran_flag = True
 deriv_check = False
 
 '''
@@ -107,7 +107,7 @@ class HypSurfMesh(object):
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
-        self.guideIndices = guideIndices
+        self.guideIndices = np.array(sorted(set(guideIndices)))
 
         # COMPUTE NORMALIZED ARC-LENGTHS
         # If we detect guide curves, we will record separate arc-lengths for
@@ -195,7 +195,7 @@ class HypSurfMesh(object):
         nuArea = self.optionsDict['nuArea']
 
         if self.growthRatio_given and self.extension_given:
-            error('Cannot define extension and growthRatio parameters. Please select only one to include in the options dictionary.')
+            error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
 
         if self.extension_given:
             extension = self.optionsDict['extension']
@@ -215,7 +215,7 @@ class HypSurfMesh(object):
             # which contains the mesh.
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.

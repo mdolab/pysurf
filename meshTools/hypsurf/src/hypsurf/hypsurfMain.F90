@@ -28,7 +28,7 @@
         !=================================================================
 
         subroutine computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
-        sigmaSplay, bc1, bc2, numLayers, epsE0, f, numNodes)
+        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, f, numNodes, numGuides)
 
 
         use solveRoutines, only: solve
@@ -40,6 +40,9 @@
         real(kind=realType), intent(in) :: sigmaSplay, epsE0
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(out) :: f(3*numNodes)
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
+
 
         real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
@@ -47,6 +50,7 @@
         integer(kind=intType) :: ipiv(3*numNodes)
         integer(kind=intType) :: n, nrhs, ldK, ldf, info
         real(kind=realType) :: one, zero, rhs(3*numNodes)
+        logical :: guide
 
         one = 1.
         zero = 0.
@@ -138,8 +142,26 @@
 
         do index=2,numNodes-1
 
-          ! Call assembly routine
-          call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
+          guide = .false.
+          do i=1,numGuides
+            if (index .eq. guideIndices(i)) then
+              guide = .true.
+            end if
+          end do
+
+          if (guide) then
+            K(3*(index-1)+1, 3*(index-1)+1) = one
+            K(3*(index-1)+2, 3*(index-1)+2) = one
+            K(3*(index-1)+3, 3*(index-1)+3) = one
+
+            f(3*(index-1)+1:3*(index-1)+3) = S0(index) * N0(:, index)
+
+          else
+
+            ! Call assembly routine
+            call matrixBuilder(index, bc1, bc2, r0, rm1, N0, S0, Sm1, numLayers, epsE0, layerIndex, theta, numNodes, K, f)
+
+          end if
 
         end do
 
@@ -468,7 +490,7 @@
 
         ltrans = int(3. / 4. * numLayers)
         if (l .le. ltrans) then
-          Sl = dsqrt(float(l-1)/float(ltrans-1))
+          Sl = dsqrt(float(l-1)/float(numLayers-1))
         else
           Sl = dsqrt(float(ltrans-1)/float(numLayers-1))
         end if
@@ -492,7 +514,8 @@
 
         end subroutine dissipationCoefficients
 
-        subroutine areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, n, S, maxStretch)
+        subroutine areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2,&
+        guideIndices, numGuides, n, S, maxStretch)
 
         implicit none
 
@@ -501,12 +524,14 @@
         integer(kind=intType), intent(in) :: numAreaPasses
         character*32, intent(in) :: bc1, bc2
         real(kind=realType), intent(out) :: S(n), maxStretch
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
 
         real(kind=realType) :: r0_extrap(3*(2+n))
         real(kind=realType) :: neighborDist(n), norm_1(n), norm_2(n)
         real(kind=realType) :: Sminus, Splus, stretchRatio(n)
 
-        integer(kind=intType) :: index
+        integer(kind=intType) :: index, i
 
         ! Extrapolate the end points and copy starting curve
         r0_extrap(:3) = 2*r0(:3) - r0(4:6)
@@ -553,6 +578,12 @@
         if (bc2(:5) .eq. 'curve') then
           S(n) = d
         end if
+
+        ! Set guideCurve marching distances
+        do i=1,numGuides
+          index = guideIndices(i)
+          S(index) = d
+        end do
 
         end subroutine areaFactor
 
@@ -615,7 +646,7 @@
         implicit none
 
         integer(kind=intType), intent(in) :: numLayers, numNodes
-        integer(kind=intType), intent(in), optional :: layerIndex
+        integer(kind=intType), intent(in) :: layerIndex
         real(kind=realType), intent(in) :: R(numLayers, 3*numNodes)
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
         integer(kind=intType), intent(out) :: fail
@@ -847,119 +878,236 @@
 
         end subroutine findRatio
 
-        subroutine march_main(rStart, dStart, theta, sigmaSplay, bc1, bc2,&
-        epsE0, alphaP0, extension, nuArea, ratioGuess, cMax, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, R, fail, ratios, majorIndices)
+        subroutine compute_arc_length(r, nNodes, arcLength)
 
-        implicit none
+          implicit none
 
-        real(kind=realType), intent(in) :: rStart(3*numNodes),dStart, theta, sigmaSplay
-        integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
-        real(kind=realType), intent(in) :: epsE0, extension, nuArea
-        character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
-        integer(kind=intType), intent(in) :: numSmoothingPasses
+          integer(kind=intType), intent(in) :: nNodes
+          real(kind=realType), intent(in) :: r(nNodes*3)
+          real(kind=realType), intent(out) :: arcLength(nNodes)
 
-        integer(kind=intType), intent(out) :: fail
-        real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1), R(numLayers, 3*numNodes)
-        integer(kind=intType), intent(out) :: majorIndices(numLayers)
+          real(kind=realType) :: node1(3), node2(3), dist
+          integer(kind=intType) :: nodeID
 
-        real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
-        real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
-        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
-        real(kind=realType) :: rNext_in(3*numNodes)
-        real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
-        real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
-        integer(kind=intType) :: layerIndex, indexSubIter, cFactor
-        integer(kind=intType) :: arraySize, nAllocations
+          ! Store coordinates of the first node (the other nodes will be covered in the loop)
+          node1 = r(1:3)
+          arcLength(1) = 0.
 
-        rNext = rStart
-        NNext = 0.
-        do layerIndex=1,numNodes
-          NNext(3, layerIndex) = -1.
-        end do
+          ! Loop over each element to increment arcLength
+          do nodeID=2,nNodes
 
-        ! Initialize step size and total marched distance
-        d = dStart
+            ! Get coordinates of the next node
+            node2 = r(3*(nodeID-1)+1:3*(nodeID-1)+3)
 
-        ! Find the characteristic radius of the mesh
-        call findRadius(rNext, numNodes, radius)
+            ! Compute distance between nodes
+            call norm(node1 - node2, dist)
 
-        ! Find the desired marching distance
-        dMax = radius * (extension-1.)
+            ! Store nodal arc-length
+            arcLength(nodeID) = arcLength(nodeID-1) + dist
 
-        ! Compute the growth ratio necessary to match this distance
-        call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
-
-        ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-        ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-        rm1 = rNext
-        N0 = NNext
-
-        !===========================================================
-
-        ! Some functions require the area factors of the first-before-last curve
-        ! We will repeat the first curve areas for simplicity.
-        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! But we still need to find Sm1
-
-        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
-
-        R(1, :) = rNext
-
-        do layerIndex=1,numLayers-1
-          ! Get the coordinates computed by the previous iteration
-          r0 = rNext
-
-          ! Compute the new area factor for the desired marching distance
-          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
-
-          cfactor = int(maxstretch/cmax) + 1
-
-          ! Constrain the marching distance if the stretching ratio is too high
-          dPseudo = d / cFactor
-
-          ! Subiteration
-          ! The number of subiterations is the one required to meet the desired marching distance
-          do indexSubIter=1,cFactor
-
-            ! Recompute areas with the pseudo-step
-            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
-
-            ! March using the pseudo-marching distance
-            eta = layerIndex+2
-
-            ! Generate matrices of the linear system
-            call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
-            sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
-
-            ! Smooth coordinates
-            call smoothing_main(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed)
-
-            ! Placeholder for projection
-            rNext = rSmoothed
-            NNext = N0
-
-            Sm1 = S0
-            rm1 = r0
-
-            r0 = rNext
-            N0 = NNext
+            ! Store coordinates for the next loop
+            node1 = node2
 
           end do
 
-          ! Store grid points
-          R(layerIndex+1, :) = rNext
+          ! Normalize the arc-lengths
+          arcLength = arcLength/arcLength(nNodes)
 
-          ! Update step size
-          d = d*dGrowth
+        end subroutine
 
-        end do
+        subroutine redistribute_nodes_by_arc_length(r, arcLength, startArcLength, nNodes, rNew)
 
-        end subroutine march_main
+          ! This function will receive a set of nodal coordinates defined in r and
+          ! redistribute them along the same curve using the normalized arc-lengths
+          ! provided in arcLength.
+          !
+          ! Remember that r is a flat vector containing the x, y, and z coordinates
+          ! of each node in the following order:
+          ! r = [x1, y1, z1, x2, y2, x2, x3, y3, z3, ... ]
+          !
+          ! The first and last nodes will remain at the same place.
+          !
+          ! Ney Secco 2016-11
+
+          implicit none
+
+          integer(kind=intType), intent(in) :: nNodes
+          real(kind=realType), intent(in) :: r(nNodes*3)
+          real(kind=realType), intent(in) :: arcLength(nNodes), startArcLength(nNodes)
+
+          real(kind=realType), intent(out) :: rNew(nNodes*3)
+
+          ! INTERPOLATE NEW NODES
+
+          ! Now we sample the new coordinates based on the interpolation method given by the user
+
+          ! Create interpolants for x, y, and z
+          call interp1d(1, nNodes, arcLength, r(1:3*nNodes-2:3), nNodes, startArcLength, rNew(1:3*nNodes-2:3))
+          call interp1d(1, nNodes, arcLength, r(2:3*nNodes-1:3), nNodes, startArcLength, rNew(2:3*nNodes-1:3))
+          call interp1d(1, nNodes, arcLength, r(3:3*nNodes:3), nNodes, startArcLength, rNew(3:3*nNodes:3))
+
+        end subroutine
 
 
+        subroutine interp1d ( m, data_num, t_data, p_data, interp_num, &
+          t_interp, p_interp )
 
+        !*****************************************************************************80
+        !
+        !! INTERP_LINEAR: piecewise linear interpolation to a curve in M dimensions.
+        !
+        !  Discussion:
+        !
+        !    From a space of M dimensions, we are given a sequence of
+        !    DATA_NUM points, which are presumed to be successive samples
+        !    from a curve of points P.
+        !
+        !    We are also given a parameterization of this data, that is,
+        !    an associated sequence of DATA_NUM values of a variable T.
+        !    The values of T are assumed to be strictly increasing.
+        !
+        !    Thus, we have a sequence of values P(T), where T is a scalar,
+        !    and each value of P is of dimension M.
+        !
+        !    We are then given INTERP_NUM values of T, for which values P
+        !    are to be produced, by linear interpolation of the data we are given.
+        !
+        !    Note that the user may request extrapolation.  This occurs whenever
+        !    a T_INTERP value is less than the minimum T_DATA or greater than the
+        !    maximum T_DATA.  In that case, linear extrapolation is used.
+        !
+        !  Licensing:
+        !
+        !    This code is distributed under the GNU LGPL license.
+        !
+        !  Modified:
+        !
+        !    03 December 2007
+        !
+        !  Author:
+        !
+        !    John Burkardt
+        !
+        !  Parameters:
+        !!
+        !    Input, integer ( kind = 4 ) DATA_NUM, the number of data points.
+        !
+        !    Input, real ( kind = 8 ) T_DATA(DATA_NUM), the value of the
+        !    independent variable at the sample points.  The values of T_DATA
+        !    must be strictly increasing.
+        !
+        !    Input, real ( kind = 8 ) P_DATA(M,DATA_NUM), the value of the
+        !    dependent variables at the sample points.
+        !
+        !    Input, integer ( kind = 4 ) INTERP_NUM, the number of points
+        !    at which interpolation is to be done.
+        !
+        !    Input, real ( kind = 8 ) T_INTERP(INTERP_NUM), the value of the
+        !    independent variable at the interpolation points.
+        !
+        !    Output, real ( kind = 8 ) P_INTERP(M,DATA_NUM), the interpolated
+        !    values of the dependent variables at the interpolation points.
+        !
+          implicit none
+
+          integer ( kind = intType ) data_num
+          integer ( kind = intType ) m
+          integer ( kind = intType ) interp_num
+
+          integer ( kind = intType ) interp
+          integer ( kind = intType ) left
+          real ( kind = realType ) p_data(data_num)
+          real ( kind = realType ) p_interp(interp_num)
+          integer ( kind = intType ) right
+          real ( kind = realType ) t
+          real ( kind = realType ) t_data(data_num)
+          real ( kind = realType ) t_interp(interp_num)
+
+          do interp = 1, interp_num
+
+            t = t_interp(interp)
+        !
+        !  Find the interval [ TDATA(LEFT), TDATA(RIGHT) ] that contains, or is
+        !  nearest to, TVAL.
+        !
+            call r8vec_bracket ( data_num, t_data, t, left, right )
+
+            p_interp(interp) = &
+              ( ( t_data(right) - t                ) * p_data(left)   &
+              + (                 t - t_data(left) ) * p_data(right) ) &
+              / ( t_data(right)     - t_data(left) )
+
+          end do
+
+          return
+        end
+
+        subroutine r8vec_bracket ( n, x, xval, left, right )
+
+        !*****************************************************************************80
+        !
+        !! R8VEC_BRACKET searches a sorted R8VEC for successive brackets of a value.
+        !
+        !  Discussion:
+        !
+        !    An R8VEC is an array of double precision real values.
+        !
+        !    If the values in the vector are thought of as defining intervals
+        !    on the real line, then this routine searches for the interval
+        !    nearest to or containing the given value.
+        !
+        !  Licensing:
+        !
+        !    This code is distributed under the GNU LGPL license.
+        !
+        !  Modified:
+        !
+        !    06 April 1999
+        !
+        !  Author:
+        !
+        !    John Burkardt
+        !
+        !  Parameters:
+        !
+        !    Input, integer ( kind = 4 ) N, length of input array.
+        !
+        !    Input, real ( kind = 8 ) X(N), an array sorted into ascending order.
+        !
+        !    Input, real ( kind = 8 ) XVAL, a value to be bracketed.
+        !
+        !    Output, integer ( kind = 4 ) LEFT, RIGHT, the results of the search.
+        !    Either:
+        !      XVAL < X(1), when LEFT = 1, RIGHT = 2;
+        !      X(N) < XVAL, when LEFT = N-1, RIGHT = N;
+        !    or
+        !      X(LEFT) <= XVAL <= X(RIGHT).
+        !
+          implicit none
+
+          integer ( kind = intType ) n
+
+          integer ( kind = intType ) i
+          integer ( kind = intType ) left
+          integer ( kind = intType ) right
+          real ( kind = realType ) x(n)
+          real ( kind = realType ) xval
+
+          do i = 2, n - 1
+
+            if ( xval < x(i) ) then
+              left = i - 1
+              right = i
+              return
+            end if
+
+           end do
+
+          left = n - 1
+          right = n
+
+          return
+        end
 
 
         subroutine matinv3(A, B)

@@ -35,7 +35,8 @@
         !=======================================================================
 
         subroutine march(py_projection, rStart, dStart, theta, sigmaSplay, bc1, bc2,&
-        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, numSmoothingPasses, numAreaPasses,&
+        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given,&
+        guideIndices, numSmoothingPasses, numAreaPasses, numGuides,&
         numLayers, numNodes, R, fail, ratios, majorIndices)
 
         implicit none
@@ -48,6 +49,8 @@
         real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
         integer(kind=intType), intent(in) :: numSmoothingPasses
         logical, intent(in) :: extension_given
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
 
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1), R(numLayers, 3*numNodes)
@@ -56,12 +59,17 @@
         real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
         real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
-        real(kind=realType) :: rNext_in(3*numNodes)
+        real(kind=realType) :: rNext_in(3*numNodes), rNext_(3*numNodes)
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
         real(kind=realType) :: extension, growthRatio
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
         integer(kind=intType) :: arraySize, nAllocations
+
+        integer(kind=intType) :: breakNodes(numGuides+2), intervalID, node1, node2
+        integer(kind=intType) :: numInInterval, numIntervals
+
+        real(kind=realType), dimension(:), allocatable :: rInterval, arcLength, startArcLength, rNew
 
         real(kind=realType), dimension(:,:), allocatable :: ext_temp_real
         real(kind=realType), dimension(:,:), allocatable :: ext_temp_real_1dim
@@ -74,6 +82,19 @@
 
         ! Project onto the surface or curve (if applicable)
         call py_projection(rStart, rNext, NNext, numNodes)
+
+        ! Really only do this if we're remeshing
+        breakNodes(1) = 1
+        breaknodes(2:numGuides+1) = guideIndices
+        breakNodes(numGuides+2) = numNodes
+
+        !!! Still need to do this!
+        ! Remove duplicate entries from breakNodes if they exist.
+        ! This will only occur at the beginning or end because we've already
+        ! sorted the internal part of breakNodes by sorting guideIndices.
+        ! if (breakNodes(1) .eq. breakNodes(2))
+
+        numIntervals = numGuides + 1
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -118,7 +139,8 @@
         ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
         ! But we still need to find Sm1
 
-        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, maxStretch)
+        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, guideIndices,&
+        numGuides, numNodes, Sm1, maxStretch)
 
         fail = 0
         nSubIters = 0
@@ -166,7 +188,8 @@
           r0 = rNext
 
           ! Compute the new area factor for the desired marching distance
-          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices,&
+          numGuides, numNodes, S0, maxStretch)
 
           ! The subiterations will use pseudo marching steps.
           ! If the required marching step is too large, the hyperbolic marching might become
@@ -188,7 +211,8 @@
           do indexSubIter=1,cFactor
 
             ! Recompute areas with the pseudo-step
-            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices,&
+            numGuides, numNodes, S0, maxStretch)
 
             ! Save S0 into S for backwards derivative computation
             ext_S(nSubIters+1, :) = S0
@@ -268,7 +292,7 @@
 
             ! Generate matrices of the linear system
             call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
-            sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
+            sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, rNext, numNodes, numGuides)
 
             ! Save this initially marched row for later use in the backwards
             ! derivative computation if it's the last one of the subiterations
@@ -282,6 +306,52 @@
             ext_R_smoothed(nSubIters+1, :) = rSmoothed
 
             call py_projection(rSmoothed, rNext, NNext, numNodes)
+
+            ! ! Remesh the projected points if the user desires
+            ! if (remesh) then
+
+            rNext_(:) = 0.
+
+            ! Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
+            do intervalID=1, numGuides+1
+
+              ! Get indices of the first and last nodes of the interval
+              node1 = breakNodes(intervalID)
+              node2 = breakNodes(intervalID+1)
+
+              numInInterval = node2 - node1 + 1
+
+              allocate(rInterval(3*numInInterval))
+              allocate(arcLength(numInInterval))
+              allocate(startArcLength(numInInterval))
+              allocate(rNew(3*numInInterval))
+
+              ! Take the slice of the nodal coordinates that corresponds to the
+              ! current subinterval for the start curve
+              rInterval = rStart(3*(node1-1)+1:3*node2)
+
+              ! Compute the normalized arc-lengths of this interval
+              call compute_arc_length(rInterval, numInInterval, startArcLength)
+
+              ! Get the current nodal coordinates
+              rInterval = rNext(3*(node1-1)+1:3*node2)
+
+              ! Compute the normalized arc-lengths of this interval
+              call compute_arc_length(rInterval, numInInterval, arcLength)
+
+              ! Redistribute the nodes
+              call redistribute_nodes_by_arc_length(rInterval, arcLength, startArcLength, numInInterval, rNew)
+
+              rNext_(3*(node1-1)+1:3*node2) = rNew
+
+              deallocate(rInterval, arcLength, startArcLength, rNew)
+
+            end do
+
+            ! Project the remeshed curve back onto the surface
+            call py_projection(rNext_, rNext, NNext, numNodes)
+
+            ! end if
 
             ! Save this final projected row for later use in the backwards
             ! derivative computation if it's the last one of the subiterations
@@ -359,8 +429,9 @@
         !=======================================================================
 
         subroutine march_d(py_projection, py_projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
-        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, R, Rd, fail, ratios, majorIndices)
+        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices,&
+        extension_given, numSmoothingPasses, numAreaPasses,&
+        numLayers, numNodes, numGuides, R, Rd, fail, ratios, majorIndices)
 
         use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d
         implicit none
@@ -375,6 +446,8 @@
         real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
         integer(kind=intType), intent(in) :: numSmoothingPasses
         logical, intent(in) :: extension_given
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
 
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
@@ -441,7 +514,8 @@
         ! But we still need to find Sm1
         Sm1d = 0.
         dd = 0.
-        call areaFactor_d(rNext, rNextd, d, dd, nuArea, numAreaPasses, bc1, bc2, numNodes, Sm1, Sm1d, maxStretch)
+        call areaFactor_d(rNext, rNextd, d, dd, nuArea, numAreaPasses,&
+        bc1, bc2, guideindices, numguides, numNodes, Sm1, Sm1d, maxStretch)
 
         fail = 0
         nSubIters = 0
@@ -458,7 +532,8 @@
 
           S0d = 0.
           ! Compute the new area factor for the desired marching distance
-          call areaFactor_d(r0, r0d, d, dd, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, S0d, maxStretch)
+          call areaFactor_d(r0, r0d, d, dd, nuArea, numAreaPasses, bc1, bc2,&
+          guideindices, numguides, numNodes, S0, S0d, maxStretch)
 
           ! The subiterations will use pseudo marching steps.
           ! If the required marching step is too large, the hyperbolic marching might become
@@ -479,7 +554,8 @@
 
             S0d = 0.
             ! Recompute areas with the pseudo-step
-            call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, S0d, maxStretch)
+            call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses,&
+            bc1, bc2, guideindices, numguides, numNodes, S0, S0d, maxStretch)
 
             ! March using the pseudo-marching distance
             eta = layerIndex+2
@@ -487,7 +563,7 @@
             rNextd = 0.
             call computeMatrices_main_d(r0, r0d, N0, N0d, S0, S0d, rm1, rm1d, &
             Sm1, Sm1d, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
-            numLayers, epsE0, rNext, rNextd, numNodes)
+            numLayers, epsE0, guideIndices, rNext, rNextd, numNodes, numGuides)
 
             rSmoothedd = 0.
             call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
@@ -538,8 +614,9 @@
 
         subroutine march_b(py_projection, rStart, rStartb, R_initial_march, R_smoothed, &
         R_final, N, majorIndices, dStart, theta, sigmaSplay, &
-        &   bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given, &
-        &   numSmoothingPasses, numAreaPasses, numLayers, numNodes, nSubIters, R, Rb, fail&
+        &   bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax,&
+        guideIndices, extension_given, numSmoothingPasses, numAreaPasses,&
+        numLayers, numNodes, nSubIters, numGuides, R, Rb, fail&
         &   , ratios)
 
           use hypsurfMain_b, only: computeMatrices_main_b, smoothing_main_b, areaFactor_b, findRadius_b, findRatio_b
@@ -559,6 +636,8 @@
           integer(kind=inttype), intent(in) :: numSmoothingPasses
           integer(kind=intType), intent(in) :: majorIndices(numLayers)
           logical, intent(in) :: extension_given
+          integer(kind=intType), intent(in) :: numGuides
+          integer(kind=intType), intent(in) :: guideIndices(numGuides)
 
           integer(kind=inttype), intent(out) :: fail
           real(kind=realtype), intent(out) :: rStartb(3*numNodes)
@@ -611,7 +690,8 @@
           ! Compute and store d and cFactor values for the backwards loop
           do layerIndex=1,numLayers-1
             r0 = R_final(minorIndex, :)
-            call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, numNodes, S0, maxStretch)
+            call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices,&
+            numGuides, numNodes, S0, maxStretch)
             cFactor = ceiling(maxStretch/cMax)
             cFactorVec(layerIndex) = cFactor
             d = d*dGrowth
@@ -691,13 +771,13 @@
 
               call computematrices_main_b(r0, r0b, N0, N0b, S0, S0b, rm1, rm1b&
         &                             , Sm1, Sm1b, arg1, theta, sigmaSplay, bc1&
-        &                             , bc2, numLayers, epsE0, rNext, rNextb, &
-        &                             numNodes)
+        &                             , bc2, numLayers, epsE0, guideIndices,&
+                                        rNext, rNextb, numNodes, numGuides)
               ! call popreal8array(S0, realtype*numNodes/8)
               S0 = S(minorIndex, :)
               call areaFactor_b(r0, r0b, dPseudo, dPseudob, nuArea, &
-        &                   numAreaPasses, bc1, bc2, numNodes, S0, S0b, &
-        &                   maxStretch)
+        &                   numAreaPasses, bc1, bc2, guideindices, &
+                            numGuides, numNodes, S0, S0b, maxStretch)
               rNextb = 0.0_8
               minorIndex = minorIndex - 1
             end do
@@ -714,8 +794,8 @@
             end if
 
             S0b = 0.0_8
-            call areaFactor_b(r0, r0b, d, db, nuArea, numAreaPasses, bc1, bc2&
-        &                 , numNodes, S0, S0b, maxStretch)
+            call areaFactor_b(r0, r0b, d, db, nuArea, numAreaPasses, bc1, bc2,&
+                              guideindices, numGuides, numNodes, S0, S0b, maxStretch)
             rNextb = rNextb + r0b
           end do
 
@@ -723,7 +803,7 @@
           db = 0.0_8
 
           call areaFactor_b(rNext, rNextb, d, db, nuArea, numAreaPasses, bc1, &
-        &               bc2, numNodes, Sm1, Sm1b, maxStretch)
+        &               bc2, guideindices, numguides, numNodes, Sm1, Sm1b, maxStretch)
 
           rNextb = rNextb + rm1b
 
@@ -761,7 +841,8 @@
 
         !=================================================================
 
-        subroutine computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
+        subroutine computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
+        sigmaSplay, bc1, bc2, guideIndices, numLayers, epsE0, rNext, numNodes, numGuides)
 
         implicit none
 
@@ -770,6 +851,9 @@
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
         real(kind=realType), intent(in) :: sigmaSplay, epsE0
         character*32, intent(in) :: bc1, bc2
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
+
         real(kind=realType), intent(out) :: rNext(3*numNodes)
 
         real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), dVec(3), dVec_rot(3), eye(3, 3)
@@ -780,14 +864,15 @@
         real(kind=realType) :: one, zero
 
         call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
-        sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, numNodes)
+        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, rNext, numNodes, numGuides)
 
         end subroutine computeMatrices
 
         !=======================================================================
 
         subroutine computeMatrices_b(r0, r0_b, N0, N0_b, S0, S0_b, rm1, rm1_b, Sm1,&
-        Sm1_b, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, rNext_b, numNodes)
+        Sm1_b, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices,&
+        rNext, rNext_b, numNodes, numGuides)
 
         use hypsurfmain_b, only: computematrices_main_b
         implicit none
@@ -797,6 +882,9 @@
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
         real(kind=realType), intent(in) :: sigmaSplay, epsE0, rNext_b(3*numNodes)
         character*32, intent(in) :: bc1, bc2
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
+
         real(kind=realType), intent(out) :: rNext(3*numNodes)
         real(kind=realType), intent(out) :: r0_b(3*numNodes), N0_b(3, numNodes), S0_b(numNodes)
         real(kind=realType), intent(out) :: rm1_b(3*numNodes), Sm1_b(numNodes)
@@ -809,14 +897,16 @@
         real(kind=realType) :: one, zero
 
         call computematrices_main_b(r0, r0_b, N0, N0_b, S0, S0_b, rm1, rm1_b, Sm1, Sm1_b,&
-        layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, rNext_b, numNodes)
+        layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices,&
+        rNext, rNext_b, numNodes, numGuides)
 
         end subroutine computeMatrices_b
 
         !=================================================================
 
         subroutine computeMatrices_d(r0, r0_d, N0, N0_d, S0, S0_d, rm1, rm1_d, Sm1,&
-        Sm1_d, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, rNext_d, numNodes)
+        Sm1_d, layerIndex, theta, sigmaSplay, bc1, bc2, guideIndices, numLayers,&
+        epsE0, rNext, rNext_d, numNodes, numGuides)
 
         use hypsurfmain_d, only: computematrices_main_d
         implicit none
@@ -826,9 +916,12 @@
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
         real(kind=realType), intent(in) :: sigmaSplay, epsE0
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(out) :: rNext(3*numNodes), rNext_d(3*numNodes)
+        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: guideIndices(numGuides)
         real(kind=realType), intent(in) :: r0_d(3*numNodes), N0_d(3, numNodes), S0_d(numNodes)
         real(kind=realType), intent(in) :: rm1_d(3*numNodes), Sm1_d(numNodes)
+
+        real(kind=realType), intent(out) :: rNext(3*numNodes), rNext_d(3*numNodes)
 
         real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), dVec(3), dVec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
@@ -838,7 +931,8 @@
         real(kind=realType) :: one, zero
 
         call computematrices_main_d(r0, r0_d, N0, N0_d, S0, S0_d, rm1, rm1_d, Sm1, Sm1_d,&
-        layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, rNext, rNext_d, numNodes)
+        layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices,&
+        rNext, rNext_d, numNodes, numGuides)
 
         end subroutine computeMatrices_d
 
