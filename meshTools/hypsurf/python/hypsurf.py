@@ -14,6 +14,7 @@ import pysurf
 
 fortran_flag = True
 deriv_check = True
+fortran_check = False # Rembember to set fortran_flag to False
 
 np.random.seed(123)
 
@@ -77,29 +78,27 @@ class HypSurfMesh(object):
         else:
             self.ref_curve2 = []
 
-        # Get the number of nodes
+        # Get the number of nodes and layers
         self.numNodes = self.curve.shape[0]
-        self.mesh = np.zeros((3, self.numNodes, self.optionsDict['numLayers']))
+        self.numLayers = self.optionsDict['numLayers']
+        self.mesh = np.zeros((3, self.numNodes, self.numLayers))
 
         # Initialize list to gather dictionary with projection information
         # that will be used to compute derivatives
-        stepSize = 1e-7
 
         self.projDict = []
         self.curveProjDict1 = []
         self.curveProjDict2 = []
 
-        self.coord = np.random.random_sample(self.ref_geom.coor.shape)
-        self.coord = self.coord/np.linalg.norm(self.coord)*stepSize
+        self.coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
         self.curveCoord = {}
         for curveName in self.ref_geom.curves:
-            self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
-            self.curveCoord[curveName] = self.curveCoord[curveName]/np.linalg.norm(self.curveCoord[curveName])*stepSize
+            self.curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
 
-        self.coorb = np.zeros(self.ref_geom.coor.shape)
+        self.coorb = np.array(np.zeros(self.ref_geom.coor.shape),order='F')
         self.curveCoorb = {}
         for curveName in self.ref_geom.curves:
-            self.curveCoorb[curveName] = np.zeros(self.ref_geom.curves[curveName].coor.shape)
+            self.curveCoorb[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
 
         # Detect nodes that should follow guide curves
         guideIndices = []
@@ -221,6 +220,11 @@ class HypSurfMesh(object):
         # the coordinates vector is flattened
         rStart = self.curve.flatten().astype(float)
 
+        # Clean the projection dictionaries
+        self.projDict = []
+        self.curveProjDict1 = []
+        self.curveProjDict2 = []
+
         if fortran_flag:
 
             # Perform the marching algorithm and output the results into R,
@@ -239,50 +243,69 @@ class HypSurfMesh(object):
 
             # Derivative check
             if deriv_check:
-                stepSize = 1e-7
 
-                rStartd = np.random.random_sample(rStart.shape)
-                # rStartd = rStartd/np.linalg.norm(rStartd)*stepSize
-                rStartd_copy = rStartd.copy()
+                # Normalize all forward derivatives
+                # Remember that each variable should be normalized independently
+                rStartd = np.array(np.random.random_sample(rStart.shape),order='F')
+                rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
 
-                # Set derivatives for underlying surfaces and curves
-                self.coord = np.random.random_sample(self.ref_geom.coor.shape)
-                self.coord = self.coord/np.linalg.norm(self.coord)*stepSize
-                self.curveCoord = {}
+                self.coord = self.coord/np.sqrt(np.sum(self.coord**2))
+
                 for curveName in self.ref_geom.curves:
-                    self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
-                    self.curveCoord[curveName] = self.curveCoord[curveName]/np.linalg.norm(self.curveCoord[curveName])*stepSize
+                    self.curveCoord[curveName] = self.curveCoord[curveName]/np.sqrt(np.sum(self.curveCoord[curveName]**2))
 
-                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+                rStartd_copy = rStartd.copy()
+                coord_copy = self.coord.copy()
+                curveCoord_copy = {}
+                for curveName in self.ref_geom.curves:
+                    curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
+
+
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 # Reverse mode
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
 
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
 
-                print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb), '(unless the surface is curved; don\'t have projections working)'
+                dotProduct = 0.0
+                dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
+                print dotProduct
+                dotProduct = dotProduct + np.sum(self.coord*self.coorb)
+                print dotProduct
+                for curveName in self.ref_geom.curves:
+                    dotProduct = dotProduct + np.sum(self.curveCoord[curveName]*self.curveCoorb[curveName])
+                print dotProduct
+                dotProduct = dotProduct - np.sum(Rd*Rb_copy)
+                print dotProduct
+
+                print ' Marching dot product test, this should be zero:', dotProduct, '(unless the surface is curved; don\'t have projections working)'
                 print
 
-                '''
                 # Finite difference
                 # Perform the marching algorithm and output the results into R,
                 # which contains the mesh.
                 # fail is a flag set to true if the marching algo failed
                 # ratios is the ratios of quality for the mesh
-                rStart_step = rStart+rStartd
-                self.ref_geom.coor = self.ref_geom.coor + self.coord
+                hypsurfAPI.hypsurfapi.releasememory()
+                stepSize = 1e-7
+                rStart_step = rStart+rStartd*stepSize
+                self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
                 for curveName in self.ref_geom.curves:
-                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]
-                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
-                self.ref_geom.coor = self.ref_geom.coor - self.coord
+                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+
+                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
+
+                self.ref_geom.update(self.ref_geom.coor - self.coord*stepSize)
                 for curveName in self.ref_geom.curves:
-                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]
+                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
 
                 Rd_FD = (R_step-R)/stepSize
-                print 'FD test'
-                print np.max(Rd_FD-Rd)
-                '''
+                for ii in [0,1,2,3,4,-1]:#len(Rd_FD[:,0])):
+                    print Rd_FD[ii,:]-Rd[ii,:]
+                print
+                print 'FD test:', np.max(Rd_FD-Rd)
 
             # Release the pseudomesh information from the hypsurfAPI instance
             hypsurfAPI.hypsurfapi.releasememory()
@@ -293,7 +316,7 @@ class HypSurfMesh(object):
             R = np.zeros((numLayers,len(rStart)))
 
             # Project onto the surface or curve (if applicable)
-            rNext, NNext = self.projection(rStart)
+            rNext, NNext = self.projection(rStart,1)
 
             # Initialize step size and total marched distance
             d = dStart
@@ -410,6 +433,25 @@ class HypSurfMesh(object):
             if self.optionsDict['plotQuality']:
                 fail, ratios = self.qualityCheck(R)
 
+        #=====================================
+
+        if fortran_check == True:
+
+            '''
+            Run the same case using the Fortran code to check if both codes give the same output
+            '''
+
+            # Run Fortran marching code
+            R_fortran, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
+
+            R_fortran = np.array(R_fortran)
+
+            # Compare differences
+            print R-R_fortran
+
+        # end if fortranCheck
+
+        #=====================================
         print time() - st, 'secs'
 
         if self.optionsDict['plotQuality']:
@@ -476,7 +518,7 @@ class HypSurfMesh(object):
         # Smooth coordinates
         rNext_ = self.smoothing(rNext,layerIndex+2)
 
-        rNext, NNext = self.projection(rNext_)
+        rNext, NNext = self.projection(rNext_,0)
 
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
@@ -509,12 +551,19 @@ class HypSurfMesh(object):
                 nodeID_offset = nodeID_offset + numNodes - 1
 
             # Project the remeshed curve back onto the surface
-            rNext, NNext = self.projection(rNext_)
+            rNext, NNext = self.projection(rNext_,0)
 
         # RETURNS
         return rNext, NNext
 
-    def projection(self, r):
+    def projection(self, r, storeDict):
+
+        '''
+        This function will project the nodes defined in r onto the reference geometry
+        used by the current mesh object. This function may also store the projection
+        dictionaries that should be used in derivative calculation. To avoid
+        storing any dictionaries, use storeDict = 0.
+        '''
 
         numNodes = int(r.shape[0] / 3)
 
@@ -553,7 +602,10 @@ class HypSurfMesh(object):
 
         return rNext, NNext
 
-    def projection_d(self, r, rd, rNext, NNext):
+    def projection_d(self, r, rd, rNext, NNext, layerID):
+
+        print 'projection_d'
+        print 'using ',layerID,' of ',len(self.projDict)-1
 
         # Save endpoints
         node1 = r[:3].reshape((1, 3))
@@ -562,7 +614,7 @@ class HypSurfMesh(object):
         node2d = rd[-3:].reshape((1, 3))
 
         # Pop the first projection dictionary from the list (since we are propagating derivatives forward)
-        projDict = self.projDict.pop(0)
+        projDict = self.projDict[layerID]
 
         # Project onto surface and compute surface normals
         rNextd, NNextd = self.ref_geom.project_on_surface_d(r.reshape((self.numNodes, 3)),
@@ -576,22 +628,62 @@ class HypSurfMesh(object):
 
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):
-            curveProjDict1 = self.curveProjDict1.pop(0)
+            curveProjDict1 = self.curveProjDict1[layerID]
             rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(node1, node1d,
-                                                                     self.curveCoord,
+                                                                     self.curveCoord[self.ref_curve1],
                                                                      rNext[:3], NNext[:,0],
                                                                      curveProjDict1)
             NNextd[:, 0] = NNextAuxd.T[:, 0]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
-            curveProjDict2 = self.curveProjDict2.pop(0)
+            curveProjDict2 = self.curveProjDict2[layerID]
             rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(node2, node2d,
-                                                                      self.curveCoord,
+                                                                      self.curveCoord[self.ref_curve1],
                                                                       rNext[-3:], NNext[:,-1],
                                                                       curveProjDict2)
             NNextd[:, -1] = NNextAuxd.T[:, -1]
 
         return rNextd, NNextd
+
+    def projection_b(self, r, rNext, rNextb, NNext, NNextb, layerID):
+
+        # Save endpoints
+        node1 = r[:3].reshape((1, 3))
+        node2 = r[-3:].reshape((1, 3))
+
+        # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
+        projDict = self.projDict[layerID]
+
+        # Project onto surface and compute surface normals
+        rb, coorb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
+                                                       rNext.reshape((self.numNodes, 3)),
+                                                       rNextb.reshape((self.numNodes, 3)),
+                                                       NNext.T,
+                                                       NNextb.T,
+                                                       projDict)
+
+        # Accumulate derivatives of the reference surface nodes
+        self.coorb = self.coorb + np.array(coorb,order='F')
+
+        # Reshape nodal derivatives
+        rb = rb.flatten()
+
+        # Replace end points if we use curve BCs
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            curveProjDict1 = self.curveProjDict1[layerID]
+            rb[:3], curveCoorb = self.ref_geom.project_on_curve_b(node1, rNext[:3], rNextb[:3],
+                                                                  NNext[:,0], NNextb[:,0],
+                                                                  curveProjDict1)
+            self.curveCoorb[self.ref_curve1] = self.curveCoorb[self.ref_curve1] + curveCoorb
+
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            curveProjDict2 = self.curveProjDict2[layerID]
+            rb[-3:], curveCoorb = self.ref_geom.project_on_curve_b(node2, rNext[-3:], rNextb[-3:],
+                                                                   NNext[:,-1], NNextb[:,-1],
+                                                                   curveProjDict2)
+            self.curveCoorb[self.ref_curve2] = self.curveCoorb[self.ref_curve2] + curveCoorb
+
+        return rb
 
     def areaFactor(self, r0, d):
 

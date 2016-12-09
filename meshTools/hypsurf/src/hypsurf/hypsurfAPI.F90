@@ -65,7 +65,7 @@
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
         real(kind=realType) :: extension, growthRatio
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
-        integer(kind=intType) :: arraySize, nAllocations
+        integer(kind=intType) :: arraySize, nAllocations, storeDict
 
         integer(kind=intType) :: breakNodes(numGuides+2), intervalID, node1, node2
         integer(kind=intType) :: numInInterval, numIntervals
@@ -82,7 +82,8 @@
         real(kind=realType), dimension(:,:, :), allocatable :: ext_N
 
         ! Project onto the surface or curve (if applicable)
-        call py_projection(rStart, rNext, NNext, numNodes)
+        storeDict = 1
+        call py_projection(rStart, rNext, NNext, storeDict, numNodes)
 
         ! Really only do this if we're remeshing
         breakNodes(1) = 1
@@ -218,7 +219,7 @@
             ! Save S0 into S for backwards derivative computation
             ext_S(nSubIters+1, :) = S0
 
-            ! Increase the number of intersections elements known so far
+            ! Increase the number of subiterations done so far
             nSubIters = nSubIters + 1
 
             ! Check if we already exceeded the memory allocated so far
@@ -306,7 +307,7 @@
             ! derivative computation if it's the last one of the subiterations
             ext_R_smoothed(nSubIters+1, :) = rSmoothed
 
-            call py_projection(rSmoothed, rNext, NNext, numNodes)
+            call py_projection(rSmoothed, rNext, NNext, storeDict, numNodes)
 
             rNext_(:) = 0.
 
@@ -349,7 +350,7 @@
               end do
 
               ! Project the remeshed curve back onto the surface
-              call py_projection(rNext_, rNext, NNext, numNodes)
+              call py_projection(rNext_, rNext, NNext, storeDict, numNodes)
 
             end if
 
@@ -358,7 +359,7 @@
             ext_R_final(nSubIters+1, :) = rNext
 
             ! Save N0 into N for backwards derivative computation
-            ext_N(nSubIters+1, :, :) = N0
+            ext_N(nSubIters+1, :, :) = NNext
 
             ! Update Sm1 (Store the previous area factors)
             Sm1 = S0
@@ -395,6 +396,7 @@
 
           ! Update step size
           d = d*dGrowth
+
         end do
 
         ! Crop extended array
@@ -428,7 +430,7 @@
 
         !=======================================================================
 
-        subroutine march_d(py_projection, py_projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
+        subroutine march_d(py_projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
         epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices, retainSpacing,&
         extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, numGuides, R, Rd, fail, ratios, majorIndices)
@@ -436,7 +438,6 @@
         use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d
         implicit none
 
-        external py_projection
         external py_projection_d
         real(kind=realType), intent(in) :: rStart(3*numNodes), rStartd(3*numNodes)
         real(kind=realType), intent(in) :: dStart, theta, sigmaSplay
@@ -462,7 +463,7 @@
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, extension
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
-        integer(kind=intType) :: arraySize, nAllocations
+        integer(kind=intType) :: arraySize, nAllocations, layerID
 
         ! Derivative variables
         real(kind=realType):: r0d(3*numNodes), N0d(3, numNodes), S0d(numNodes)
@@ -471,13 +472,15 @@
         real(kind=realType) :: r0d_copy(3*numNodes), dd, dGrowthd, dMaxd
         real(kind=realType) :: dStartd, radiusd, dPseudod
 
-        call py_projection(rStart, rNext, NNext, numNodes)
 
         ! Need py_projection_d here
-        ! call py_projection_d(rStart, rStartd, rNext, rNextd, NNext, NNextd, numNodes)
-        rNextd = rStartd
-        rNext = rStart
-        NNextd(:, :) = 0.
+        rNext = R_initial_march(1,:)
+        NNext = N(1,:,:)
+        layerID = 0
+        call py_projection_d(rStart, rStartd, rNext, rNextd, NNext, NNextd, layerID, numNodes)
+        !call py_projection_d(rStart, rStartd, R_initial_march(1,:), rNextd, N(1,:,:), NNextd, 0, numNodes)
+        !rNextd = rStartd
+        !NNextd = 0.0
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -528,6 +531,10 @@
         R(1, :) = rNext
 
         dd = 0.
+
+        ! Sub iteration counter
+        nSubIters = 0
+
         do layerIndex=1,numLayers-1
           ! Get the coordinates computed by the previous iteration
           r0d = rNextd
@@ -555,47 +562,57 @@
           ! The number of subiterations is the one required to meet the desired marching distance
           do indexSubIter=1,cFactor
 
-            S0d = 0.
-            ! Recompute areas with the pseudo-step
-            call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses,&
-            bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, S0, S0d, maxStretch)
+             ! Increment subiteration counter
+             nSubIters = nSubIters + 1
 
-            ! March using the pseudo-marching distance
-            eta = layerIndex+2
+             S0d = 0.
+             ! Recompute areas with the pseudo-step
+             call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses,&
+             bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, S0, S0d, maxStretch)
 
-            rNextd = 0.
-            call computeMatrices_main_d(r0, r0d, N0, N0d, S0, S0d, rm1, rm1d, &
-            Sm1, Sm1d, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
-            numLayers, epsE0, guideIndices, retainSpacing, rNext, rNextd, numNodes, numGuides)
+             ! March using the pseudo-marching distance
+             eta = layerIndex+2
 
-            rSmoothedd = 0.
-            call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
+             rNextd = 0.
+             call computeMatrices_main_d(r0, r0d, N0, N0d, S0, S0d, rm1, rm1d, &
+             Sm1, Sm1d, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
+             numLayers, epsE0, guideIndices, retainSpacing, rNext, rNextd, numNodes, numGuides)
 
-            call py_projection(rSmoothed, rNext, NNext, numNodes)
-            call py_projection_d(rSmoothed, rSmoothedd, rNext, rNextd, NNext, NNextd, numNodes)
-            rNext = rSmoothed
-            rNextd = rSmoothedd
-            NNext = N0
-            NNextd = N0d
+             rSmoothedd = 0.
+             call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
-            ! Update Sm1 (Store the previous area factors)
-            Sm1d = S0d
-            Sm1 = S0
+             rNext = R_final(nSubIters+1,:)
+             NNext = N(nSubIters+1,:,:)
+             rNextd = 0.0
+             NNextd = 0.0
 
-            ! Update rm1
-            rm1d = r0d
-            rm1 = r0
+             call py_projection_d(rSmoothed, rSmoothedd, &
+                  rNext, rNextd, &
+                  NNext, NNextd, &
+                  nSubIters, numNodes)
+             !rNext = rSmoothed
+             !rNextd = rSmoothedd
+             !NNext = N0
+             !NNextd = N0d
 
-            ! Update r0
-            r0d = rNextd
-            r0 = rNext
+             ! Update Sm1 (Store the previous area factors)
+             Sm1d = S0d
+             Sm1 = S0
 
-            ! Update the normals with the values computed in the last iteration.
-            ! We do this because the last iteration already projected the new
-            ! points to the surface and also computed the normals, so we don't
-            ! have to repeat the projection step
-            N0 = NNext
-            N0d = NNextd
+             ! Update rm1
+             rm1d = r0d
+             rm1 = r0
+
+             ! Update r0
+             r0d = rNextd
+             r0 = rNext
+
+             ! Update the normals with the values computed in the last iteration.
+             ! We do this because the last iteration already projected the new
+             ! points to the surface and also computed the normals, so we don't
+             ! have to repeat the projection step
+             N0 = NNext
+             N0d = NNextd
 
           end do
 
@@ -615,7 +632,7 @@
 
         !=======================================================================
 
-        subroutine march_b(py_projection, rStart, rStartb, R_initial_march, R_smoothed, &
+        subroutine march_b(py_projection_b, rStart, rStartb, R_initial_march, R_smoothed, &
         R_final, N, majorIndices, dStart, theta, sigmaSplay, &
         &   bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax,&
         guideIndices, retainSpacing, extension_given, numSmoothingPasses, numAreaPasses,&
@@ -625,7 +642,8 @@
           use hypsurfMain_b, only: computeMatrices_main_b, smoothing_main_b, areaFactor_b, findRadius_b, findRatio_b
           implicit none
 
-          external py_projection
+          !external py_projection
+          external py_projection_b
           integer(kind=inttype), intent(in) :: numNodes, numLayers, &
         &   numAreaPasses, nSubIters
           real(kind=realType), dimension(nSubIters, 3*numNodes), intent(in) :: R_initial_march, R_smoothed, R_final
@@ -656,51 +674,69 @@
         &   numNodes)
           real(kind=realtype) :: rm1b(3*numNodes), Sm1b(numNodes), rSmoothedb(&
         &   3*numNodes)
-          real(kind=realtype) :: rNext(3*numNodes), nNext(3, numNodes)
+          real(kind=realtype) :: rNext(3*numNodes), NNext(3, numNodes), NNextb(3, numNodes)
           real(kind=realtype) :: rNextb(3*numNodes)
           real(kind=realtype) :: rNext_in(3*numNodes)
           real(kind=realtype) :: dr(3*numNodes), d, dMax, dGrowth
           real(kind=realtype) :: db, dMaxb, dGrowthb, dVec(numLayers)
           real(kind=realtype) :: dPseudo, maxStretch, radius, eta
           real(kind=realtype) :: dPseudob, radiusb
-          integer(kind=inttype) :: layerIndex, indexSubIter, cFactor
+          integer(kind=inttype) :: layerIndex, indexSubIter, cFactor, layerID
           integer(kind=inttype) :: minorIndex, cFactorVec(numLayers)
           intrinsic int
-          integer :: arg1
+          integer :: arg1, ii
           integer :: ad_to
 
           ! Placeholder before we get projection_b
-          call py_projection(rStart, rNext, NNext, numNodes)
+          !call py_projection(rStart, rNext, NNext, numNodes)
+          rNext = R_initial_march(1,:)
+          NNext = N(1,:,:)
 
-        ! find the characteristic radius of the mesh
+          ! find the characteristic radius of the mesh
           call findradius(rNext, numNodes, radius)
 
-        ! find the desired marching distance
+          ! find the desired marching distance
           extension = marchParameter
           dMax = radius*(extension-1.)
 
-        ! compute the growth ratio necessary to match this distance
+          ! compute the growth ratio necessary to match this distance
           call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
 
           d = dStart
           cFactorVec = 0.
           dVec(1) = d
 
+          minorIndex = 1
           ! Compute and store d and cFactor values for the backwards loop
           do layerIndex=1,numLayers-1
-            call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
-            numGuides, numNodes, S0, maxStretch)
+            r0 = R_final(minorIndex, :)
+
+            call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+                 numGuides, numNodes, S0, maxStretch)
+
             cFactor = ceiling(maxStretch/cMax)
             cFactorVec(layerIndex) = cFactor
             d = d*dGrowth
             dVec(layerIndex+1) = d
+            minorIndex = minorIndex + cFactor
           end do
+
+          ! Get the normals of the very last projection step
+          ! because we did not store them in the forward pass
+          !rNext = R_final(nSubIters, :)
+          !call py_projection(rNext, rNext_dummy, NNext, numNodes)
+          rNext = R_final(nSubIters,:)
+          NNext = N(nSubIters,:,:)
 
           ! Initialize the seeds as 0s
           db = 0.0_8
           rNextb = 0.0_8
+          !S0b = 0.0_8
+          !NNextb = 0.0_8
           Sm1b = 0.0_8
+          !N0b = 0.0_8
           rm1b = 0.0_8
+          !rSmoothedb = 0.0_8
           dGrowthb = 0.0_8
 
           ! minorIndex is the index for the pseudomesh, which includes info
@@ -732,6 +768,7 @@
 
               ! call popreal8array(N0, realtype*3*numNodes/8)
               N0 = N(minorIndex, :, :)
+
               ! call popreal8array(r0, realtype*3*numNodes/8)
               r0 = R_final(minorIndex-1, :)
 
@@ -757,7 +794,11 @@
               ! call popreal8array(rNext, realtype*3*numNodes/8)
               rNext = R_initial_march(minorIndex, :)
 
-              rSmoothedb = rNextb
+              ! ADD PY_PROJ_B HERE!
+              !NNextb = NNextb + N0b
+              layerID = minorIndex - 1
+              call py_projection_b(rSmoothed, rSmoothedb, rNext, rNextb, NNext, NNextb, layerID, numNodes)
+              !rSmoothedb = rNextb
               eta = layerIndex + 2
 
               call smoothing_main_b(rNext, rNextb, eta, alphaP0, &
@@ -787,6 +828,11 @@
                             numGuides, numNodes, S0, S0b, maxStretch)
               rNextb = 0.0_8
               minorIndex = minorIndex - 1
+
+              ! Store normal information for next step
+              NNext = N0
+              NNextb = N0b
+
             end do
             db = db + dPseudob/cFactor
 
@@ -807,7 +853,6 @@
           end do
 
           rNextb = rNextb + rb(1, :)
-          ! rb(1, :) = 0.
           db = 0.0_8
 
           call areaFactor_b(rNext, rNextb, d, db, nuArea, numAreaPasses, bc1, &
@@ -815,15 +860,21 @@
 
           rNextb = rNextb + rm1b
 
-          call findRatio_b(dMax, dMaxb, dStart, dStartb, numLayers, ratioGuess&
-        &              , dGrowth, dGrowthb)
+          if (extension_given) then
 
-          radiusb = (extension-1.)*dMaxb
+            call findRatio_b(dMax, dMaxb, dStart, dStartb, numLayers, ratioGuess&
+          &              , dGrowth, dGrowthb)
 
-          call findRadius_b(rNext, rNextb, numNodes, radius, radiusb)
+            radiusb = (extension-1.)*dMaxb
+
+            call findRadius_b(rNext, rNextb, numNodes, radius, radiusb)
+          end if
 
           rStartb = 0.0_8
-          rStartb = rNextb
+
+          ! Use another projection step to backpropagate derivatives back to rStart
+          call py_projection_b(rStart, rStartb, rNext, rNextb, NNext, NNextb, 0, numNodes)
+          !rStartb = rNextb
 
         end subroutine march_b
 
