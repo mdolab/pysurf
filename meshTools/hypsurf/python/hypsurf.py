@@ -13,7 +13,9 @@ import hypsurfAPI
 import pysurf
 
 fortran_flag = True
-deriv_check = False
+deriv_check = True
+
+np.random.seed(123)
 
 '''
 TO DO
@@ -108,6 +110,16 @@ class HypSurfMesh(object):
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
         self.guideIndices = np.array(sorted(set(guideIndices)))
+
+        # Check to see if guideIndices were provided. If so, set retainSpacing
+        # as True and pass this to Fortran so we know to us the guideIndices.
+        # If we don't have some sort of logical and pass an array of [] to
+        # Fortran, it think it is length 1 and will try to access the
+        # non-meaningful memory.
+        if self.guideIndices:
+            self.retainSpacing = True
+        else:
+            self.retainSpacing = False
 
         # COMPUTE NORMALIZED ARC-LENGTHS
         # If we detect guide curves, we will record separate arc-lengths for
@@ -215,7 +227,7 @@ class HypSurfMesh(object):
             # which contains the mesh.
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
@@ -230,7 +242,7 @@ class HypSurfMesh(object):
                 stepSize = 1e-7
 
                 rStartd = np.random.random_sample(rStart.shape)
-                rStartd = rStartd/np.linalg.norm(rStartd)*stepSize
+                # rStartd = rStartd/np.linalg.norm(rStartd)*stepSize
                 rStartd_copy = rStartd.copy()
 
                 # Set derivatives for underlying surfaces and curves
@@ -241,13 +253,13 @@ class HypSurfMesh(object):
                     self.curveCoord[curveName] = np.random.random_sample(self.ref_geom.curves[curveName].coor.shape)
                     self.curveCoord[curveName] = self.curveCoord[curveName]/np.linalg.norm(self.curveCoord[curveName])*stepSize
 
-                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection, self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 # Reverse mode
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
 
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios, numLayers)
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
 
                 print ' Marching dot product test, this should be zero:', np.sum(Rd*Rb_copy) - np.sum(rStartd_copy*rStartb), '(unless the surface is curved; don\'t have projections working)'
                 print

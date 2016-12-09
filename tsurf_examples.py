@@ -10,12 +10,19 @@ from mpi4py import MPI
 import unittest
 import pickle
 
+deriv_check = True
+
+np.random.seed(123)
+
 class TestCreateMesh(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TestCreateMesh, self).__init__(*args, **kwargs)
         with open('examples_dict.pickle', 'r') as f:
             self.master_dict = pickle.load(f)
+
+        self.guideIndices = np.array([])
+        self.retainSpacing = False
 
     def test_kink_on_plate(self):
         example = 'kink_on_plate'
@@ -59,95 +66,95 @@ class TestCreateMesh(unittest.TestCase):
 
         self.create_mesh()
 
-        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+        # np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
 
-    def test_smoothed_kink_on_plate(self):
-        example = 'smoothed_kink_on_plate'
-
-        # Read inputs from CGNS file
-        self.geom = TSurfGeometry('examples/inputs/plate.cgns')
-
-        # Set source self.curve
-        self.curve = np.array([[0.,0,0],
-                       [1,1,0],
-                       [2,2,0],
-                       [3,2,0],
-                       [4,1,0],
-                       [5,0,0]])
-
-        # Flip self.curve to change marching direction
-        self.curve = self.curve[::-1,:]
-
-        # Define boundary conditions
-        self.bc1 = 'constX'
-        self.bc2 = 'constX'
-
-        # Set parameters
-        self.epsE0 = 1.0
-        self.theta = 0.0
-        self.alphaP0 = 0.25
-        self.numSmoothingPasses = 5
-        self.nuArea = 0.16
-        self.numAreaPasses = 0
-        self.sigmaSplay = 0.5
-        self.cMax = 20.0
-        self.ratioGuess = 20
-
-        # Options
-        self.sBaseline = 0.15
-        self.numLayers = 5
-        self.extension = 1.5
-
-        # Give layout file
-        self.layout_file = 'layout_plate.lay'
-
-        self.create_mesh()
-
-        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
-
-    def test_area_kink_on_plate(self):
-        example = 'area_kink_on_plate'
-
-        # Read inputs from CGNS file
-        self.geom = TSurfGeometry('examples/inputs/plate.cgns')
-
-        # Set source self.curve
-        self.curve = np.array([[0.,0,0],
-                       [1,1,0],
-                       [2,2,0],
-                       [3,2,0],
-                       [4,1,0],
-                       [5,0,0]])
-
-        # Flip self.curve to change marching direction
-        self.curve = self.curve[::-1,:]
-
-        # Define boundary conditions
-        self.bc1 = 'constX'
-        self.bc2 = 'constX'
-
-        # Set parameters
-        self.epsE0 = 1.0
-        self.theta = 0.0
-        self.alphaP0 = 0.25
-        self.numSmoothingPasses = 0
-        self.nuArea = 0.16
-        self.numAreaPasses = 5
-        self.sigmaSplay = 0.5
-        self.cMax = 20.0
-        self.ratioGuess = 20
-
-        # Options
-        self.sBaseline = 0.15
-        self.numLayers = 5
-        self.extension = 1.5
-
-        # Give layout file
-        self.layout_file = 'layout_plate.lay'
-
-        self.create_mesh()
-
-        np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+    # def test_smoothed_kink_on_plate(self):
+    #     example = 'smoothed_kink_on_plate'
+    #
+    #     # Read inputs from CGNS file
+    #     self.geom = TSurfGeometry('examples/inputs/plate.cgns')
+    #
+    #     # Set source self.curve
+    #     self.curve = np.array([[0.,0,0],
+    #                    [1,1,0],
+    #                    [2,2,0],
+    #                    [3,2,0],
+    #                    [4,1,0],
+    #                    [5,0,0]])
+    #
+    #     # Flip self.curve to change marching direction
+    #     self.curve = self.curve[::-1,:]
+    #
+    #     # Define boundary conditions
+    #     self.bc1 = 'constX'
+    #     self.bc2 = 'constX'
+    #
+    #     # Set parameters
+    #     self.epsE0 = 1.0
+    #     self.theta = 0.0
+    #     self.alphaP0 = 0.25
+    #     self.numSmoothingPasses = 5
+    #     self.nuArea = 0.16
+    #     self.numAreaPasses = 0
+    #     self.sigmaSplay = 0.5
+    #     self.cMax = 20.0
+    #     self.ratioGuess = 20
+    #
+    #     # Options
+    #     self.sBaseline = 0.15
+    #     self.numLayers = 5
+    #     self.extension = 1.5
+    #
+    #     # Give layout file
+    #     self.layout_file = 'layout_plate.lay'
+    #
+    #     self.create_mesh()
+    #
+    #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
+    #
+    # def test_area_kink_on_plate(self):
+    #     example = 'area_kink_on_plate'
+    #
+    #     # Read inputs from CGNS file
+    #     self.geom = TSurfGeometry('examples/inputs/plate.cgns')
+    #
+    #     # Set source self.curve
+    #     self.curve = np.array([[0.,0,0],
+    #                    [1,1,0],
+    #                    [2,2,0],
+    #                    [3,2,0],
+    #                    [4,1,0],
+    #                    [5,0,0]])
+    #
+    #     # Flip self.curve to change marching direction
+    #     self.curve = self.curve[::-1,:]
+    #
+    #     # Define boundary conditions
+    #     self.bc1 = 'constX'
+    #     self.bc2 = 'constX'
+    #
+    #     # Set parameters
+    #     self.epsE0 = 1.0
+    #     self.theta = 0.0
+    #     self.alphaP0 = 0.25
+    #     self.numSmoothingPasses = 0
+    #     self.nuArea = 0.16
+    #     self.numAreaPasses = 5
+    #     self.sigmaSplay = 0.5
+    #     self.cMax = 20.0
+    #     self.ratioGuess = 20
+    #
+    #     # Options
+    #     self.sBaseline = 0.15
+    #     self.numLayers = 5
+    #     self.extension = 1.5
+    #
+    #     # Give layout file
+    #     self.layout_file = 'layout_plate.lay'
+    #
+    #     self.create_mesh()
+    #
+    #     np.testing.assert_almost_equal(self.master_dict[example], self.mesh.mesh)
 
     # def test_line_on_cylinder(self):
     #     example = 'line_on_cylinder'
@@ -267,7 +274,7 @@ class TestCreateMesh(unittest.TestCase):
     #     self.geom = TSurfGeometry('examples/inputs/cube.cgns', MPI.COMM_WORLD) # mesh cube only
     #
     #     # Set problem
-    #     n = 40
+    #     n = 5#40
     #     nums = np.linspace(0.75, 0.25, n)
     #     x = nums
     #     y = nums #0.2*np.ones(n)
@@ -327,10 +334,9 @@ class TestCreateMesh(unittest.TestCase):
 
         hs = hypsurf.hypsurfAPI.hypsurfapi
 
-        if type(self.curve) == type('string'):
-
+        if deriv_check:
             ### DOT PRODUCT TEST FOR SMOOTHING
-            coor = self.geom.curves[self.curve].coor.reshape(-1, order='F')
+            coor = self.curve.reshape(-1, order='F')
             hs.smoothing(coor, 3., self.alphaP0, 1, self.numLayers)
 
             # FORWARD MODE
@@ -373,14 +379,14 @@ class TestCreateMesh(unittest.TestCase):
             rm1_d_copy = rm1_d.copy()
             sm1_d_copy = sm1_d.copy()
 
-            rnext, rnext_d = hs.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0)
+            rnext, rnext_d = hs.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, self.numLayers, self.epsE0)
 
             # REVERSE MODE
             rnext_b = np.random.random_sample(r0.shape)
 
             rnext_b_copy = rnext_b.copy()
 
-            r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0, rnext_b)
+            r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0, self.guideIndices, self.retainSpacing, rnext_b)
 
 
 
@@ -397,40 +403,28 @@ class TestCreateMesh(unittest.TestCase):
             print dotProd
 
 
-            # ### DOT PRODUCT TEST FOR AREAFACTOR
-            #
-            # # FORWARD MODE
-            # n = 4
-            # r0 = np.random.rand(3*n) * 10
-            # r0d = np.random.random_sample(r0.shape)
-            # r0d_copy = r0d.copy()
-            # S0, S0d, maxstretch = hs.areafactor_test_d(r0, r0d, .2, self.nuArea, self.numAreaPasses, self.bc1, self.bc2, n)
-            #
-            # # REVERSE MODE
-            # S0b = np.random.random_sample(S0.shape)
-            # S0b_copy = S0b.copy()
-            # r0b, S0, maxstretch = hs.areafactor_test_b(coor, .2, self.nuArea, self.numAreaPasses, self.bc1, self.bc2, S0b, n)
-            #
-            # print
-            # print 'Dot product test for Area Factor. This should be zero:'
-            # dotprod = np.sum(r0d_copy*r0b) - np.sum(S0d*S0b_copy)
-            # print dotprod
-            # print
-            # # np.testing.assert_almost_equal(dotprod, 0.)
-            #
-            #
-            #
-            # # FINITE DIFFERENCES TEST FOR AREAFACTOR
-            # step_size = 1e-5
-            # r0d = np.zeros(r0d.shape)
-            # r0d[0] = 1.
-            # r0d_copy = r0d.copy()
-            # S0, S0d_orig, maxstretch = hs.areafactor_test_d(r0, r0d, .2, self.nuArea, self.numAreaPasses, self.bc1, self.bc2, n)
-            # r0[0] += step_size
-            # S0_, S0d, maxstretch = hs.areafactor_test_d(r0, r0d, .2, self.nuArea, self.numAreaPasses, self.bc1, self.bc2, n)
-            # deriv = (S0_ - S0) / step_size
-            # print 'This should also be 0:', np.linalg.norm(deriv - S0d_orig)
+            ### DOT PRODUCT TEST FOR AREAFACTOR
 
+            # HARDCODED NUMBER OF AREA PASSES TO 5
+
+            # FORWARD MODE
+            n = 4
+            r0 = np.random.rand(3*n) * 10
+            r0d = np.random.random_sample(r0.shape)
+            r0d_copy = r0d.copy()
+            S0, S0d, maxstretch = hs.areafactor_test_d(r0, r0d, .2, 0, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing)
+
+            # REVERSE MODE
+            S0b = np.random.random_sample(S0.shape)
+            S0b_copy = S0b.copy()
+            r0b, db = hs.areafactor_test_b(r0, .2, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, S0, S0b, maxstretch)
+
+            print
+            print 'Dot product test for Area Factor. This should be zero:'
+            dotprod = np.sum(r0d_copy*r0b) - np.sum(S0d*S0b_copy)
+            print dotprod
+            print
+            # np.testing.assert_almost_equal(dotprod, 0.)
 
 
 

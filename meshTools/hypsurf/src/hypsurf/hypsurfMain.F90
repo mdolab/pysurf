@@ -28,7 +28,7 @@
         !=================================================================
 
         subroutine computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
-        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, f, numNodes, numGuides)
+        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, f, numNodes, numGuides)
 
 
         use solveRoutines, only: solve
@@ -42,6 +42,7 @@
         real(kind=realType), intent(out) :: f(3*numNodes)
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
+        logical, intent(in) :: retainSpacing
 
 
         real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
@@ -142,12 +143,16 @@
 
         do index=2,numNodes-1
 
-          guide = .false.
-          do i=1,numGuides
-            if (index .eq. guideIndices(i)) then
-              guide = .true.
-            end if
-          end do
+          if (retainSpacing) then
+            guide = .false.
+            do i=1,numGuides
+              if (index .eq. guideIndices(i)) then
+                guide = .true.
+              end if
+            end do
+          else
+            guide = .false.
+          end if
 
           if (guide) then
             K(3*(index-1)+1, 3*(index-1)+1) = one
@@ -515,7 +520,7 @@
         end subroutine dissipationCoefficients
 
         subroutine areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2,&
-        guideIndices, numGuides, n, S, maxStretch)
+        guideIndices, retainSpacing, numGuides, n, S, maxStretch)
 
         implicit none
 
@@ -523,9 +528,10 @@
         real(kind=realType), intent(in) :: r0(3*n), d, nuArea
         integer(kind=intType), intent(in) :: numAreaPasses
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(out) :: S(n), maxStretch
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
+        logical, intent(in) :: retainSpacing
+        real(kind=realType), intent(out) :: S(n), maxStretch
 
         real(kind=realType) :: r0_extrap(3*(2+n))
         real(kind=realType) :: neighborDist(n), norm_1(n), norm_2(n)
@@ -579,11 +585,13 @@
           S(n) = d
         end if
 
-        ! Set guideCurve marching distances
-        do i=1,numGuides
-          index = guideIndices(i)
-          S(index) = d
-        end do
+        if (retainSpacing) then
+          ! Set guideCurve marching distances
+          do i=1,numGuides
+            index = guideIndices(i)
+            S(index) = d
+          end do
+        end if
 
         end subroutine areaFactor
 
