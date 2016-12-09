@@ -32,7 +32,7 @@ contains
 !=================================================================
   subroutine computematrices_main_b(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
 &   , sm1, sm1b, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, guideindices, f, fb, numnodes, numguides)
+&   epse0, guideindices, retainspacing, f, fb, numnodes, numguides)
     use solveroutines, only : solve_b
     implicit none
     integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
@@ -49,6 +49,7 @@ contains
     real(kind=realtype) :: fb(3*numnodes)
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
+    logical, intent(in) :: retainspacing
     real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     real(kind=realtype) :: r_currb(3), r_nextb(3), r_prevb(3), d_vecb(3)&
@@ -66,6 +67,7 @@ contains
     zero = 0.
 ! initialize arrays
     k(:, :) = zero
+    call pushreal8array(f, realtype*3*numnodes/8)
     f(:) = zero
     eye(:, :) = zero
     do i=1,3
@@ -139,10 +141,14 @@ contains
     end if
     call pushinteger4array(index, inttype/4)
     do index=2,numnodes-1
-      guide = .false.
-      do i=1,numguides
-        if (index .eq. guideindices(i)) guide = .true.
-      end do
+      if (retainspacing) then
+        guide = .false.
+        do i=1,numguides
+          if (index .eq. guideindices(i)) guide = .true.
+        end do
+      else
+        guide = .false.
+      end if
       if (guide) then
         k(3*(index-1)+1, 3*(index-1)+1) = one
         k(3*(index-1)+2, 3*(index-1)+2) = one
@@ -236,8 +242,7 @@ contains
 ! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
     rhs = f
 ! note that this f is rnext when outputted from computematrices_main
-    r0b = 0.0_8
-    r0b = fb
+    r0b = r0b + fb
     kb = 0.0_8
     rhsb = 0.0_8
     call solve_b(k, kb, f, fb, rhs, rhsb, n, ipiv)
@@ -247,14 +252,12 @@ contains
       if (branch .eq. 0) then
         kb(3*(index-1)+1:3*numnodes, 1:3) = 0.0_8
         kb(3*(index-1)+1:3*numnodes, 3*(index-1)+1:3*numnodes) = 0.0_8
-        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
         d_vec_rotb = 0.0_8
         goto 100
       else if (branch .eq. 1) then
-        s0b = 0.0_8
         s0b(index) = s0b(index) + (1-sigmasplay)*fb(3*(index-1)+1)
         fb(3*(index-1)+1) = 0.0_8
         fb(3*(index-1)+1:3*index) = 0.0_8
@@ -291,7 +294,6 @@ contains
         kb(3*index-0, 3*(index-2)+3) = 0.0_8
         kb(3*index-0, 3*(index-2)+2) = 0.0_8
         kb(3*index-0, 3*(index-2)+1) = 0.0_8
-        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
@@ -307,7 +309,6 @@ contains
         kb(3*index-2, 3*(index-2)+3) = 0.0_8
         kb(3*index-2, 3*(index-2)+2) = 0.0_8
         kb(3*index-2, 3*(index-2)+1) = 0.0_8
-        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
@@ -321,13 +322,11 @@ contains
         kb(3*index-2, 3*(index-2)+3) = 0.0_8
         kb(3*index-2, 3*(index-2)+2) = 0.0_8
         kb(3*index-2, 3*(index-2)+1) = 0.0_8
-        s0b = 0.0_8
         sm1b = 0.0_8
         n0b = 0.0_8
         rm1b = 0.0_8
       end if
     else if (branch .eq. 5) then
-      s0b = 0.0_8
       n0b = 0.0_8
       s0b(index) = s0b(index) + sum(n0(:, index)*fb(3*index-2:))
       n0b(:, index) = n0b(:, index) + s0(index)*fb(3*index-2:3*numnodes)
@@ -340,7 +339,6 @@ contains
     else
       rm1b = 0.0_8
       n0b = 0.0_8
-      s0b = 0.0_8
       sm1b = 0.0_8
       call matrixbuilder_b(index, bc1, bc2, r0, r0b, rm1, rm1b, n0, n0b&
 &                    , s0, s0b, sm1, sm1b, numlayers, epse0, layerindex&
@@ -398,13 +396,14 @@ contains
         r0b(1:3) = r0b(1:3) + r_currb
       end if
     end if
+    call popreal8array(f, realtype*3*numnodes/8)
     fb = 0.0_8
   end subroutine computematrices_main_b
 !=================================================================
 !=================================================================
   subroutine computematrices_main(r0, n0, s0, rm1, sm1, layerindex, &
-&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, f, &
-&   numnodes, numguides)
+&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, &
+&   retainspacing, f, numnodes, numguides)
     use solveroutines, only : solve
     implicit none
     integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
@@ -417,6 +416,7 @@ contains
     real(kind=realtype), intent(out) :: f(3*numnodes)
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
+    logical, intent(in) :: retainspacing
     real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     real(kind=realtype) :: k(3*numnodes, 3*numnodes)
@@ -495,10 +495,14 @@ contains
 &                  numlayers, epse0, layerindex, theta, numnodes, k, f)
     end if
     do index=2,numnodes-1
-      guide = .false.
-      do i=1,numguides
-        if (index .eq. guideindices(i)) guide = .true.
-      end do
+      if (retainspacing) then
+        guide = .false.
+        do i=1,numguides
+          if (index .eq. guideindices(i)) guide = .true.
+        end do
+      else
+        guide = .false.
+      end if
       if (guide) then
         k(3*(index-1)+1, 3*(index-1)+1) = one
         k(3*(index-1)+2, 3*(index-1)+2) = one
@@ -1291,17 +1295,18 @@ contains
 !   with respect to varying inputs: d s r0
 !   rw status of diff variables: d:out s:in-zero r0:out
   subroutine areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, numguides, n, s, sb, maxstretch)
+&   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
     real(kind=realtype) :: r0b(3*n), db
     integer(kind=inttype), intent(in) :: numareapasses
     character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype) :: s(n), maxstretch
-    real(kind=realtype) :: sb(n)
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
+    logical, intent(in) :: retainspacing
+    real(kind=realtype) :: s(n), maxstretch
+    real(kind=realtype) :: sb(n)
     real(kind=realtype) :: r0_extrap(3*(2+n))
     real(kind=realtype) :: r0_extrapb(3*(2+n))
     real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
@@ -1339,18 +1344,20 @@ contains
       call pushcontrol1b(1)
     end if
     if (bc2(:5) .eq. 'curve') then
-      call pushcontrol1b(1)
-    else
       call pushcontrol1b(0)
+    else
+      call pushcontrol1b(1)
     end if
-    db = 0.0_8
-    do i=numguides,1,-1
-      index = guideindices(i)
-      db = db + sb(index)
-      sb(index) = 0.0_8
-    end do
+    if (retainspacing) then
+      do i=numguides,1,-1
+        index = guideindices(i)
+        db = db + sb(index)
+        sb(index) = 0.0_8
+      end do
+    else
+    end if
     call popcontrol1b(branch)
-    if (branch .ne. 0) then
+    if (branch .eq. 0) then
       db = db + sb(n)
       sb(n) = 0.0_8
     end if
@@ -1398,7 +1405,6 @@ contains
       r0_extrapb(3*index-2:3*index) = r0_extrapb(3*index-2:3*index) - &
 &       arg1b
     end do
-    r0b = 0.0_8
     r0b(3*(n-1)+1:3*n) = r0b(3*(n-1)+1:3*n) + 2*r0_extrapb(3*(n+1)+1:3*(&
 &     2+n))
     r0b(3*(n-2)+1:3*(n-1)) = r0b(3*(n-2)+1:3*(n-1)) - r0_extrapb(3*(n+1)&
@@ -1411,15 +1417,16 @@ contains
     sb = 0.0_8
   end subroutine areafactor_b
   subroutine areafactor(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, numguides, n, s, maxstretch)
+&   guideindices, retainspacing, numguides, n, s, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
     integer(kind=inttype), intent(in) :: numareapasses
     character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(out) :: s(n), maxstretch
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
+    logical, intent(in) :: retainspacing
+    real(kind=realtype), intent(out) :: s(n), maxstretch
     real(kind=realtype) :: r0_extrap(3*(2+n))
     real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
     real(kind=realtype) :: sminus, splus, stretchratio(n)
@@ -1463,11 +1470,13 @@ contains
 ! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     if (bc1(:5) .eq. 'curve') s(1) = d
     if (bc2(:5) .eq. 'curve') s(n) = d
+    if (retainspacing) then
 ! set guidecurve marching distances
-    do i=1,numguides
-      index = guideindices(i)
-      s(index) = d
-    end do
+      do i=1,numguides
+        index = guideindices(i)
+        s(index) = d
+      end do
+    end if
   end subroutine areafactor
 !  differentiation of smoothing_main in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: rout
@@ -1564,7 +1573,6 @@ contains
       end do
       routb = routb + r_smoothb
     end do
-    rb = 0.0_8
     rb = routb
     routb = 0.0_8
   end subroutine smoothing_main_b
@@ -1856,7 +1864,6 @@ contains
       minxb = 0.0_8
       maxxb = 0.0_8
     end if
-    rb = 0.0_8
     do i=numnodes,1,-1
       call popcontrol1b(branch)
       if (branch .eq. 0) then
@@ -2032,34 +2039,48 @@ contains
   end subroutine findratio
   subroutine compute_arc_length(r, nnodes, arclength)
     implicit none
-! ! store coordinates of the first node (the other nodes will be covered in the loop)
-! node1 = r(1:3)
-!
-! ! loop over each element to increment arclength
-! do nodeid=2,nnodes
-!
-!   ! get coordinates of the next node
-!   node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
-!
-!   ! compute distance between nodes
-!   call norm(node1 - node2, dist)
-!
-!   ! store nodal arc-length
-!   arclength(nodeid) = arclength(nodeid-1) + dist
-!
-!   ! store coordinates for the next loop
-!   node1 = node2
-!
-! end do
-!
-! ! normalize the arc-lengths
-! arclength = arclength/arclength(nnodes)
     integer(kind=inttype), intent(in) :: nnodes
     real(kind=realtype), intent(in) :: r(nnodes*3)
     real(kind=realtype), intent(out) :: arclength(nnodes)
     real(kind=realtype) :: node1(3), node2(3), dist
     integer(kind=inttype) :: nodeid
+    real(kind=realtype), dimension(3) :: arg1
+! store coordinates of the first node (the other nodes will be covered in the loop)
+    node1 = r(1:3)
+    arclength(1) = 0.
+! loop over each element to increment arclength
+    do nodeid=2,nnodes
+! get coordinates of the next node
+      node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
+! compute distance between nodes
+      arg1(:) = node1 - node2
+      call norm(arg1(:), dist)
+! store nodal arc-length
+      arclength(nodeid) = arclength(nodeid-1) + dist
+! store coordinates for the next loop
+      node1 = node2
+    end do
+! normalize the arc-lengths
+    arclength = arclength/arclength(nnodes)
   end subroutine compute_arc_length
+  subroutine redistribute_nodes_by_arc_length(r, arclength, &
+&   startarclength, nnodes, rnew)
+    implicit none
+    integer(kind=inttype), intent(in) :: nnodes
+    real(kind=realtype), intent(in) :: r(nnodes*3)
+    real(kind=realtype), intent(in) :: arclength(nnodes), startarclength&
+&   (nnodes)
+    real(kind=realtype), intent(out) :: rnew(nnodes*3)
+! interpolate new nodes
+! now we sample the new coordinates based on the interpolation method given by the user
+! create interpolants for x, y, and z
+    call interp1d(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
+&           startarclength, rnew(1:3*nnodes-2:3))
+    call interp1d(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
+&           startarclength, rnew(2:3*nnodes-1:3))
+    call interp1d(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
+&           startarclength, rnew(3:3*nnodes:3))
+  end subroutine redistribute_nodes_by_arc_length
   subroutine interp1d(m, data_num, t_data, p_data, interp_num, t_interp&
 &   , p_interp)
     implicit none

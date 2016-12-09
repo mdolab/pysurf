@@ -32,7 +32,7 @@ CONTAINS
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN_B(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
 &   , sm1, sm1b, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, guideindices, f, fb, numnodes, numguides)
+&   epse0, guideindices, retainspacing, f, fb, numnodes, numguides)
     USE SOLVEROUTINES, ONLY : solve
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -49,6 +49,7 @@ CONTAINS
     REAL(kind=realtype) :: fb(3*numnodes)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     REAL(kind=realtype) :: r_currb(3), r_nextb(3), r_prevb(3), d_vecb(3)&
@@ -141,10 +142,14 @@ CONTAINS
     END IF
     CALL PUSHINTEGER4ARRAY(index, inttype/4)
     DO index=2,numnodes-1
-      guide = .false.
-      DO i=1,numguides
-        IF (index .EQ. guideindices(i)) guide = .true.
-      END DO
+      IF (retainspacing) THEN
+        guide = .false.
+        DO i=1,numguides
+          IF (index .EQ. guideindices(i)) guide = .true.
+        END DO
+      ELSE
+        guide = .false.
+      END IF
       IF (guide) THEN
         k(3*(index-1)+1, 3*(index-1)+1) = one
         k(3*(index-1)+2, 3*(index-1)+2) = one
@@ -405,8 +410,8 @@ CONTAINS
 !=================================================================
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex, &
-&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, f, &
-&   numnodes, numguides)
+&   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, &
+&   retainspacing, f, numnodes, numguides)
     USE SOLVEROUTINES_B, ONLY : solve
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -419,6 +424,7 @@ CONTAINS
     REAL(kind=realtype), INTENT(OUT) :: f(3*numnodes)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
@@ -498,10 +504,14 @@ CONTAINS
 &                  numlayers, epse0, layerindex, theta, numnodes, k, f)
     END IF
     DO index=2,numnodes-1
-      guide = .false.
-      DO i=1,numguides
-        IF (index .EQ. guideindices(i)) guide = .true.
-      END DO
+      IF (retainspacing) THEN
+        guide = .false.
+        DO i=1,numguides
+          IF (index .EQ. guideindices(i)) guide = .true.
+        END DO
+      ELSE
+        guide = .false.
+      END IF
       IF (guide) THEN
         k(3*(index-1)+1, 3*(index-1)+1) = one
         k(3*(index-1)+2, 3*(index-1)+2) = one
@@ -1294,17 +1304,18 @@ CONTAINS
 !   with respect to varying inputs: d s r0
 !   RW status of diff variables: d:out s:in-zero r0:out
   SUBROUTINE AREAFACTOR_B(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, numguides, n, s, sb, maxstretch)
+&   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
     REAL(kind=realtype) :: r0b(3*n), db
     INTEGER(kind=inttype), INTENT(IN) :: numareapasses
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype) :: s(n), maxstretch
-    REAL(kind=realtype) :: sb(n)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    LOGICAL, INTENT(IN) :: retainspacing
+    REAL(kind=realtype) :: s(n), maxstretch
+    REAL(kind=realtype) :: sb(n)
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
     REAL(kind=realtype) :: r0_extrapb(3*(2+n))
     REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
@@ -1342,18 +1353,22 @@ CONTAINS
       CALL PUSHCONTROL1B(1)
     END IF
     IF (bc2(:5) .EQ. 'curve') THEN
-      CALL PUSHCONTROL1B(1)
-    ELSE
       CALL PUSHCONTROL1B(0)
+    ELSE
+      CALL PUSHCONTROL1B(1)
     END IF
-    db = 0.0_8
-    DO i=numguides,1,-1
-      index = guideindices(i)
-      db = db + sb(index)
-      sb(index) = 0.0_8
-    END DO
+    IF (retainspacing) THEN
+      db = 0.0_8
+      DO i=numguides,1,-1
+        index = guideindices(i)
+        db = db + sb(index)
+        sb(index) = 0.0_8
+      END DO
+    ELSE
+      db = 0.0_8
+    END IF
     CALL POPCONTROL1B(branch)
-    IF (branch .NE. 0) THEN
+    IF (branch .EQ. 0) THEN
       db = db + sb(n)
       sb(n) = 0.0_8
     END IF
@@ -1414,15 +1429,16 @@ CONTAINS
     sb = 0.0_8
   END SUBROUTINE AREAFACTOR_B
   SUBROUTINE AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, numguides, n, s, maxstretch)
+&   guideindices, retainspacing, numguides, n, s, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
     INTEGER(kind=inttype), INTENT(IN) :: numareapasses
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
+    LOGICAL, INTENT(IN) :: retainspacing
+    REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
     REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
     REAL(kind=realtype) :: sminus, splus, stretchratio(n)
@@ -1466,11 +1482,13 @@ CONTAINS
 ! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     IF (bc1(:5) .EQ. 'curve') s(1) = d
     IF (bc2(:5) .EQ. 'curve') s(n) = d
+    IF (retainspacing) THEN
 ! Set guideCurve marching distances
-    DO i=1,numguides
-      index = guideindices(i)
-      s(index) = d
-    END DO
+      DO i=1,numguides
+        index = guideindices(i)
+        s(index) = d
+      END DO
+    END IF
   END SUBROUTINE AREAFACTOR
 !  Differentiation of smoothing_main in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: rout
@@ -2035,34 +2053,48 @@ CONTAINS
   END SUBROUTINE FINDRATIO
   SUBROUTINE COMPUTE_ARC_LENGTH(r, nnodes, arclength)
     IMPLICIT NONE
-! ! Store coordinates of the first node (the other nodes will be covered in the loop)
-! node1 = r(1:3)
-!
-! ! Loop over each element to increment arcLength
-! do nodeID=2,nNodes
-!
-!   ! Get coordinates of the next node
-!   node2 = r(3*(nodeID-1)+1:3*(nodeID-1)+3)
-!
-!   ! Compute distance between nodes
-!   call norm(node1 - node2, dist)
-!
-!   ! Store nodal arc-length
-!   arcLength(nodeID) = arcLength(nodeID-1) + dist
-!
-!   ! Store coordinates for the next loop
-!   node1 = node2
-!
-! end do
-!
-! ! Normalize the arc-lengths
-! arcLength = arcLength/arcLength(nNodes)
     INTEGER(kind=inttype), INTENT(IN) :: nnodes
     REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
     REAL(kind=realtype), INTENT(OUT) :: arclength(nnodes)
     REAL(kind=realtype) :: node1(3), node2(3), dist
     INTEGER(kind=inttype) :: nodeid
+    REAL(kind=realtype), DIMENSION(3) :: arg1
+! Store coordinates of the first node (the other nodes will be covered in the loop)
+    node1 = r(1:3)
+    arclength(1) = 0.
+! Loop over each element to increment arcLength
+    DO nodeid=2,nnodes
+! Get coordinates of the next node
+      node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
+! Compute distance between nodes
+      arg1(:) = node1 - node2
+      CALL NORM(arg1(:), dist)
+! Store nodal arc-length
+      arclength(nodeid) = arclength(nodeid-1) + dist
+! Store coordinates for the next loop
+      node1 = node2
+    END DO
+! Normalize the arc-lengths
+    arclength = arclength/arclength(nnodes)
   END SUBROUTINE COMPUTE_ARC_LENGTH
+  SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH(r, arclength, &
+&   startarclength, nnodes, rnew)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes
+    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
+    REAL(kind=realtype), INTENT(IN) :: arclength(nnodes), startarclength&
+&   (nnodes)
+    REAL(kind=realtype), INTENT(OUT) :: rnew(nnodes*3)
+! INTERPOLATE NEW NODES
+! Now we sample the new coordinates based on the interpolation method given by the user
+! Create interpolants for x, y, and z
+    CALL INTERP1D(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
+&           startarclength, rnew(1:3*nnodes-2:3))
+    CALL INTERP1D(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
+&           startarclength, rnew(2:3*nnodes-1:3))
+    CALL INTERP1D(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
+&           startarclength, rnew(3:3*nnodes:3))
+  END SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH
   SUBROUTINE INTERP1D(m, data_num, t_data, p_data, interp_num, t_interp&
 &   , p_interp)
     IMPLICIT NONE
