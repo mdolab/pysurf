@@ -25,7 +25,6 @@ ransFile = '../crm_wb_L2.cgns' # specify the initial CFD grid
 # Default to comm world
 comm = MPI.COMM_WORLD
 
-
 # Constants
 in2m = 0.0254
 
@@ -37,6 +36,7 @@ xRef = 1325.90*in2m
 yRef =  468.75*in2m
 zRef =  177.95*in2m
 
+# Set guess for angle of attack
 alpha0 = 2.4
 
 # Common aerodynamic problem description and design variables
@@ -47,7 +47,6 @@ ap = AeroProblem(name='fc', alpha=alpha0,
 CLstar = 0.5
 
 ap.addDV('alpha')
-
 
 AEROSOLVER = ADFLOW
 
@@ -90,8 +89,8 @@ aeroOptions = {
     'nCyclesCoarse':2500,
     'nCycles':7500, # 7500,
     'monitorvariables':['resrho','resturb', 'cl','cd','cdp','cdv','cmy', 'cpu'],
-    'surfaceVariables':['vx','vy','vz','rho','P','cp','cf','cfx','cfy','cfz'],
-    'volumevariables':['resrho','mach','cp','resturb'],
+    'surfaceVariables':['vx','vy','vz','rho','P','cp','cf','cfx','cfy','cfz','blank'],
+    'volumevariables':['resrho','mach','cp','resturb','blank'],
     
     # NK parameters
     'useNKSolver':useNK,

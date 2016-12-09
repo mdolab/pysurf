@@ -224,17 +224,6 @@ contains
     x4b = x4b_partial - xb2full(10:12)
     xb = -xb2full(13:15)
 
-    print *,'x1b'
-    print *,x1b
-    print *,'x2b'
-    print *,x2b
-    print *,'x3b'
-    print *,x3b
-    print *,'x4b'
-    print *,x4b
-    print *,'xb'
-    print *,xb
-
   end subroutine quadProjection_b
 
 

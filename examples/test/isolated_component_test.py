@@ -12,7 +12,7 @@ from mpi4py import MPI
 import numpy as np
 
 # Load geometry
-cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
+cube = pysurf.TSurfGeometry('../inputs/cube.cgns', MPI.COMM_WORLD)
 
 # Define generic function to compute projections
 def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):

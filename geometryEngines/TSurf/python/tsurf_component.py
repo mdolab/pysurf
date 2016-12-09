@@ -211,7 +211,6 @@ class TSurfGeometry(Geometry):
                     'dist2':dist2,
                     'normProjNotNorm':normProjNotNorm}
 
-
         # Normalize the normals
         normProj = tst.normalize(normProjNotNorm)
 

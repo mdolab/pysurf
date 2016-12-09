@@ -16,7 +16,7 @@ guideCurves = ['curve_te_low']
 # Define translation cases for the wing
 nStates = 2
 
-wingTranslation = [[0.0, 0.0, 0.0]]
+wingTranslation = [[0.0, 0.0, 1.53]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -130,6 +130,13 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
                 else:
                     Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
                     Intersections[cur].flip()
+
+
+    # Check if we need to flip the curve
+    # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
+    #     Intersections[curveNames[0]].flip()
+    #     Intersections[curveNames[1]].flip()
+    #     Intersections[curveNames[2]].flip()
 
     # Merge curves
     mergedCurve = pysurf.tsurf_tools.merge_curves(Intersections,'intersection')
