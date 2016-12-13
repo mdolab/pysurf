@@ -1694,6 +1694,98 @@ contains
       stop
     end if
   end subroutine findratio
+!  differentiation of redistribute_nodes_by_arc_length in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: rremeshed
+!   with respect to varying inputs: r startarclength
+!   rw status of diff variables: r:in rremeshed:out startarclength:in
+  subroutine redistribute_nodes_by_arc_length_d(r, rd, startarclength, &
+&   startarclengthd, nnodes, rremeshed, rremeshedd)
+    implicit none
+    integer(kind=inttype), intent(in) :: nnodes
+    real(kind=realtype), intent(in) :: r(nnodes*3)
+    real(kind=realtype), intent(in) :: rd(nnodes*3)
+    real(kind=realtype), intent(in) :: startarclength(nnodes)
+    real(kind=realtype), intent(in) :: startarclengthd(nnodes)
+    real(kind=realtype), intent(out) :: rremeshed(nnodes*3)
+    real(kind=realtype), intent(out) :: rremeshedd(nnodes*3)
+    real(kind=realtype) :: arclength(nnodes)
+    real(kind=realtype) :: arclengthd(nnodes)
+! compute arclengths of the original curve
+    call compute_arc_length_d(r, rd, nnodes, arclength, arclengthd)
+! interpolate new nodes
+! now we sample the new coordinates based on the interpolation method given by the user
+! create interpolants for x, y, and z
+    rremeshedd = 0.0_8
+    call interp1d_d(1, nnodes, arclength, arclengthd, r(1:3*nnodes-2:3)&
+&             , rd(1:3*nnodes-2:3), nnodes, startarclength, &
+&             startarclengthd, rremeshed(1:3*nnodes-2:3), rremeshedd(1:3&
+&             *nnodes-2:3))
+    call interp1d_d(1, nnodes, arclength, arclengthd, r(2:3*nnodes-1:3)&
+&             , rd(2:3*nnodes-1:3), nnodes, startarclength, &
+&             startarclengthd, rremeshed(2:3*nnodes-1:3), rremeshedd(2:3&
+&             *nnodes-1:3))
+    call interp1d_d(1, nnodes, arclength, arclengthd, r(3:3*nnodes:3), &
+&             rd(3:3*nnodes:3), nnodes, startarclength, startarclengthd&
+&             , rremeshed(3:3*nnodes:3), rremeshedd(3:3*nnodes:3))
+  end subroutine redistribute_nodes_by_arc_length_d
+!  differentiation of compute_arc_length in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: arclength
+!   with respect to varying inputs: r
+!   rw status of diff variables: r:in arclength:out
+  subroutine compute_arc_length_d(r, rd, nnodes, arclength, arclengthd)
+    implicit none
+    integer(kind=inttype), intent(in) :: nnodes
+    real(kind=realtype), intent(in) :: r(nnodes*3)
+    real(kind=realtype), intent(in) :: rd(nnodes*3)
+    real(kind=realtype), intent(out) :: arclength(nnodes)
+    real(kind=realtype), intent(out) :: arclengthd(nnodes)
+    real(kind=realtype) :: node1(3), node2(3), dist
+    real(kind=realtype) :: node1d(3), node2d(3), distd
+    integer(kind=inttype) :: nodeid
+! store coordinates of the first node (the other nodes will be covered in the loop)
+    node1d = rd(1:3)
+    node1 = r(1:3)
+    arclength(1) = 0.
+    arclengthd = 0.0_8
+! loop over each element to increment arclength
+    do nodeid=2,nnodes
+! get coordinates of the next node
+      node2d = rd(3*(nodeid-1)+1:3*(nodeid-1)+3)
+      node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
+! compute distance between nodes
+      call norm_d0(node1 - node2, node1d - node2d, dist, distd)
+! store nodal arc-length
+      arclengthd(nodeid) = arclengthd(nodeid-1) + distd
+      arclength(nodeid) = arclength(nodeid-1) + dist
+! store coordinates for the next loop
+      node1d = node2d
+      node1 = node2
+    end do
+! normalize the arc-lengths
+    arclengthd = (arclengthd*arclength(nnodes)-arclength*arclengthd(&
+&     nnodes))/arclength(nnodes)**2
+    arclength = arclength/arclength(nnodes)
+  end subroutine compute_arc_length_d
+  subroutine redistribute_nodes_by_arc_length(r, startarclength, nnodes&
+&   , rremeshed)
+    implicit none
+    integer(kind=inttype), intent(in) :: nnodes
+    real(kind=realtype), intent(in) :: r(nnodes*3)
+    real(kind=realtype), intent(in) :: startarclength(nnodes)
+    real(kind=realtype), intent(out) :: rremeshed(nnodes*3)
+    real(kind=realtype) :: arclength(nnodes)
+! compute arclengths of the original curve
+    call compute_arc_length(r, nnodes, arclength)
+! interpolate new nodes
+! now we sample the new coordinates based on the interpolation method given by the user
+! create interpolants for x, y, and z
+    call interp1d(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
+&           startarclength, rremeshed(1:3*nnodes-2:3))
+    call interp1d(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
+&           startarclength, rremeshed(2:3*nnodes-1:3))
+    call interp1d(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
+&           startarclength, rremeshed(3:3*nnodes:3))
+  end subroutine redistribute_nodes_by_arc_length
   subroutine compute_arc_length(r, nnodes, arclength)
     implicit none
     integer(kind=inttype), intent(in) :: nnodes
@@ -1718,24 +1810,46 @@ contains
 ! normalize the arc-lengths
     arclength = arclength/arclength(nnodes)
   end subroutine compute_arc_length
-  subroutine redistribute_nodes_by_arc_length(r, arclength, &
-&   startarclength, nnodes, rnew)
+!  differentiation of interp1d in forward (tangent) mode (with options i4 dr8 r8):
+!   variations   of useful results: p_interp
+!   with respect to varying inputs: p_interp p_data t_data t_interp
+  subroutine interp1d_d(m, data_num, t_data, t_datad, p_data, p_datad, &
+&   interp_num, t_interp, t_interpd, p_interp, p_interpd)
     implicit none
-    integer(kind=inttype), intent(in) :: nnodes
-    real(kind=realtype), intent(in) :: r(nnodes*3)
-    real(kind=realtype), intent(in) :: arclength(nnodes), startarclength&
-&   (nnodes)
-    real(kind=realtype), intent(out) :: rnew(nnodes*3)
-! interpolate new nodes
-! now we sample the new coordinates based on the interpolation method given by the user
-! create interpolants for x, y, and z
-    call interp1d(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
-&           startarclength, rnew(1:3*nnodes-2:3))
-    call interp1d(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
-&           startarclength, rnew(2:3*nnodes-1:3))
-    call interp1d(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
-&           startarclength, rnew(3:3*nnodes:3))
-  end subroutine redistribute_nodes_by_arc_length
+    integer(kind=inttype) :: data_num
+    integer(kind=inttype) :: m
+    integer(kind=inttype) :: interp_num
+    integer(kind=inttype) :: interp
+    integer(kind=inttype) :: left
+    real(kind=realtype) :: p_data(data_num)
+    real(kind=realtype) :: p_datad(data_num)
+    real(kind=realtype) :: p_interp(interp_num)
+    real(kind=realtype) :: p_interpd(interp_num)
+    integer(kind=inttype) :: right
+    real(kind=realtype) :: t
+    real(kind=realtype) :: td
+    real(kind=realtype) :: t_data(data_num)
+    real(kind=realtype) :: t_datad(data_num)
+    real(kind=realtype) :: t_interp(interp_num)
+    real(kind=realtype) :: t_interpd(interp_num)
+    do interp=1,interp_num
+      td = t_interpd(interp)
+      t = t_interp(interp)
+!
+!  find the interval [ tdata(left), tdata(right) ] that contains, or is
+!  nearest to, tval.
+!
+      call r8vec_bracket(data_num, t_data, t, left, right)
+      p_interpd(interp) = (((t_datad(right)-td)*p_data(left)+(t_data(&
+&       right)-t)*p_datad(left)+(td-t_datad(left))*p_data(right)+(t-&
+&       t_data(left))*p_datad(right))*(t_data(right)-t_data(left))-((&
+&       t_data(right)-t)*p_data(left)+(t-t_data(left))*p_data(right))*(&
+&       t_datad(right)-t_datad(left)))/(t_data(right)-t_data(left))**2
+      p_interp(interp) = ((t_data(right)-t)*p_data(left)+(t-t_data(left)&
+&       )*p_data(right))/(t_data(right)-t_data(left))
+    end do
+    return
+  end subroutine interp1d_d
   subroutine interp1d(m, data_num, t_data, p_data, interp_num, t_interp&
 &   , p_interp)
     implicit none

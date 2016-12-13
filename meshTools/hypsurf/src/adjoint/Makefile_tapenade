@@ -64,7 +64,7 @@ ad_forward:
 	findRatio(dMax d0) > (q) \
 	march_main(rstart) > (R) \
 	compute_arc_length(r) > (arcLength) \
-	redistribute_nodes_by_arc_length(r, startArcLength) > (rNew)" ../hypsurf/hypsurfMain.F90 \
+	redistribute_nodes_by_arc_length(r, startArcLength) > (rRemeshed)" ../hypsurf/hypsurfMain.F90 \
 	-forward $(TAPENADE_PRECISION) \
 	-O temp_forward $(I_RES_FILES)
 
@@ -91,7 +91,9 @@ ad_reverse:
 	areaFactor(r0 d) > (S) \
 	findRadius(r) > (radius) \
 	findRatio(dMax d0) > (q) \
-	march_main(rstart) > (R)" ../hypsurf/hypsurfMain.F90 \
+	march_main(rstart) > (R) \
+	compute_arc_length(r) > (arcLength) \
+	redistribute_nodes_by_arc_length(r, startArcLength) > (rRemeshed)" ../hypsurf/hypsurfMain.F90 \
 	-reverse $(TAPENADE_PRECISION) \
 	-O temp_reverse $(I_RES_FILES)
 

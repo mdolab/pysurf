@@ -2051,6 +2051,122 @@ CONTAINS
       STOP
     END IF
   END SUBROUTINE FINDRATIO
+!  Differentiation of redistribute_nodes_by_arc_length in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: rremeshed
+!   with respect to varying inputs: r rremeshed startarclength
+!   RW status of diff variables: r:out rremeshed:in-out startarclength:out
+  SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH_B(r, rb, startarclength, &
+&   startarclengthb, nnodes, rremeshed, rremeshedb)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes
+    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
+    REAL(kind=realtype) :: rb(nnodes*3)
+    REAL(kind=realtype), INTENT(IN) :: startarclength(nnodes)
+    REAL(kind=realtype) :: startarclengthb(nnodes)
+    REAL(kind=realtype) :: rremeshed(nnodes*3)
+    REAL(kind=realtype) :: rremeshedb(nnodes*3)
+    REAL(kind=realtype) :: arclength(nnodes)
+    REAL(kind=realtype) :: arclengthb(nnodes)
+! COMPUTE ARCLENGTHS OF THE ORIGINAL CURVE
+    CALL PUSHREAL8ARRAY(arclength, realtype*nnodes/8)
+    CALL COMPUTE_ARC_LENGTH(r, nnodes, arclength)
+! INTERPOLATE NEW NODES
+! Now we sample the new coordinates based on the interpolation method given by the user
+! Create interpolants for x, y, and z
+    arclengthb = 0.0_8
+    rb = 0.0_8
+    startarclengthb = 0.0_8
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, r(3:3*nnodes:3), &
+&             rb(3:3*nnodes:3), nnodes, startarclength, startarclengthb&
+&             , rremeshed(3:3*nnodes:3), rremeshedb(3:3*nnodes:3))
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, r(2:3*nnodes-1:3)&
+&             , rb(2:3*nnodes-1:3), nnodes, startarclength, &
+&             startarclengthb, rremeshed(2:3*nnodes-1:3), rremeshedb(2:3&
+&             *nnodes-1:3))
+    CALL INTERP1D_B(1, nnodes, arclength, arclengthb, r(1:3*nnodes-2:3)&
+&             , rb(1:3*nnodes-2:3), nnodes, startarclength, &
+&             startarclengthb, rremeshed(1:3*nnodes-2:3), rremeshedb(1:3&
+&             *nnodes-2:3))
+    CALL POPREAL8ARRAY(arclength, realtype*nnodes/8)
+    CALL COMPUTE_ARC_LENGTH_B(r, rb, nnodes, arclength, arclengthb)
+  END SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH_B
+!  Differentiation of compute_arc_length in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: r arclength
+!   with respect to varying inputs: r arclength
+!   RW status of diff variables: r:incr arclength:in-out
+  SUBROUTINE COMPUTE_ARC_LENGTH_B(r, rb, nnodes, arclength, arclengthb)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes
+    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
+    REAL(kind=realtype) :: rb(nnodes*3)
+    REAL(kind=realtype) :: arclength(nnodes)
+    REAL(kind=realtype) :: arclengthb(nnodes)
+    REAL(kind=realtype) :: node1(3), node2(3), dist
+    REAL(kind=realtype) :: node1b(3), node2b(3), distb
+    INTEGER(kind=inttype) :: nodeid
+    REAL(kind=realtype), DIMENSION(3) :: arg1
+    REAL(kind=realtype), DIMENSION(3) :: arg1b
+    REAL(kind=realtype), DIMENSION(nnodes) :: tmp
+    REAL(kind=realtype) :: tmpb(nnodes)
+    REAL(kind=realtype) :: tempb(nnodes)
+! Store coordinates of the first node (the other nodes will be covered in the loop)
+    node1 = r(1:3)
+    arclength(1) = 0.
+! Loop over each element to increment arcLength
+    DO nodeid=2,nnodes
+! Get coordinates of the next node
+      node2 = r(3*(nodeid-1)+1:3*(nodeid-1)+3)
+! Compute distance between nodes
+      CALL PUSHREAL8ARRAY(arg1, realtype*3/8)
+      arg1(:) = node1 - node2
+      CALL NORM(arg1(:), dist)
+! Store nodal arc-length
+      arclength(nodeid) = arclength(nodeid-1) + dist
+! Store coordinates for the next loop
+      node1 = node2
+    END DO
+    tmpb = arclengthb
+    tempb = tmpb/arclength(nnodes)
+    arclengthb = tempb
+    arclengthb(nnodes) = arclengthb(nnodes) + SUM(-(arclength*tempb/&
+&     arclength(nnodes)))
+    node1b = 0.0_8
+    DO nodeid=nnodes,2,-1
+      arclengthb(nodeid-1) = arclengthb(nodeid-1) + arclengthb(nodeid)
+      distb = arclengthb(nodeid)
+      CALL NORM_B0(arg1(:), arg1b(:), dist, distb)
+      node2b = 0.0_8
+      node2b = node1b - arg1b(:)
+      arclengthb(nodeid) = 0.0_8
+      node1b = 0.0_8
+      CALL POPREAL8ARRAY(arg1, realtype*3/8)
+      node1b = arg1b(:)
+      rb(3*(nodeid-1)+1:3*(nodeid-1)+3) = rb(3*(nodeid-1)+1:3*(nodeid-1)&
+&       +3) + node2b
+    END DO
+    arclengthb(1) = 0.0_8
+    rb(1:3) = rb(1:3) + node1b
+  END SUBROUTINE COMPUTE_ARC_LENGTH_B
+  SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH(r, startarclength, nnodes&
+&   , rremeshed)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: nnodes
+    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
+    REAL(kind=realtype), INTENT(IN) :: startarclength(nnodes)
+    REAL(kind=realtype), INTENT(OUT) :: rremeshed(nnodes*3)
+    REAL(kind=realtype) :: arclength(nnodes)
+! COMPUTE ARCLENGTHS OF THE ORIGINAL CURVE
+    CALL COMPUTE_ARC_LENGTH(r, nnodes, arclength)
+! INTERPOLATE NEW NODES
+! Now we sample the new coordinates based on the interpolation method given by the user
+! Create interpolants for x, y, and z
+    CALL INTERP1D(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
+&           startarclength, rremeshed(1:3*nnodes-2:3))
+    CALL INTERP1D(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
+&           startarclength, rremeshed(2:3*nnodes-1:3))
+    CALL INTERP1D(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
+&           startarclength, rremeshed(3:3*nnodes:3))
+  END SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH
   SUBROUTINE COMPUTE_ARC_LENGTH(r, nnodes, arclength)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: nnodes
@@ -2077,24 +2193,56 @@ CONTAINS
 ! Normalize the arc-lengths
     arclength = arclength/arclength(nnodes)
   END SUBROUTINE COMPUTE_ARC_LENGTH
-  SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH(r, arclength, &
-&   startarclength, nnodes, rnew)
+!  Differentiation of interp1d in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: p_interp p_data t_data t_interp
+!   with respect to varying inputs: p_interp p_data t_data t_interp
+  SUBROUTINE INTERP1D_B(m, data_num, t_data, t_datab, p_data, p_datab, &
+&   interp_num, t_interp, t_interpb, p_interp, p_interpb)
     IMPLICIT NONE
-    INTEGER(kind=inttype), INTENT(IN) :: nnodes
-    REAL(kind=realtype), INTENT(IN) :: r(nnodes*3)
-    REAL(kind=realtype), INTENT(IN) :: arclength(nnodes), startarclength&
-&   (nnodes)
-    REAL(kind=realtype), INTENT(OUT) :: rnew(nnodes*3)
-! INTERPOLATE NEW NODES
-! Now we sample the new coordinates based on the interpolation method given by the user
-! Create interpolants for x, y, and z
-    CALL INTERP1D(1, nnodes, arclength, r(1:3*nnodes-2:3), nnodes, &
-&           startarclength, rnew(1:3*nnodes-2:3))
-    CALL INTERP1D(1, nnodes, arclength, r(2:3*nnodes-1:3), nnodes, &
-&           startarclength, rnew(2:3*nnodes-1:3))
-    CALL INTERP1D(1, nnodes, arclength, r(3:3*nnodes:3), nnodes, &
-&           startarclength, rnew(3:3*nnodes:3))
-  END SUBROUTINE REDISTRIBUTE_NODES_BY_ARC_LENGTH
+    INTEGER(kind=inttype) :: data_num
+    INTEGER(kind=inttype) :: m
+    INTEGER(kind=inttype) :: interp_num
+    INTEGER(kind=inttype) :: interp
+    INTEGER(kind=inttype) :: left
+    REAL(kind=realtype) :: p_data(data_num)
+    REAL(kind=realtype) :: p_datab(data_num)
+    REAL(kind=realtype) :: p_interp(interp_num)
+    REAL(kind=realtype) :: p_interpb(interp_num)
+    INTEGER(kind=inttype) :: right
+    REAL(kind=realtype) :: t
+    REAL(kind=realtype) :: tb
+    REAL(kind=realtype) :: t_data(data_num)
+    REAL(kind=realtype) :: t_datab(data_num)
+    REAL(kind=realtype) :: t_interp(interp_num)
+    REAL(kind=realtype) :: t_interpb(interp_num)
+    REAL(kind=realtype) :: tempb0
+    REAL(kind=realtype) :: tempb
+    DO interp=1,interp_num
+      t = t_interp(interp)
+!
+!  Find the interval [ TDATA(LEFT), TDATA(RIGHT) ] that contains, or is
+!  nearest to, TVAL.
+!
+      CALL PUSHINTEGER4ARRAY(right, inttype/4)
+      CALL PUSHINTEGER4ARRAY(left, inttype/4)
+      CALL R8VEC_BRACKET(data_num, t_data, t, left, right)
+    END DO
+    DO interp=interp_num,1,-1
+      t = t_interp(interp)
+      tempb = p_interpb(interp)/(t_data(right)-t_data(left))
+      tempb0 = -(((t_data(right)-t)*p_data(left)+(t-t_data(left))*p_data&
+&       (right))*tempb/(t_data(right)-t_data(left)))
+      t_datab(right) = t_datab(right) + tempb0 + p_data(left)*tempb
+      tb = (p_data(right)-p_data(left))*tempb
+      p_datab(left) = p_datab(left) + (t_data(right)-t)*tempb
+      t_datab(left) = t_datab(left) - tempb0 - p_data(right)*tempb
+      p_datab(right) = p_datab(right) + (t-t_data(left))*tempb
+      p_interpb(interp) = 0.0_8
+      CALL POPINTEGER4ARRAY(left, inttype/4)
+      CALL POPINTEGER4ARRAY(right, inttype/4)
+      t_interpb(interp) = t_interpb(interp) + tb
+    END DO
+  END SUBROUTINE INTERP1D_B
   SUBROUTINE INTERP1D(m, data_num, t_data, p_data, interp_num, t_interp&
 &   , p_interp)
     IMPLICIT NONE
