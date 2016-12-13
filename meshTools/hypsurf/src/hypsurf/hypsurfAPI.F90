@@ -21,10 +21,16 @@
       use precision
       implicit none
 
-      real(kind=realType), dimension(:,:), allocatable :: R_initial_march
+      ! R_initial_march(i) has the nodes of layer i right after the solution of the linear system of the previous layer
+      real(kind=realType), dimension(:,:), allocatable :: R_initial_march 
+      ! R_smoothed(i) has the nodes of layer i after the smoothing step
       real(kind=realType), dimension(:,:), allocatable :: R_smoothed
+      ! R_final(i) has the nodes of layer i after the first projection step
+      real(kind=realType), dimension(:,:), allocatable :: R_projected
+      ! R_final(i) has the nodes of layer i after the projection step
       real(kind=realType), dimension(:,:), allocatable :: R_final
-      real(kind=realType), dimension(:,:), allocatable :: S
+
+      real(kind=realType), dimension(:,:), allocatable :: Sm1_hist
       real(kind=realType), dimension(:,:, :), allocatable :: N
 
 
@@ -78,7 +84,7 @@
         real(kind=realType), dimension(:,:), allocatable :: ext_R_initial_march
         real(kind=realType), dimension(:,:), allocatable :: ext_R_smoothed
         real(kind=realType), dimension(:,:), allocatable :: ext_R_final
-        real(kind=realType), dimension(:,:), allocatable :: ext_S
+        real(kind=realType), dimension(:,:), allocatable :: ext_Sm1
         real(kind=realType), dimension(:,:, :), allocatable :: ext_N
 
         ! Project onto the surface or curve (if applicable)
@@ -102,10 +108,11 @@
         d = dStart
         dTot = 0
 
-        ! Find the characteristic radius of the mesh
-        call findRadius(rNext, numNodes, radius)
-
         if (extension_given) then
+
+           ! Find the characteristic radius of the mesh
+           call findRadius(rNext, numNodes, radius)
+
           ! Find the desired marching distance
           ! Here marchParameter = extension
           dMax = radius * (marchParameter-1.)
@@ -128,21 +135,11 @@
           print *, ''
         end if
 
-
         ! We need a guess for the first-before-last curve in order to compute the grid distribution sensor
         ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
         rm1 = rNext
-        N0 = NNext
 
         !===========================================================
-
-        ! Some functions require the area factors of the first-before-last curve
-        ! We will repeat the first curve areas for simplicity.
-        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! But we still need to find Sm1
-
-        call areaFactor(rNext, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
-        numGuides, numNodes, Sm1, maxStretch)
 
         fail = 0
         nSubIters = 0
@@ -155,23 +152,27 @@
         allocate(ext_R_initial_march(arraySize, 3*numNodes))
         allocate(ext_R_smoothed(arraySize, 3*numNodes))
         allocate(ext_R_final(arraySize, 3*numNodes))
-        allocate(ext_S(arraySize, numNodes))
+        allocate(ext_Sm1(arraySize, numNodes))
         allocate(ext_N(arraySize, 3, numNodes))
 
         ! Initialize values
         ext_R_initial_march = 0.
         ext_R_smoothed = 0.
         ext_R_final = 0.
-        ext_S = 0.
+        ext_Sm1 = 0.
         ext_N = 0.
 
         ! Store the initial curves
         ext_R_initial_march(1, :) = rNext
         ext_R_smoothed(1, :) = rNext
         ext_R_final(1, :) = rNext
-        ext_S(1, :) = Sm1
-        ext_N(1, :, :) = N0
+        !!! ext_Sm1(1, :) = Sm1
+        ext_N(1, :, :) = NNext
+
+
         R(1, :) = rNext
+
+
         majorIndices(1) = 1
 
         ! For now, we have just one allocation
@@ -188,6 +189,7 @@
         do layerIndex=1,numLayers-1
           ! Get the coordinates computed by the previous iteration
           r0 = rNext
+          N0 = NNext
 
           ! Compute the new area factor for the desired marching distance
           call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
@@ -212,12 +214,11 @@
           ! The number of subiterations is the one required to meet the desired marching distance
           do indexSubIter=1,cFactor
 
-            ! Recompute areas with the pseudo-step
+            ! Recompute areas with the pseudo-step to get S0 and Sm1
+            call areaFactor(rm1, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+            numGuides, numNodes, Sm1, maxStretch)
             call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
             numGuides, numNodes, S0, maxStretch)
-
-            ! Save S0 into S for backwards derivative computation
-            ext_S(nSubIters+1, :) = S0
 
             ! Increase the number of subiterations done so far
             nSubIters = nSubIters + 1
@@ -265,11 +266,11 @@
               ext_temp_real_1dim = 0.0
 
               ! Tranfer data from original array
-              ext_temp_real_1dim(:(nAllocations-1)*arraySize, :) = ext_S
+              ext_temp_real_1dim(:(nAllocations-1)*arraySize, :) = ext_Sm1
 
               ! Now move the new allocation back to ext_S.
               ! ext_temp_real_1dim is deallocated in this process.
-              call move_alloc(ext_temp_real_1dim, ext_S)
+              call move_alloc(ext_temp_real_1dim, ext_Sm1)
 
               allocate(ext_temp_real_N(nAllocations*arraySize, 3, numNodes))
               ext_temp_real_N = 0.0
@@ -361,6 +362,12 @@
             ! Save N0 into N for backwards derivative computation
             ext_N(nSubIters+1, :, :) = NNext
 
+            ! Save Sm1 for backwards derivative computation
+            if (indexSubiter .eq. 1) then ! Also store Sm1 
+               ext_Sm1(nSubIters, :) = Sm1
+            end if
+            ext_Sm1(nSubIters+1, :) = S0
+
             ! Update Sm1 (Store the previous area factors)
             Sm1 = S0
 
@@ -412,8 +419,8 @@
         R_final(:,:) = ext_R_final(:nSubIters+1, :)
 
         ! Crop extended array
-        allocate(S(nSubIters+1, numNodes))
-        S(:,:) = ext_S(:nSubIters+1, :)
+        allocate(Sm1_hist(nSubIters+1, numNodes))
+        Sm1_hist(:,:) = ext_Sm1(:nSubIters+1, :)
 
         ! Crop extended array
         allocate(N(nSubIters+1, 3, numNodes))
@@ -465,6 +472,9 @@
         integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
         integer(kind=intType) :: arraySize, nAllocations, layerID
 
+        integer(kind=intType) :: breakNodes(numGuides+2), intervalID, node1, node2
+        integer(kind=intType) :: numInInterval, numIntervals
+
         ! Derivative variables
         real(kind=realType):: r0d(3*numNodes), N0d(3, numNodes), S0d(numNodes)
         real(kind=realType) :: rm1d(3*numNodes), Sm1d(numNodes), rNextd(3*numNodes)
@@ -473,14 +483,29 @@
         real(kind=realType) :: dStartd, radiusd, dPseudod
 
 
-        ! Need py_projection_d here
+        ! Need py_projection_d here (Remember that rNext and NNext are inputs here)
         rNext = R_initial_march(1,:)
         NNext = N(1,:,:)
         layerID = 0
+        rNextd = 0.
+        NNextd = 0.
         call py_projection_d(rStart, rStartd, rNext, rNextd, NNext, NNextd, layerID, numNodes)
         !call py_projection_d(rStart, rStartd, R_initial_march(1,:), rNextd, N(1,:,:), NNextd, 0, numNodes)
         !rNextd = rStartd
         !NNextd = 0.0
+
+        ! Really only do this if we're remeshing
+        breakNodes(1) = 1
+        breakNodes(2:numGuides+1) = guideIndices
+        breakNodes(numGuides+2) = numNodes
+
+        !!! Still need to do this!
+        ! Remove duplicate entries from breakNodes if they exist.
+        ! This will only occur at the beginning or end because we've already
+        ! sorted the internal part of breakNodes by sorting guideIndices.
+        ! if (breakNodes(1) .eq. breakNodes(2))
+
+        numIntervals = numGuides + 1
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -509,19 +534,8 @@
         ! As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
         rm1 = rNext
         rm1d = rNextd
-        N0 = NNext
-        N0d = NNextd
 
         !===========================================================
-
-        ! Some functions require the area factors of the first-before-last curve
-        ! We will repeat the first curve areas for simplicity.
-        ! rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-        ! But we still need to find Sm1
-        Sm1d = 0.
-        dd = 0.
-        call areaFactor_d(rNext, rNextd, d, dd, nuArea, numAreaPasses,&
-        bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, Sm1, Sm1d, maxStretch)
 
         fail = 0
         nSubIters = 0
@@ -539,6 +553,8 @@
           ! Get the coordinates computed by the previous iteration
           r0d = rNextd
           r0 = rNext
+          N0d = NNextd
+          N0 = NNext
 
           S0d = 0.
           ! Compute the new area factor for the desired marching distance
@@ -562,13 +578,16 @@
           ! The number of subiterations is the one required to meet the desired marching distance
           do indexSubIter=1,cFactor
 
-             ! Increment subiteration counter
-             nSubIters = nSubIters + 1
-
              S0d = 0.
+             Sm1d = 0.
              ! Recompute areas with the pseudo-step
+             call areaFactor_d(rm1, rm1d, dPseudo, dPseudod, nuArea, numAreaPasses,&
+             bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, Sm1, Sm1d, maxStretch)
              call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses,&
              bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, S0, S0d, maxStretch)
+
+             ! Increment subiteration counter
+             nSubIters = nSubIters + 1
 
              ! March using the pseudo-marching distance
              eta = layerIndex+2
@@ -581,6 +600,7 @@
              rSmoothedd = 0.
              call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
+             ! Gett the final values of the projection, as py_projection_d uses rNext and NNext as inputs
              rNext = R_final(nSubIters+1,:)
              NNext = N(nSubIters+1,:,:)
              rNextd = 0.0
@@ -590,10 +610,8 @@
                   rNext, rNextd, &
                   NNext, NNextd, &
                   nSubIters, numNodes)
-             !rNext = rSmoothed
-             !rNextd = rSmoothedd
-             !NNext = N0
-             !NNextd = N0d
+
+             ! ADD REMESH HERE
 
              ! Update Sm1 (Store the previous area factors)
              Sm1d = S0d
@@ -611,8 +629,8 @@
              ! We do this because the last iteration already projected the new
              ! points to the surface and also computed the normals, so we don't
              ! have to repeat the projection step
-             N0 = NNext
              N0d = NNextd
+             N0 = NNext
 
           end do
 
@@ -695,12 +713,16 @@
           ! find the characteristic radius of the mesh
           call findradius(rNext, numNodes, radius)
 
-          ! find the desired marching distance
-          extension = marchParameter
-          dMax = radius*(extension-1.)
+          if (extension_given) then
+            extension = marchParameter
+            ! find the desired marching distance
+            dMax = radius*(extension-1.)
 
-          ! compute the growth ratio necessary to match this distance
-          call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+            ! compute the growth ratio necessary to match this distance
+            call findratio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+          else
+            dGrowth = marchParameter
+          end if
 
           d = dStart
           cFactorVec = 0.
@@ -722,27 +744,24 @@
           end do
 
           ! Get the normals of the very last projection step
-          ! because we did not store them in the forward pass
-          !rNext = R_final(nSubIters, :)
-          !call py_projection(rNext, rNext_dummy, NNext, numNodes)
           rNext = R_final(nSubIters,:)
           NNext = N(nSubIters,:,:)
 
-          ! Initialize the seeds as 0s
+          ! Initialize seeds as 0s
           db = 0.0_8
           rNextb = 0.0_8
-          !S0b = 0.0_8
-          !NNextb = 0.0_8
+          S0b = 0.0_8
+          NNextb = 0.0_8
           Sm1b = 0.0_8
-          !N0b = 0.0_8
+          N0b = 0.0_8
           rm1b = 0.0_8
-          !rSmoothedb = 0.0_8
+          rSmoothedb = 0.0_8
           dGrowthb = 0.0_8
 
           ! minorIndex is the index for the pseudomesh, which includes info
           ! from all minor steps, including subiterations
           minorIndex = nSubIters
-          S0 = S(minorIndex-1, :)
+          S0 = Sm1_hist(minorIndex, :)
 
           ! Loop over the major steps in reverse order
           do layerIndex=numLayers-1,1,-1
@@ -777,10 +796,10 @@
               ! call popreal8array(rm1, realtype*3*numNodes/8)
               if (minorIndex .le. 2) then
                 rm1 = R_final(minorIndex-1, :)
-                Sm1 = S(minorIndex-1, :)
+                Sm1 = Sm1_hist(minorIndex, :)
               else
                 rm1 = R_final(minorIndex-2, :)
-                Sm1 = S(minorIndex-2, :)
+                Sm1 = Sm1_hist(minorIndex-1, :)
               end if
 
               r0b = rm1b
@@ -792,7 +811,8 @@
               rSmoothedb = 0.0_8
 
               ! call popreal8array(rNext, realtype*3*numNodes/8)
-              rNext = R_initial_march(minorIndex, :)
+              rNext = R_final(minorIndex, :)
+              rSmoothed = R_smoothed(minorIndex, :)
 
               ! ADD PY_PROJ_B HERE!
               !NNextb = NNextb + N0b
@@ -820,7 +840,7 @@
                                         rNext, rNextb, numNodes, numGuides)
 
               ! call popreal8array(S0, realtype*numNodes/8)
-              S0 = S(minorIndex, :)
+              S0 = Sm1_hist(minorIndex, :)
 
 
               call areaFactor_b(r0, r0b, dPseudo, dPseudob, nuArea, &
@@ -841,9 +861,9 @@
 
             ! call popreal8array(S0, realtype*numNodes/8)
             if (minorIndex .le. 1) then
-              S0 = S(minorIndex, :)
+              S0 = Sm1_hist(minorIndex+1, :)
             else
-              S0 = S(minorIndex-1, :)
+              S0 = Sm1_hist(minorIndex, :)
             end if
 
             S0b = 0.0_8
@@ -890,7 +910,7 @@
 
           ! Deallocate output variables
           if (allocated(R_initial_march)) then
-            deallocate(R_initial_march, R_smoothed, R_final, S, N)
+            deallocate(R_initial_march, R_smoothed, R_final, Sm1_hist, N)
           end if
 
         end subroutine releaseMemory

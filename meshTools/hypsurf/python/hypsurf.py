@@ -12,9 +12,9 @@ import pdb
 import hypsurfAPI
 import pysurf
 
-fortran_flag = True
-deriv_check = True
-fortran_check = False # Rembember to set fortran_flag to False
+fortran_flag = False
+deriv_check = False # This only works if fortran_flag is True
+fortran_check = True # This will compare python and fortran outputs. Remember to set fortran_flag to False
 
 np.random.seed(123)
 
@@ -100,6 +100,9 @@ class HypSurfMesh(object):
         for curveName in self.ref_geom.curves:
             self.curveCoorb[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
 
+        # Check if the user requested the remesh function
+        self.retainSpacing = self.optionsDict['remesh']
+
         # Detect nodes that should follow guide curves
         guideIndices = []
 
@@ -117,8 +120,8 @@ class HypSurfMesh(object):
         # non-meaningful memory.
         if self.guideIndices:
             self.retainSpacing = True
-        else:
-            self.retainSpacing = False
+        #else:
+        #    self.retainSpacing = False
 
         # COMPUTE NORMALIZED ARC-LENGTHS
         # If we detect guide curves, we will record separate arc-lengths for
@@ -205,15 +208,15 @@ class HypSurfMesh(object):
         numAreaPasses = self.optionsDict['numAreaPasses']
         nuArea = self.optionsDict['nuArea']
 
-        if self.growthRatio_given and self.extension_given:
-            error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
-
         if self.extension_given:
             extension = self.optionsDict['extension']
             marchParameter = extension
         else:
             growthRatio = self.optionsDict['growthRatio']
             marchParameter = growthRatio
+
+        if self.growthRatio_given and self.extension_given:
+            error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
 
         # Flatten the coordinates vector
         # We do this because the linear system is assembled assuming that
@@ -238,7 +241,7 @@ class HypSurfMesh(object):
             R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march)
             R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed)
             R_final = np.array(hypsurfAPI.hypsurfapi.r_final)
-            S = np.array(hypsurfAPI.hypsurfapi.s)
+            Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist)
             N = np.array(hypsurfAPI.hypsurfapi.n)
 
             # Derivative check
@@ -246,6 +249,7 @@ class HypSurfMesh(object):
 
                 # Normalize all forward derivatives
                 # Remember that each variable should be normalized independently
+                np.random.seed(123)
                 rStartd = np.array(np.random.random_sample(rStart.shape),order='F')
                 rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
 
@@ -272,10 +276,10 @@ class HypSurfMesh(object):
                 dotProduct = 0.0
                 dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
                 print dotProduct
-                dotProduct = dotProduct + np.sum(self.coord*self.coorb)
+                dotProduct = dotProduct + np.sum(coord_copy*self.coorb)
                 print dotProduct
                 for curveName in self.ref_geom.curves:
-                    dotProduct = dotProduct + np.sum(self.curveCoord[curveName]*self.curveCoorb[curveName])
+                    dotProduct = dotProduct + np.sum(curveCoord_copy[curveName]*self.curveCoorb[curveName])
                 print dotProduct
                 dotProduct = dotProduct - np.sum(Rd*Rb_copy)
                 print dotProduct
@@ -302,9 +306,6 @@ class HypSurfMesh(object):
                     self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
 
                 Rd_FD = (R_step-R)/stepSize
-                for ii in [0,1,2,3,4,-1]:#len(Rd_FD[:,0])):
-                    print Rd_FD[ii,:]-Rd[ii,:]
-                print
                 print 'FD test:', np.max(Rd_FD-Rd)
 
             # Release the pseudomesh information from the hypsurfAPI instance
@@ -347,7 +348,7 @@ class HypSurfMesh(object):
 
             # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
             # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-            rm1 = rNext[:]
+            rm1 = rNext[:] 
 
             #===========================================================
 
@@ -358,18 +359,19 @@ class HypSurfMesh(object):
             # We will repeat the first curve areas for simplicity.
             # rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
             # But we still need to find Sm1
-            Sm1, maxStretch = self.areaFactor(rNext, d)
+            ### Sm1, maxStretch = self.areaFactor(rNext, d)
 
-            fail = False
+            fail = False 
 
             # MARCH!!!
             for layerIndex in range(numLayers-1):
 
                 # Get the coordinates computed by the previous iteration
                 r0 = rNext[:]
+                N0 = NNext[:,:]
 
                 # Compute the new area factor for the desired marching distance
-                S0, maxStretch = self.areaFactor(r0, d)
+                S0, maxStretch = self.areaFactor(r0, d) 
 
                 # The subiterations will use pseudo marching steps.
                 # If the required marching step is too large, the hyperbolic marching might become
@@ -378,18 +380,28 @@ class HypSurfMesh(object):
                 # Compute the factor between the current stretching ratio and the allowed one.
                 # If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
                 # The pseudo-step will be the same as the desired step.
-                cFactor = int(np.ceil(maxStretch/cMax))
+                cFactor = int(np.ceil(maxStretch/cMax)) 
 
                 # Constrain the marching distance if the stretching ratio is too high
-                dPseudo = d/cFactor
+                dPseudo = d/cFactor 
 
                 # Subiteration
                 # The number of subiterations is the one required to meet the desired marching distance
                 for indexSubIter in range(cFactor):
 
                     # Recompute areas with the pseudo-step
-                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo)
-                    S0, maxStretch = self.areaFactor(r0, dPseudo)
+                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo) 
+                    S0, maxStretch = self.areaFactor(r0, dPseudo) 
+
+                    # March using the pseudo-marching distance
+                    eta = layerIndex+2
+                    rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
+
+                    # Update Sm1 (Store the previous area factors)
+                    Sm1 = S0[:] 
+
+                    # Update rm1
+                    rm1 = r0[:] 
 
                     # Update r0
                     r0 = rNext[:]
@@ -400,18 +412,8 @@ class HypSurfMesh(object):
                     # have to repeat the projection step
                     N0 = NNext[:,:]
 
-                    # March using the pseudo-marching distance
-                    eta = layerIndex+2
-                    rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
-
-                    # Update Sm1 (Store the previous area factors)
-                    Sm1 = S0[:]
-
-                    # Update rm1
-                    rm1 = r0[:]
-
                 # Store grid points
-                R[layerIndex+1,:] = rNext
+                R[layerIndex+1,:] = rNext 
 
                 # Check quality of the mesh
                 if layerIndex > 1:
@@ -442,12 +444,20 @@ class HypSurfMesh(object):
             '''
 
             # Run Fortran marching code
+            print 'Chamando o Fortran'
+            print self.retainSpacing
             R_fortran, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
 
             R_fortran = np.array(R_fortran)
 
+            # Release the pseudomesh information from the hypsurfAPI instance
+            hypsurfAPI.hypsurfapi.releasememory()
+
             # Compare differences
-            print R-R_fortran
+            print
+            print 'Maximum difference between Fortran and Python:'
+            print np.max(np.abs(R-R_fortran))
+            print
 
         # end if fortranCheck
 
@@ -510,15 +520,15 @@ class HypSurfMesh(object):
         numSmoothingPasses = self.optionsDict['numSmoothingPasses']
         eta = layerIndex+2
 
-        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
+        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex) 
 
         # Update r
-        rNext = r0 + dr
+        rNext = r0 + dr 
 
         # Smooth coordinates
-        rNext_ = self.smoothing(rNext,layerIndex+2)
+        rNext_ = self.smoothing(rNext,layerIndex+2) 
 
-        rNext, NNext = self.projection(rNext_,0)
+        rNext, NNext = self.projection(rNext_,0) 
 
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
@@ -604,8 +614,8 @@ class HypSurfMesh(object):
 
     def projection_d(self, r, rd, rNext, NNext, layerID):
 
-        print 'projection_d'
-        print 'using ',layerID,' of ',len(self.projDict)-1
+        #print 'projection_d'
+        #print 'using ',layerID,' of ',len(self.projDict)-1
 
         # Save endpoints
         node1 = r[:3].reshape((1, 3))
@@ -653,6 +663,9 @@ class HypSurfMesh(object):
 
         # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
         projDict = self.projDict[layerID]
+
+        #print 'projection_b'
+        #print 'using ',layerID,' of ',len(self.projDict)-1
 
         # Project onto surface and compute surface normals
         rb, coorb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
