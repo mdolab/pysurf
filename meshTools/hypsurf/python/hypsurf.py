@@ -12,9 +12,9 @@ import pdb
 import hypsurfAPI
 import pysurf
 
-fortran_flag = False
-deriv_check = False # This only works if fortran_flag is True
-fortran_check = True # This will compare python and fortran outputs. Remember to set fortran_flag to False
+fortran_flag = True
+deriv_check = True # This only works if fortran_flag is True
+fortran_check = False # This will compare python and fortran outputs. Remember to set fortran_flag to False
 
 np.random.seed(123)
 
@@ -240,9 +240,11 @@ class HypSurfMesh(object):
             # These are used in the adjoint formulation.
             R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march)
             R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed)
+            R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected)
             R_final = np.array(hypsurfAPI.hypsurfapi.r_final)
             Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist)
-            N = np.array(hypsurfAPI.hypsurfapi.n)
+            N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected)
+            N_final = np.array(hypsurfAPI.hypsurfapi.n_final)
 
             # Derivative check
             if deriv_check:
@@ -271,7 +273,7 @@ class HypSurfMesh(object):
                 Rb = np.random.random_sample(R.shape)
                 Rb_copy = Rb.copy()
 
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_final, N, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_final, N_final, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
 
                 dotProduct = 0.0
                 dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
@@ -293,7 +295,7 @@ class HypSurfMesh(object):
                 # fail is a flag set to true if the marching algo failed
                 # ratios is the ratios of quality for the mesh
                 hypsurfAPI.hypsurfapi.releasememory()
-                stepSize = 1e-7
+                stepSize = 1e-8
                 rStart_step = rStart+rStartd*stepSize
                 self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
                 for curveName in self.ref_geom.curves:

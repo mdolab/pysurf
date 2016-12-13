@@ -95,7 +95,7 @@ options = {
     'sigmaSplay' : sigmaSplay,
     'cMax' : cMax,
     'ratioGuess' : ratioGuess,
-    'remesh':False
+    'remesh':True
         
 }
 

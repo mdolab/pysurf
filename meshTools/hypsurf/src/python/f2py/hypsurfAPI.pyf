@@ -45,11 +45,13 @@ python module hypsurfAPI ! in
         module hypsurfapi ! in :hypsurfAPI:hypsurfAPI.F90
             use hypsurfmain
             use precision
+            real(kind=realtype), allocatable,dimension(:,:,:) :: n_final
             real(kind=realtype), allocatable,dimension(:,:) :: r_initial_march
-            real(kind=realtype), allocatable,dimension(:,:) :: r_final
+            real(kind=realtype), allocatable,dimension(:,:) :: r_projected
+            real(kind=realtype), allocatable,dimension(:,:,:) :: n_projected
             real(kind=realtype), allocatable,dimension(:,:) :: r_smoothed
+            real(kind=realtype), allocatable,dimension(:,:) :: r_final
             real(kind=realtype), allocatable,dimension(:,:) :: sm1_hist
-            real(kind=realtype), allocatable,dimension(:,:,:) :: n
             subroutine march(py_projection,rstart,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,extension_given,guideindices,retainspacing,numsmoothingpasses,numareapasses,numguides,numlayers,numnodes,r,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march__user__routines
                 external py_projection
@@ -80,7 +82,7 @@ python module hypsurfAPI ! in
             end subroutine march
             subroutine march_d(py_projection_d,rstart,rstartd,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,numguides,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march_d__user__routines
-                use hypsurfmain_d, only: computematrices_main_d,areafactor_d,findratio_d,findradius_d,smoothing_main_d
+                use hypsurfmain_d, only: computematrices_main_d,redistribute_nodes_by_arc_length_d,findratio_d,smoothing_main_d,compute_arc_length_d,findradius_d,areafactor_d
                 external py_projection_d
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
                 real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rstartd

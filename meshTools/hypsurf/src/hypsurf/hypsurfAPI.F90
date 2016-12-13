@@ -31,7 +31,8 @@
       real(kind=realType), dimension(:,:), allocatable :: R_final
 
       real(kind=realType), dimension(:,:), allocatable :: Sm1_hist
-      real(kind=realType), dimension(:,:, :), allocatable :: N
+      real(kind=realType), dimension(:,:, :), allocatable :: N_projected
+      real(kind=realType), dimension(:,:, :), allocatable :: N_final
 
 
       contains
@@ -63,10 +64,12 @@
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1), R(numLayers, 3*numNodes)
         integer(kind=intType), intent(out) :: majorIndices(numLayers)
 
+        real(kind=realType) :: normArcLength(numNodes)
+
         real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
         real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
-        real(kind=realType) :: rNext_in(3*numNodes), rNext_(3*numNodes)
+        real(kind=realType) :: rNext_in(3*numNodes), rRemeshed(3*numNodes)
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, min_ratio, ratios_small(3, numNodes-1)
         real(kind=realType) :: extension, growthRatio
@@ -76,33 +79,20 @@
         integer(kind=intType) :: breakNodes(numGuides+2), intervalID, node1, node2
         integer(kind=intType) :: numInInterval, numIntervals
 
-        real(kind=realType), dimension(:), allocatable :: rInterval, arcLength, startArcLength, rNew
-
         real(kind=realType), dimension(:,:), allocatable :: ext_temp_real
         real(kind=realType), dimension(:,:), allocatable :: ext_temp_real_1dim
         real(kind=realType), dimension(:,:, :), allocatable :: ext_temp_real_N
         real(kind=realType), dimension(:,:), allocatable :: ext_R_initial_march
         real(kind=realType), dimension(:,:), allocatable :: ext_R_smoothed
+        real(kind=realType), dimension(:,:), allocatable :: ext_R_projected
         real(kind=realType), dimension(:,:), allocatable :: ext_R_final
         real(kind=realType), dimension(:,:), allocatable :: ext_Sm1
-        real(kind=realType), dimension(:,:, :), allocatable :: ext_N
+        real(kind=realType), dimension(:,:, :), allocatable :: ext_N_projected
+        real(kind=realType), dimension(:,:, :), allocatable :: ext_N_final
 
         ! Project onto the surface or curve (if applicable)
         storeDict = 1
         call py_projection(rStart, rNext, NNext, storeDict, numNodes)
-
-        ! Really only do this if we're remeshing
-        breakNodes(1) = 1
-        breaknodes(2:numGuides+1) = guideIndices
-        breakNodes(numGuides+2) = numNodes
-
-        !!! Still need to do this!
-        ! Remove duplicate entries from breakNodes if they exist.
-        ! This will only occur at the beginning or end because we've already
-        ! sorted the internal part of breakNodes by sorting guideIndices.
-        ! if (breakNodes(1) .eq. breakNodes(2))
-
-        numIntervals = numGuides + 1
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -141,6 +131,50 @@
 
         !===========================================================
 
+        ! Compute arclengths of each subinterval if the user requested the remesh feature
+
+        ! Really only do this if we're remeshing
+        breakNodes(1) = 1
+        breaknodes(2:numGuides+1) = guideIndices
+        breakNodes(numGuides+2) = numNodes
+
+        !!! Still need to do this!
+        ! Remove duplicate entries from breakNodes if they exist.
+        ! This will only occur at the beginning or end because we've already
+        ! sorted the internal part of breakNodes by sorting guideIndices.
+        ! if (breakNodes(1) .eq. breakNodes(2))
+
+        numIntervals = numGuides + 1
+
+        ! Initialize arclenghts
+        normArcLength = 0.0
+
+        ! normArcLength is the normalized arclengths of each subinterval. A new subinterval
+        ! starts when normArcLength(i) = 0. For instance, If we have two subintervals we
+        ! might have:
+        ! normArcLength = [0.0, 0.3, 0.7, 0.0, 0.1, 0.4, 0.8, 1.0]
+
+        ! Compute normalized arclengths of each subinterval
+        if (retainSpacing) then
+           
+           ! Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
+           do intervalID=1, numGuides+1
+
+              ! Get indices of the first and last nodes of the interval
+              node1 = breakNodes(intervalID)
+              node2 = breakNodes(intervalID+1)
+
+              numInInterval = node2 - node1 + 1
+
+              ! Compute the normalized arc-lengths of this interval
+              call compute_arc_length(rStart(3*(node1-1)+1:3*node2), numInInterval, normArcLength(node1:node2))
+
+           end do
+
+        end if
+
+        !===========================================================
+
         fail = 0
         nSubIters = 0
 
@@ -151,23 +185,28 @@
         arraySize = numLayers
         allocate(ext_R_initial_march(arraySize, 3*numNodes))
         allocate(ext_R_smoothed(arraySize, 3*numNodes))
+        allocate(ext_R_projected(arraySize, 3*numNodes))
         allocate(ext_R_final(arraySize, 3*numNodes))
         allocate(ext_Sm1(arraySize, numNodes))
-        allocate(ext_N(arraySize, 3, numNodes))
+        allocate(ext_N_projected(arraySize, 3, numNodes))
+        allocate(ext_N_final(arraySize, 3, numNodes))
 
         ! Initialize values
         ext_R_initial_march = 0.
         ext_R_smoothed = 0.
+        ext_R_projected = 0.
         ext_R_final = 0.
         ext_Sm1 = 0.
-        ext_N = 0.
+        ext_N_projected = 0.
+        ext_N_final = 0.
 
         ! Store the initial curves
         ext_R_initial_march(1, :) = rNext
         ext_R_smoothed(1, :) = rNext
+        ext_R_projected(1, :) = rNext
         ext_R_final(1, :) = rNext
-        !!! ext_Sm1(1, :) = Sm1
-        ext_N(1, :, :) = NNext
+        ext_N_projected(1, :, :) = NNext
+        ext_N_final(1, :, :) = NNext
 
 
         R(1, :) = rNext
@@ -242,6 +281,9 @@
               ! ext_temp_real is deallocated in this process.
               call move_alloc(ext_temp_real, ext_R_initial_march)
 
+              ! REALLOCATING ext_R_smoothed
+
+              ! Create temporary array and initialize
               allocate(ext_temp_real(nAllocations*arraySize, 3*numNodes))
               ext_temp_real = 0.0
 
@@ -252,6 +294,22 @@
               ! ext_temp_real is deallocated in this process.
               call move_alloc(ext_temp_real, ext_R_smoothed)
 
+              ! REALLOCATING ext_R_projected
+
+              ! Create temporary array and initialize
+              allocate(ext_temp_real(nAllocations*arraySize, 3*numNodes))
+              ext_temp_real = 0.0
+
+              ! Tranfer data from original array
+              ext_temp_real(:(nAllocations-1)*arraySize, :) = ext_R_projected
+
+              ! Now move the new allocation back to ext_R_smoothed.
+              ! ext_temp_real is deallocated in this process.
+              call move_alloc(ext_temp_real, ext_R_projected)
+
+              ! REALLOCATING ext_R_final
+
+              ! Create temporary array and initialize
               allocate(ext_temp_real(nAllocations*arraySize, 3*numNodes))
               ext_temp_real = 0.0
 
@@ -262,6 +320,9 @@
               ! ext_temp_real is deallocated in this process.
               call move_alloc(ext_temp_real, ext_R_final)
 
+              ! REALLOCATING ext_Sm1
+
+              ! Create temporary array and initialize
               allocate(ext_temp_real_1dim(nAllocations*arraySize, numNodes))
               ext_temp_real_1dim = 0.0
 
@@ -272,15 +333,31 @@
               ! ext_temp_real_1dim is deallocated in this process.
               call move_alloc(ext_temp_real_1dim, ext_Sm1)
 
+              ! REALLOCATING ext_N_projected
+
+              ! Create temporary array and initialize
               allocate(ext_temp_real_N(nAllocations*arraySize, 3, numNodes))
               ext_temp_real_N = 0.0
 
               ! Tranfer data from original array
-              ext_temp_real_N(:(nAllocations-1)*arraySize, :, :) = ext_N
+              ext_temp_real_N(:(nAllocations-1)*arraySize, :, :) = ext_N_projected
 
               ! Now move the new allocation back to ext_N.
               ! ext_temp_real_N is deallocated in this process.
-              call move_alloc(ext_temp_real_N, ext_N)
+              call move_alloc(ext_temp_real_N, ext_N_projected)
+
+              ! REALLOCATING ext_N_final
+
+              ! Create temporary array and initialize
+              allocate(ext_temp_real_N(nAllocations*arraySize, 3, numNodes))
+              ext_temp_real_N = 0.0
+
+              ! Tranfer data from original array
+              ext_temp_real_N(:(nAllocations-1)*arraySize, :, :) = ext_N_final
+
+              ! Now move the new allocation back to ext_N.
+              ! ext_temp_real_N is deallocated in this process.
+              call move_alloc(ext_temp_real_N, ext_N_final)
 
             end if
 
@@ -310,7 +387,11 @@
 
             call py_projection(rSmoothed, rNext, NNext, storeDict, numNodes)
 
-            rNext_(:) = 0.
+            ! Save this projected row for later use in the derivatives
+            ext_R_projected(nSubIters+1, :) = rNext
+
+            ! Save N0 into N for backwards derivative computation
+            ext_N_projected(nSubIters+1, :, :) = NNext
 
             if (retainSpacing) then
 
@@ -323,35 +404,20 @@
 
                 numInInterval = node2 - node1 + 1
 
-                allocate(rInterval(3*numInInterval))
-                allocate(arcLength(numInInterval))
-                allocate(startArcLength(numInInterval))
-                allocate(rNew(3*numInInterval))
-
-                ! Take the slice of the nodal coordinates that corresponds to the
-                ! current subinterval for the start curve
-                rInterval = rStart(3*(node1-1)+1:3*node2)
-
-                ! Compute the normalized arc-lengths of this interval
-                call compute_arc_length(rInterval, numInInterval, startArcLength)
-
-                ! Get the current nodal coordinates
-                rInterval = rNext(3*(node1-1)+1:3*node2)
-
-                ! Compute the normalized arc-lengths of this interval
-                call compute_arc_length(rInterval, numInInterval, arcLength)
+                ! Temporarily set the first and last arclengths of the normalized interval
+                normArcLength(node1) = 0.0
+                normArcLength(node2) = 1.0
 
                 ! Redistribute the nodes
-                call redistribute_nodes_by_arc_length(rInterval, arcLength, startArcLength, numInInterval, rNew)
-
-                rNext_(3*(node1-1)+1:3*node2) = rNew
-
-                deallocate(rInterval, arcLength, startArcLength, rNew)
+                call redistribute_nodes_by_arc_length(rNext(3*(node1-1)+1:3*node2), &
+                                                      normArcLength(node1:node2), &
+                                                      numInInterval, &
+                                                      rRemeshed(3*(node1-1)+1:3*node2))
 
               end do
 
               ! Project the remeshed curve back onto the surface
-              call py_projection(rNext_, rNext, NNext, storeDict, numNodes)
+              call py_projection(rRemeshed, rNext, NNext, storeDict, numNodes)
 
             end if
 
@@ -360,7 +426,7 @@
             ext_R_final(nSubIters+1, :) = rNext
 
             ! Save N0 into N for backwards derivative computation
-            ext_N(nSubIters+1, :, :) = NNext
+            ext_N_final(nSubIters+1, :, :) = NNext
 
             ! Save Sm1 for backwards derivative computation
             if (indexSubiter .eq. 1) then ! Also store Sm1 
@@ -415,6 +481,10 @@
         R_smoothed(:,:) = ext_R_smoothed(:nSubIters+1, :)
 
         ! Crop extended array
+        allocate(R_projected(nSubIters+1, 3*numNodes))
+        R_projected(:,:) = ext_R_projected(:nSubIters+1, :)
+
+        ! Crop extended array
         allocate(R_final(nSubIters+1, 3*numNodes))
         R_final(:,:) = ext_R_final(:nSubIters+1, :)
 
@@ -423,8 +493,12 @@
         Sm1_hist(:,:) = ext_Sm1(:nSubIters+1, :)
 
         ! Crop extended array
-        allocate(N(nSubIters+1, 3, numNodes))
-        N(:,:, :) = ext_N(:nSubIters+1, :, :)
+        allocate(N_projected(nSubIters+1, 3, numNodes))
+        N_projected(:,:, :) = ext_N_projected(:nSubIters+1, :, :)
+
+        ! Crop extended array
+        allocate(N_final(nSubIters+1, 3, numNodes))
+        N_final(:,:, :) = ext_N_final(:nSubIters+1, :, :)
 
         call qualityCheck(R, 0, numLayers, numNodes, fail, ratios)
 
@@ -442,7 +516,8 @@
         extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, numGuides, R, Rd, fail, ratios, majorIndices)
 
-        use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d
+        use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d, &
+                                 compute_arc_length_d, redistribute_nodes_by_arc_length_d
         implicit none
 
         external py_projection_d
@@ -463,13 +538,15 @@
         real(kind=realType), intent(out) :: R(numLayers, 3*numNodes), Rd(numLayers, 3*numNodes)
         integer(kind=intType), intent(out) :: majorIndices(numLayers)
 
+        real(kind=realType) :: normArcLength(numNodes), normArcLengthd(numNodes)
+
         real(kind=realType):: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType) :: rm1(3*numNodes), Sm1(numNodes), rSmoothed(3*numNodes)
-        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes)
+        real(kind=realType) :: rNext(3*numNodes), NNext(3, numNodes), rRemeshed(3*numNodes)
         real(kind=realType) :: rNext_in(3*numNodes)
         real(kind=realType) :: dr(3*numNodes), d, dTot, dMax, dGrowth
         real(kind=realType) :: dPseudo, maxStretch, radius, eta, extension
-        integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters
+        integer(kind=intType) :: layerIndex, indexSubIter, cFactor, nSubIters, nProjs
         integer(kind=intType) :: arraySize, nAllocations, layerID
 
         integer(kind=intType) :: breakNodes(numGuides+2), intervalID, node1, node2
@@ -478,14 +555,14 @@
         ! Derivative variables
         real(kind=realType):: r0d(3*numNodes), N0d(3, numNodes), S0d(numNodes)
         real(kind=realType) :: rm1d(3*numNodes), Sm1d(numNodes), rNextd(3*numNodes)
-        real(kind=realType) :: rSmoothedd(3*numNodes), NNextd(3, numNodes)
+        real(kind=realType) :: rSmoothedd(3*numNodes), NNextd(3, numNodes), rRemeshedd(3*numNodes)
         real(kind=realType) :: r0d_copy(3*numNodes), dd, dGrowthd, dMaxd
         real(kind=realType) :: dStartd, radiusd, dPseudod
 
 
         ! Need py_projection_d here (Remember that rNext and NNext are inputs here)
         rNext = R_initial_march(1,:)
-        NNext = N(1,:,:)
+        NNext = N_projected(1,:,:)
         layerID = 0
         rNextd = 0.
         NNextd = 0.
@@ -493,19 +570,6 @@
         !call py_projection_d(rStart, rStartd, R_initial_march(1,:), rNextd, N(1,:,:), NNextd, 0, numNodes)
         !rNextd = rStartd
         !NNextd = 0.0
-
-        ! Really only do this if we're remeshing
-        breakNodes(1) = 1
-        breakNodes(2:numGuides+1) = guideIndices
-        breakNodes(numGuides+2) = numNodes
-
-        !!! Still need to do this!
-        ! Remove duplicate entries from breakNodes if they exist.
-        ! This will only occur at the beginning or end because we've already
-        ! sorted the internal part of breakNodes by sorting guideIndices.
-        ! if (breakNodes(1) .eq. breakNodes(2))
-
-        numIntervals = numGuides + 1
 
         ! Initialize step size and total marched distance
         d = dStart
@@ -537,6 +601,50 @@
 
         !===========================================================
 
+        ! Really only do this if we're remeshing
+        breakNodes(1) = 1
+        breakNodes(2:numGuides+1) = guideIndices
+        breakNodes(numGuides+2) = numNodes
+
+        !!! Still need to do this!
+        ! Remove duplicate entries from breakNodes if they exist.
+        ! This will only occur at the beginning or end because we've already
+        ! sorted the internal part of breakNodes by sorting guideIndices.
+        ! if (breakNodes(1) .eq. breakNodes(2))
+
+        numIntervals = numGuides + 1
+
+        ! Initialize arclenghts
+        normArcLength = 0.0
+
+        ! normArcLength is the normalized arclengths of each subinterval. A new subinterval
+        ! starts when normArcLength(i) = 0. For instance, If we have two subintervals we
+        ! might have:
+        ! normArcLength = [0.0, 0.3, 0.7, 0.0, 0.1, 0.4, 0.8, 1.0]
+
+        ! Compute normalized arclengths of each subinterval
+        if (retainSpacing) then
+           
+           ! Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
+           do intervalID=1, numGuides+1
+
+              ! Get indices of the first and last nodes of the interval
+              node1 = breakNodes(intervalID)
+              node2 = breakNodes(intervalID+1)
+
+              numInInterval = node2 - node1 + 1
+
+              ! Compute the normalized arc-lengths of this interval
+              call compute_arc_length_d(rStart(3*(node1-1)+1:3*node2), rStartd(3*(node1-1)+1:3*node2), &
+                                        numInInterval, &
+                                        normArcLength(node1:node2), normArcLengthd(node1:node2))
+
+           end do
+
+        end if
+
+        !===========================================================
+
         fail = 0
         nSubIters = 0
 
@@ -548,6 +656,9 @@
 
         ! Sub iteration counter
         nSubIters = 0
+
+        ! Projection counter
+        nProjs = 0
 
         do layerIndex=1,numLayers-1
           ! Get the coordinates computed by the previous iteration
@@ -600,18 +711,51 @@
              rSmoothedd = 0.
              call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
-             ! Gett the final values of the projection, as py_projection_d uses rNext and NNext as inputs
-             rNext = R_final(nSubIters+1,:)
-             NNext = N(nSubIters+1,:,:)
+             ! Get the values of the projection, as py_projection_d uses rNext and NNext as inputs
+             rNext = R_projected(nSubIters+1,:)
+             NNext = N_projected(nSubIters+1,:,:)
              rNextd = 0.0
              NNextd = 0.0
+             nProjs = nProjs+1
 
              call py_projection_d(rSmoothed, rSmoothedd, &
                   rNext, rNextd, &
                   NNext, NNextd, &
-                  nSubIters, numNodes)
+                  nProjs, numNodes)
 
-             ! ADD REMESH HERE
+             ! Check if we need to remesh the current layer to keep spacing
+             if (retainSpacing) then
+
+                ! Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
+                do intervalID=1, numGuides+1
+
+                   ! Get indices of the first and last nodes of the interval
+                   node1 = breakNodes(intervalID)
+                   node2 = breakNodes(intervalID+1)
+
+                   numInInterval = node2 - node1 + 1
+
+                   ! Temporarily set the first and last arclengths of the normalized interval
+                   normArcLength(node1) = 0.0
+                   normArcLength(node2) = 1.0
+
+                   ! Redistribute the nodes
+                   call redistribute_nodes_by_arc_length_d(rNext(3*(node1-1)+1:3*node2), rNextd(3*(node1-1)+1:3*node2), &
+                                                           normArcLength(node1:node2), normArcLengthd(node1:node2), &
+                                                           numInInterval, &
+                                                           rRemeshed(3*(node1-1)+1:3*node2), rRemeshedd(3*(node1-1)+1:3*node2))
+
+                end do
+
+                ! Project the remeshed curve back onto the surface
+                rNext = R_final(nSubIters+1,:)
+                NNext = N_final(nSubIters+1,:,:)
+                rNextd = 0.0
+                NNextd = 0.0
+                nProjs = nProjs + 1 ! This indicates which projection history we should use
+                call py_projection_d(rRemeshed, rRemeshedd, rNext, rNextd, NNext, NNextd, nProjs, numNodes)
+
+             end if
 
              ! Update Sm1 (Store the previous area factors)
              Sm1d = S0d
@@ -910,7 +1054,7 @@
 
           ! Deallocate output variables
           if (allocated(R_initial_march)) then
-            deallocate(R_initial_march, R_smoothed, R_final, Sm1_hist, N)
+            deallocate(R_initial_march, R_smoothed, R_projected, R_final, Sm1_hist, N_projected, N_final)
           end if
 
         end subroutine releaseMemory

@@ -923,7 +923,7 @@
 
         end subroutine
 
-        subroutine redistribute_nodes_by_arc_length(r, arcLength, startArcLength, nNodes, rNew)
+        subroutine redistribute_nodes_by_arc_length(r, startArcLength, nNodes, rRemeshed)
 
           ! This function will receive a set of nodal coordinates defined in r and
           ! redistribute them along the same curve using the normalized arc-lengths
@@ -941,18 +941,24 @@
 
           integer(kind=intType), intent(in) :: nNodes
           real(kind=realType), intent(in) :: r(nNodes*3)
-          real(kind=realType), intent(in) :: arcLength(nNodes), startArcLength(nNodes)
+          real(kind=realType), intent(in) :: startArcLength(nNodes)
 
-          real(kind=realType), intent(out) :: rNew(nNodes*3)
+          real(kind=realType), intent(out) :: rRemeshed(nNodes*3)
+
+          real(kind=realType) :: arcLength(nNodes)
+
+          ! COMPUTE ARCLENGTHS OF THE ORIGINAL CURVE
+
+          call compute_arc_length(r, nNodes, arcLength)
 
           ! INTERPOLATE NEW NODES
 
           ! Now we sample the new coordinates based on the interpolation method given by the user
 
           ! Create interpolants for x, y, and z
-          call interp1d(1, nNodes, arcLength, r(1:3*nNodes-2:3), nNodes, startArcLength, rNew(1:3*nNodes-2:3))
-          call interp1d(1, nNodes, arcLength, r(2:3*nNodes-1:3), nNodes, startArcLength, rNew(2:3*nNodes-1:3))
-          call interp1d(1, nNodes, arcLength, r(3:3*nNodes:3), nNodes, startArcLength, rNew(3:3*nNodes:3))
+          call interp1d(1, nNodes, arcLength, r(1:3*nNodes-2:3), nNodes, startArcLength, rRemeshed(1:3*nNodes-2:3))
+          call interp1d(1, nNodes, arcLength, r(2:3*nNodes-1:3), nNodes, startArcLength, rRemeshed(2:3*nNodes-1:3))
+          call interp1d(1, nNodes, arcLength, r(3:3*nNodes:3), nNodes, startArcLength, rRemeshed(3:3*nNodes:3))
 
         end subroutine
 
