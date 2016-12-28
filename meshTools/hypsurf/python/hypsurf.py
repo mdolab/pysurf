@@ -222,6 +222,7 @@ class HypSurfMesh(object):
         # We do this because the linear system is assembled assuming that
         # the coordinates vector is flattened
         rStart = self.curve.flatten().astype(float)
+        rStart = np.array(rStart,order='F')
 
         # Clean the projection dictionaries
         self.projDict = []
@@ -238,13 +239,15 @@ class HypSurfMesh(object):
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
-            R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march)
-            R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed)
-            R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected)
-            R_final = np.array(hypsurfAPI.hypsurfapi.r_final)
-            Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist)
-            N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected)
-            N_final = np.array(hypsurfAPI.hypsurfapi.n_final)
+            R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march,order='F')
+            R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed,order='F')
+            R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected,order='F')
+            R_remeshed = np.array(hypsurfAPI.hypsurfapi.r_remeshed,order='F')
+            R_final = np.array(hypsurfAPI.hypsurfapi.r_final,order='F')
+            S0_hist = np.array(hypsurfAPI.hypsurfapi.s0_hist,order='F')
+            Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist,order='F')
+            N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected,order='F')
+            N_final = np.array(hypsurfAPI.hypsurfapi.n_final,order='F')
 
             # Derivative check
             if deriv_check:
@@ -267,13 +270,24 @@ class HypSurfMesh(object):
                     curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
 
 
-                R_, Rd, fail, ratios, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+                R_, Rd, fail, ratios_, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 # Reverse mode
-                Rb = np.random.random_sample(R.shape)
+                R = np.array(R,order='F')
+                Rb = np.array(np.random.random_sample(R.shape),order='F')
                 Rb_copy = Rb.copy()
 
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_final, N_final, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
+                numProjs = len(self.projDict)
+
+                # This is the full version call
+                hypsurfAPI.hypsurfapi.releasememory()
+                self.guideIndices = np.array(self.guideIndices + 1,order='F')
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
+                self.guideIndices = self.guideIndices - 1
+
+                # This is the simple version call
+                #rStartb = np.zeros(rStart.shape,dtype='float',order='F')
+                #fail, majorIndices = hypsurfAPI.hypsurfapi.march_b(self.projection, self.projection_b, rStart, rStartb, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
 
                 dotProduct = 0.0
                 dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
@@ -663,11 +677,12 @@ class HypSurfMesh(object):
         node1 = r[:3].reshape((1, 3))
         node2 = r[-3:].reshape((1, 3))
 
-        # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
-        projDict = self.projDict[layerID]
-
         #print 'projection_b'
-        #print 'using ',layerID,' of ',len(self.projDict)-1
+        print 'using ',layerID,' of ',len(self.projDict)-1
+
+        # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
+        layerID = int(layerID) # For some reason, f2py does not understand that this should be int
+        projDict = self.projDict[layerID]
 
         # Project onto surface and compute surface normals
         rb, coorb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
@@ -681,7 +696,7 @@ class HypSurfMesh(object):
         self.coorb = self.coorb + np.array(coorb,order='F')
 
         # Reshape nodal derivatives
-        rb = rb.flatten()
+        rb = np.array(rb.flatten(),order='F')
 
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):

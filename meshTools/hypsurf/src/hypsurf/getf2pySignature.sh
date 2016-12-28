@@ -19,9 +19,10 @@ sed -i '37s/.*/            real(kind=realtype) dimension(3,numnodes),depend(numn
 sed -i '10s/.*/            integer(kind=inttype),intent(in) :: storedict/' hypsurfAPI.pyf
 
 sed -i '24s/.*/            integer(kind=inttype),intent(in) :: layerid/' hypsurfAPI.pyf
-sed -i '38s/.*/            integer(kind=inttype),intent(in) :: layerid/' hypsurfAPI.pyf
 
-sed -i '32s/.*/            real(kind=realtype) dimension(3 * numnodes), intent(in) :: rsmoothed/' hypsurfAPI.pyf
-sed -i '33s/.*/            real(kind=realtype) dimension(3 * numnodes), intent(out), depend(numnodes) :: rsmoothedb/' hypsurfAPI.pyf
+sed -i '38s/.*/            integer(kind=inttype),intent(in) :: projid/' hypsurfAPI.pyf
+
+sed -i '32s/.*/            real(kind=realtype) dimension(3 * numnodes), intent(in) :: rremeshed/' hypsurfAPI.pyf
+sed -i '33s/.*/            real(kind=realtype) dimension(3 * numnodes), intent(out), depend(numnodes) :: rremeshedb/' hypsurfAPI.pyf
 
 cp hypsurfAPI.pyf ../python/f2py/hypsurfAPI.pyf
