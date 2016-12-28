@@ -37,9 +37,9 @@ if example == 'kink_on_plate':
     epsE0 = 1.0
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 5
+    numSmoothingPasses = 3
     nuArea = 0.16
-    numAreaPasses = 0
+    numAreaPasses = 3
     sigmaSplay = 0.5
     cMax = 20.0
     ratioGuess = 20
@@ -66,15 +66,15 @@ elif example == 'line_on_cylinder':
     epsE0 = 5.5
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 5
+    numSmoothingPasses = 0
     nuArea = 0.16
-    numAreaPasses = 3
+    numAreaPasses = 0
     sigmaSplay = 0.2
-    cMax = 1.0
+    cMax = 1000.0
     ratioGuess = 20
     
     # Options
-    sBaseline = 0.01
+    sBaseline = 0.01#0.01
     numLayers = 30
     extension = 2.8
 
@@ -95,7 +95,7 @@ options = {
     'sigmaSplay' : sigmaSplay,
     'cMax' : cMax,
     'ratioGuess' : ratioGuess,
-    'remesh':True
+    'remesh':False
         
 }
 
