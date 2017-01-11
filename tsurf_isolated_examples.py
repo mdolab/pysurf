@@ -11,7 +11,8 @@ import unittest
 import pickle
 
 #example = 'kink_on_plate'
-example = 'line_on_cylinder'
+#example = 'line_on_cylinder'
+example = 'line_on_cylinder_with_guides'
 
 if example == 'kink_on_plate':
 
@@ -48,6 +49,7 @@ if example == 'kink_on_plate':
     sBaseline = 0.15
     numLayers = 15
     extension = 2.5
+    guideCurves = []
 
 elif example == 'line_on_cylinder':
 
@@ -60,7 +62,7 @@ elif example == 'line_on_cylinder':
     # Set problem
     curve = 'source'
     bc1 = 'splay'
-    bc2 = 'splay'#'curve:bc1'
+    bc2 = 'curve:bc1'
         
     # Set parameters
     epsE0 = 5.5
@@ -77,6 +79,41 @@ elif example == 'line_on_cylinder':
     sBaseline = 0.01#0.01
     numLayers = 30
     extension = 2.8
+    guideCurves = []
+
+elif example == 'line_on_cylinder_with_guides':
+
+    # Read inputs from CGNS file
+    geom = TSurfGeometry('examples/inputs/cylinder.cgns')
+    
+    # Flip BC curve
+    geom.curves['source'].flip()
+
+    # Set problem
+    numNodes = 5
+    curve = np.zeros((numNodes,3))
+    curve[:,0] = 1.0
+    curve[:,1] = np.linspace(0.6, 0.0, numNodes)
+    curve[:,2] = np.linspace(0.0, 0.6, numNodes)
+    bc1 = 'splay'
+    bc2 = 'splay'
+        
+    # Set parameters
+    epsE0 = 5.5
+    theta = 0.0
+    alphaP0 = 0.25
+    numSmoothingPasses = 0
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.2
+    cMax = 1000.0
+    ratioGuess = 20
+    
+    # Options
+    sBaseline = 0.01#0.01
+    numLayers = 30
+    extension = 2.8
+    guideCurves = ['bc1']
 
 # Set options
 options = {
@@ -95,7 +132,8 @@ options = {
     'sigmaSplay' : sigmaSplay,
     'cMax' : cMax,
     'ratioGuess' : ratioGuess,
-    'remesh':False
+    'remesh':False,
+    'guideCurves':guideCurves
         
 }
 
@@ -136,9 +174,11 @@ r0 = mesh.mesh[:,:,3].flatten()
 mesh.projDict = []
 mesh.curveProjDict1 = []
 mesh.curveProjDict2 = []
+for index in range(len(mesh.curveProjDictGuide)):
+    mesh.curveProjDictGuide[index] = []
 
 # FORWARD PASS
-rNext, NNext = mesh.projection(r0,1)
+rNext, NNext = mesh.projection(r0)
 
 # Store projection dictionaries
 projDict = mesh.projDict[:]
@@ -146,17 +186,17 @@ curveProjDict1 = mesh.curveProjDict1[:]
 curveProjDict2 = mesh.curveProjDict2[:]
 
 # FORWARD DERIVATIVES
-r0d = np.random.rand(r0.shape[0])
+r0d = np.array(np.random.rand(r0.shape[0]),order='F')
 r0d = r0d/np.sqrt(np.sum(r0d**2))
 r0d_copy = r0d.copy()
 
-mesh.coord[:,:] = np.random.rand(mesh.coord.shape[0],mesh.coord.shape[1])
+mesh.coord[:,:] = np.array(np.random.rand(mesh.coord.shape[0],mesh.coord.shape[1]),order='F')
 mesh.coord[:,:] = mesh.coord/np.sqrt(np.sum(mesh.coord**2))
 coord_copy = mesh.coord.copy()
 
 curveCoord_copy = {}
 for curveName in mesh.curveCoord:
-    mesh.curveCoord[curveName][:,:] = np.random.rand(mesh.curveCoord[curveName].shape[0],mesh.curveCoord[curveName].shape[1])
+    mesh.curveCoord[curveName][:,:] = np.array(np.random.rand(mesh.curveCoord[curveName].shape[0],mesh.curveCoord[curveName].shape[1]),order='F')
     mesh.curveCoord[curveName][:,:] = mesh.curveCoord[curveName][:,:]/np.sqrt(np.sum(mesh.curveCoord[curveName]**2))
     curveCoord_copy[curveName] = mesh.curveCoord[curveName].copy()
 
@@ -207,7 +247,7 @@ mesh.ref_geom.update(mesh.ref_geom.coor + np.array(mesh.coord*stepSize,order='F'
 for curveName in mesh.curveCoord:
     mesh.ref_geom.curves[curveName].coor = mesh.ref_geom.curves[curveName].coor + mesh.curveCoord[curveName]*stepSize
 
-rNext_FD, NNext_FD = mesh.projection(r0_FD,0)
+rNext_FD, NNext_FD = mesh.projection(r0_FD)
 
 rNextd_FD = (rNext_FD-rNext)/stepSize
 NNextd_FD = (NNext_FD-NNext)/stepSize

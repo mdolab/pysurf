@@ -12,9 +12,16 @@ import pdb
 import hypsurfAPI
 import pysurf
 
+'''
+fortran_flag = False
+deriv_check = False # This only works if fortran_flag is True
+fortran_check = True # This will compare python and fortran outputs. Remember to set fortran_flag to False
+'''
+
 fortran_flag = True
 deriv_check = True # This only works if fortran_flag is True
 fortran_check = False # This will compare python and fortran outputs. Remember to set fortran_flag to False
+
 
 np.random.seed(123)
 
@@ -37,7 +44,20 @@ class HypSurfMesh(object):
 
     def __init__(self, curve, ref_geom, options={}):
 
-        self.input_curve = curve
+        '''
+        This initializes a hyperbolic surface mesh
+
+        INPUTS
+
+        curve: Curve used as seed to march the hyperbolic surface.
+        It could be a string that specifies the name of a curve contained
+        within ref_geom object, or it could also be a [numNodes x 3] array
+        of nodal coordinates (x,y,z).
+
+        ref_geom: This is a pysurf geometry object. It's surface will be used
+        as reference for the mesh growth. The curves contained in this object could
+        be used as source curves, guide curve, or boundary conditions
+        '''
 
         # Check to see if the marching extension (distance) is given
         try:
@@ -101,7 +121,7 @@ class HypSurfMesh(object):
             self.curveCoorb[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
 
         # Check if the user requested the remesh function
-        self.retainSpacing = self.optionsDict['remesh']
+        #self.retainSpacing = self.optionsDict['remesh']
 
         # Detect nodes that should follow guide curves
         guideIndices = []
@@ -113,15 +133,16 @@ class HypSurfMesh(object):
 
         self.guideIndices = np.array(sorted(set(guideIndices)))
 
+        # Create list of dictionaries to store projection information for each guide curve
+        self.curveProjDictGuide = [[] for s in range(len(guideIndices))]
+
         # Check to see if guideIndices were provided. If so, set retainSpacing
-        # as True and pass this to Fortran so we know to us the guideIndices.
+        # as True and pass this to Fortran so we know to use the guideIndices.
         # If we don't have some sort of logical and pass an array of [] to
         # Fortran, it think it is length 1 and will try to access the
         # non-meaningful memory.
-        if self.guideIndices:
-            self.retainSpacing = True
-        #else:
-        #    self.retainSpacing = False
+        #if self.guideIndices:
+        #    self.retainSpacing = True
 
         # COMPUTE NORMALIZED ARC-LENGTHS
         # If we detect guide curves, we will record separate arc-lengths for
@@ -235,7 +256,7 @@ class HypSurfMesh(object):
             # which contains the mesh.
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
@@ -270,7 +291,7 @@ class HypSurfMesh(object):
                     curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
 
 
-                R_, Rd, fail, ratios_, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
+                R_, Rd, fail, ratios_, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
 
                 # Reverse mode
                 R = np.array(R,order='F')
@@ -282,12 +303,8 @@ class HypSurfMesh(object):
                 # This is the full version call
                 hypsurfAPI.hypsurfapi.releasememory()
                 self.guideIndices = np.array(self.guideIndices + 1,order='F')
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices, self.retainSpacing,  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
                 self.guideIndices = self.guideIndices - 1
-
-                # This is the simple version call
-                #rStartb = np.zeros(rStart.shape,dtype='float',order='F')
-                #fail, majorIndices = hypsurfAPI.hypsurfapi.march_b(self.projection, self.projection_b, rStart, rStartb, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, R, Rb, ratios)
 
                 dotProduct = 0.0
                 dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
@@ -309,31 +326,37 @@ class HypSurfMesh(object):
                 # fail is a flag set to true if the marching algo failed
                 # ratios is the ratios of quality for the mesh
                 hypsurfAPI.hypsurfapi.releasememory()
-                stepSize = 1e-8
+                stepSize = 1e-7
                 rStart_step = rStart+rStartd*stepSize
                 self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
                 for curveName in self.ref_geom.curves:
                     self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
 
-                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
+                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
                 self.ref_geom.update(self.ref_geom.coor - self.coord*stepSize)
                 for curveName in self.ref_geom.curves:
                     self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
 
                 Rd_FD = (R_step-R)/stepSize
-                print 'FD test:', np.max(Rd_FD-Rd)
+
+                print 'der check'
+                print Rd_FD[0,:]
+                print Rd[0,:]
+
+                view_mat(np.abs(Rd_FD-Rd))
+                print 'FD test:', np.max(np.abs(Rd_FD-Rd))
 
             # Release the pseudomesh information from the hypsurfAPI instance
             hypsurfAPI.hypsurfapi.releasememory()
 
-        else:
+        else: # We will use the Python version of hypsurf
 
             # Initialize 2D array that will contains all the surface grid points in the end
             R = np.zeros((numLayers,len(rStart)))
 
             # Project onto the surface or curve (if applicable)
-            rNext, NNext = self.projection(rStart,1)
+            rNext, NNext = self.projection(rStart)
 
             # Initialize step size and total marched distance
             d = dStart
@@ -371,11 +394,6 @@ class HypSurfMesh(object):
             '''
             The marching function actually begins here
             '''
-            # Some functions require the area factors of the first-before-last curve
-            # We will repeat the first curve areas for simplicity.
-            # rNext, NNext, rm1 for the first iteration are computed at the beginning of the function.
-            # But we still need to find Sm1
-            ### Sm1, maxStretch = self.areaFactor(rNext, d)
 
             fail = False 
 
@@ -460,9 +478,7 @@ class HypSurfMesh(object):
             '''
 
             # Run Fortran marching code
-            print 'Chamando o Fortran'
-            print self.retainSpacing
-            R_fortran, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.retainSpacing, numSmoothingPasses, numAreaPasses, numLayers)
+            R_fortran, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
             R_fortran = np.array(R_fortran)
 
@@ -544,7 +560,7 @@ class HypSurfMesh(object):
         # Smooth coordinates
         rNext_ = self.smoothing(rNext,layerIndex+2) 
 
-        rNext, NNext = self.projection(rNext_,0) 
+        rNext, NNext = self.projection(rNext_) 
 
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
@@ -577,12 +593,12 @@ class HypSurfMesh(object):
                 nodeID_offset = nodeID_offset + numNodes - 1
 
             # Project the remeshed curve back onto the surface
-            rNext, NNext = self.projection(rNext_,0)
+            rNext, NNext = self.projection(rNext_)
 
         # RETURNS
         return rNext, NNext
 
-    def projection(self, r, storeDict):
+    def projection(self, r):
 
         '''
         This function will project the nodes defined in r onto the reference geometry
@@ -622,16 +638,14 @@ class HypSurfMesh(object):
         if self.guideIndices:
             for i, index in enumerate(self.guideIndices):
                 curve = self.optionsDict['guideCurves'][i]
-                node = rNext[3*index:3*index+3]
-                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node.reshape((1, 3)), curveCandidates=[curve])
+                node = r[3*index:3*index+3].reshape((1, 3))
+                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node, curveCandidates=[curve])
                 NNext[:, index] = NNextAux.T[:, 0]
+                self.curveProjDictGuide[i] = self.curveProjDictGuide[i] + [curveProjDict]
 
         return rNext, NNext
 
     def projection_d(self, r, rd, rNext, NNext, layerID):
-
-        #print 'projection_d'
-        #print 'using ',layerID,' of ',len(self.projDict)-1
 
         # Save endpoints
         node1 = r[:3].reshape((1, 3))
@@ -656,7 +670,7 @@ class HypSurfMesh(object):
         if self.optionsDict['bc1'].lower().startswith('curve'):
             curveProjDict1 = self.curveProjDict1[layerID]
             rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(node1, node1d,
-                                                                     self.curveCoord[self.ref_curve1],
+                                                                     self.curveCoord,
                                                                      rNext[:3], NNext[:,0],
                                                                      curveProjDict1)
             NNextd[:, 0] = NNextAuxd.T[:, 0]
@@ -664,10 +678,33 @@ class HypSurfMesh(object):
         if self.optionsDict['bc2'].lower().startswith('curve'):
             curveProjDict2 = self.curveProjDict2[layerID]
             rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(node2, node2d,
-                                                                      self.curveCoord[self.ref_curve1],
+                                                                      self.curveCoord,
                                                                       rNext[-3:], NNext[:,-1],
                                                                       curveProjDict2)
-            NNextd[:, -1] = NNextAuxd.T[:, -1]
+            NNextd[:, -1] = NNextAuxd.T[:, 0]
+
+        if self.guideIndices:
+            for i, index in enumerate(self.guideIndices):
+                node = r[3*index:3*index+3].reshape((1, 3))
+                noded = rd[3*index:3*index+3].reshape((1, 3))
+                curveProjDict = self.curveProjDictGuide[i][layerID]
+
+                '''
+                curve = self.optionsDict['guideCurves'][i]
+                rNextAux, NNextAux, curveProjDictAux = self.ref_geom.project_on_curve(node, curveCandidates=[curve])
+
+                print 'comparacao'
+                print rNextAux - rNext[3*index:3*index+3]
+                print NNextAux - NNext[:,index]
+                print curveProjDict
+                print curveProjDictAux
+                '''
+
+                rNextd[3*index:3*index+3], NNextAuxd = self.ref_geom.project_on_curve_d(node, noded,
+                                                                                        self.curveCoord,
+                                                                                        rNext[3*index:3*index+3], NNext[:,index],
+                                                                                        curveProjDict)
+                NNextd[:, index] = NNextAuxd.T[:, 0]
 
         return rNextd, NNextd
 
@@ -677,19 +714,34 @@ class HypSurfMesh(object):
         node1 = r[:3].reshape((1, 3))
         node2 = r[-3:].reshape((1, 3))
 
-        #print 'projection_b'
-        print 'using ',layerID,' of ',len(self.projDict)-1
-
         # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
         layerID = int(layerID) # For some reason, f2py does not understand that this should be int
         projDict = self.projDict[layerID]
 
+        # We need to turn off the derivative seeds of the nodes that follow guide curves or curve bcs
+        # since they will be replaced later on.
+        rNextb_filtered = np.array(rNextb, order='F')
+        NNextb_filtered = np.array(NNextb, order='F')
+
+        if self.optionsDict['bc1'].lower().startswith('curve'):
+            rNextb_filtered[:3] = 0.0
+            NNextb_filtered[:,0] = 0.0
+
+        if self.optionsDict['bc2'].lower().startswith('curve'):
+            rNextb_filtered[-3:] = 0.0
+            NNextb_filtered[:,-1] = 0.0
+
+        if self.guideIndices:
+            for index in self.guideIndices:
+                rNextb_filtered[3*index:3*index+3] = 0.0
+                NNextb_filtered[:,index] = 0.0
+
         # Project onto surface and compute surface normals
         rb, coorb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
                                                        rNext.reshape((self.numNodes, 3)),
-                                                       rNextb.reshape((self.numNodes, 3)),
+                                                       rNextb_filtered.reshape((self.numNodes, 3)),
                                                        NNext.T,
-                                                       NNextb.T,
+                                                       NNextb_filtered.T,
                                                        projDict)
 
         # Accumulate derivatives of the reference surface nodes
@@ -704,14 +756,25 @@ class HypSurfMesh(object):
             rb[:3], curveCoorb = self.ref_geom.project_on_curve_b(node1, rNext[:3], rNextb[:3],
                                                                   NNext[:,0], NNextb[:,0],
                                                                   curveProjDict1)
-            self.curveCoorb[self.ref_curve1] = self.curveCoorb[self.ref_curve1] + curveCoorb
+            self.curveCoorb[self.ref_curve1] = self.curveCoorb[self.ref_curve1] + curveCoorb[self.ref_curve1]
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
             curveProjDict2 = self.curveProjDict2[layerID]
             rb[-3:], curveCoorb = self.ref_geom.project_on_curve_b(node2, rNext[-3:], rNextb[-3:],
                                                                    NNext[:,-1], NNextb[:,-1],
                                                                    curveProjDict2)
-            self.curveCoorb[self.ref_curve2] = self.curveCoorb[self.ref_curve2] + curveCoorb
+            self.curveCoorb[self.ref_curve2] = self.curveCoorb[self.ref_curve2] + curveCoorb[self.ref_curve2]
+
+        if self.guideIndices:
+            for i, index in enumerate(self.guideIndices):
+                curveProjDict = self.curveProjDictGuide[i][layerID]
+                node = r[3*index:3*index+3].reshape((1, 3))
+                curve = self.optionsDict['guideCurves'][i]
+                rb[3*index:3*index+3], curveCoorb = self.ref_geom.project_on_curve_b(node,
+                                                                                     rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
+                                                                                     NNext[:,index], NNextb[:,index],
+                                                                                     curveProjDict)
+                self.curveCoorb[curve] = self.curveCoorb[curve] + curveCoorb[curve]
 
         return rb
 

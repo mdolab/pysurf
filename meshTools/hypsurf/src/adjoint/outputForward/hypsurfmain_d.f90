@@ -160,7 +160,7 @@ contains
       d_vec_rotd = 0.0_8
     end if
     do index=2,numnodes-1
-      if (retainspacing) then
+      if (numguides .gt. 0) then
         guide = .false.
         do i=1,numguides
           if (index .eq. guideindices(i)) guide = .true.
@@ -396,7 +396,7 @@ contains
 &                  numlayers, epse0, layerindex, theta, numnodes, k, f)
     end if
     do index=2,numnodes-1
-      if (retainspacing) then
+      if (numguides .gt. 0) then
         guide = .false.
         do i=1,numguides
           if (index .eq. guideindices(i)) guide = .true.
@@ -1178,7 +1178,7 @@ contains
       sd(n) = dd
       s(n) = d
     end if
-    if (retainspacing) then
+    if (numguides .gt. 0) then
 ! set guidecurve marching distances
       do i=1,numguides
         index = guideindices(i)
@@ -1238,7 +1238,7 @@ contains
 ! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     if (bc1(:5) .eq. 'curve') s(1) = d
     if (bc2(:5) .eq. 'curve') s(n) = d
-    if (retainspacing) then
+    if (numguides .gt. 0) then
 ! set guidecurve marching distances
       do i=1,numguides
         index = guideindices(i)

@@ -143,7 +143,7 @@
 
         do index=2,numNodes-1
 
-          if (retainSpacing) then
+          if (numGuides > 0) then
             guide = .false.
             do i=1,numGuides
               if (index .eq. guideIndices(i)) then
@@ -585,7 +585,7 @@
           S(n) = d
         end if
 
-        if (retainSpacing) then
+        if (numGuides > 0) then
           ! Set guideCurve marching distances
           do i=1,numGuides
             index = guideIndices(i)
