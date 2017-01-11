@@ -3,12 +3,11 @@
 
 python module march__user__routines 
     interface march_user_interface 
-        subroutine py_projection(rstart,rnext,nnext,storedict,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march:unknown_interface
+        subroutine py_projection(rstart,rnext,nnext,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march:unknown_interface
             real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
             real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(out) :: rnext
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(out) :: nnext
             integer(kind=inttype),intent(in) :: storedict
-            integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
         end subroutine py_projection
     end interface march_user_interface
 end python module march__user__routines
@@ -17,18 +16,19 @@ python module march_d__user__routines
         subroutine py_projection_d(rstart,rstartd,rnext,rnextd,nnext,nnextd,layerid,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march_d:unknown_interface
             real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
             real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rstartd
+            real(kind=realtype) dimension(3 * numnodes),depend(numnodes) :: rnext
             real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(in) :: rnext
             real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(out) :: rnextd
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(in) :: nnext
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(out) :: nnextd
             integer(kind=inttype),intent(in) :: layerid
-            integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
         end subroutine py_projection_d
     end interface march_d_user_interface
 end python module march_d__user__routines
 python module march_b__user__routines 
     interface march_b_user_interface 
         subroutine py_projection_b(rremeshed,rremeshedb,rnext,rnextb,nnext,nnextb,projid,numnodes) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi:march_b:unknown_interface
+            real(kind=realtype) dimension(3 * numnodes) :: rremeshed
             real(kind=realtype) dimension(3 * numnodes), intent(in) :: rremeshed
             real(kind=realtype) dimension(3 * numnodes), intent(out), depend(numnodes) :: rremeshedb
             real(kind=realtype) dimension(3 * numnodes),depend(numnodes),intent(in) :: rnext
@@ -36,7 +36,6 @@ python module march_b__user__routines
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(in) :: nnext
             real(kind=realtype) dimension(3,numnodes),depend(numnodes),intent(in) :: nnextb
             integer(kind=inttype),intent(in) :: projid
-            integer(kind=inttype), optional,intent(in),check((len(rremeshed))/(3)>=numnodes),depend(rremeshed) :: numnodes=(len(rremeshed))/(3)
         end subroutine py_projection_b
     end interface march_b_user_interface
 end python module march_b__user__routines
