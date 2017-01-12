@@ -41,7 +41,7 @@ I_FILES := $(ALL_FILES:%=%.f90)
 #     *                                                                *
 #     ******************************************************************
 
-default: ad_forward
+default: ad_forward ad_reverse
 
 ad_forward:
 # First delete the holding directory if it exists

@@ -35,8 +35,5 @@ src1:	$(FF90_OBJECTS_1)
 
 derivatives:
 	@echo "     Running Tapenade in HypsurfAPI Derivatives... "
-	# Make the forward mode derivative files
+	# Make the derivative files
 	make -f Makefile_tapenade
-
-	# Make the reverse mode derivative files
-	make -f Makefile_tapenade ad_reverse

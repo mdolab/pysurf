@@ -142,7 +142,7 @@ CONTAINS
     END IF
     CALL PUSHINTEGER4ARRAY(index, inttype/4)
     DO index=2,numnodes-1
-      IF (retainspacing) THEN
+      IF (numguides .GT. 0) THEN
         guide = .false.
         DO i=1,numguides
           IF (index .EQ. guideindices(i)) guide = .true.
@@ -504,7 +504,7 @@ CONTAINS
 &                  numlayers, epse0, layerindex, theta, numnodes, k, f)
     END IF
     DO index=2,numnodes-1
-      IF (retainspacing) THEN
+      IF (numguides .GT. 0) THEN
         guide = .false.
         DO i=1,numguides
           IF (index .EQ. guideindices(i)) guide = .true.
@@ -1304,7 +1304,7 @@ CONTAINS
 !   with respect to varying inputs: d s r0
 !   RW status of diff variables: d:out s:in-zero r0:out
   SUBROUTINE AREAFACTOR_B(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
+&   bc2, guideindices, numguides, n, s, sb, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
@@ -1313,7 +1313,6 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
-    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype) :: s(n), maxstretch
     REAL(kind=realtype) :: sb(n)
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
@@ -1357,7 +1356,7 @@ CONTAINS
     ELSE
       CALL PUSHCONTROL1B(1)
     END IF
-    IF (retainspacing) THEN
+    IF (numguides .GT. 0) THEN
       db = 0.0_8
       DO i=numguides,1,-1
         index = guideindices(i)
@@ -1429,7 +1428,7 @@ CONTAINS
     sb = 0.0_8
   END SUBROUTINE AREAFACTOR_B
   SUBROUTINE AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, retainspacing, numguides, n, s, maxstretch)
+&   guideindices, numguides, n, s, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
@@ -1437,7 +1436,6 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
-    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
     REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
@@ -1482,7 +1480,7 @@ CONTAINS
 ! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     IF (bc1(:5) .EQ. 'curve') s(1) = d
     IF (bc2(:5) .EQ. 'curve') s(n) = d
-    IF (retainspacing) THEN
+    IF (numguides .GT. 0) THEN
 ! Set guideCurve marching distances
       DO i=1,numguides
         index = guideindices(i)

@@ -141,7 +141,7 @@ contains
     end if
     call pushinteger4array(index, inttype/4)
     do index=2,numnodes-1
-      if (retainspacing) then
+      if (numguides .gt. 0) then
         guide = .false.
         do i=1,numguides
           if (index .eq. guideindices(i)) guide = .true.
@@ -495,7 +495,7 @@ contains
 &                  numlayers, epse0, layerindex, theta, numnodes, k, f)
     end if
     do index=2,numnodes-1
-      if (retainspacing) then
+      if (numguides .gt. 0) then
         guide = .false.
         do i=1,numguides
           if (index .eq. guideindices(i)) guide = .true.
@@ -1295,7 +1295,7 @@ contains
 !   with respect to varying inputs: d s r0
 !   rw status of diff variables: d:out s:in-zero r0:out
   subroutine areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
+&   bc2, guideindices, numguides, n, s, sb, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
@@ -1304,7 +1304,6 @@ contains
     character(len=32), intent(in) :: bc1, bc2
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
-    logical, intent(in) :: retainspacing
     real(kind=realtype) :: s(n), maxstretch
     real(kind=realtype) :: sb(n)
     real(kind=realtype) :: r0_extrap(3*(2+n))
@@ -1348,7 +1347,7 @@ contains
     else
       call pushcontrol1b(1)
     end if
-    if (retainspacing) then
+    if (numguides .gt. 0) then
       do i=numguides,1,-1
         index = guideindices(i)
         db = db + sb(index)
@@ -1417,7 +1416,7 @@ contains
     sb = 0.0_8
   end subroutine areafactor_b
   subroutine areafactor(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, retainspacing, numguides, n, s, maxstretch)
+&   guideindices, numguides, n, s, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
@@ -1425,7 +1424,6 @@ contains
     character(len=32), intent(in) :: bc1, bc2
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
-    logical, intent(in) :: retainspacing
     real(kind=realtype), intent(out) :: s(n), maxstretch
     real(kind=realtype) :: r0_extrap(3*(2+n))
     real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
@@ -1470,7 +1468,7 @@ contains
 ! if we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
     if (bc1(:5) .eq. 'curve') s(1) = d
     if (bc2(:5) .eq. 'curve') s(n) = d
-    if (retainspacing) then
+    if (numguides .gt. 0) then
 ! set guidecurve marching distances
       do i=1,numguides
         index = guideindices(i)
