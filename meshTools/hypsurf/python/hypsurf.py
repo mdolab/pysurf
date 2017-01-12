@@ -120,9 +120,6 @@ class HypSurfMesh(object):
         for curveName in self.ref_geom.curves:
             self.curveCoorb[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
 
-        # Check if the user requested the remesh function
-        #self.retainSpacing = self.optionsDict['remesh']
-
         # Detect nodes that should follow guide curves
         guideIndices = []
 
@@ -300,22 +297,15 @@ class HypSurfMesh(object):
 
                 numProjs = len(self.projDict)
 
-                # This is the full version call
                 hypsurfAPI.hypsurfapi.releasememory()
-                self.guideIndices = np.array(self.guideIndices + 1,order='F')
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
-                self.guideIndices = self.guideIndices - 1
+                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
 
                 dotProduct = 0.0
                 dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
-                print dotProduct
                 dotProduct = dotProduct + np.sum(coord_copy*self.coorb)
-                print dotProduct
                 for curveName in self.ref_geom.curves:
                     dotProduct = dotProduct + np.sum(curveCoord_copy[curveName]*self.curveCoorb[curveName])
-                print dotProduct
                 dotProduct = dotProduct - np.sum(Rd*Rb_copy)
-                print dotProduct
 
                 print ' Marching dot product test, this should be zero:', dotProduct, '(unless the surface is curved; don\'t have projections working)'
                 print
@@ -330,7 +320,7 @@ class HypSurfMesh(object):
                 rStart_step = rStart+rStartd*stepSize
                 self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
                 for curveName in self.ref_geom.curves:
-                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + curveCoord_copy[curveName]*stepSize
 
                 R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
@@ -339,11 +329,6 @@ class HypSurfMesh(object):
                     self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
 
                 Rd_FD = (R_step-R)/stepSize
-
-                print 'der check'
-                print Rd_FD[0,:]
-                print Rd[0,:]
-
                 view_mat(np.abs(Rd_FD-Rd))
                 print 'FD test:', np.max(np.abs(Rd_FD-Rd))
 
@@ -685,6 +670,7 @@ class HypSurfMesh(object):
 
         if self.guideIndices:
             for i, index in enumerate(self.guideIndices):
+
                 node = r[3*index:3*index+3].reshape((1, 3))
                 noded = rd[3*index:3*index+3].reshape((1, 3))
                 curveProjDict = self.curveProjDictGuide[i][layerID]
@@ -770,10 +756,14 @@ class HypSurfMesh(object):
                 curveProjDict = self.curveProjDictGuide[i][layerID]
                 node = r[3*index:3*index+3].reshape((1, 3))
                 curve = self.optionsDict['guideCurves'][i]
-                rb[3*index:3*index+3], curveCoorb = self.ref_geom.project_on_curve_b(node,
-                                                                                     rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
-                                                                                     NNext[:,index], NNextb[:,index],
-                                                                                     curveProjDict)
+
+                rbAux, curveCoorb = self.ref_geom.project_on_curve_b(node,
+                                                                     rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
+                                                                     NNext[:,index], NNextb[:,index],
+                                                                     curveProjDict)
+
+                rb[3*index:3*index+3] = rbAux
+
                 self.curveCoorb[curve] = self.curveCoorb[curve] + curveCoorb[curve]
 
         return rb

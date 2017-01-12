@@ -1105,7 +1105,7 @@ CONTAINS
 !   with respect to varying inputs: d r0
 !   RW status of diff variables: d:in s:out r0:in
   SUBROUTINE AREAFACTOR_D(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, retainspacing, numguides, n, s, sd, maxstretch)
+&   bc2, guideindices, numguides, n, s, sd, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
@@ -1114,7 +1114,6 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
-    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
     REAL(kind=realtype), INTENT(OUT) :: sd(n)
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
@@ -1191,7 +1190,7 @@ CONTAINS
     END IF
   END SUBROUTINE AREAFACTOR_D
   SUBROUTINE AREAFACTOR(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, retainspacing, numguides, n, s, maxstretch)
+&   guideindices, numguides, n, s, maxstretch)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: n
     REAL(kind=realtype), INTENT(IN) :: r0(3*n), d, nuarea
@@ -1199,7 +1198,6 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
-    LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype), INTENT(OUT) :: s(n), maxstretch
     REAL(kind=realtype) :: r0_extrap(3*(2+n))
     REAL(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)

@@ -20,35 +20,42 @@ if example == 'kink_on_plate':
     geom = TSurfGeometry('examples/inputs/plate.cgns')
 
     # Set source curve
+    '''
     curve = np.array([[0.,0,0],
                       [1,1,0],
                       [2,2,0],
                       [3,2,0],
                       [4,1,0],
                       [5,0,0]])
+    '''
+    numNodes = 70
+    curve = np.zeros((numNodes,3))
+    curve[:,0] = 1.0
+    curve[:,1] = np.linspace(0.6, 0.1, numNodes)*5
+    curve[:,2] = np.linspace(0.1, 0.6, numNodes)*5
     
     # Flip curve to change marching direction
     curve = curve[::-1,:]
     
     # Define boundary conditions
-    bc1 = 'constX'
-    bc2 = 'constX'
+    bc1 = 'splay'
+    bc2 = 'splay'
     
     # Set parameters
-    epsE0 = 1.0
+    epsE0 = 3.0
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 3
+    numSmoothingPasses = 5
     nuArea = 0.16
-    numAreaPasses = 3
-    sigmaSplay = 0.5
-    cMax = 20.0
-    ratioGuess = 20
+    numAreaPasses = 5
+    sigmaSplay = 0.05
+    cMax = 1.0
+    ratioGuess = 5
     
     # Options
-    sBaseline = 0.15
-    numLayers = 15
-    extension = 2.5
+    sBaseline = 0.005
+    numLayers = 75
+    extension = 6.0
     guideCurves = []
 
 elif example == 'line_on_cylinder':
@@ -68,11 +75,11 @@ elif example == 'line_on_cylinder':
     epsE0 = 5.5
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 0
+    numSmoothingPasses = 3
     nuArea = 0.16
-    numAreaPasses = 0
+    numAreaPasses = 3
     sigmaSplay = 0.2
-    cMax = 1000.0
+    cMax = 1.0
     ratioGuess = 20
     
     # Options
@@ -90,9 +97,9 @@ elif example == 'line_on_cylinder_with_guides':
     geom.curves['source'].flip()
 
     # Set problem
-    numNodes = 5
+    numNodes = 50
     curve = np.zeros((numNodes,3))
-    curve[:,0] = 1.0
+    curve[:,0] = 1.03
     curve[:,1] = np.linspace(0.6, 0.0, numNodes)
     curve[:,2] = np.linspace(0.0, 0.6, numNodes)
     bc1 = 'splay'
@@ -132,7 +139,7 @@ options = {
     'sigmaSplay' : sigmaSplay,
     'cMax' : cMax,
     'ratioGuess' : ratioGuess,
-    'remesh':False,
+    'remesh':True,
     'guideCurves':guideCurves
         
 }
@@ -146,8 +153,8 @@ mesh.exportPlot3d('output.xyz')
 hs = hypsurf.hypsurfAPI.hypsurfapi
 
 ### DOT PRODUCT TEST FOR SMOOTHING
-coor = mesh.mesh[:,:,3].flatten()#geom.curves[curve].coor.reshape(-1, order='F')
-hs.smoothing(coor, 3., alphaP0, 1, numLayers)
+coor = mesh.mesh[:,:,3].T.flatten()#geom.curves[curve].coor.reshape(-1, order='F')
+hs.smoothing(coor, 5., alphaP0, 1, numLayers)
 
 # FORWARD MODE
 coord = np.random.random_sample(coor.shape)
@@ -168,7 +175,7 @@ np.testing.assert_almost_equal(dotprod, 0.)
 
 ### DOT PRODUCT TEST FOR PROJECTION
 
-r0 = mesh.mesh[:,:,3].flatten()
+r0 = mesh.mesh[:,:,3].T.flatten()
 
 # Clean all projection dictionaries
 mesh.projDict = []
@@ -294,7 +301,6 @@ rnext_b_copy = rnext_b.copy()
 r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, mesh.guideIndices, retainSpacing, rnext_b)
 
 
-
 # Dot product test
 dotProd = 0.0
 dotProd = dotProd + np.sum(rnext_d*rnext_b_copy)
@@ -304,8 +310,44 @@ dotProd = dotProd - np.sum(s0_b*s0_d_copy)
 dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
 dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
 
+print ''
 print 'Dot product test for ComputeMatrices. This should be zero:'
 print dotProd
+print ''
+
+### DOT PRODUCT TEST FOR AREAFACTOR
+
+r0 = mesh.mesh[:,:,3].T.flatten()
+d = sBaseline
+layerindex = 1
+
+# FORWARD MODE
+r0_d = np.random.random_sample(r0.shape)
+d_d = np.random.random_sample(1)[0]
+
+r0_d_copy = r0_d.copy()
+d_d_copy = d_d
+
+s,s_d,maxstretch =  hs.areafactor_test_d(r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, mesh.guideIndices)
+
+# REVERSE MODE
+s_b = np.random.random_sample(s.shape)
+
+s_b_copy = s_b.copy()
+
+r0_b,d_b = hs.areafactor_test_b(r0, d, nuArea, numAreaPasses, bc1, bc2, mesh.guideIndices, s, s_b, maxstretch)
+
+
+# Dot product test
+dotProd = 0.0
+dotProd = dotProd + np.sum(r0_d_copy*r0_b)
+dotProd = dotProd + d_d_copy*d_b
+dotProd = dotProd - np.sum(s_d*s_b_copy)
+
+print ''
+print 'Dot product test for AreaFactor. This should be zero:'
+print dotProd
+print ''
 
     # def test_line_on_cylinder(self):
     #     example = 'line_on_cylinder'

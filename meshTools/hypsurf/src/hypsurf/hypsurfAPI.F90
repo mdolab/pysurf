@@ -242,7 +242,7 @@
           N0 = NNext
 
           ! Compute the new area factor for the desired marching distance
-          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+          call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, &
           numGuides, numNodes, S0, maxStretch)
 
           ! The subiterations will use pseudo marching steps.
@@ -265,9 +265,9 @@
           do indexSubIter=1,cFactor
 
             ! Recompute areas with the pseudo-step to get S0 and Sm1
-            call areaFactor(rm1, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+            call areaFactor(rm1, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, &
             numGuides, numNodes, Sm1, maxStretch)
-            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+            call areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices, &
             numGuides, numNodes, S0, maxStretch)
 
             ! Increase the number of subiterations done so far
@@ -726,7 +726,7 @@
           S0d = 0.
           ! Compute the new area factor for the desired marching distance
           call areaFactor_d(r0, r0d, d, dd, nuArea, numAreaPasses, bc1, bc2,&
-          guideIndices, retainSpacing, numguides, numNodes, S0, S0d, maxStretch)
+          guideIndices, numguides, numNodes, S0, S0d, maxStretch)
 
           ! The subiterations will use pseudo marching steps.
           ! If the required marching step is too large, the hyperbolic marching might become
@@ -749,9 +749,9 @@
              Sm1d = 0.
              ! Recompute areas with the pseudo-step
              call areaFactor_d(rm1, rm1d, dPseudo, dPseudod, nuArea, numAreaPasses,&
-             bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, Sm1, Sm1d, maxStretch)
+             bc1, bc2, guideIndices, numguides, numNodes, Sm1, Sm1d, maxStretch)
              call areaFactor_d(r0, r0d, dPseudo, dPseudod, nuArea, numAreaPasses,&
-             bc1, bc2, guideIndices, retainSpacing, numguides, numNodes, S0, S0d, maxStretch)
+             bc1, bc2, guideIndices, numguides, numNodes, S0, S0d, maxStretch)
 
              ! Increment subiteration counter
              nSubIters = nSubIters + 1
@@ -1015,7 +1015,7 @@
              r0 = R_final_in(minorIndex, :)
 
              ! Compute the cFactor
-             call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, retainSpacing,&
+             call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, &
                   numGuides, numNodes, S0, maxStretch)
              cFactor = ceiling(maxStretch/cMax)
 
@@ -1029,13 +1029,6 @@
              minorIndex = minorIndex + cFactor
 
           end do
-
-          ! Small check
-          if (minorIndex == nSubIters) then
-             print *,'number of subiterations is correct!'
-          else
-             print *,'number of subiterations is NOT correct!'
-          end if
 
           ! ====================================
 
@@ -1130,26 +1123,29 @@
                       node1 = breaknodes(intervalid)
                       node2 = breaknodes(intervalid+1)
                       numininterval = node2 - node1 + 1
+                      normarclengthb_dummy = 0.0
                       CALL REDISTRIBUTE_NODES_BY_ARC_LENGTH_B(rnext2(3*(node1-1)+1:3*node2), &
                            &                                  rnext2b(3*(node1-1)+1:3*node2), &
                            &                                  normarclength_dummy(node1:node2), &
-                           &                                  normarclengthb(node1:node2), &
+                           &                                  normarclengthb_dummy(node1:node2), &
                            &                                  numininterval, &
                            &                                  rremeshed(3*(node1-1)+1:3*node2), &
                            &                                  rremeshedb(3*(node1-1)+1:3*node2))
 
+                      normarclengthb = normarclengthb + normarclengthb_dummy
                       !CALL POPREAL4ARRAY(normarclength(node2), realtype/4)
                       normarclengthb(node2) = 0.0
                       !CALL POPREAL4ARRAY(normarclength(node1), realtype/4)
                       normarclengthb(node1) = 0.0
 
                    END DO
+
+                   ! The normals of the previous projection are discarded due to the
+                   ! redistribution step. Therefore, we can set their seeds to zero
                    nnext2b = 0.0
                 ELSE
 
-                   nnext2b = 0.0
                    nnext2b = nnextb
-                   rnext2b = 0.0
 
                    !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
                    rNext = R_final_in(minorIndex,:)
@@ -1225,26 +1221,26 @@
                 !CALL POPREAL4ARRAY(r0, realtype*3*numnodes/4)
                 r0 = R_final_in(minorIndex-1,:) ! NEY
 
-                r0b_dummy = 0.0 ! NEY
-                dpseudob_dummy = 0.0 ! NEY
+                r0b_dummy = 0.0
+                dpseudob_dummy = 0.0
                 CALL AREAFACTOR_B(r0, r0b_dummy, dpseudo, dpseudob_dummy, nuarea, &
-                     &            numareapasses, bc1, bc2, guideindices, retainspacing, &
+                     &            numareapasses, bc1, bc2, guideindices, &
                      &            numguides, numnodes, s0, s0b, maxstretch)
-                r0b = r0b + r0b_dummy ! NEY
-                dpseudob = dpseudob + dpseudob_dummy ! NEY
+                r0b = r0b + r0b_dummy
+                dpseudob = dpseudob + dpseudob_dummy
 
                 !CALL POPREAL4ARRAY(sm1, realtype*numnodes/4)
                 Sm1 = Sm1_hist_in(minorIndex-1,:)
                 !CALL POPREAL4ARRAY(rm1, realtype*3*numnodes/4)
                 rm1 = R_final_in(m1Index,:)
 
-                rm1b_dummy = 0.0 ! NEY
-                dpseudob_dummy = 0.0 ! NEY
+                rm1b_dummy = 0.0
+                dpseudob_dummy = 0.0
                 CALL AREAFACTOR_B(rm1, rm1b_dummy, dpseudo, dpseudob_dummy, nuarea, &
-                     &            numareapasses, bc1, bc2, guideindices, retainspacing, &
+                     &            numareapasses, bc1, bc2, guideindices, &
                      &            numguides, numnodes, sm1, sm1b, maxstretch)
-                rm1b = rm1b + rm1b_dummy ! NEY
-                dpseudob = dpseudob + dpseudob_dummy ! NEY
+                rm1b = rm1b + rm1b_dummy
+                dpseudob = dpseudob + dpseudob_dummy
 
                 rnextb = 0.0
                 nnextb = 0.0
@@ -1287,7 +1283,7 @@
 
           rnextb = rnextb + rm1b
 
-          dstartb = db ! NEY
+          dstartb = db
 
           !CALL POPCONTROL1B(branch)
           !IF (branch .NE. 0) THEN
@@ -1301,7 +1297,7 @@
              radiusb = (marchparameter-1.)*dmaxb
 
              !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
-             rNext = R_final_in(1,:) ! NEY
+             rNext = R_final_in(1,:)
 
              rnextb_dummy = 0.0
              CALL FINDRADIUS_B(rnext, rnextb_dummy, numnodes, radius, radiusb)
@@ -1309,9 +1305,9 @@
           END IF
 
           !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
-          rNext = R_final_in(1,:) ! NEY
+          rNext = R_final_in(1,:)
           !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
-          NNext = N_final_in(1,:,:) ! NEY
+          NNext = N_final_in(1,:,:)
 
           rstartb_dummy = 0.0
           CALL PY_PROJECTION_B(rstart, rstartb_dummy, rnext, rnextb, nnext, nnextb, &
@@ -1492,7 +1488,7 @@
         !=================================================================
 
         subroutine areafactor_test_d(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, retainspacing, numguides, n, s, sd, maxstretch)
+      &   bc2, guideindices, numguides, n, s, sd, maxstretch)
 
         use hypsurfmain_d, only: areafactor_d
         implicit none
@@ -1505,17 +1501,16 @@
         real(kind=realtype), intent(out) :: sd(n)
         integer(kind=inttype), intent(in) :: numguides
         integer(kind=inttype), intent(in) :: guideindices(numguides)
-        logical, intent(in) :: retainspacing
 
         call areafactor_d(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, retainspacing, numguides, n, s, sd, maxstretch)
+      &   bc2, guideindices, numguides, n, s, sd, maxstretch)
 
         end subroutine
 
         !=================================================================
 
         subroutine areafactor_test_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
+      &   bc2, guideindices, numguides, n, s, sb, maxstretch)
 
         use hypsurfmain_b, only: areafactor_b
         implicit none
@@ -1528,10 +1523,9 @@
         real(kind=realtype), intent(in) :: sb(n)
         integer(kind=inttype), intent(in) :: numguides
         integer(kind=inttype), intent(in) :: guideindices(numguides)
-        logical, intent(in) :: retainspacing
 
         call areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, retainspacing, numguides, n, s, sb, maxstretch)
+      &   bc2, guideindices, numguides, n, s, sb, maxstretch)
 
         end subroutine
 

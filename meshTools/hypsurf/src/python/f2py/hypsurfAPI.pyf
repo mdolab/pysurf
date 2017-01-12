@@ -260,7 +260,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(3 * n),intent(out),depend(n) :: rout
                 real(kind=realtype) dimension(3 * n),intent(out),depend(n) :: routd
             end subroutine smoothing_d
-            subroutine areafactor_test_d(r0,r0d,d,dd,nuarea,numareapasses,bc1,bc2,guideindices,retainspacing,numguides,n,s,sd,maxstretch) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine areafactor_test_d(r0,r0d,d,dd,nuarea,numareapasses,bc1,bc2,guideindices,numguides,n,s,sd,maxstretch) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use hypsurfmain_d, only: areafactor_d
                 real(kind=realtype) dimension(3 * n),intent(in) :: r0
                 real(kind=realtype) dimension(3 * n),intent(in),depend(n) :: r0d
@@ -271,14 +271,13 @@ python module hypsurfAPI ! in
                 character*32 intent(in) :: bc1
                 character*32 intent(in) :: bc2
                 integer(kind=inttype) dimension(numguides),intent(in) :: guideindices
-                logical intent(in) :: retainspacing
                 integer(kind=inttype), optional,intent(in),check(len(guideindices)>=numguides),depend(guideindices) :: numguides=len(guideindices)
                 integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=n),depend(r0) :: n=(len(r0))/(3)
                 real(kind=realtype) dimension(n),intent(out),depend(n) :: s
                 real(kind=realtype) dimension(n),intent(out),depend(n) :: sd
                 real(kind=realtype) intent(out) :: maxstretch
             end subroutine areafactor_test_d
-            subroutine areafactor_test_b(r0,r0b,d,db,nuarea,numareapasses,bc1,bc2,guideindices,retainspacing,numguides,n,s,sb,maxstretch) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine areafactor_test_b(r0,r0b,d,db,nuarea,numareapasses,bc1,bc2,guideindices,numguides,n,s,sb,maxstretch) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use hypsurfmain_b, only: areafactor_b
                 real(kind=realtype) dimension(3 * n),intent(in) :: r0
                 real(kind=realtype) dimension(3 * n),intent(out),depend(n) :: r0b
@@ -289,7 +288,6 @@ python module hypsurfAPI ! in
                 character*32 intent(in) :: bc1
                 character*32 intent(in) :: bc2
                 integer(kind=inttype) dimension(numguides),intent(in) :: guideindices
-                logical intent(in) :: retainspacing
                 integer(kind=inttype), optional,intent(in),check(len(guideindices)>=numguides),depend(guideindices) :: numguides=len(guideindices)
                 integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=n),depend(r0) :: n=(len(r0))/(3)
                 real(kind=realtype) dimension(n),intent(in),depend(n) :: s

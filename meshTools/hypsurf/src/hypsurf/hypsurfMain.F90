@@ -520,7 +520,7 @@
         end subroutine dissipationCoefficients
 
         subroutine areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2,&
-        guideIndices, retainSpacing, numGuides, n, S, maxStretch)
+        guideIndices, numGuides, n, S, maxStretch)
 
         implicit none
 
@@ -530,7 +530,6 @@
         character*32, intent(in) :: bc1, bc2
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
-        logical, intent(in) :: retainSpacing
         real(kind=realType), intent(out) :: S(n), maxStretch
 
         real(kind=realType) :: r0_extrap(3*(2+n))

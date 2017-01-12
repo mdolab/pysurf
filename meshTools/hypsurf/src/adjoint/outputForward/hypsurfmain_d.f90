@@ -1102,7 +1102,7 @@ contains
 !   with respect to varying inputs: d r0
 !   rw status of diff variables: d:in s:out r0:in
   subroutine areafactor_d(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-&   bc2, guideindices, retainspacing, numguides, n, s, sd, maxstretch)
+&   bc2, guideindices, numguides, n, s, sd, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
@@ -1111,7 +1111,6 @@ contains
     character(len=32), intent(in) :: bc1, bc2
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
-    logical, intent(in) :: retainspacing
     real(kind=realtype), intent(out) :: s(n), maxstretch
     real(kind=realtype), intent(out) :: sd(n)
     real(kind=realtype) :: r0_extrap(3*(2+n))
@@ -1188,7 +1187,7 @@ contains
     end if
   end subroutine areafactor_d
   subroutine areafactor(r0, d, nuarea, numareapasses, bc1, bc2, &
-&   guideindices, retainspacing, numguides, n, s, maxstretch)
+&   guideindices, numguides, n, s, maxstretch)
     implicit none
     integer(kind=inttype), intent(in) :: n
     real(kind=realtype), intent(in) :: r0(3*n), d, nuarea
@@ -1196,7 +1195,6 @@ contains
     character(len=32), intent(in) :: bc1, bc2
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
-    logical, intent(in) :: retainspacing
     real(kind=realtype), intent(out) :: s(n), maxstretch
     real(kind=realtype) :: r0_extrap(3*(2+n))
     real(kind=realtype) :: neighbordist(n), norm_1(n), norm_2(n)
