@@ -81,7 +81,7 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
                 integer(kind=inttype) dimension(numlayers),intent(out),depend(numlayers) :: majorindices
             end subroutine march
-            subroutine march_d(py_projection_d,rstart,rstartd,r_projected_in,r_final_in,n_projected_in,n_final_in,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,numguides,nsubiters_in,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine march_d(py_projection_d,rstart,rstartd,r_projected_in,r_final_in,n_projected_in,n_final_in,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,numguides,nsubiters_in,r,rd,fail,ratios) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march_d__user__routines
                 use hypsurfmain_d, only: computematrices_main_d,redistribute_nodes_by_arc_length_d,findratio_d,smoothing_main_d,compute_arc_length_d,findradius_d,areafactor_d
                 external py_projection_d
@@ -115,9 +115,8 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(out),depend(numlayers,numnodes) :: rd
                 integer(kind=inttype) intent(out) :: fail
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
-                integer(kind=inttype) dimension(numlayers),intent(out),depend(numlayers) :: majorindices
             end subroutine march_d
-            subroutine march_b(py_projection_b,rstart,rstartb,r_initial_march_in,r_smoothed_in,r_projected_in,r_remeshed_in,r_final_in,n_projected_in,n_final_in,sm1_hist_in,s0_hist_in,majorindices,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,nsubiters,numguides,numprojs,r,rb,fail,ratios) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine march_b(py_projection_b,rstart,rstartb,r_initial_march_in,r_smoothed_in,r_projected_in,r_remeshed_in,r_final_in,n_projected_in,n_final_in,sm1_hist_in,s0_hist_in,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,nsubiters,numguides,numprojs,r,rb) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use hypsurfmain_b, only: computematrices_main_b,redistribute_nodes_by_arc_length_b,smoothing_main_b,findratio_b,compute_arc_length_b,areafactor_b,findradius_b
                 use march_b__user__routines
                 external py_projection_b
@@ -132,7 +131,6 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(nsubiters,3,numnodes),intent(in),depend(nsubiters,numnodes) :: n_final_in
                 real(kind=realtype) dimension(nsubiters,numnodes),intent(in),depend(nsubiters,numnodes) :: sm1_hist_in
                 real(kind=realtype) dimension(nsubiters,numnodes),intent(in),depend(nsubiters,numnodes) :: s0_hist_in
-                integer(kind=inttype) dimension(numlayers),intent(in) :: majorindices
                 real(kind=realtype) intent(in) :: dstart
                 real(kind=realtype) intent(in) :: theta
                 real(kind=realtype) intent(in) :: sigmasplay
@@ -149,15 +147,13 @@ python module hypsurfAPI ! in
                 logical intent(in) :: extension_given
                 integer(kind=inttype) intent(in) :: numsmoothingpasses
                 integer(kind=inttype) intent(in) :: numareapasses
-                integer(kind=inttype), optional,intent(in),check(len(majorindices)>=numlayers),depend(majorindices) :: numlayers=len(majorindices)
+                integer(kind=inttype), optional,intent(in),check(shape(r,0)==numlayers),depend(r) :: numlayers=shape(r,0)
                 integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
                 integer(kind=inttype), optional,intent(in),check(shape(r_initial_march_in,0)==nsubiters),depend(r_initial_march_in) :: nsubiters=shape(r_initial_march_in,0)
                 integer(kind=inttype), optional,intent(in),check(len(guideindices)>=numguides),depend(guideindices) :: numguides=len(guideindices)
                 integer(kind=inttype) intent(in) :: numprojs
-                real(kind=realtype) dimension(numlayers,3 * numnodes),intent(in),depend(numlayers,numnodes) :: r
+                real(kind=realtype) dimension(numlayers,3 * numnodes),intent(in),depend(numnodes) :: r
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(in),depend(numlayers,numnodes) :: rb
-                integer(kind=inttype) intent(out) :: fail
-                real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(in),depend(numlayers,numnodes) :: ratios
             end subroutine march_b
             subroutine releasememory ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
             end subroutine releasememory

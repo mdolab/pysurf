@@ -571,7 +571,7 @@
         N_projected_in, N_final_in, dStart, theta, sigmaSplay, bc1, bc2, &
         epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices, retainSpacing,&
         extension_given, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, numGuides, nSubIters_in, R, Rd, fail, ratios, majorIndices)
+        numLayers, numNodes, numGuides, nSubIters_in, R, Rd, fail, ratios)
 
         use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d, &
                                  compute_arc_length_d, redistribute_nodes_by_arc_length_d
@@ -595,7 +595,6 @@
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
         real(kind=realType), intent(out) :: R(numLayers, 3*numNodes), Rd(numLayers, 3*numNodes)
-        integer(kind=intType), intent(out) :: majorIndices(numLayers)
 
         real(kind=realType) :: normArcLength(numNodes), normArcLengthd(numNodes)
 
@@ -856,11 +855,10 @@
         !=======================================================================
 
         subroutine march_b(py_projection_b, rStart, rStartb, R_initial_march_in, R_smoothed_in, &
-        R_projected_in, R_remeshed_in, R_final_in, N_projected_in, N_final_in, Sm1_hist_in, S0_hist_in, majorIndices, dStart, &
+        R_projected_in, R_remeshed_in, R_final_in, N_projected_in, N_final_in, Sm1_hist_in, S0_hist_in, dStart, &
         theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax,&
         guideIndices, retainSpacing, extension_given, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, nSubIters, numGuides, numProjs, R, Rb, fail&
-        &   , ratios)
+        numLayers, numNodes, nSubIters, numGuides, numProjs, R, Rb)
 
           ! numProjs: integer -> This is the total number of projections done during
           !                      the forward step.
@@ -884,15 +882,12 @@
           character(len=32), intent(in) :: bc1, bc2
           real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax
           integer(kind=inttype), intent(in) :: numSmoothingPasses
-          integer(kind=intType), intent(in) :: majorIndices(numLayers)
           logical, intent(in) :: extension_given
           integer(kind=intType), intent(in) :: numGuides, numProjs
           integer(kind=intType), intent(in) :: guideIndices(numGuides)
           logical, intent(in) :: retainSpacing
           real(kind=realType), intent(in) :: R(numLayers, 3*numNodes), Rb(numLayers, 3*numNodes)
-          real(kind=realType), intent(in) :: ratios(numLayers-1, numNodes-1)
 
-          integer(kind=inttype), intent(out) :: fail
           real(kind=realtype), intent(out) :: rStartb(3*numNodes)
           real(kind=realtype) :: rStart_dummy(3*numNodes), rStartb_dummy(3*numNodes)
 
