@@ -81,12 +81,16 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(numlayers - 1,numnodes - 1),intent(out),depend(numlayers,numnodes) :: ratios
                 integer(kind=inttype) dimension(numlayers),intent(out),depend(numlayers) :: majorindices
             end subroutine march
-            subroutine march_d(py_projection_d,rstart,rstartd,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,numguides,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+            subroutine march_d(py_projection_d,rstart,rstartd,r_projected_in,r_final_in,n_projected_in,n_final_in,dstart,theta,sigmasplay,bc1,bc2,epse0,alphap0,marchparameter,nuarea,ratioguess,cmax,guideindices,retainspacing,extension_given,numsmoothingpasses,numareapasses,numlayers,numnodes,numguides,nsubiters_in,r,rd,fail,ratios,majorindices) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 use march_d__user__routines
                 use hypsurfmain_d, only: computematrices_main_d,redistribute_nodes_by_arc_length_d,findratio_d,smoothing_main_d,compute_arc_length_d,findradius_d,areafactor_d
                 external py_projection_d
                 real(kind=realtype) dimension(3 * numnodes),intent(in) :: rstart
                 real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rstartd
+                real(kind=realtype) dimension(nsubiters_in,3 * numnodes),intent(in),depend(numnodes) :: r_projected_in
+                real(kind=realtype) dimension(nsubiters_in,3 * numnodes),intent(in),depend(nsubiters_in,numnodes) :: r_final_in
+                real(kind=realtype) dimension(nsubiters_in,3,numnodes),intent(in),depend(nsubiters_in,numnodes) :: n_projected_in
+                real(kind=realtype) dimension(nsubiters_in,3,numnodes),intent(in),depend(nsubiters_in,numnodes) :: n_final_in
                 real(kind=realtype) intent(in) :: dstart
                 real(kind=realtype) intent(in) :: theta
                 real(kind=realtype) intent(in) :: sigmasplay
@@ -106,6 +110,7 @@ python module hypsurfAPI ! in
                 integer(kind=inttype) intent(in) :: numlayers
                 integer(kind=inttype), optional,intent(in),check((len(rstart))/(3)>=numnodes),depend(rstart) :: numnodes=(len(rstart))/(3)
                 integer(kind=inttype), optional,intent(in),check(len(guideindices)>=numguides),depend(guideindices) :: numguides=len(guideindices)
+                integer(kind=inttype), optional,intent(in),check(shape(r_projected_in,0)==nsubiters_in),depend(r_projected_in) :: nsubiters_in=shape(r_projected_in,0)
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(out),depend(numlayers,numnodes) :: r
                 real(kind=realtype) dimension(numlayers,3 * numnodes),intent(out),depend(numlayers,numnodes) :: rd
                 integer(kind=inttype) intent(out) :: fail

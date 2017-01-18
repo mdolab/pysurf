@@ -11,8 +11,8 @@ import unittest
 import pickle
 
 #example = 'kink_on_plate'
-#example = 'line_on_cylinder'
-example = 'line_on_cylinder_with_guides'
+example = 'line_on_cylinder'
+#example = 'line_on_cylinder_with_guides'
 
 if example == 'kink_on_plate':
 
@@ -68,6 +68,7 @@ elif example == 'line_on_cylinder':
 
     # Set problem
     curve = 'source'
+    #curve = geom.curves['source']
     bc1 = 'splay'
     bc2 = 'curve:bc1'
         
@@ -109,11 +110,11 @@ elif example == 'line_on_cylinder_with_guides':
     epsE0 = 5.5
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 0
+    numSmoothingPasses = 3
     nuArea = 0.16
-    numAreaPasses = 0
+    numAreaPasses = 5
     sigmaSplay = 0.2
-    cMax = 1000.0
+    cMax = 1.0
     ratioGuess = 20
     
     # Options
@@ -146,9 +147,12 @@ options = {
 
 mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
+mesh.test_forwardAD_FD()
+quit()
+
 mesh.createMesh()
 
-mesh.exportPlot3d('output.xyz')
+mesh.exportPlot3d('output_fortran.xyz')
 
 hs = hypsurf.hypsurfAPI.hypsurfapi
 
