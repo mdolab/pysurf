@@ -567,10 +567,11 @@
 
         !=======================================================================
 
-        subroutine march_d(py_projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1, bc2,&
+        subroutine march_d(py_projection_d, rStart, rStartd, R_projected_in, R_final_in, &
+        N_projected_in, N_final_in, dStart, theta, sigmaSplay, bc1, bc2, &
         epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices, retainSpacing,&
         extension_given, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, numGuides, R, Rd, fail, ratios, majorIndices)
+        numLayers, numNodes, numGuides, nSubIters_in, R, Rd, fail, ratios)
 
         use hypsurfMain_d, only: computeMatrices_main_d, smoothing_main_d, areafactor_d, findRadius_d, findRatio_d, &
                                  compute_arc_length_d, redistribute_nodes_by_arc_length_d
@@ -578,6 +579,8 @@
 
         external py_projection_d
         real(kind=realType), intent(in) :: rStart(3*numNodes), rStartd(3*numNodes)
+        real(kind=realType), dimension(nSubIters_in, 3*numNodes), intent(in) :: R_projected_in, R_final_in
+        real(kind=realType), dimension(nSubIters_in, 3, numNodes), intent(in) :: N_projected_in, N_final_in
         real(kind=realType), intent(in) :: dStart, theta, sigmaSplay
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
         real(kind=realType), intent(in) :: epsE0, marchParameter, nuArea
@@ -585,14 +588,13 @@
         real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
         integer(kind=intType), intent(in) :: numSmoothingPasses
         logical, intent(in) :: extension_given
-        integer(kind=intType), intent(in) :: numGuides
+        integer(kind=intType), intent(in) :: numGuides, nSubIters_in
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
         logical, intent(in) :: retainSpacing
 
         integer(kind=intType), intent(out) :: fail
         real(kind=realType), intent(out) :: ratios(numLayers-1, numNodes-1)
         real(kind=realType), intent(out) :: R(numLayers, 3*numNodes), Rd(numLayers, 3*numNodes)
-        integer(kind=intType), intent(out) :: majorIndices(numLayers)
 
         real(kind=realType) :: normArcLength(numNodes), normArcLengthd(numNodes)
 
@@ -617,8 +619,8 @@
 
 
         ! Need py_projection_d here (Remember that rNext and NNext are inputs here)
-        rNext = R_initial_march(1,:)
-        NNext = N_projected(1,:,:)
+        rNext = R_projected_in(1,:)
+        NNext = N_projected_in(1,:,:)
         layerID = 0
         rNextd = 0.
         NNextd = 0.
@@ -768,8 +770,8 @@
              call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
 
              ! Get the values of the projection, as py_projection_d uses rNext and NNext as inputs
-             rNext = R_projected(nSubIters+1,:)
-             NNext = N_projected(nSubIters+1,:,:)
+             rNext = R_projected_in(nSubIters+1,:)
+             NNext = N_projected_in(nSubIters+1,:,:)
              rNextd = 0.0
              NNextd = 0.0
              nProjs = nProjs+1
@@ -804,8 +806,8 @@
                 end do
 
                 ! Project the remeshed curve back onto the surface
-                rNext = R_final(nSubIters+1,:)
-                NNext = N_final(nSubIters+1,:,:)
+                rNext = R_final_in(nSubIters+1,:)
+                NNext = N_final_in(nSubIters+1,:,:)
                 rNextd = 0.0
                 NNextd = 0.0
                 nProjs = nProjs + 1 ! This indicates which projection history we should use
@@ -853,11 +855,10 @@
         !=======================================================================
 
         subroutine march_b(py_projection_b, rStart, rStartb, R_initial_march_in, R_smoothed_in, &
-        R_projected_in, R_remeshed_in, R_final_in, N_projected_in, N_final_in, Sm1_hist_in, S0_hist_in, majorIndices, dStart, &
+        R_projected_in, R_remeshed_in, R_final_in, N_projected_in, N_final_in, Sm1_hist_in, S0_hist_in, dStart, &
         theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax,&
         guideIndices, retainSpacing, extension_given, numSmoothingPasses, numAreaPasses,&
-        numLayers, numNodes, nSubIters, numGuides, numProjs, R, Rb, fail&
-        &   , ratios)
+        numLayers, numNodes, nSubIters, numGuides, numProjs, R, Rb)
 
           ! numProjs: integer -> This is the total number of projections done during
           !                      the forward step.
@@ -881,15 +882,12 @@
           character(len=32), intent(in) :: bc1, bc2
           real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax
           integer(kind=inttype), intent(in) :: numSmoothingPasses
-          integer(kind=intType), intent(in) :: majorIndices(numLayers)
           logical, intent(in) :: extension_given
           integer(kind=intType), intent(in) :: numGuides, numProjs
           integer(kind=intType), intent(in) :: guideIndices(numGuides)
           logical, intent(in) :: retainSpacing
           real(kind=realType), intent(in) :: R(numLayers, 3*numNodes), Rb(numLayers, 3*numNodes)
-          real(kind=realType), intent(in) :: ratios(numLayers-1, numNodes-1)
 
-          integer(kind=inttype), intent(out) :: fail
           real(kind=realtype), intent(out) :: rStartb(3*numNodes)
           real(kind=realtype) :: rStart_dummy(3*numNodes), rStartb_dummy(3*numNodes)
 

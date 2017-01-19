@@ -13,23 +13,8 @@ import hypsurfAPI
 import pysurf
 
 '''
-fortran_flag = False
-deriv_check = False # This only works if fortran_flag is True
-fortran_check = True # This will compare python and fortran outputs. Remember to set fortran_flag to False
-'''
-
-fortran_flag = True
-deriv_check = False # This only works if fortran_flag is True
-fortran_check = False # This will compare python and fortran outputs. Remember to set fortran_flag to False
-
-
-np.random.seed(123)
-
-'''
 TO DO
 
-- add subiteration loop
-- check smoothing
 - set up scaling factor based on distance
 - blend the angle-based dissipation coefficient
 '''
@@ -59,31 +44,54 @@ class HypSurfMesh(object):
         be used as source curves, guide curve, or boundary conditions
         '''
 
-        # Check to see if the marching extension (distance) is given
-        try:
-            _ = options['extension']
-            self.extension_given = True
-        except:
-            self.extension_given = False
-            pass
+        # Flag that we still do not know the user provided marching parameter. It could be
+        # either extension or growth ratio
+        self.extension_given = None
 
-        # Check to see if the growth ratio is given
-        try:
-            _ = options['growthRatio']
-            self.growthRatio_given = True
-        except:
-            self.growthRatio_given = False
-            pass
-
+        # Apply options
         self._getDefaultOptions()
         self._applyUserOptions(options)
 
-        if isinstance(curve, np.ndarray):
-            self.curve = curve
-        else:
-            # We assume that curve is a string that defines a curve name
-            self.curve = ref_geom.curves[curve].extract_points()
+        # Store the curve given by the user
+        self.curve = curve
 
+        # Check what is included in the curve variable so we can get the
+        # points that define the initial curve
+        if isinstance(curve, np.ndarray):
+
+            # The user gave an array of points
+            rStart = curve
+            # Store curve type
+            self.curveType = 'array'
+
+        elif isinstance(curve, str):
+
+            # We assume that curve is a string that defines a curve name
+            rStart = ref_geom.curves[curve].extract_points()
+
+            # Store curve type
+            self.curveType = 'string'
+
+        else:
+
+            # Then we assume that curve is an isolated curve object
+            rStart = curve.extract_points()
+
+            # Store curve type
+            self.curveType = 'object'
+
+
+        # Now we need to convert rStart to an 1D array and set it to
+        # Fortran ordering, so we can use Fortran codes.
+        # We do this because the linear system is assembled assuming that
+        # the coordinates vector is flattened
+        rStart = rStart.flatten().astype(float)
+        rStart = np.array(rStart,order='F')
+
+        # Store the flattened coordinate array of the initial curve
+        self.rStart = rStart
+
+        # Store the reference geometry object
         self.ref_geom = ref_geom
 
         # Store curve names if we have curve BCs
@@ -99,7 +107,7 @@ class HypSurfMesh(object):
             self.ref_curve2 = []
 
         # Get the number of nodes and layers
-        self.numNodes = self.curve.shape[0]
+        self.numNodes = len(self.rStart)/3
         self.numLayers = self.optionsDict['numLayers']
         self.mesh = np.zeros((3, self.numNodes, self.numLayers))
 
@@ -110,7 +118,10 @@ class HypSurfMesh(object):
         self.curveProjDict1 = []
         self.curveProjDict2 = []
 
+        self.rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
+
         self.coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
+
         self.curveCoord = {}
         for curveName in self.ref_geom.curves:
             self.curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
@@ -133,52 +144,7 @@ class HypSurfMesh(object):
         # Create list of dictionaries to store projection information for each guide curve
         self.curveProjDictGuide = [[] for s in range(len(guideIndices))]
 
-        # Check to see if guideIndices were provided. If so, set retainSpacing
-        # as True and pass this to Fortran so we know to use the guideIndices.
-        # If we don't have some sort of logical and pass an array of [] to
-        # Fortran, it think it is length 1 and will try to access the
-        # non-meaningful memory.
-        #if self.guideIndices:
-        #    self.retainSpacing = True
-
-        # COMPUTE NORMALIZED ARC-LENGTHS
-        # If we detect guide curves, we will record separate arc-lengths for
-        # each subinterval defined by these guide curves.
-
-        # Initialize list of arc-lengths.
-        # Each entry of this list will correspond to an arc-length subinterval
-        # defined by the guide curves.
-        self.arcLength = []
-
-        # Now we define a list of nodes that define the boundaries of the subintervals.
-        # These are the nodes that follow guide curves (and also the first and last nodes)
-        breakNodes = [0] + guideIndices + [self.numNodes-1]
-        breakNodes = sorted(set(breakNodes)) # Remove duplicates
-
-        # Compute the number of subinterval based on the number of break nodes
-        numIntervals = len(breakNodes) - 1
-
-        # Flatten the curve coordinates so we could use the arc-length functions
-        rStart = self.curve.flatten().astype(float)
-
-        # Store the normalized arc-lengths of each subinterval
-        for intervalID in range(numIntervals):
-
-            # Get indices of the first and last nodes of the interval
-            node1 = breakNodes[intervalID]
-            node2 = breakNodes[intervalID+1]
-
-            # Take the slice of the nodal coordinates that corresponds to the
-            # current subinterval
-            rInterval = rStart[3*node1:3*(node2+1)]
-
-            # Compute the normalized arc-lengths of this interval
-            arcLength = compute_arc_length(rInterval)
-
-            # Store the arc-lengths of the current interval
-            self.arcLength.append(arcLength)
-
-    def createMesh(self):
+    def createMesh(self, fortran_flag=True):
         '''
         This is the main function that generates the surface mesh from an initial curve
 
@@ -211,35 +177,25 @@ class HypSurfMesh(object):
         st = time()
 
 
-        dStart = self.optionsDict['dStart']
-        cMax = self.optionsDict['cMax']
-        ratioGuess = self.optionsDict['ratioGuess']
-        theta = self.optionsDict['theta']
+        # Make sure variables have the correct type
+        dStart = float(self.optionsDict['dStart'])
+        cMax = float(self.optionsDict['cMax'])
+        ratioGuess = float(self.optionsDict['ratioGuess'])
+        theta = float(self.optionsDict['theta'])
         bc1 = self.optionsDict['bc1']
         bc2 = self.optionsDict['bc2']
-        sigmaSplay = self.optionsDict['sigmaSplay']
-        numLayers = self.optionsDict['numLayers']
-        epsE0 = self.optionsDict['epsE0']
-        theta = self.optionsDict['theta']
-        alphaP0 = self.optionsDict['alphaP0']
-        numSmoothingPasses = self.optionsDict['numSmoothingPasses']
-        numAreaPasses = self.optionsDict['numAreaPasses']
-        nuArea = self.optionsDict['nuArea']
+        sigmaSplay = float(self.optionsDict['sigmaSplay'])
+        numLayers = int(self.optionsDict['numLayers'])
+        epsE0 = float(self.optionsDict['epsE0'])
+        theta = float(self.optionsDict['theta'])
+        alphaP0 = float(self.optionsDict['alphaP0'])
+        numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
+        numAreaPasses = int(self.optionsDict['numAreaPasses'])
+        nuArea = float(self.optionsDict['nuArea'])
 
-        if self.extension_given:
-            extension = self.optionsDict['extension']
-            marchParameter = extension
-        else:
-            growthRatio = self.optionsDict['growthRatio']
-            marchParameter = growthRatio
-
-        if self.growthRatio_given and self.extension_given:
-            error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
-
-        # Flatten the coordinates vector
-        # We do this because the linear system is assembled assuming that
-        # the coordinates vector is flattened
-        rStart = self.curve.flatten().astype(float)
+        # Get coordinates of the initial curve (this is a flattened array)
+        rStart = self.rStart
+        rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
         # Clean the projection dictionaries
@@ -253,235 +209,35 @@ class HypSurfMesh(object):
             # which contains the mesh.
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
+
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
-            R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march,order='F')
-            R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed,order='F')
-            R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected,order='F')
-            R_remeshed = np.array(hypsurfAPI.hypsurfapi.r_remeshed,order='F')
-            R_final = np.array(hypsurfAPI.hypsurfapi.r_final,order='F')
-            S0_hist = np.array(hypsurfAPI.hypsurfapi.s0_hist,order='F')
-            Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist,order='F')
-            N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected,order='F')
-            N_final = np.array(hypsurfAPI.hypsurfapi.n_final,order='F')
+            self.R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march,order='F')
+            self.R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed,order='F')
+            self.R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected,order='F')
+            self.R_remeshed = np.array(hypsurfAPI.hypsurfapi.r_remeshed,order='F')
+            self.R_final = np.array(hypsurfAPI.hypsurfapi.r_final,order='F')
+            self.S0_hist = np.array(hypsurfAPI.hypsurfapi.s0_hist,order='F')
+            self.Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist,order='F')
+            self.N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected,order='F')
+            self.N_final = np.array(hypsurfAPI.hypsurfapi.n_final,order='F')
 
-            # Derivative check
-            if deriv_check:
-
-                # Normalize all forward derivatives
-                # Remember that each variable should be normalized independently
-                np.random.seed(123)
-                rStartd = np.array(np.random.random_sample(rStart.shape),order='F')
-                rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
-
-                self.coord = self.coord/np.sqrt(np.sum(self.coord**2))
-
-                for curveName in self.ref_geom.curves:
-                    self.curveCoord[curveName] = self.curveCoord[curveName]/np.sqrt(np.sum(self.curveCoord[curveName]**2))
-
-                rStartd_copy = rStartd.copy()
-                coord_copy = self.coord.copy()
-                curveCoord_copy = {}
-                for curveName in self.ref_geom.curves:
-                    curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
-
-
-                R_, Rd, fail, ratios_, _ = hypsurfAPI.hypsurfapi.march_d(self.projection_d, rStart, rStartd, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numLayers)
-
-                # Reverse mode
-                R = np.array(R,order='F')
-                Rb = np.array(np.random.random_sample(R.shape),order='F')
-                Rb_copy = Rb.copy()
-
-                numProjs = len(self.projDict)
-
-                hypsurfAPI.hypsurfapi.releasememory()
-                rStartb, fail = hypsurfAPI.hypsurfapi.march_b(self.projection_b, rStart, R_initial_march, R_smoothed, R_projected, R_remeshed, R_final, N_projected, N_final, Sm1_hist, S0_hist, majorIndices, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.guideIndices+1, self.optionsDict['remesh'],  self.extension_given, numSmoothingPasses, numAreaPasses, numProjs, R, Rb, ratios)
-
-                dotProduct = 0.0
-                dotProduct = dotProduct + np.sum(rStartd_copy*rStartb)
-                dotProduct = dotProduct + np.sum(coord_copy*self.coorb)
-                for curveName in self.ref_geom.curves:
-                    dotProduct = dotProduct + np.sum(curveCoord_copy[curveName]*self.curveCoorb[curveName])
-                dotProduct = dotProduct - np.sum(Rd*Rb_copy)
-
-                print ' Marching dot product test, this should be zero:', dotProduct, '(unless the surface is curved; don\'t have projections working)'
-                print
-
-                # Finite difference
-                # Perform the marching algorithm and output the results into R,
-                # which contains the mesh.
-                # fail is a flag set to true if the marching algo failed
-                # ratios is the ratios of quality for the mesh
-                hypsurfAPI.hypsurfapi.releasememory()
-                stepSize = 1e-7
-                rStart_step = rStart+rStartd*stepSize
-                self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
-                for curveName in self.ref_geom.curves:
-                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + curveCoord_copy[curveName]*stepSize
-
-                R_step, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart_step, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
-
-                self.ref_geom.update(self.ref_geom.coor - self.coord*stepSize)
-                for curveName in self.ref_geom.curves:
-                    self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
-
-                Rd_FD = (R_step-R)/stepSize
-                view_mat(np.abs(Rd_FD-Rd))
-                print 'FD test:', np.max(np.abs(Rd_FD-Rd))
-
-            # Release the pseudomesh information from the hypsurfAPI instance
+            # Release memory for next runs
             hypsurfAPI.hypsurfapi.releasememory()
 
         else: # We will use the Python version of hypsurf
 
-            # Initialize 2D array that will contains all the surface grid points in the end
-            R = np.zeros((numLayers,len(rStart)))
-
-            # Project onto the surface or curve (if applicable)
-            rNext, NNext = self.projection(rStart)
-
-            # Initialize step size and total marched distance
-            d = dStart
-            dTot = 0
-
-            if self.extension_given:
-                # Find the characteristic radius of the mesh
-                radius = findRadius(rNext)
-
-                # Find the desired marching distance
-                dMax = radius*(extension-1)
-
-                # Compute the growth ratio necessary to match this distance
-                dGrowth = findRatio(dMax, dStart, numLayers, ratioGuess)
-            else:
-                dGrowth = growthRatio
-
-            # Print growth ratio
-            print 'Growth ratio: ',dGrowth
-
-            # Store the initial curve
-            R[0,:] = rNext
-
-            # Issue a warning message if the projected points are far from the given points
-            if max(abs(rNext - rStart)) > 1.0e-5:
-                warn('The given points (rStart) might not belong to the given surface (surf)\nThese points were projected for the surface mesh generation')
-
-
-            # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
-            # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-            rm1 = rNext[:]
-
-            #===========================================================
-
-            '''
-            The marching function actually begins here
-            '''
-
-            fail = False
-
-            # MARCH!!!
-            for layerIndex in range(numLayers-1):
-
-                # Get the coordinates computed by the previous iteration
-                r0 = rNext[:]
-                N0 = NNext[:,:]
-
-                # Compute the new area factor for the desired marching distance
-                S0, maxStretch = self.areaFactor(r0, d)
-
-                # The subiterations will use pseudo marching steps.
-                # If the required marching step is too large, the hyperbolic marching might become
-                # unstable. So we subdivide the current marching step into multiple smaller pseudo-steps
-
-                # Compute the factor between the current stretching ratio and the allowed one.
-                # If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
-                # The pseudo-step will be the same as the desired step.
-                cFactor = int(np.ceil(maxStretch/cMax))
-
-                # Constrain the marching distance if the stretching ratio is too high
-                dPseudo = d/cFactor
-
-                # Subiteration
-                # The number of subiterations is the one required to meet the desired marching distance
-                for indexSubIter in range(cFactor):
-
-                    # Recompute areas with the pseudo-step
-                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo)
-                    S0, maxStretch = self.areaFactor(r0, dPseudo)
-
-                    # March using the pseudo-marching distance
-                    eta = layerIndex+2
-                    rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
-
-                    # Update Sm1 (Store the previous area factors)
-                    Sm1 = S0[:]
-
-                    # Update rm1
-                    rm1 = r0[:]
-
-                    # Update r0
-                    r0 = rNext[:]
-
-                    # Update the Normals with the values computed in the last iteration.
-                    # We do this because, the last iteration already projected the new
-                    # points to the surface and also computed the normals. So we don't
-                    # have to repeat the projection step
-                    N0 = NNext[:,:]
-
-                # Store grid points
-                R[layerIndex+1,:] = rNext
-
-                # Check quality of the mesh
-                if layerIndex > 1:
-                    fail, ratios = self.qualityCheck(R[layerIndex-2:layerIndex+2, :], layerIndex)
-
-
-                if fail:
-                    # If the mesh is not valid, only save the mesh up until that point.
-                    # Otherwise we'd see a bunch of points at 0,0,0.
-                    R = R[:layerIndex+2, :]
-                    break
-
-                # Compute the total marched distance so far
-                dTot = dTot + d
-
-                # Update step size
-                d = d*dGrowth
-
-            if self.optionsDict['plotQuality']:
-                fail, ratios = self.qualityCheck(R)
-
-        #=====================================
-
-        if fortran_check == True:
-
-            '''
-            Run the same case using the Fortran code to check if both codes give the same output
-            '''
-
-            # Run Fortran marching code
-            R_fortran, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
-
-            R_fortran = np.array(R_fortran)
-
-            # Release the pseudomesh information from the hypsurfAPI instance
-            hypsurfAPI.hypsurfapi.releasememory()
-
-            # Compare differences
-            print
-            print 'Maximum difference between Fortran and Python:'
-            print np.max(np.abs(R-R_fortran))
-            print
-
-        # end if fortranCheck
+            # Run the Python marching code
+            import hypsurf_python
+            R, fail, ratios = hypsurf_python.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
         #=====================================
         print time() - st, 'secs'
 
         if self.optionsDict['plotQuality']:
+            fail, ratios = self.qualityCheck(R)
             view_mat(ratios)
 
         # Convert to X, Y and Z
@@ -494,94 +250,243 @@ class HypSurfMesh(object):
         self.mesh[1, :, :] = Y.T
         self.mesh[2, :, :] = Z.T
 
-
-    def subIteration(self, r0, N0, S0, rm1, Sm1, layerIndex):
-
-        '''
-        r0 -> 1D array (1 x 3*numNodes): flattened vector containing coordinates of the latest curve
-              r0 = [x1 y1 z1 x2 y2 z2 x3 y3 z3 ... ]
-
-        N0 -> 2D array (3 x numNodes): Surface normals at every node of the latest curve (r0)
-              N0 = [ nx1 nx2 nx3 nx4 ... ]
-                   [ ny1 ny2 ny3 ny4 ... ]
-                   [ nz1 nz2 nz3 nz4 ... ]
-
-        S0 -> 1D array (1 x numNodes): Area factor (related to marching distance) of every node of
-                                       the latest curve (r0). The area is the marching distance times
-                                       the distance between the node and its neighbors
-              S0 = [ S1 S2 S3 S4 ... ]
-
-        rm1 -> 1D array (1 x 3*numNodes): flattened vector containing coordinates of the
-                                          first-before-last curve
-               rm1 = [x1m1 y1m1 z1m1 x2m1 y2m1 z2m1 x3m1 y3m1 z3m1 ... ]
-
-        Sm1 -> 1D array (1 x numNodes): Area factor (related to marching distance) of every node of
-                                        the first-before-last curve (rm1)
-              S0 = [ S1m1 S2m1 S3m1 S4m1 ... ]
-
-        layerIndex -> integer : 0-based index corresponding to the current layer (the starting curve
-                                 has layerIndex = 0, the first generated curve has layerIndex = 1,
-                                 and so on...
+    def clean(self):
 
         '''
+        This method removes the residual data generated by the original
+        and differentiated code.
+        '''
 
+        # Clean projection dictionaries
+        self.projDict = []
+        self.curveProjDict1 = []
+        self.curveProjDict2 = []
+        for index in range(len(self.curveProjDictGuide)):
+            self.curveProjDictGuide[index] = []
 
-        theta = self.optionsDict['theta']
-        bc1 = self.optionsDict['bc1']
-        bc2 = self.optionsDict['bc2']
-        sigmaSplay = self.optionsDict['sigmaSplay']
-        numLayers = self.optionsDict['numLayers']
-        epsE0 = self.optionsDict['epsE0']
-        theta = self.optionsDict['theta']
-        alphaP0 = self.optionsDict['alphaP0']
-        numSmoothingPasses = self.optionsDict['numSmoothingPasses']
-        eta = layerIndex+2
+        # Clean reverse derivatives
+        self.coorb[:,:] = 0.0
 
-        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
+        for curveName in self.curveCoord:
+            self.curveCoorb[curveName][:,:] = 0.0
 
-        # Update r
-        rNext = r0 + dr
+    #================================================================
+    #================================================================
+    # FORWARD AD METHODS
 
-        # Smooth coordinates
-        rNext_ = self.smoothing(rNext,layerIndex+2)
+    # The methods are defined in the order that they should be used.
 
-        rNext, NNext = self.projection(rNext_)
+    def set_forwardAD_inputSeeds(self, rStartd, coord, curveCoord):
 
-        # Remesh curve with initial spacing if chosen by the user
-        if self.optionsDict['remesh']:
+        '''
+        This function will just overwrite the input seed that should
+        be used by the forward mode AD to propagate derivatives.
 
-            # Now we will redistribute the nodes based on the original curve arc-length.
-            # Remember that we should do this for each subinterval defined by guide curves.
+        INPUTS:
 
-            # Initialize array for redistributed coordinates
-            rNext_ = np.zeros(rNext.shape)
+        rStartd: float[numNodes*3] -> Derivative seeds of the initial curve used for mesh marching.
+                                      numNodes is the number of nodes in this initial curve.
 
-            # Initialize offset index for the initial node of the subinterval
-            nodeID_offset = 0
+        coord: float[3,numSurfNodes] -> Derivative seeds of the nodal coordinates of the reference
+                                        surface. It should have the same shape as ref_geom.coor.
 
-            # Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
-            for intervalID in range(len(self.arcLength)):
+        curveCoord : [curveName]{float[3,numCurveNodes]} -> Dictionary containing derivative seeds
+                                                            of the nodal coordinates of each curve
+                                                            present in ref_geom. The dictionary keys
+                                                            are the names of the curves.
+        '''
 
-                # Get the number of nodes in the current subinterval
-                numNodes = len(self.arcLength[intervalID])
+        self.rStartd = np.array(rStartd, order='F')
 
-                # Slice the coordinate array to get only nodes of the current subinterval
-                rInterval = rNext[nodeID_offset*3:(nodeID_offset+numNodes)*3]
+        self.coord = np.array(coord, order='F')
 
-                # Redistribute the nodes
-                rNew = redistribute_nodes_by_arc_length(rInterval,self.arcLength[intervalID])
+        for curveName in self.ref_geom.curves:
+            self.curveCoord[curveName] = np.array(curveCoord[curveName], order='F')
 
-                # Save the redistributed nodes in the original array
-                rNext_[nodeID_offset*3:(nodeID_offset+numNodes)*3] = rNew
+    def compute_forwardAD(self):
 
-                # Update the offset
-                nodeID_offset = nodeID_offset + numNodes - 1
+        '''
+        This method uses forward mode AD to propagate derivatives from inputs to outputs.
 
-            # Project the remeshed curve back onto the surface
-            rNext, NNext = self.projection(rNext_)
+        This method updates self.meshd. Then user can use self.get_forwardAD_outputSeeds
+        to retrieve this result.
 
-        # RETURNS
-        return rNext, NNext
+        ATTENTION:
+        The user should call the original method (self.createMesh) first, as this will populate
+        the projection dictionaries (self.projDict, self.curveProjDict1, self.curveProjDict2,
+        and self.curveProjDictGuides) with the necessary information for the differentiation.
+        The user should also call self.set_forwardAD_seeds to define the derivative seeds of
+        the input variables.
+        '''
+
+        # Check if we have projection dictionaries stored
+        if not self.projDict:
+            print ''
+            print 'ERROR: hypsurf.py - compute_forwardAD'
+            print ' Cannot compute derivatives without running the original code first.'
+            print ' 1- Call mesh.createMesh'
+            print ' 2- Set seeds with mesh.set_forwardAD_inputSeeds'
+            print ' 3- Then use mesh.compute_forwardAD'
+            print ''
+            exit()
+
+        # Call the Fortran function that computes derivatives
+        R, Rd, fail, ratios = hypsurfAPI.hypsurfapi.march_d(self.projection_d,
+                                                            self.rStart,
+                                                            self.rStartd,
+                                                            self.R_projected,
+                                                            self.R_final,
+                                                            self.N_projected,
+                                                            self.N_final,
+                                                            self.optionsDict['dStart'],
+                                                            self.optionsDict['theta'],
+                                                            self.optionsDict['sigmaSplay'],
+                                                            self.optionsDict['bc1'],
+                                                            self.optionsDict['bc2'],
+                                                            self.optionsDict['epsE0'],
+                                                            self.optionsDict['alphaP0'],
+                                                            self.marchParameter,
+                                                            self.optionsDict['nuArea'],
+                                                            self.optionsDict['ratioGuess'],
+                                                            self.optionsDict['cMax'],
+                                                            self.guideIndices+1,
+                                                            self.optionsDict['remesh'],
+                                                            self.extension_given,
+                                                            self.optionsDict['numSmoothingPasses'],
+                                                            self.optionsDict['numAreaPasses'],
+                                                            self.optionsDict['numLayers'])
+        
+        # Convert to Xd, Yd and Zd
+        Xd = Rd[:,::3]
+        Yd = Rd[:,1::3]
+        Zd = Rd[:,2::3]
+
+        # Set the forward AD output seeds
+        self.meshd = np.zeros((3, self.numNodes, Xd.T.shape[1]))
+        self.meshd[0, :, :] = Xd.T
+        self.meshd[1, :, :] = Yd.T
+        self.meshd[2, :, :] = Zd.T
+
+    def get_forwardAD_outputSeeds(self):
+
+        # The only output are the derivatives of the surface mesh coordinates
+        return self.meshd
+
+    #================================================================
+    #================================================================
+    # REVERSE AD METHODS
+
+    # The methods are defined in the order that they should be used.
+
+    def set_reverseAD_outputSeeds(self, meshb):
+
+        '''
+        This function will just overwrite the input seed that should
+        be used by the forward mode AD to propagate derivatives.
+
+        This method updates self.meshb. Then user can use self.get_reversedAD_inputSeeds
+        to retrieve this result.
+
+        INPUTS:
+
+        meshb -> float[3, numNodes, numLayers] : Reverse derivative seeds
+        of the surface mesh coordinates.
+        '''
+
+        self.meshb = np.array(meshb,order='F')
+
+    def compute_reverseAD(self):
+
+        '''
+        This method will use reverse mode AD to propagate derivatives from outputs to inputs.
+
+        ATTENTION:
+        The user should call the original method (self.createMesh) first, as this will populate
+        the projection dictionaries (self.projDict, self.curveProjDict1, self.curveProjDict2,
+        and self.curveProjDictGuides) with the necessary information for the differentiation.
+        The user should also call self.set_reverseAD_outputSeeds to define the derivative seeds of
+        the output variables.
+
+        '''
+
+        # Check if we have projection dictionaries stored
+        if not self.projDict:
+            print ''
+            print 'ERROR: hypsurf.py - compute_reverseAD'
+            print ' Cannot compute derivatives without running the original code first.'
+            print ' 1- Call mesh.createMesh'
+            print ' 2- Set seeds with mesh.set_reverseAD_outputSeeds'
+            print ' 3- Then use mesh.compute_reverseAD'
+            print ''
+            exit()
+
+        # Get total number of projection steps
+        numProjs = len(self.projDict)
+
+        # Transform the set of 3D coordinates into a 2D array
+        X = self.mesh[0, :, :].T
+        Y = self.mesh[1, :, :].T
+        Z = self.mesh[2, :, :].T
+
+        R = np.zeros((self.optionsDict['numLayers'], 3*self.numNodes), order='F')
+        R[:,::3] = X
+        R[:,1::3] = Y
+        R[:,2::3] = Z
+
+        del X, Y, Z
+
+        # Transform the set of 3D derivative seeds into a 2D array
+        Xb = self.meshb[0, :, :].T
+        Yb = self.meshb[1, :, :].T
+        Zb = self.meshb[2, :, :].T
+
+        Rb = np.zeros((self.optionsDict['numLayers'], 3*self.numNodes), order='F')
+        Rb[:,::3] = Xb
+        Rb[:,1::3] = Yb
+        Rb[:,2::3] = Zb
+
+        del Xb, Yb, Zb
+
+        # Call the Fortran function that computes derivatives
+        self.rStartb = hypsurfAPI.hypsurfapi.march_b(self.projection_b,
+                                                     self.rStart,
+                                                     self.R_initial_march,
+                                                     self.R_smoothed,
+                                                     self.R_projected,
+                                                     self.R_remeshed,
+                                                     self.R_final,
+                                                     self.N_projected,
+                                                     self.N_final,
+                                                     self.Sm1_hist,
+                                                     self.S0_hist,
+                                                     self.optionsDict['dStart'],
+                                                     self.optionsDict['theta'],
+                                                     self.optionsDict['sigmaSplay'],
+                                                     self.optionsDict['bc1'],
+                                                     self.optionsDict['bc2'],
+                                                     self.optionsDict['epsE0'],
+                                                     self.optionsDict['alphaP0'],
+                                                     self.marchParameter,
+                                                     self.optionsDict['nuArea'],
+                                                     self.optionsDict['ratioGuess'],
+                                                     self.optionsDict['cMax'],
+                                                     self.guideIndices+1,
+                                                     self.optionsDict['remesh'],
+                                                     self.extension_given,
+                                                     self.optionsDict['numSmoothingPasses'],
+                                                     self.optionsDict['numAreaPasses'],
+                                                     numProjs,
+                                                     R,
+                                                     Rb)
+        
+    def get_reverseAD_inputSeeds(self):
+
+        # The only output are the derivatives of the surface mesh coordinates
+        return self.rStartb, self.coorb, self.curveCoorb
+
+    #================================================================
+    #================================================================
+    # PROJECTION METHODS
 
     def projection(self, r):
 
@@ -768,616 +673,9 @@ class HypSurfMesh(object):
 
         return rb
 
-    def areaFactor(self, r0, d):
-
-        '''
-        This function computes the area factor distribution for the current curve.
-        The area factor is the marched distance times the distance between the node
-        and its neighbors.
-        This function also computes the stretching ratio of the desired marching distance
-        (ratio between marching distance and the neighbor distance), so that we can avoid
-        large steps
-
-        INPUTS:
-        r0 -> 1d array (1 x 3*numNodes) : coordinates of all points in a layer:
-        r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
-
-        d -> float : desired marching distance
-        '''
-
-        nuArea = self.optionsDict['nuArea']
-        numAreaPasses = self.optionsDict['numAreaPasses']
-
-        # Extrapolate the end points
-        r0minus1 = 2*r0[0:3] - r0[3:6]
-        r0plus1 = 2*r0[-3:] - r0[-6:-3]
-        r0_extrap = np.hstack([r0minus1, r0, r0plus1])
-
-        # Reshape so we have 3D array
-        R0_extrap = np.reshape(r0_extrap,(-1,3)).T
-
-        # Compute the distance of each node to its neighbors
-        neighborDist = 0.5*(np.linalg.norm(R0_extrap[:,1:-1] - R0_extrap[:,:-2],axis=0) + np.linalg.norm(R0_extrap[:,2:] - R0_extrap[:,1:-1],axis=0))
-
-        # Multiply distances by the step size to get the areas
-        S = d*neighborDist
-
-        # Divide the marching distance and the neighbor distance to get the stretch ratios
-        stretchRatio = d/neighborDist
-
-        # Get the maximum stretch ratio
-        maxStretch = np.max(stretchRatio)
-
-        # Do the requested number of averagings
-        for index in xrange(numAreaPasses):
-            # Store previous values
-            Splus = S[1]
-            Sminus = S[-2]
-            # Do the averaging for the central nodes
-            S[1:-1] = (1-nuArea)*S[1:-1] + nuArea/2*(S[:-2] + S[2:])
-            # Average for the extremum nodes
-            S[0] = (1-nuArea)*S[0] + nuArea*Splus
-            S[-1] = (1-nuArea)*S[-1] + nuArea*Sminus
-
-        # If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
-        if self.optionsDict['bc1'].lower().startswith('curve'):
-            S[0] = d
-        if self.optionsDict['bc2'].lower().startswith('curve'):
-            S[-1] = d
-        # Set guideCurve marching distances
-        if self.guideIndices:
-            for index in self.guideIndices:
-                S[index] = d
-
-        # RETURNS
-        return S, maxStretch
-
-    def computeMatrices(self, r0, N0, S0, rm1, Sm1, layerIndex):
-
-        '''
-        This function computes the derivatives r_zeta and r_eta for a group
-        of coordinates given in r.
-        It should be noted that r0 is a 1d array that contains x and y
-        coordinates of all points in a layer:
-        r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
-
-        N0 is a 2D array with the surface normals at each r0 point
-        N0 = [ nx1 nx2 nx3 nx4 ... ]
-             [ ny1 ny2 ny3 ny4 ... ]
-             [ nz1 nz2 nz3 nz4 ... ]
-        '''
-
-        # Get options
-        theta = self.optionsDict['theta']
-        bc1 = self.optionsDict['bc1']
-        bc2 = self.optionsDict['bc2']
-        sigmaSplay = self.optionsDict['sigmaSplay']
-        numLayers = self.optionsDict['numLayers']
-        epsE0 = self.optionsDict['epsE0']
-
-        # Initialize arrays
-        K = np.zeros((3*self.numNodes, 3*self.numNodes))
-        f = np.zeros(3*self.numNodes)
-
-        #####################################
-        # HELPER FUNCTION TO BUILD MATRICES #
-        #####################################
-
-        def matrixBuilder(curr_index):
-
-            if curr_index == 0:  # forward case
-
-                if bc1 != 'continuous':
-
-                    neighbor1_index = 1
-                    neighbor2_index = 2
-
-                    # Using forward differencing for xi = 1
-                    r0_xi = 0.5*(-3*r0[3*(curr_index):3*(curr_index)+3] + 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] - r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                    angle = np.pi
-
-                else:
-
-                    neighbor1_index = self.numNodes - 2
-                    neighbor2_index = curr_index + 1
-
-                    # Using central differencing for zeta = 2:numNodes-1
-                    r0_xi = 0.5*(r0[3*(neighbor2_index):3*(neighbor2_index)+3] - r0[3*(neighbor1_index):3*(neighbor1_index)+3])
-
-                    # Compute the local grid angle based on the neighbors
-                    angle = giveAngle(r0[3*(neighbor1_index):3*(neighbor1_index)+3],
-                                      r0[3*(curr_index):3*(curr_index)+3],
-                                      r0[3*(neighbor2_index):3*(neighbor2_index)+3],
-                                      N0[:,curr_index])
-
-
-            elif curr_index == self.numNodes - 1:  # backward case
-                neighbor1_index = curr_index - 1
-                neighbor2_index = curr_index - 2
-
-                # Using backward differencing for xi = numNodes
-                r0_xi = 0.5*(3*r0[3*(curr_index):3*(curr_index)+3] - 4*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                angle = np.pi
-
-            else:  # central case
-                neighbor1_index = curr_index - 1
-                neighbor2_index = curr_index + 1
-
-                # Using central differencing for zeta = 2:numNodes-1
-                r0_xi = 0.5*(r0[3*(neighbor2_index):3*(neighbor2_index)+3] - r0[3*(neighbor1_index):3*(neighbor1_index)+3])
-
-                # Compute the local grid angle based on the neighbors
-                angle = giveAngle(r0[3*(neighbor1_index):3*(neighbor1_index)+3],
-                                  r0[3*(curr_index):3*(curr_index)+3],
-                                  r0[3*(neighbor2_index):3*(neighbor2_index)+3],
-                                  N0[:,curr_index])
-                if np.isnan(angle):
-                    pdb.set_trace()
-
-            x0_xi = r0_xi[0]
-            y0_xi = r0_xi[1]
-            z0_xi = r0_xi[2]
-
-            # Get current normal
-            nx = N0[0,curr_index]
-            ny = N0[1,curr_index]
-            nz = N0[2,curr_index]
-
-            # Assemble B0 matrix
-            B0 = np.array([[x0_xi, y0_xi, z0_xi],
-                        [ny*z0_xi-nz*y0_xi, nz*x0_xi-nx*z0_xi, nx*y0_xi-ny*x0_xi],
-                        [nx, ny, nz]])
-
-            # Invert B0
-            B0inv = np.linalg.inv(B0)
-
-            # Compute eta derivatives
-            r0_eta = B0inv.dot(np.array([0, Sm1[curr_index], 0]))
-            x0_eta = r0_eta[0]
-            y0_eta = r0_eta[1]
-            z0_eta = r0_eta[2]
-
-            # Assemble A0 matrix
-            A0 = np.array([[x0_eta, y0_eta, z0_eta],
-                           [ny*z0_eta-nz*y0_eta, nz*x0_eta-nx*z0_eta, nx*y0_eta-ny*x0_eta],
-                           [0, 0, 0]])
-
-            # Compute grid distribution sensor (Eq. 6.8a)
-            dnum = np.linalg.norm(rm1[3*(neighbor2_index):3*(neighbor2_index)+3]-rm1[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(rm1[3*(neighbor1_index):3*(neighbor1_index)+3]-rm1[3*(curr_index):3*(curr_index)+3])
-            dden = np.linalg.norm(r0[3*(neighbor2_index):3*(neighbor2_index)+3]-r0[3*(curr_index):3*(curr_index)+3]) + np.linalg.norm(r0[3*(neighbor1_index):3*(neighbor1_index)+3]-r0[3*(curr_index):3*(curr_index)+3])
-            dSensor = dnum/dden
-
-            # Sharp convex corner detection
-            if angle < 70*np.pi/180: # Corner detected
-
-                # Populate matrix with Eq 8.3
-                K[3*curr_index:3*curr_index+3,3*neighbor2_index:3*neighbor2_index+3] = -np.eye(3)
-                K[3*curr_index:3*curr_index+3,3*curr_index:3*curr_index+3] = 2*np.eye(3)
-                K[3*curr_index:3*curr_index+3,3*neighbor1_index:3*neighbor1_index+3] = -np.eye(3)
-                f[3*curr_index:3*curr_index+3] = np.array([0,0,0])
-
-            else:
-
-                # Compute C0 = B0inv*A0
-                C0 = B0inv.dot(A0)
-
-                # Compute smoothing coefficients
-                epsE, epsI = self.dissipationCoefficients(layerIndex, r0_xi, r0_eta, dSensor, angle)
-
-                # Compute RHS components
-                B0invg = B0inv.dot(np.array([0, S0[curr_index], 0]))
-
-                if curr_index == 0:
-
-                    if self.optionsDict['bc1'] != 'continuous':# forwards
-                        De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                        # Compute block matrices
-                        L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
-                        M_block = 2*(1+theta)*C0 + 2*epsI*np.eye(3)
-                        N_block = -1.5*(1+theta)*C0 + (1-epsI)*np.eye(3)
-                        f_block = B0invg + De
-
-                        # Populate matrix
-                        K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = L_block
-                        K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = M_block
-                        K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
-                        f[3*(curr_index):3*(curr_index)+3] = f_block
-
-                    else:
-
-                        De = epsE*(r0[3*(neighbor1_index):3*(neighbor1_index)+3] - 2*r0[3*(curr_index):3*(curr_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                        # Compute block matrices
-                        L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
-                        M_block = (1 + 2*epsI)*np.eye(3)
-                        N_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
-                        f_block = B0invg + De
-
-                        # Populate matrix
-                        K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = L_block
-                        K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
-                        K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
-                        f[3*(curr_index):3*(curr_index)+3] = f_block
-
-                elif curr_index == self.numNodes - 1:  # backwards
-                    De = epsE*(r0[3*(curr_index):3*(curr_index)+3] - 2*r0[3*(neighbor1_index):3*(neighbor1_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                    # Compute block matrices
-                    L_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    M_block = -2*(1+theta)*C0 + 2*epsI*np.eye(3)
-                    N_block = 1.5*(1+theta)*C0 + (1-epsI)*np.eye(3)
-                    f_block = B0invg + De
-
-                    # Populate matrix
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = L_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = M_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = N_block
-                    f[3*(curr_index):3*(curr_index)+3] = f_block
-
-                else:  # central
-                    De = epsE*(r0[3*(neighbor1_index):3*(neighbor1_index)+3] - 2*r0[3*(curr_index):3*(curr_index)+3] + r0[3*(neighbor2_index):3*(neighbor2_index)+3])
-
-                    # Compute block matrices
-                    L_block = -0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    M_block = (1 + 2*epsI)*np.eye(3)
-                    N_block = 0.5*(1+theta)*C0 - epsI*np.eye(3)
-                    f_block = B0invg + De
-
-                    # Populate matrix
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor1_index):3*(neighbor1_index)+3] = L_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(curr_index):3*(curr_index)+3] = M_block
-                    K[3*(curr_index):3*(curr_index)+3,3*(neighbor2_index):3*(neighbor2_index)+3] = N_block
-                    f[3*(curr_index):3*(curr_index)+3] = f_block
-
-        #####################################
-        # END OF HELPER FUNCTION            #
-        #####################################
-
-        # Now loop over each node
-
-        for index in [0]:
-
-            if bc1 is 'splay':
-
-                # Get coordinates
-
-                r_curr = r0[3*(index):3*(index)+3]
-                r_next = r0[3*(index+1):3*(index+1)+3]
-
-                # Get vector that connects r_next to r_curr
-                d_vec = r_next - r_curr
-
-                # Get marching direction vector (orthogonal to the curve and to the surface normal)
-                d_vec_rot = np.cross(N0[:,index],d_vec)
-
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
-                                                                [N0[0,index], N0[1,index], N0[2,index]],
-                                                                [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
-
-
-            elif bc1 is 'constX':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif bc1 is 'constY':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif bc1 is 'constZ':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index+1):3*(index+1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif bc1.lower().startswith('curve'):
-
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] = S0[index] * N0[:,index]
-
-            else:
-
-                # Call assembly routine
-                matrixBuilder(index)
-
-        for index in xrange(1,self.numNodes-1):
-
-            # Set guideCurve matrix contributions
-            if self.guideIndices:
-                if index in self.guideIndices:
-
-                    # Populate matrix
-                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-
-                    f[3*index:3*index+3] = S0[index] * N0[:,index]
-
-                    '''
-                    # Neighbor average
-                    # Populate matrix
-                    K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)/2
-                    K[3*index:3*index+3,3*index-3:3*index-3+3] = np.eye(3)/4
-                    K[3*index:3*index+3,3*index+3:3*index+3+3] = np.eye(3)/4
-
-                    f[3*index:3*index+3] = S0[index] * N0[:,index]
-                    '''
-
-                    '''
-                    # Dissipation coefficients
-
-                    # Call assembly routine
-                    matrixBuilder(index)
-
-                    # Get dissipation factor from original matrix
-                    epsI_local = (K[3*index,3*index] - 1.0)/2.0
-                    epsE_local = epsI_local/2.0
-
-                    # Here we keep the same diagonal matrix, but we modify
-                    # the neighbors' matrices to keep only dissipation terms
-                    K[3*index:3*index+3,3*index-3:3*index-3+3] = -epsI_local*np.eye(3)
-                    K[3*index:3*index+3,3*index+3:3*index+3+3] = -epsI_local*np.eye(3)
-
-                    # Compute dissipation term for RHS
-                    r_prev = r0[3*(index-1):3*(index-1)+3]
-                    r_curr = r0[3*(index):3*(index)+3]
-                    r_next = r0[3*(index+1):3*(index+1)+3]
-                    De = epsE_local*(r_prev - 2*r_curr + r_next)
-
-                    # Replace RHS to keep marching direction and dissipation term
-                    f[3*index:3*index+3] = S0[index] * N0[:,index] + De
-                    '''
-                else:
-                    # Call assembly routine
-                    matrixBuilder(index)
-            else:
-                # Call assembly routine
-                matrixBuilder(index)
-
-        for index in [self.numNodes-1]:
-
-            if bc2 is 'continuous':
-
-                # Populate matrix (use same displacements of first node)
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                K[3*index:3*index+3,:3] = -np.eye(3)
-                f[3*index:3*index+3] = [0, 0, 0]
-
-            elif bc2 is 'splay':
-
-                # Get coordinates
-                r_curr = r0[3*(index):3*(index)+3]
-                r_prev = r0[3*(index-1):3*(index-1)+3]
-
-                # Get vector that connects r_next to r_curr
-                d_vec = r_curr - r_prev
-
-                # Get marching direction vector (orthogonal to the curve and to the surface normal)
-                d_vec_rot = np.cross(N0[:,index],d_vec)
-
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.array([[d_vec_rot[0], d_vec_rot[1], d_vec_rot[2]],
-                                                                [N0[0,index], N0[1,index], N0[2,index]],
-                                                                [d_vec[0], d_vec[1], d_vec[2]]])
-                f[3*index:3*index+3] = np.array([S0[index]*(1-sigmaSplay), 0, 0])
-
-            elif bc2 is 'constX':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[0, 0, 0],[0, -1, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif bc2 is 'constY':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, 0, 0],[0, 0, -1]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif bc2 is 'constZ':
-
-                # Populate matrix
-                K[3*index:3*index+3,3*(index-1):3*(index-1)+3] = [[-1, 0, 0],[0, -1, 0],[0, 0, 0]]
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] =  [0, 0, 0]
-
-            elif self.optionsDict['bc2'].lower().startswith('curve'):
-
-                # Populate matrix
-                K[3*index:3*index+3,3*index:3*index+3] = np.eye(3)
-                f[3*index:3*index+3] = S0[index] * N0[:,index]
-
-            else:
-
-                # Call assembly routine
-                matrixBuilder(index)
-
-        # Solve the linear system
-        dr = np.linalg.solve(K,f)
-
-        # RETURNS
-        return dr
-
-    def smoothing(self, r, eta):
-
-        alphaP0 = self.optionsDict['alphaP0']
-        numSmoothingPasses = self.optionsDict['numSmoothingPasses']
-        numLayers = self.optionsDict['numLayers']
-
-        # This function does the grid smoothing
-
-        # Loop over the desired number of smoothing passes
-        for index_pass in range(numSmoothingPasses):
-
-            # Initialize array of smoothed coordinates
-            r_smooth = np.zeros(3*self.numNodes)
-
-            # Copy the edge nodes
-            r_smooth[:3] = r[:3]
-            r_smooth[-3:] = r[-3:]
-
-            # Smooth every node
-            for index in xrange(1,self.numNodes-1):
-
-                # Get coordinates
-                r_curr = r[3*(index):3*(index)+3]
-                r_next = r[3*(index+1):3*(index+1)+3]
-                r_prev = r[3*(index-1):3*(index-1)+3]
-
-                # Compute distances
-                lp = np.linalg.norm(r_next - r_curr)
-                lm = np.linalg.norm(r_curr - r_prev)
-
-                # Compute alpha'
-                alphaP = min(alphaP0, alphaP0*(eta-2)/numLayers)
-
-                # Compute smoothed coordinates
-                r_smooth[3*index:3*index+3] = (1-alphaP)*r_curr + alphaP*(lm*r_next + lp*r_prev)/(lp + lm)
-
-            # Copy coordinates to allow next pass
-            r = r_smooth[:]
-
-        # RETURNS
-        return r
-
-    def dissipationCoefficients(self, layerIndex, r0_xi, r0_eta, dSensor, angle):
-
-        # Get options
-        numLayers = self.optionsDict['numLayers']
-        epsE0 = self.optionsDict['epsE0']
-
-        # Compute N (Eq. 6.3)
-        N = np.linalg.norm(r0_eta)/np.linalg.norm(r0_xi)
-
-        # Compute Sl (Eq. 6.5) based on a transition l of 3/4 of max
-        l = layerIndex+2
-        ltrans = int(3/4*numLayers)
-
-        if l <= ltrans:
-            Sl = np.sqrt((l-1)/(numLayers-1))
-        else:
-            Sl = np.sqrt((ltrans-1)/(numLayers-1))
-
-        # Compute adjusted grid distribution sensor (Eq. 6.7)
-        dbar = max([dSensor**(2/Sl), 0.1])
-
-        # Compute a (Eq 6.12 adjusted for entire angle (angle=2*alpha))
-        if angle <= np.pi: # Convex corner
-            a = 1.0
-        else:
-            a = 1.0/(1.0 - np.cos(angle/2)**2)
-
-        # Compute auxiliary variable R (Eq. 6.4)
-        R = Sl*dbar*a
-
-        # Compute the dissipation coefficients
-        epsE = epsE0*R*N
-        epsI = 2*epsE
-
-        # RETURNS
-        return epsE, epsI
-
-    def qualityCheck(self, R, layerIndex=None):
-        '''
-        This function checks the quality of a given mesh interval. This is done
-        by constructing the Jacobians at each node, taking its determinant,
-        and finding the ratio of the min over the max of each of the four
-        nodal Jacobians for each face. Values near 1 within ratios are
-        desirable while values near 0 point to bad mesh quality. Values below
-        0 mean that the mesh is no longer valid and we stop marching.
-        '''
-
-        # Convert the flattened array R into a 3 x nw1 x nw2 array.
-        # nw1 -> number of nodes in the direction of marching
-        # nw2 -> number of nodes in direction of curve
-        XYZ = np.array([R[:, ::3], R[:, 1::3], R[:, 2::3]])
-        nw1, nw2 = XYZ.shape[1:]
-
-        # Setup nodal normals
-        nodalNormals = np.empty((3, nw1, nw2))
-
-        # Get the panel normals from the interior points of the mesh.
-        # Here we take the cross product of the diagonals of each face
-        vec1 = XYZ[:, 1:, 1:] - XYZ[:, :-1, :-1]
-        vec2 = XYZ[:, 1:, :-1] - XYZ[:, :-1, 1:]
-        panelNormals = np.cross(vec2, vec1, axis=0)
-        panelNormals = panelNormals / np.linalg.norm(panelNormals, axis=0)
-
-        # Set the interior normals using an average of the panel normals
-        vec1 = panelNormals[:, 1:, 1:] + panelNormals[:, :-1, :-1]
-        vec2 = panelNormals[:, 1:, :-1] + panelNormals[:, :-1, 1:]
-        normals = vec1 + vec2
-        nodalNormals[:, 1:-1, 1:-1] = normals / np.linalg.norm(normals, axis=0)
-
-        # Set the boundary normals
-        nodalNormals[:, 1:, 0] = panelNormals[:, :, 0]
-        nodalNormals[:, 0, :-1] = panelNormals[:, 0, :]
-        nodalNormals[:, :-1, -1] = panelNormals[:, :, -1]
-        nodalNormals[:, -1, 1:] = panelNormals[:, -1, :]
-
-        # Setup nodal derivatives
-        nodalDerivs = np.zeros((3, 2, nw1, nw2))
-
-        # Compute interior derivatives using 2nd order central differencing
-        nodalDerivs[:, 0, 1:-1, 1:-1] = (XYZ[:, 2:, 1:-1] - XYZ[:, :-2, 1:-1]) / 2.
-        nodalDerivs[:, 1, 1:-1, 1:-1] = (XYZ[:, 1:-1, 2:] - XYZ[:, 1:-1, :-2]) / 2.
-
-        # Compute i derivatives using 1st order differencing
-        nodalDerivs[:, 0, 0, :] = XYZ[:, 1, :] - XYZ[:, 0, :]
-        nodalDerivs[:, 0, -1, :] = XYZ[:, -1, :] - XYZ[:, -2, :]
-
-        nodalDerivs[:, 0, 1:-1, 0] = (XYZ[:, 2:, 0] - XYZ[:, :-2, 0]) / 2.
-        nodalDerivs[:, 0, 1:-1, -1] = (XYZ[:, 2:, -1] - XYZ[:, :-2, -1]) / 2.
-
-        # Compute j derivatives using 1st order differencing
-        nodalDerivs[:, 1, :, 0] = XYZ[:, :, 1] - XYZ[:, :, 0]
-        nodalDerivs[:, 1, :, -1] = XYZ[:, :, -1] - XYZ[:, :, -2]
-
-        nodalDerivs[:, 1, 0, 1:-1] = (XYZ[:, 0, 2:] - XYZ[:, 0, :-2]) / 2.
-        nodalDerivs[:, 1, -1, 1:-1] = (XYZ[:, -1, 2:] - XYZ[:, -1, :-2]) / 2.
-
-        # Assemble nodal Jacobians
-        nodalJacs = np.zeros((3, 3, nw1, nw2))
-        nodalJacs[0, :, :, :] = nodalDerivs[:, 0, :, :]
-        nodalJacs[1, :, :, :] = nodalDerivs[:, 1, :, :]
-        nodalJacs[2, :, :, :] = nodalNormals[:, :, :]
-
-        # Compute determinants of Jacobians and find ratio of min to max per face
-        ratios = np.zeros((nw1-1, nw2-1))
-
-        # Compute the determinants of each nodal Jacobian
-        det = np.linalg.det(np.swapaxes(np.swapaxes(nodalJacs, 1, 3), 0, 2))
-
-        # Find the ratio of the minimum valued determinant to the maximum
-        # valued determinant.
-        # This is a measure of quality, with 1 being desirable and anything
-        # less than 0 meaning the mesh is no longer valid.
-        for i in range(nw1-1):
-            for j in range(nw2-1):
-                ratios[i, j] = np.min(det[i:i+2, j:j+2]) / np.max(det[i:i+2, j:j+2])
-
-        fail = False
-        # Throw an error and set the failure flag if the mesh is not valid
-        if (np.any(np.isnan(ratios)) or np.min(ratios) <= 0.) and layerIndex:
-            error("The mesh is not valid after step {}.".format(layerIndex+1))
-            fail = True
-
-        # Throw a warning if the mesh is low quality
-        elif np.min(ratios) <= .2 and layerIndex:
-            warn("The mesh may be low quality after step {}.".format(layerIndex+1))
-
-        return fail, ratios
+    #================================================================
+    #================================================================
+    # EXPORTING METHODS
 
     def exportPlot3d(self, filename):
 
@@ -1412,12 +710,17 @@ class HypSurfMesh(object):
         myGrid.add_block(X3d, Y3d, Z3d)
 
         # Add initial curve as a separate zone
-        myGrid.add_block(np.array([[self.curve[:,0]]]),
-                         np.array([[self.curve[:,1]]]),
-                         np.array([[self.curve[:,2]]]))
+        curve = self.rStart.reshape((-1,3))
+        myGrid.add_block(np.array([[curve[:,0]]]),
+                         np.array([[curve[:,1]]]),
+                         np.array([[curve[:,2]]]))
 
         # Export grid
         plot3d_interface.export_plot3d(myGrid, filename)
+
+    #================================================================
+    #================================================================
+    # OPTIONS METHODS
 
     def _getDefaultOptions(self):
         """ Define default options and pass back a dict. """
@@ -1428,7 +731,6 @@ class HypSurfMesh(object):
             'bc2' : 'splay',
             'dStart' : 1.e-2,
             'numLayers' : 17,
-            'extension' : 2.,
             'epsE0' : 1.0,
             'theta' : 0.0,
             'alphaP0' : 0.25,
@@ -1439,7 +741,6 @@ class HypSurfMesh(object):
             'cMax' : 3.0,
             'ratioGuess' : 20,
             'plotQuality' : False,
-            'growthRatio' : 1.2,
             'guideCurves' : [],
             'remesh' : False,
             }
@@ -1447,22 +748,531 @@ class HypSurfMesh(object):
     def _applyUserOptions(self, options):
         # Override default options with user options
         for userKey in options.keys():
-            unusedOption = True
-            for defaultKey in self.optionsDict.keys():
-                if userKey.lower() == defaultKey.lower():
-                    unusedOption = False
-                    self.optionsDict[defaultKey] = options[userKey]
-                    break
-            if unusedOption:
-                message = "{} key not in default options dictionary.".format(userKey)
-                warn(message)
+
+            # Treat special options first
+            if userKey.lower() == 'extension':
+
+                # Store extension as the relevant marching parameter
+                self.marchParameter = options['extension']
+                
+                # Check if we did not flag growth ratio as a parameter previously
+                if self.extension_given is None:
+                    self.extension_given = True
+                else:
+                    error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
+
+            elif userKey.lower() == 'growthratio':
+
+                # Store extension as the relevant marching parameter
+                self.marchParameter = options['growthratio']
+                
+                # Check if we did not flag growth ratio as a parameter previously
+                if self.extension_given is None:
+                    self.extension_given = False
+                else:
+                    error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
+
+            # All other options are here
+            else:
+
+                unusedOption = True
+                for defaultKey in self.optionsDict.keys():
+                    if userKey.lower() == defaultKey.lower():
+                        unusedOption = False
+                        self.optionsDict[defaultKey] = options[userKey]
+                        break
+                if unusedOption:
+                    message = "{} key not in default options dictionary.".format(userKey)
+                    warn(message)
 
 
-if __name__ == '__main__':
-    st = time()
-    mesh = HypSurfMesh()
-    mesh.createMesh()
-    mesh.exportMesh('output.xyz')
+    #================================================================
+    #================================================================
+    # TESTING METHODS
+
+    def test_all(self):
+
+        '''
+        This method executes all possible tests
+        '''
+
+        self.test_internal_fortran_subroutines()
+        self.test_python_fortran_consistency(plotError=True)
+        self.test_forwardAD_FD(plotError=True)
+        self.test_forwardAD_reverseAD()
+
+    def test_internal_fortran_subroutines(self):
+
+        '''
+        This method test the underlying Fortran subroutines used by the
+        AD code
+        '''
+
+        print ''
+        print '#===================================================#'
+        print 'Checking internal Fortran subroutines'
+        print ''
+
+        # Make sure variables have the correct type
+        dStart = float(self.optionsDict['dStart'])
+        cMax = float(self.optionsDict['cMax'])
+        ratioGuess = float(self.optionsDict['ratioGuess'])
+        theta = float(self.optionsDict['theta'])
+        bc1 = self.optionsDict['bc1']
+        bc2 = self.optionsDict['bc2']
+        sigmaSplay = float(self.optionsDict['sigmaSplay'])
+        numLayers = int(self.optionsDict['numLayers'])
+        epsE0 = float(self.optionsDict['epsE0'])
+        theta = float(self.optionsDict['theta'])
+        alphaP0 = float(self.optionsDict['alphaP0'])
+        numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
+        numAreaPasses = int(self.optionsDict['numAreaPasses'])
+        nuArea = float(self.optionsDict['nuArea'])
+
+        # First we need to solve the current case to get a baseline mesh
+        self.createMesh(fortran_flag=True)
+        mesh = self.mesh.copy()
+
+        ### DOT PRODUCT TEST FOR SMOOTHING
+        coor = mesh[:,:,3].T.flatten()#geom.curves[curve].coor.reshape(-1, order='F')
+        hypsurfAPI.hypsurfapi.smoothing(coor, 5., alphaP0, 1, numLayers)
+
+        # FORWARD MODE
+        coord = np.random.random_sample(coor.shape)
+        coord_copy = coord.copy()
+        rOut, rOutd = hypsurfAPI.hypsurfapi.smoothing_d(coor, coord, 5., alphaP0, 1, numLayers)
+        
+        # REVERSE MODE
+        rOutb = np.random.random_sample(coor.shape)**2
+        rOutb_copy = rOutb.copy()
+        coorb, rOut = hypsurfAPI.hypsurfapi.smoothing_b(coor, 5., alphaP0, 1, numLayers, rOutb)
+
+        print
+        print 'Dot product test for Smoothing (this should be around 1e-14):'
+        dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
+        print dotprod
+        print
+
+        ### DOT PRODUCT TEST FOR PROJECTION
+
+        r0 = mesh[:,:,3].T.flatten()
+
+        # Clean all projection dictionaries
+        self.projDict = []
+        self.curveProjDict1 = []
+        self.curveProjDict2 = []
+        for index in range(len(self.curveProjDictGuide)):
+            self.curveProjDictGuide[index] = []
+
+        # FORWARD PASS
+        rNext, NNext = self.projection(r0)
+
+        # Store projection dictionaries
+        projDict = self.projDict[:]
+        curveProjDict1 = self.curveProjDict1[:]
+        curveProjDict2 = self.curveProjDict2[:]
+        curveProjDictGuide = []
+        for index in range(len(self.curveProjDictGuide)):
+            curveProjDictGuide[index] = self.curveProjDictGuide[index][:]
+
+        # FORWARD DERIVATIVES
+        r0d = np.array(np.random.rand(r0.shape[0]),order='F')
+        r0d = r0d/np.sqrt(np.sum(r0d**2))
+        r0d_copy = r0d.copy()
+
+        self.coord[:,:] = np.array(np.random.rand(self.coord.shape[0],self.coord.shape[1]),order='F')
+        self.coord[:,:] = self.coord/np.sqrt(np.sum(self.coord**2))
+        coord_copy = self.coord.copy()
+
+        curveCoord_copy = {}
+        for curveName in self.curveCoord:
+            self.curveCoord[curveName][:,:] = np.array(np.random.rand(self.curveCoord[curveName].shape[0],self.curveCoord[curveName].shape[1]),order='F')
+            self.curveCoord[curveName][:,:] = self.curveCoord[curveName][:,:]/np.sqrt(np.sum(self.curveCoord[curveName]**2))
+            curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
+
+        rNextd, NNextd = self.projection_d(r0, r0d, rNext, NNext, 0)
+        r0d = r0d_copy
+        self.coord = coord_copy
+        for curveName in self.curveCoord:
+            self.curveCoord[curveName] = curveCoord_copy[curveName]
+
+        # REVERSE DERIVATIVES
+        rNextb = np.random.rand(rNext.shape[0])
+        NNextb = np.random.rand(NNext.shape[0],NNext.shape[1])
+        rNextb_copy = rNextb.copy()
+        NNextb_copy = NNextb.copy()
+
+        self.coorb[:,:] = 0.0
+
+        for curveName in self.curveCoord:
+            self.curveCoorb[curveName][:,:] = 0.0
+
+        # Restore projection dictionaries
+        self.projDict = projDict
+        self.curveProjDict1 = curveProjDict1
+        self.curveProjDict2 = curveProjDict2
+
+        r0b = self.projection_b(r0, rNext, rNextb, NNext, NNextb, 0)
+        rNextb = rNextb_copy
+        NNextb = NNextb_copy
+
+        dotprod = 0.0
+        dotprod = dotprod + np.sum(r0d*r0b)
+        dotprod = dotprod + np.sum(self.coord*self.coorb)
+        for curveName in self.curveCoord:
+            dotprod = dotprod + np.sum(self.curveCoord[curveName]*self.curveCoorb[curveName])
+        dotprod = dotprod - np.sum(rNextd*rNextb)
+        dotprod = dotprod - np.sum(NNextd*NNextb)
+
+        print
+        print 'Dot product test for Projection (this should be around 1e-14):'
+        print dotprod
+        print
+
+        # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
+        stepSize = 1e-7
+
+        r0_FD = r0 + r0d*stepSize
+        self.ref_geom.update(self.ref_geom.coor + np.array(self.coord*stepSize,order='F'))
+        for curveName in self.curveCoord:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+
+        rNext_FD, NNext_FD = self.projection(r0_FD)
+
+        self.ref_geom.update(self.ref_geom.coor - np.array(self.coord*stepSize,order='F'))
+        for curveName in self.curveCoord:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
+
+        rNextd_FD = (rNext_FD-rNext)/stepSize
+        NNextd_FD = (NNext_FD-NNext)/stepSize
+
+        FD_check = np.max([np.max(rNextd - rNextd_FD), np.max(NNextd - NNextd_FD)])
+
+        print
+        print 'Finite difference test for Projection (this should be around 1e-8):'
+        print FD_check
+        print
+
+        ### DOT PRODUCT TEST FOR AREAFACTOR
+
+        r0 = rNext
+        d = self.optionsDict['dStart']
+        layerindex = 1
+
+        # FORWARD MODE
+        r0_d = np.random.random_sample(r0.shape)
+        d_d = np.random.random_sample(1)[0]
+
+        r0_d_copy = r0_d.copy()
+        d_d_copy = d_d
+
+        s,s_d,maxstretch =  hypsurfAPI.hypsurfapi.areafactor_test_d(r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices)
+
+        # REVERSE MODE
+        s_b = np.random.random_sample(s.shape)
+
+        s_b_copy = s_b.copy()
+
+        r0_b,d_b = hypsurfAPI.hypsurfapi.areafactor_test_b(r0, d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices, s, s_b, maxstretch)
+
+
+        # Dot product test
+        dotProd = 0.0
+        dotProd = dotProd + np.sum(r0_d_copy*r0_b)
+        dotProd = dotProd + d_d_copy*d_b
+        dotProd = dotProd - np.sum(s_d*s_b_copy)
+
+        print ''
+        print 'Dot product test for AreaFactor (this should be around 1e-14):'
+        print dotProd
+        print ''
+
+        ### DOT PRODUCT TEST FOR COMPUTEMATRICES
+        r0 = rNext
+        rm1 = rNext
+        n0 = NNext
+        s0 = s
+        sm1 = s
+        layerindex = 1
+
+        # FORWARD MODE
+        r0_d = np.random.random_sample(r0.shape)
+        n0_d = np.random.random_sample(n0.shape)
+        s0_d = np.random.random_sample(s0.shape)
+        rm1_d = np.random.random_sample(rm1.shape)
+        sm1_d = np.random.random_sample(sm1.shape)
+
+        r0_d_copy = r0_d.copy()
+        n0_d_copy = n0_d.copy()
+        s0_d_copy = s0_d.copy()
+        rm1_d_copy = rm1_d.copy()
+        sm1_d_copy = sm1_d.copy()
+
+        retainSpacing = self.optionsDict['remesh']
+
+        rnext, rnext_d = hypsurfAPI.hypsurfapi.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0)
+
+        # REVERSE MODE
+        rnext_b = np.random.random_sample(r0.shape)
+
+        rnext_b_copy = rnext_b.copy()
+
+        r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hypsurfAPI.hypsurfapi.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, self.guideIndices, retainSpacing, rnext_b)
+
+
+        # Dot product test
+        dotProd = 0.0
+        dotProd = dotProd + np.sum(rnext_d*rnext_b_copy)
+        dotProd = dotProd - np.sum(r0_b*r0_d_copy)
+        dotProd = dotProd - np.sum(n0_b*n0_d_copy)
+        dotProd = dotProd - np.sum(s0_b*s0_d_copy)
+        dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
+        dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
+
+        print ''
+        print 'Dot product test for ComputeMatrices (this should be around 1e-14):'
+        print dotProd
+        print ''
+
+        print '#===================================================#'
+        print ''
+
+        # Final cleanup
+        self.clean()
+
+    def test_python_fortran_consistency(self, plotError=False):
+
+        from time import time
+
+        print ''
+        print '#===================================================#'
+        print 'Checking consistency between the Python and Fortran versions of hypsurf'
+        print ''
+
+        # Call the Fortran version
+        st = time()
+        self.createMesh(fortran_flag=True)
+        self.exportPlot3d('output_fortran.xyz')
+        mesh_fortran = self.mesh.copy()
+        print 'Fortran version took: ',time() - st, 'secs'
+
+        # Call the Python version
+        st = time()
+        self.createMesh(fortran_flag=False)
+        self.exportPlot3d('output_python.xyz')
+        mesh_python = self.mesh.copy()
+
+        print 'Python version took: ',time() - st, 'secs'
+       
+        # Compare differences
+        differences = np.abs(mesh_fortran-mesh_python)
+        error = np.max(differences)
+
+        print
+        print 'Maximum difference between Fortran and Python (should be around 1e-14):'
+        print error
+        print
+
+        # Show matrix of errors if max error is too large
+        if plotError or error > 1e-9:
+
+            # Reshape 3D array to 2D so we can plot it
+            differences = differences.T.reshape((self.optionsDict['numLayers'],-1))
+
+            # Plot error matrix
+            view_mat(differences)
+
+        print '#===================================================#'
+        print ''
+
+    def test_forwardAD_FD(self, stepSize=1e-7, fixedSeed=True, plotError=False):
+
+        '''
+        This method compares derivatives computed with automatic differentiation (AD)
+        with derivatives computed by finite differencing (FD).
+
+        fixedSeed: boolean -> Determines if we set a fixed seed to the random number
+        generator so that we always get the same derivatives. This helps debugging as
+        values will not change every time you run the same code.
+
+        Ney Secco 2017-01
+        '''
+
+        # INITIALIZATION
+
+        print ''
+        print '#===================================================#'
+        print 'Checking forward AD derivatives with Finite Differences'
+        print ''
+
+        # See if we should use a fixed seed for the RNG
+        if fixedSeed:
+            np.random.seed(123)
+
+        # REFERENCE POINT
+
+        # Run the initial mesh in Fortran
+        self.createMesh(fortran_flag=True)
+        
+        # Store the initial mesh
+        mesh0 = self.mesh[:,:,:]
+
+        # DERIVATIVE SEEDS
+
+        # Generate a set of random derivatives and normalize them
+        # Remember that each variable should be normalized independently
+
+        # Initial curve seeds
+        rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
+        rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
+        
+        # Triangulated surface nodes seeds
+        coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
+        coord = coord/np.sqrt(np.sum(coord**2))
+
+        # Curve nodes seeds
+        curveCoord = {}
+        for curveName in self.ref_geom.curves:
+            curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
+            curveCoord[curveName] = curveCoord[curveName]/np.sqrt(np.sum(curveCoord[curveName]**2))
+
+        # AD VERSION
+
+        # Set derivative seeds to the current mesh
+        self.set_forwardAD_inputSeeds(rStartd, coord, curveCoord)
+
+        # Propagate derivatives using AD
+        self.compute_forwardAD()
+
+        # Get output derivatives
+        meshd_AD = self.get_forwardAD_outputSeeds()
+
+        # FD VERSION
+
+        # Perturb nodes based on derivative seeds
+        self.rStart = self.rStart+rStartd*stepSize
+        self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
+        for curveName in self.ref_geom.curves:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+            
+        # Run the perturbed mesh in Fortran
+        self.createMesh(fortran_flag=True)
+        
+        # Store the perturbed mesh
+        mesh = self.mesh[:,:,:]
+
+        # Restore initial nodes
+        self.rStart = self.rStart-rStartd*stepSize
+        self.ref_geom.update(self.ref_geom.coor - self.coord*stepSize)
+        for curveName in self.ref_geom.curves:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
+
+        # Compute derivatives with Finite Differences
+        meshd_FD = (mesh-mesh0)/stepSize
+
+        # Get differences between both versions
+        differences = np.zeros((self.optionsDict['numLayers'], self.numNodes*3))
+        differences[:,::3] = (meshd_AD[0,:,:] - meshd_FD[0,:,:]).T
+        differences[:,1::3] = (meshd_AD[1,:,:] - meshd_FD[1,:,:]).T
+        differences[:,2::3] = (meshd_AD[2,:,:] - meshd_FD[2,:,:]).T
+        error = np.max(np.abs(differences))
+
+        # Print result
+        print ''
+        print 'Maximum discrepancy between AD and FD derivatives (should be around 1e-7):'
+        print error
+        print ''
+
+        # Plot errors if requested by the user or if error is too large
+        if plotError or error > 1e-4:
+            view_mat(np.abs(differences))
+
+        print '#===================================================#'
+        print ''
+
+    def test_forwardAD_reverseAD(self, fixedSeed=True):
+
+        '''
+        This method uses the dot product test to verify if the forward and
+        reverse AD versions are consistent.
+
+        Ney Secco 2017-01
+        '''
+
+        # INITIALIZATION
+
+        print ''
+        print '#===================================================#'
+        print 'Checking forward and reverse AD with the dot product test'
+        print ''
+
+        # See if we should use a fixed seed for the RNG
+        if fixedSeed:
+            np.random.seed(123)
+
+        # REFERENCE POINT
+
+        # Run the initial mesh in Fortran
+        self.createMesh(fortran_flag=True)
+        
+        # Store the initial mesh
+        mesh0 = self.mesh[:,:,:]
+
+        # DERIVATIVE SEEDS
+
+        # Generate a set of random derivative seeds
+
+        # Initial curve seeds
+        rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
+        
+        # Triangulated surface nodes seeds
+        coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
+
+        # Curve nodes seeds
+        curveCoord = {}
+        for curveName in self.ref_geom.curves:
+            curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
+
+        # Surface mesh seeds
+        meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
+
+        # FORWARD AD VERSION
+
+        # Set derivative seeds to the current mesh
+        self.set_forwardAD_inputSeeds(rStartd, coord, curveCoord)
+
+        # Propagate derivatives using forward AD
+        self.compute_forwardAD()
+
+        # Get output derivatives
+        meshd = self.get_forwardAD_outputSeeds()
+
+        # REVERSE AD VERSION
+
+        # Set derivative seeds to the current mesh
+        self.set_reverseAD_outputSeeds(meshb)
+
+        # Back-propagate derivatives using reverse AD
+        self.compute_reverseAD()
+
+        # Get input derivatives
+        rStartb, coorb, curveCoorb = self.get_reverseAD_inputSeeds()
+
+        # DOT PRODUCT TEST
+
+        dotProduct = 0.0
+        dotProduct = dotProduct + np.sum(rStartd*rStartb)
+        dotProduct = dotProduct + np.sum(coord*coorb)
+        for curveName in self.ref_geom.curves:
+            dotProduct = dotProduct + np.sum(curveCoord[curveName]*curveCoorb[curveName])
+        dotProduct = dotProduct - np.sum(meshd*meshb)
+
+        print ''
+        print ' Marching dot product test (this should be around 1e-14):'
+        print dotProduct
+        print ''
+        print '#===================================================#'
+        print ''
 
 
 '''
@@ -1470,123 +1280,6 @@ if __name__ == '__main__':
 MORE AUXILIARY FUNCTIONS
 ==============================================
 '''
-
-#=============================================
-#=============================================
-
-def giveAngle(r0,r1,r2,N1):
-
-    '''
-    This function gives the angle between the vectors joining
-    r0 to r1 and r1 to r2. We assume that the body is to the right
-    of the vector, while the mesh is propagated to the left
-
-          r0
-          |
-     body | mesh
-          |
-          V angle
-          r1--------->r2
-              body
-
-    N1 is the surface normal at the point r1
-
-    angles > pi indicate convex corners, while angles < pi
-    indicate concave corners
-    '''
-
-    dr1 = r1 - r0
-    dr2 = r2 - r1
-
-    dr1dotdr2 = dr1.dot(dr2) # dot product
-    dr1crossdr2 = np.cross(dr1,dr2) # cross product
-
-    # Compute acute angle and ensure it's <= 1.0
-    arccos_inside = dr1dotdr2/np.linalg.norm(dr1)/np.linalg.norm(dr2)
-    angle = np.arccos(np.min([arccos_inside, 1.0]))
-
-    # If the cross product points in the same direction of the surface
-    # normal, we have an acute corner
-    if dr1crossdr2.dot(N1) > 0:
-        angle = np.pi + angle
-    else:
-        angle = np.pi - angle
-
-    return angle
-
-#=============================================
-#=============================================
-
-def findRatio(dMax, d0, numLayers, ratioGuess):
-
-    '''
-    This function returns the geometrical progression ratio that satisfies
-    the farfield distance and the number of cells. Newton search is used
-    INPUTS
-    dMax: distance that should be reached
-    s0: cell edge length at the wall
-    numLayers: number of cells used to reach farfield
-    '''
-
-    # Extra parameters
-    nIters = 200 # Maximum number of iterations for Newton search
-    q0 = ratioGuess # Initial ratio
-
-    # Initialize ratio
-    q = q0
-
-    # Newton search loop
-    for i in xrange(nIters):
-       # Residual function
-       R = d0*(1-q**(numLayers-1)) - dMax*(1-q)
-
-       # Residual derivative
-       Rdot = -(numLayers-1)*d0*q**(numLayers-2) + dMax
-
-       # Update ratio with Newton search
-       q = q - R/Rdot
-
-    # Check if we got a reasonable value
-    if (q <= 1) or (q >= q0):
-        error('Ratio may be too large...\nIncrease number of cells or reduce extension')
-        from sys import exit
-        exit()
-
-    # RETURNS
-    return q
-
-#=============================================
-#=============================================
-
-def findRadius(r):
-
-    '''
-    This function find the largest radius of the bounding box
-    that encompasses the given mesh. This length will be used
-    to calculate the maching distance
-    '''
-
-    # IMPORTS
-    from numpy import max, min
-
-    # Split coordinates
-    x = r[::3]
-    y = r[1::3]
-    z = r[2::3]
-
-    # Find bounds
-    minX = np.min(x)
-    maxX = np.max(x)
-    minY = np.min(y)
-    maxY = np.max(y)
-    minZ = np.min(z)
-    maxZ = np.max(z)
-
-    # Find longest radius (we give only half of the largest side to be considered as radius)
-    radius = np.max([maxX-minX, maxY-minY, maxZ-minZ])/2
-
-    # RETURNS
-    return radius
 
 #=============================================
 #=============================================
@@ -1678,95 +1371,3 @@ def closest_node(guideCurve, curve):
     ind = np.argmin(dist2)
 
     return ind
-
-def compute_arc_length(r):
-
-    '''
-    This function will compute normalized arclengths of
-    the coordinates given in r.
-    Remember that r is a flat vector containing the x, y, and z coordinates
-    of each node in the following order:
-    r = [x1, y1, z1, x2, y2, x2, x3, y3, z3, ... ]
-
-    The first node will be at arc-length of 0.0
-    The last node will be at arc-length of 1.0
-
-    Ney Secco 2016-11
-    '''
-
-    # Get the number of nodes
-    nNodes = int(len(r)/3)
-
-    # Initialize an array that will store the arclength of each node.
-    # That is, the distance, along the curve from the current node to
-    # the first node of the curve.
-    arcLength = np.zeros(nNodes)
-
-    # Store coordinates of the first node (the other nodes will be covered in the loop)
-    node1 = r[0:3]
-
-    # Loop over each element to increment arcLength
-    for nodeID in range(1,nNodes):
-
-        # Get coordinates of the next node
-        node2 = r[3*nodeID:3*nodeID+3]
-
-        # Compute distance between nodes
-        dist = np.linalg.norm(node1 - node2)
-
-        # Store nodal arc-length
-        arcLength[nodeID] = arcLength[nodeID-1] + dist
-
-        # Store coordinates for the next loop
-        node1 = node2
-
-    # Normalize the arc-lengths
-    arcLength = arcLength/arcLength[-1]
-
-    # Return arc-lengths
-    return arcLength
-
-def redistribute_nodes_by_arc_length(r,arcLength):
-
-    '''
-    This function will receive a set of nodal coordinates defined in r and
-    redistribute them along the same curve using the normalized arc-lengths
-    provided in arcLength.
-
-    Remember that r is a flat vector containing the x, y, and z coordinates
-    of each node in the following order:
-    r = [x1, y1, z1, x2, y2, x2, x3, y3, z3, ... ]
-
-    The first and last nodes will remain at the same place.
-
-    Ney Secco 2016-11
-    '''
-
-    # Import interpolation function
-    from scipy.interpolate import interp1d
-
-    # Get the number of nodes
-    nNodes = int(len(r)/3)
-
-    # Compute arc-lengths of the current curve
-    origArcLength = compute_arc_length(r)
-
-    # INTERPOLATE NEW NODES
-
-    # Now we sample the new coordinates based on the interpolation method given by the user
-
-    # Create interpolants for x, y, and z
-    fX = interp1d(origArcLength, r[0::3])
-    fY = interp1d(origArcLength, r[1::3])
-    fZ = interp1d(origArcLength, r[2::3])
-
-    # Initialize array of new coordinates
-    rNew = np.zeros(r.shape)
-
-    # Sample new points using the interpolation functions
-    rNew[0::3] = fX(arcLength)
-    rNew[1::3] = fY(arcLength)
-    rNew[2::3] = fZ(arcLength)
-
-    # Return the remeshed curve
-    return rNew
