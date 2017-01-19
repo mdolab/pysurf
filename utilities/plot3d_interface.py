@@ -211,7 +211,7 @@ def read_plot3d(fileName,dimension):
 #===========================================
 #===========================================
 
-def export_plot3d(grid, fileName):
+def export_plot3d(grid, fileName, saveNumpy=False):
 
     '''
     grid should be a Grid object
@@ -240,6 +240,11 @@ def export_plot3d(grid, fileName):
                 for ind_i in range(Coord.shape[0]):
                     fid.write('%20.15g\n'% Coord[ind_i, ind_j, ind_k])
 
+    # Initialize empty array of shape (0, 3). We will add coordinates of each
+    # block to this array.
+    if saveNumpy:
+        fullCoords = np.zeros((0, 3))
+
     # Write coordinates of each block
     for iblock in range(grid.num_blocks):
 
@@ -254,6 +259,16 @@ def export_plot3d(grid, fileName):
         # Line break to start another block
         fid.write('\n')
 
+        # Save this current block's coordinates in an array then update the
+        # fullCoords with all information up to and including the current block.
+        if saveNumpy:
+            blockCoords = np.array([block.X.flatten(), block.Y.flatten(), block.Z.flatten()]).T
+            fullCoords = np.vstack((fullCoords, blockCoords))
+
+    # Actually save the file that contains all of the coordinate info.
+    if saveNumpy:
+        np.save(fileName[:-4], fullCoords)
+
     # Close file
     fid.close()
 
@@ -267,9 +282,9 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
     This subroutine will merge two plot3d files into one. It may also
     flip the orientation of some meshes so that the final block remains
     structured.
-    
+
     INPUTS:
-    
+
     files: list of strings -> Name of one plot3d file to be merged.
 
     flips: list of boolean[3] -> If true, it will flip the node ordering along the
@@ -317,7 +332,7 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
         curFlip = problem[1]
 
         for dim in range(3):
-        
+
             # Generate flip command as a string
             if dim == 0:
                 flipCommand = '[::-1,:,:]'
@@ -325,16 +340,16 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
                 flipCommand = '[:,::-1,:]'
             elif dim == 2:
                 flipCommand = '[:,:,::-1]'
-                
+
             if curFlip[dim]: # Check if user requested to flip current dimension
 
                 for ii in range(curGrid.num_blocks):
-                    
+
                     # Get pointers to each block coordinate
                     X = curGrid.blocks[ii].X
                     Y = curGrid.blocks[ii].Y
                     Z = curGrid.blocks[ii].Z
-                    
+
                     # Flip each coordinate
                     X[:,:,:] = eval('X'+flipCommand)
                     Y[:,:,:] = eval('Y'+flipCommand)
@@ -366,10 +381,10 @@ def read_tecplot_curves(fileName):
 
     Written by Ney Secco 2016-11
     '''
-    
+
     # IMPORTS
-    import tecplot_interface as ti        
-    
+    import tecplot_interface as ti
+
     # Read information from file
     sectionName, sectionData, sectionConn = ti.readTecplotFEdata(fileName)
 

@@ -19,7 +19,7 @@ fortran_check = True # This will compare python and fortran outputs. Remember to
 '''
 
 fortran_flag = True
-deriv_check = True # This only works if fortran_flag is True
+deriv_check = False # This only works if fortran_flag is True
 fortran_check = False # This will compare python and fortran outputs. Remember to set fortran_flag to False
 
 
@@ -372,7 +372,7 @@ class HypSurfMesh(object):
 
             # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
             # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-            rm1 = rNext[:] 
+            rm1 = rNext[:]
 
             #===========================================================
 
@@ -380,7 +380,7 @@ class HypSurfMesh(object):
             The marching function actually begins here
             '''
 
-            fail = False 
+            fail = False
 
             # MARCH!!!
             for layerIndex in range(numLayers-1):
@@ -390,7 +390,7 @@ class HypSurfMesh(object):
                 N0 = NNext[:,:]
 
                 # Compute the new area factor for the desired marching distance
-                S0, maxStretch = self.areaFactor(r0, d) 
+                S0, maxStretch = self.areaFactor(r0, d)
 
                 # The subiterations will use pseudo marching steps.
                 # If the required marching step is too large, the hyperbolic marching might become
@@ -399,28 +399,28 @@ class HypSurfMesh(object):
                 # Compute the factor between the current stretching ratio and the allowed one.
                 # If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
                 # The pseudo-step will be the same as the desired step.
-                cFactor = int(np.ceil(maxStretch/cMax)) 
+                cFactor = int(np.ceil(maxStretch/cMax))
 
                 # Constrain the marching distance if the stretching ratio is too high
-                dPseudo = d/cFactor 
+                dPseudo = d/cFactor
 
                 # Subiteration
                 # The number of subiterations is the one required to meet the desired marching distance
                 for indexSubIter in range(cFactor):
 
                     # Recompute areas with the pseudo-step
-                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo) 
-                    S0, maxStretch = self.areaFactor(r0, dPseudo) 
+                    Sm1, maxStretch = self.areaFactor(rm1, dPseudo)
+                    S0, maxStretch = self.areaFactor(r0, dPseudo)
 
                     # March using the pseudo-marching distance
                     eta = layerIndex+2
                     rNext, NNext = self.subIteration(r0, N0, S0, rm1, Sm1, layerIndex)
 
                     # Update Sm1 (Store the previous area factors)
-                    Sm1 = S0[:] 
+                    Sm1 = S0[:]
 
                     # Update rm1
-                    rm1 = r0[:] 
+                    rm1 = r0[:]
 
                     # Update r0
                     r0 = rNext[:]
@@ -432,7 +432,7 @@ class HypSurfMesh(object):
                     N0 = NNext[:,:]
 
                 # Store grid points
-                R[layerIndex+1,:] = rNext 
+                R[layerIndex+1,:] = rNext
 
                 # Check quality of the mesh
                 if layerIndex > 1:
@@ -537,15 +537,15 @@ class HypSurfMesh(object):
         numSmoothingPasses = self.optionsDict['numSmoothingPasses']
         eta = layerIndex+2
 
-        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex) 
+        dr = self.computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex)
 
         # Update r
-        rNext = r0 + dr 
+        rNext = r0 + dr
 
         # Smooth coordinates
-        rNext_ = self.smoothing(rNext,layerIndex+2) 
+        rNext_ = self.smoothing(rNext,layerIndex+2)
 
-        rNext, NNext = self.projection(rNext_) 
+        rNext, NNext = self.projection(rNext_)
 
         # Remesh curve with initial spacing if chosen by the user
         if self.optionsDict['remesh']:
