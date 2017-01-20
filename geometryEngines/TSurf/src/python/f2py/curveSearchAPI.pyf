@@ -42,9 +42,9 @@ python module curveSearchAPI ! in
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==ncoor),depend(coor) :: ncoor=shape(coor,1)
                 integer(kind=inttype), optional,intent(in),check(shape(barsconn,1)==nbars),depend(barsconn) :: nbars=shape(barsconn,1)
                 real(kind=realtype) dimension(3,nxyz),intent(in) :: xyz
-                real(kind=realtype) dimension(3,nxyz),intent(inout),depend(nxyz) :: xyzb
+                real(kind=realtype) dimension(3,nxyz),intent(out),depend(nxyz) :: xyzb
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: coor
-                real(kind=realtype) dimension(3,ncoor),intent(inout),depend(ncoor) :: coorb
+                real(kind=realtype) dimension(3,ncoor),intent(out),depend(ncoor) :: coorb
                 integer(kind=inttype) dimension(2,nbars),intent(in) :: barsconn
                 real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: allprojpoints
                 real(kind=realtype) dimension(3,nxyz),intent(in),depend(nxyz) :: allprojpointsb

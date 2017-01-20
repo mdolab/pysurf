@@ -235,7 +235,7 @@ contains
 
     !f2py intent(in) nxyz, nCoor, nBars, xyz, coor, barsConn
     !f2py intent(in) allProjPoints, allProjPointsb, allTangents, allTangentsb, allElemIDs, curveMask
-    !f2py intent(inout) xyzb, coorb
+    !f2py intent(out) xyzb, coorb
 
     !
     !       Subroutine arguments.
@@ -253,8 +253,8 @@ contains
     integer(kind=intType), dimension(nxyz), intent(in) :: curveMask
 
     ! Input/Output
-    real(kind=realType), dimension(3,nxyz), intent(inout) :: xyzb
-    real(kind=realType), dimension(3,nCoor), intent(inout) :: coorb
+    real(kind=realType), dimension(3,nxyz), intent(out) :: xyzb
+    real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
 
     ! Working
     real(kind=realType) :: x(3), xf(3), x1(3), x2(3), tangent(3)
