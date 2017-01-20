@@ -585,12 +585,16 @@ contains
 
       ! If vecStart and vecEnd are flipped, we also need to flip the seeds
       ! They may flip due to the FEsort algorithm
-      !if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
+      if ((norm2(vecEnd-vecStartTest) .le. distTol) .or. (norm2(vecStart-vecEndTest) .le. distTol)) then
          ! Here we flip seeds, and we use vecStartTest as buffer for the flip operation
-      !   vecStartTest = vecStartb
-      !   vecStartb = vecEndb
-      !   vecEndb = vecStartTest
-      !end if
+         !vecStart = vecEndTest
+         !vecEnd = vecStartTest
+         vecStartTest = vecStartb
+         vecStartb = vecEndb
+         vecEndb = vecStartTest
+      else if ((norm2(vecEnd-vecEndTest) .ge. distTol) .or. (norm2(vecStart-vecStartTest) .ge. distTol)) then
+         print *,'nodes do not match'
+      end if
 
       ! We always detect intersections
       intersect = 1
@@ -846,7 +850,7 @@ contains
 
       ! If vecStart and vecEnd are flipped, we also need to flip the seeds.
       ! They may flip due to the FEsort algorithm
-      if ((norm2(vecEnd-vecStartTest) .le. 1e-7) .or. (norm2(vecStart-vecEndTest) .le. 1e-7)) then
+      if ((norm2(vecEnd-vecStartTest) .le. distTol) .or. (norm2(vecStart-vecEndTest) .le. distTol)) then
          ! Here we flip seeds, and we use vecStartTest as buffer for the flip operation
          vecStartTest = vecStartd
          vecStartd = vecEndd
@@ -900,15 +904,87 @@ contains
     ! triangles.
     !
     ! John Jasa 2016-08
+    ! Ney Secco 2017-01: added derivative checks
 
-    use Intersection
+    use Intersection, only: triTriIntersect
+    use Intersection_b, only: triTriIntersect_b
+    use Intersection_d, only: triTriIntersect_d
     implicit none
 
     real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2
     integer(kind=intType), intent(out) :: intersect
     real(kind=realType), dimension(3), intent(out) :: vecStart, vecEnd
 
+    real(kind=realType), dimension(3) :: V0d, V1d, V2d, U0d, U1d, U2d
+    real(kind=realType), dimension(3) :: V0b, V1b, V2b, U0b, U1b, U2b
+
+    real(kind=realType), dimension(3) :: vecStartd, vecEndd
+    real(kind=realType), dimension(3) :: vecStartb, vecEndb
+    real(kind=realType), dimension(3) :: vecStartb_dummy, vecEndb_dummy
+
+    real(kind=realType) :: dotProd
+
+    ! Forward pass
     call triTriIntersect(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
+
+    ! Generate random seeds
+    call random_number(V0d)
+    call random_number(V1d)
+    call random_number(V2d)
+    call random_number(U0d)
+    call random_number(U1d)
+    call random_number(U2d)
+    vecStartd = 0.0
+    vecEndd = 0.0
+
+    V0b = 0.0
+    V1b = 0.0
+    V2b = 0.0
+    U0b = 0.0
+    U1b = 0.0
+    U2b = 0.0
+    call random_number(vecStartb)
+    call random_number(vecEndb)
+
+    ! Set dummy variables that will be changed by the reverse code
+    vecStartb_dummy = vecStartb
+    vecEndb_dummy = vecEndb
+
+    ! Forward AD
+    call triTriIntersect_d(V0, V0d, &
+                           V1, V1d, &
+                           V2, V2d, &
+                           U0, U0d, &
+                           U1, U1d, &
+                           U2, U2d, &
+                           intersect, &
+                           vecStart, vecStartd, &
+                           vecEnd, vecEndd)
+
+    ! Reverse AD
+    call triTriIntersect_b(V0, V0b, &
+                           V1, V1b, &
+                           V2, V2b, &
+                           U0, U0b, &
+                           U1, U1b, &
+                           U2, U2b, &
+                           intersect, &
+                           vecStart, vecStartb_dummy, &
+                           vecEnd, vecEndb_dummy)
+
+    ! Dot product test
+    dotProd = 0.0
+    dotProd = dotProd + sum(V0d*V0b)
+    dotProd = dotProd + sum(V1d*V1b)
+    dotProd = dotProd + sum(V2d*V2b)
+    dotProd = dotProd + sum(U0d*U0b)
+    dotProd = dotProd + sum(U1d*U1b)
+    dotProd = dotProd + sum(U2d*U2b)
+    dotProd = dotProd - sum(vecStartd*vecStartb)
+    dotProd = dotProd - sum(vecEndd*vecEndb)
+
+    print *,'triTriIntersect dot product test:'
+    print *,dotProd
 
   end subroutine testTri
 

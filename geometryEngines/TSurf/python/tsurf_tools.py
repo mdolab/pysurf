@@ -1095,52 +1095,6 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
 
 #=================================================================
 
-def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb, distTol):
-
-    '''
-    This function is the backward mode of the intersection computation.
-    This can only be called when we already have the intersection curve.
-
-    INPUTS:
-
-    TSurfGeometryA: TSurfGeometry object
-
-    TSurfGeometryB: TSurfGeometry object
-
-    intCurve: Intersection curve defined by both components (taken from component A)
-
-    coorIntb: float(3,nNodesInt) -> Derivative seeds of the intersection curve nodal coordinates
-
-    distTol: float -> Distance used to check if the bar elements were flipped. Used the
-                      same distTol used to merge nearby nodes.
-
-    OUTPUTS:
-
-    coorAb: float(3,nNodesA) -> Derivative seeds of the component A nodal coordinates
-
-    coorBb: float(3,nNodesB) -> Derivative seeds of the component B nodal coordinates
-
-    Ney Secco 2016-09
-    '''
-
-    # Call Fortran code to find derivatives
-    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(TSurfGeometryA.coor,
-                                                                           TSurfGeometryA.triaConn,
-                                                                           TSurfGeometryA.quadsConn,
-                                                                           TSurfGeometryB.coor,
-                                                                           TSurfGeometryB.triaConn,
-                                                                           TSurfGeometryB.quadsConn,
-                                                                           intCurve.coor,
-                                                                           coorIntb,
-                                                                           intCurve.barsConn,
-                                                                           intCurve.extra_data['parentTria'],
-                                                                           distTol)
-
-    # Return derivatives
-    return coorAb, coorBb
-
-#=================================================================
-
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd, distTol):
 
     '''
@@ -1170,22 +1124,67 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     '''
 
     # Call Fortran code to find derivatives
-    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(TSurfGeometryA.coor,
-                                                                     coorAd,
-                                                                     TSurfGeometryA.triaConn,
-                                                                     TSurfGeometryA.quadsConn,
-                                                                     TSurfGeometryB.coor,
-                                                                     coorBd,
-                                                                     TSurfGeometryB.triaConn,
-                                                                     TSurfGeometryB.quadsConn,
-                                                                     intCurve.coor,
-                                                                     intCurve.barsConn,
-                                                                     intCurve.extra_data['parentTria'],
+    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(np.array(TSurfGeometryA.coor,order='F'),
+                                                                     np.array(coorAd,order='F'),
+                                                                     np.array(TSurfGeometryA.triaConn,order='F'),
+                                                                     np.array(TSurfGeometryA.quadsConn,order='F'),
+                                                                     np.array(TSurfGeometryB.coor,order='F'),
+                                                                     np.array(coorBd,order='F'),
+                                                                     np.array(TSurfGeometryB.triaConn,order='F'),
+                                                                     np.array(TSurfGeometryB.quadsConn,order='F'),
+                                                                     np.array(intCurve.coor,order='F'),
+                                                                     np.array(intCurve.barsConn,order='F'),
+                                                                     np.array(intCurve.extra_data['parentTria'],order='F'),
                                                                      distTol)
 
     # Return derivatives
     return coorIntd
 
+#=================================================================
+
+def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb, distTol):
+
+    '''
+    This function is the backward mode of the intersection computation.
+    This can only be called when we already have the intersection curve.
+
+    INPUTS:
+
+    TSurfGeometryA: TSurfGeometry object
+
+    TSurfGeometryB: TSurfGeometry object
+
+    intCurve: Intersection curve defined by both components (taken from component A)
+
+    coorIntb: float(3,nNodesInt) -> Derivative seeds of the intersection curve nodal coordinates
+
+    distTol: float -> Distance used to check if the bar elements were flipped. Used the
+                      same distTol used to merge nearby nodes.
+
+    OUTPUTS:
+
+    coorAb: float(3,nNodesA) -> Derivative seeds of the component A nodal coordinates
+
+    coorBb: float(3,nNodesB) -> Derivative seeds of the component B nodal coordinates
+
+    Ney Secco 2016-09
+    '''
+
+    # Call Fortran code to find derivatives
+    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(np.array(TSurfGeometryA.coor,order='F'),
+                                                                           np.array(TSurfGeometryA.triaConn,order='F'),
+                                                                           np.array(TSurfGeometryA.quadsConn,order='F'),
+                                                                           np.array(TSurfGeometryB.coor,order='F'),
+                                                                           np.array(TSurfGeometryB.triaConn,order='F'),
+                                                                           np.array(TSurfGeometryB.quadsConn,order='F'),
+                                                                           np.array(intCurve.coor,order='F'),
+                                                                           np.array(coorIntb,order='F'),
+                                                                           np.array(intCurve.barsConn,order='F'),
+                                                                           np.array(intCurve.extra_data['parentTria'],order='F'),
+                                                                           distTol)
+
+    # Return derivatives
+    return coorAb, coorBb
 #=================================================================
 
 #===================================
