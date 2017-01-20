@@ -24,11 +24,16 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
     # Call projection algorithm
     xyzProj, normProj, projDict = cube.project_on_surface(xyz)
     
+    # Set derivative seeds
+    cube.set_forwardADSeeds(coord=coord)
+
     # Call derivatives code in forward mode
-    xyzProjd, normProjd = cube.project_on_surface_d(xyz, xyzd, xyzProj, normProj, projDict, coord)
+    xyzProjd, normProjd = cube.project_on_surface_d(xyz, xyzd, xyzProj, normProj, projDict)
 
     # Call derivatives code in backward mode
-    xyzb, coorb = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
+    xyzb = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
+
+    coorb = cube.coorb
 
     # Print results
     print
@@ -49,12 +54,17 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
 
     # Call projection algorithm
     xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
+
+    # Set derivative seeds
+    cube.set_forwardADSeeds(curveCoord=allCoord)
     
     # Call derivatives code in forward mode
-    xyzProjd, tanProjd = cube.project_on_curve_d(xyz, xyzd, allCoord, xyzProj, tanProj, curveProjDict)
+    xyzProjd, tanProjd = cube.project_on_curve_d(xyz, xyzd, xyzProj, tanProj, curveProjDict)
 
     # Call derivatives code in backward mode
-    xyzb, allCoorb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
+    xyzb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
+
+    _, allCoorb = cube.get_reverseADSeeds()
 
     # Print results
     print
