@@ -118,18 +118,23 @@ class HypSurfMesh(object):
         self.curveProjDict1 = []
         self.curveProjDict2 = []
 
-        self.rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
+        self.rStartd = np.array(np.zeros(self.rStart.shape),order='F')
 
-        self.coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
+        '''
+        self.coord = np.array(np.zeros(self.ref_geom.coor.shape),order='F')
 
         self.curveCoord = {}
         for curveName in self.ref_geom.curves:
-            self.curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
+            self.curveCoord[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
+
+        self.rStartb = np.array(np.zeros(self.rStart.shape),order='F')
 
         self.coorb = np.array(np.zeros(self.ref_geom.coor.shape),order='F')
+
         self.curveCoorb = {}
         for curveName in self.ref_geom.curves:
             self.curveCoorb[curveName] = np.array(np.zeros(self.ref_geom.curves[curveName].coor.shape),order='F')
+        '''
 
         # Detect nodes that should follow guide curves
         guideIndices = []
@@ -265,10 +270,7 @@ class HypSurfMesh(object):
             self.curveProjDictGuide[index] = []
 
         # Clean reverse derivatives
-        self.coorb[:,:] = 0.0
-
-        for curveName in self.curveCoord:
-            self.curveCoorb[curveName][:,:] = 0.0
+        self.ref_geom.clean_reverseADSeeds()
 
     #================================================================
     #================================================================
@@ -276,32 +278,24 @@ class HypSurfMesh(object):
 
     # The methods are defined in the order that they should be used.
 
-    def set_forwardAD_inputSeeds(self, rStartd, coord, curveCoord):
+    def set_forwardAD_inputSeeds(self, rStartd):
 
         '''
         This function will just overwrite the input seed that should
         be used by the forward mode AD to propagate derivatives.
+
+        ATTENTION: The user should set derivatives of the underlying triangulated surface
+        by using its own methods, such as self.ref_geom.set_forwardADSeeds(), or
+        self.ref_geom.set_randomADSeeds().
 
         INPUTS:
 
         rStartd: float[numNodes*3] -> Derivative seeds of the initial curve used for mesh marching.
                                       numNodes is the number of nodes in this initial curve.
 
-        coord: float[3,numSurfNodes] -> Derivative seeds of the nodal coordinates of the reference
-                                        surface. It should have the same shape as ref_geom.coor.
-
-        curveCoord : [curveName]{float[3,numCurveNodes]} -> Dictionary containing derivative seeds
-                                                            of the nodal coordinates of each curve
-                                                            present in ref_geom. The dictionary keys
-                                                            are the names of the curves.
         '''
 
         self.rStartd = np.array(rStartd, order='F')
-
-        self.coord = np.array(coord, order='F')
-
-        for curveName in self.ref_geom.curves:
-            self.curveCoord[curveName] = np.array(curveCoord[curveName], order='F')
 
     def compute_forwardAD(self):
 
@@ -481,8 +475,10 @@ class HypSurfMesh(object):
         
     def get_reverseAD_inputSeeds(self):
 
+        coorb, curveCoorb = self.ref_geom.get_reverseADSeeds()
+
         # The only output are the derivatives of the surface mesh coordinates
-        return self.rStartb, self.coorb, self.curveCoorb
+        return self.rStartb, coorb, curveCoorb
 
     #================================================================
     #================================================================
@@ -551,8 +547,7 @@ class HypSurfMesh(object):
                                                             rd.reshape((self.numNodes, 3)),
                                                             rNext.reshape((self.numNodes, 3)),
                                                             NNext.T,
-                                                            projDict,
-                                                            self.coord)
+                                                            projDict)
         rNextd = rNextd.flatten()
         NNextd = NNextd.T
 
@@ -560,7 +555,6 @@ class HypSurfMesh(object):
         if self.optionsDict['bc1'].lower().startswith('curve'):
             curveProjDict1 = self.curveProjDict1[layerID]
             rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(node1, node1d,
-                                                                     self.curveCoord,
                                                                      rNext[:3], NNext[:,0],
                                                                      curveProjDict1)
             NNextd[:, 0] = NNextAuxd.T[:, 0]
@@ -568,7 +562,6 @@ class HypSurfMesh(object):
         if self.optionsDict['bc2'].lower().startswith('curve'):
             curveProjDict2 = self.curveProjDict2[layerID]
             rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(node2, node2d,
-                                                                      self.curveCoord,
                                                                       rNext[-3:], NNext[:,-1],
                                                                       curveProjDict2)
             NNextd[:, -1] = NNextAuxd.T[:, 0]
@@ -592,7 +585,6 @@ class HypSurfMesh(object):
                 '''
 
                 rNextd[3*index:3*index+3], NNextAuxd = self.ref_geom.project_on_curve_d(node, noded,
-                                                                                        self.curveCoord,
                                                                                         rNext[3*index:3*index+3], NNext[:,index],
                                                                                         curveProjDict)
                 NNextd[:, index] = NNextAuxd.T[:, 0]
@@ -628,15 +620,12 @@ class HypSurfMesh(object):
                 NNextb_filtered[:,index] = 0.0
 
         # Project onto surface and compute surface normals
-        rb, coorb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
-                                                       rNext.reshape((self.numNodes, 3)),
-                                                       rNextb_filtered.reshape((self.numNodes, 3)),
-                                                       NNext.T,
-                                                       NNextb_filtered.T,
-                                                       projDict)
-
-        # Accumulate derivatives of the reference surface nodes
-        self.coorb = self.coorb + np.array(coorb,order='F')
+        rb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
+                                                rNext.reshape((self.numNodes, 3)),
+                                                rNextb_filtered.reshape((self.numNodes, 3)),
+                                                NNext.T,
+                                                NNextb_filtered.T,
+                                                projDict)
 
         # Reshape nodal derivatives
         rb = np.array(rb.flatten(),order='F')
@@ -644,17 +633,15 @@ class HypSurfMesh(object):
         # Replace end points if we use curve BCs
         if self.optionsDict['bc1'].lower().startswith('curve'):
             curveProjDict1 = self.curveProjDict1[layerID]
-            rb[:3], curveCoorb = self.ref_geom.project_on_curve_b(node1, rNext[:3], rNextb[:3],
-                                                                  NNext[:,0], NNextb[:,0],
-                                                                  curveProjDict1)
-            self.curveCoorb[self.ref_curve1] = self.curveCoorb[self.ref_curve1] + curveCoorb[self.ref_curve1]
+            rb[:3] = self.ref_geom.project_on_curve_b(node1, rNext[:3], rNextb[:3],
+                                                      NNext[:,0], NNextb[:,0],
+                                                      curveProjDict1)
 
         if self.optionsDict['bc2'].lower().startswith('curve'):
             curveProjDict2 = self.curveProjDict2[layerID]
-            rb[-3:], curveCoorb = self.ref_geom.project_on_curve_b(node2, rNext[-3:], rNextb[-3:],
-                                                                   NNext[:,-1], NNextb[:,-1],
-                                                                   curveProjDict2)
-            self.curveCoorb[self.ref_curve2] = self.curveCoorb[self.ref_curve2] + curveCoorb[self.ref_curve2]
+            rb[-3:] = self.ref_geom.project_on_curve_b(node2, rNext[-3:], rNextb[-3:],
+                                                       NNext[:,-1], NNextb[:,-1],
+                                                       curveProjDict2)
 
         if self.guideIndices:
             for i, index in enumerate(self.guideIndices):
@@ -662,14 +649,12 @@ class HypSurfMesh(object):
                 node = r[3*index:3*index+3].reshape((1, 3))
                 curve = self.optionsDict['guideCurves'][i]
 
-                rbAux, curveCoorb = self.ref_geom.project_on_curve_b(node,
-                                                                     rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
-                                                                     NNext[:,index], NNextb[:,index],
-                                                                     curveProjDict)
+                rbAux = self.ref_geom.project_on_curve_b(node,
+                                                         rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
+                                                         NNext[:,index], NNextb[:,index],
+                                                         curveProjDict)
 
                 rb[3*index:3*index+3] = rbAux
-
-                self.curveCoorb[curve] = self.curveCoorb[curve] + curveCoorb[curve]
 
         return rb
 
@@ -801,7 +786,7 @@ class HypSurfMesh(object):
         self.test_forwardAD_FD(plotError=True)
         self.test_forwardAD_reverseAD()
 
-    def test_internal_fortran_subroutines(self):
+    def test_internal_fortran_subroutines(self, fixedSeed=True):
 
         '''
         This method test the underlying Fortran subroutines used by the
@@ -812,6 +797,10 @@ class HypSurfMesh(object):
         print '#===================================================#'
         print 'Checking internal Fortran subroutines'
         print ''
+
+        # See if we should use a fixed seed for the RNG
+        if fixedSeed:
+            np.random.seed(123)
 
         # Make sure variables have the correct type
         dStart = float(self.optionsDict['dStart'])
@@ -878,23 +867,13 @@ class HypSurfMesh(object):
         # FORWARD DERIVATIVES
         r0d = np.array(np.random.rand(r0.shape[0]),order='F')
         r0d = r0d/np.sqrt(np.sum(r0d**2))
-        r0d_copy = r0d.copy()
 
-        self.coord[:,:] = np.array(np.random.rand(self.coord.shape[0],self.coord.shape[1]),order='F')
-        self.coord[:,:] = self.coord/np.sqrt(np.sum(self.coord**2))
-        coord_copy = self.coord.copy()
+        # Set geomtry object seeds
+        self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.get_forwardADSeeds()
 
-        curveCoord_copy = {}
-        for curveName in self.curveCoord:
-            self.curveCoord[curveName][:,:] = np.array(np.random.rand(self.curveCoord[curveName].shape[0],self.curveCoord[curveName].shape[1]),order='F')
-            self.curveCoord[curveName][:,:] = self.curveCoord[curveName][:,:]/np.sqrt(np.sum(self.curveCoord[curveName]**2))
-            curveCoord_copy[curveName] = self.curveCoord[curveName].copy()
-
+        # Propagate derivatives
         rNextd, NNextd = self.projection_d(r0, r0d, rNext, NNext, 0)
-        r0d = r0d_copy
-        self.coord = coord_copy
-        for curveName in self.curveCoord:
-            self.curveCoord[curveName] = curveCoord_copy[curveName]
 
         # REVERSE DERIVATIVES
         rNextb = np.random.rand(rNext.shape[0])
@@ -902,10 +881,7 @@ class HypSurfMesh(object):
         rNextb_copy = rNextb.copy()
         NNextb_copy = NNextb.copy()
 
-        self.coorb[:,:] = 0.0
-
-        for curveName in self.curveCoord:
-            self.curveCoorb[curveName][:,:] = 0.0
+        self.ref_geom.clean_reverseADSeeds()
 
         # Restore projection dictionaries
         self.projDict = projDict
@@ -916,11 +892,13 @@ class HypSurfMesh(object):
         rNextb = rNextb_copy
         NNextb = NNextb_copy
 
+        coorb, curveCoorb = self.ref_geom.get_reverseADSeeds(clean=True)
+
         dotprod = 0.0
         dotprod = dotprod + np.sum(r0d*r0b)
-        dotprod = dotprod + np.sum(self.coord*self.coorb)
-        for curveName in self.curveCoord:
-            dotprod = dotprod + np.sum(self.curveCoord[curveName]*self.curveCoorb[curveName])
+        dotprod = dotprod + np.sum(coord*coorb)
+        for curveName in self.ref_geom.curves:
+            dotprod = dotprod + np.sum(curveCoord[curveName]*curveCoorb[curveName])
         dotprod = dotprod - np.sum(rNextd*rNextb)
         dotprod = dotprod - np.sum(NNextd*NNextb)
 
@@ -928,20 +906,20 @@ class HypSurfMesh(object):
         print 'Dot product test for Projection (this should be around 1e-14):'
         print dotprod
         print
-
+        
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
         stepSize = 1e-7
 
         r0_FD = r0 + r0d*stepSize
-        self.ref_geom.update(self.ref_geom.coor + np.array(self.coord*stepSize,order='F'))
-        for curveName in self.curveCoord:
-            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+        self.ref_geom.update(self.ref_geom.coor + np.array(coord*stepSize,order='F'))
+        for curveName in self.ref_geom.curves:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + curveCoord[curveName]*stepSize
 
         rNext_FD, NNext_FD = self.projection(r0_FD)
 
-        self.ref_geom.update(self.ref_geom.coor - np.array(self.coord*stepSize,order='F'))
-        for curveName in self.curveCoord:
-            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
+        self.ref_geom.update(self.ref_geom.coor - np.array(coord*stepSize,order='F'))
+        for curveName in self.ref_geom.curves:
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - curveCoord[curveName]*stepSize
 
         rNextd_FD = (rNext_FD-rNext)/stepSize
         NNextd_FD = (NNext_FD-NNext)/stepSize
@@ -1127,19 +1105,14 @@ class HypSurfMesh(object):
         rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
         
         # Triangulated surface nodes seeds
-        coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
-        coord = coord/np.sqrt(np.sum(coord**2))
-
-        # Curve nodes seeds
-        curveCoord = {}
-        for curveName in self.ref_geom.curves:
-            curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
-            curveCoord[curveName] = curveCoord[curveName]/np.sqrt(np.sum(curveCoord[curveName]**2))
+        self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.get_forwardADSeeds()
 
         # AD VERSION
 
-        # Set derivative seeds to the current mesh
-        self.set_forwardAD_inputSeeds(rStartd, coord, curveCoord)
+        # Set derivative seeds to the initial curve
+        # (The derivatives of the triangulated surface were set in self.ref_geom.set_randomADSeeds())
+        self.set_forwardAD_inputSeeds(rStartd)
 
         # Propagate derivatives using AD
         self.compute_forwardAD()
@@ -1151,9 +1124,9 @@ class HypSurfMesh(object):
 
         # Perturb nodes based on derivative seeds
         self.rStart = self.rStart+rStartd*stepSize
-        self.ref_geom.update(self.ref_geom.coor + self.coord*stepSize)
+        self.ref_geom.update(self.ref_geom.coor + coord*stepSize)
         for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + self.curveCoord[curveName]*stepSize
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + curveCoord[curveName]*stepSize
             
         # Run the perturbed mesh in Fortran
         self.createMesh(fortran_flag=True)
@@ -1163,9 +1136,9 @@ class HypSurfMesh(object):
 
         # Restore initial nodes
         self.rStart = self.rStart-rStartd*stepSize
-        self.ref_geom.update(self.ref_geom.coor - self.coord*stepSize)
+        self.ref_geom.update(self.ref_geom.coor - coord*stepSize)
         for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - self.curveCoord[curveName]*stepSize
+            self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor - curveCoord[curveName]*stepSize
 
         # Compute derivatives with Finite Differences
         meshd_FD = (mesh-mesh0)/stepSize
@@ -1226,12 +1199,8 @@ class HypSurfMesh(object):
         rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
         
         # Triangulated surface nodes seeds
-        coord = np.array(np.random.random_sample(self.ref_geom.coor.shape),order='F')
-
-        # Curve nodes seeds
-        curveCoord = {}
-        for curveName in self.ref_geom.curves:
-            curveCoord[curveName] = np.array(np.random.random_sample(self.ref_geom.curves[curveName].coor.shape),order='F')
+        self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.get_forwardADSeeds()
 
         # Surface mesh seeds
         meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
@@ -1239,7 +1208,8 @@ class HypSurfMesh(object):
         # FORWARD AD VERSION
 
         # Set derivative seeds to the current mesh
-        self.set_forwardAD_inputSeeds(rStartd, coord, curveCoord)
+        # (The derivatives of the triangulated surface were set in self.ref_geom.set_randomADSeeds())
+        self.set_forwardAD_inputSeeds(rStartd)
 
         # Propagate derivatives using forward AD
         self.compute_forwardAD()
