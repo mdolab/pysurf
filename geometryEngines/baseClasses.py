@@ -238,6 +238,13 @@ class Manager(object):
         self.geoms = {}
         self.intCurves = {}
 
+        # Define a task list.
+        # This list will store all tasks done during the forward pass so
+        # that we could repeat the same steps when propagating derivatives.
+        # The even indices of self.tasks have the task type, while the even
+        # indices contain arguments used by the task that precedes it.
+        self.tasks = []
+
         pass
 
     def add_geometry(self, geom):
@@ -245,6 +252,10 @@ class Manager(object):
         '''
         This method adds a Geometry object to the current Manager's dictionary.
         '''
+
+        # Check if we already have a curve of same name
+        if geom.name in self.geoms.keys():
+            raise NameError('Trying to add geometry of same name.')
 
         self.geoms[geom.name] = geom
 
@@ -263,6 +274,10 @@ class Manager(object):
         In general, this should be an intersection curve.
         '''
 
+        # Check if we already have a curve of same name
+        if curve.name in self.intCurves.keys():
+            raise NameError('Trying to add curves of same name.')
+
         self.intCurves[curve.name] = curve
 
     def remove_curve(self, curveName):
@@ -272,3 +287,161 @@ class Manager(object):
         '''
 
         del self.intCurves[curveName]
+
+    #=====================================================
+    # AD METHODS
+
+    def forwardAD(self):
+        '''
+        This step will execute forward AD for all steps stored in self.tasks.
+        '''
+
+        # Get the number of tasks
+        numTasks = int(len(self.tasks)/2)
+
+        # Execute forward AD for every task
+        for taskID in range(numTasks):
+
+            # Get the name and the arguments of the task
+            taskName = self.tasks[2*taskID]
+            taskArg = self.tasks[2*taskID+1]
+
+            # Run the corresponding AD code
+            if taskName == 'intersect':
+
+                # Get arguments
+                distTol = taskArg
+
+                # Run the intersection code
+                self.intersect_d(distTol)
+
+    def reverseAD(self):
+        '''
+        This step will execute reverse AD for all steps stored in self.tasks.
+        '''
+
+        # Get the number of tasks
+        numTasks = int(len(self.tasks)/2)
+
+        # Execute reverse AD for every task (in reverse order)
+        for taskID in reversed(range(numTasks)):
+
+            # Get the name and the arguments of the task
+            taskName = self.tasks[2*taskID]
+            taskArg = self.tasks[2*taskID+1]
+
+            # Run the corresponding AD code
+            if taskName == 'intersect':
+
+                # Get arguments
+                distTol = taskArg
+
+                # Run the intersection code
+                self.intersect_b(distTol)
+
+    #=====================================================
+    # INTERSECTION METHODS
+
+    def intersect(self, geomList=None, distTol=1e-7):
+
+        '''
+        This method intersects all geometries contained in the current Manager,
+        provided that their names are in geomList.
+        All geometry objects should be of same type.
+
+        if geomList==None, all geometries will be intersected.
+
+        distTol is a distance tolerance used to merge nearby nodes when
+        generating the intersection finite element data.
+        '''
+
+        # Generate list of geometry names if user provided None
+        if geomList == None:
+            geomList = self.geoms.keys()
+
+        # Make list of geometry objects
+        geomObjList = []
+
+        for geomName in self.geoms:
+            
+            # Detect if the user want to use the current geometry
+            if geomName in geomList:
+
+                # Add the corresponding geometry object to the list
+                geomObjList.append(self.geoms[geomName])
+
+        # Get number of components
+        numGeometries = len(geomObjList)
+
+        # Stop if user gives only one component
+        if numGeometries < 2:
+            print 'ERROR: Cannot compute intersections with just one component'
+            quit()
+
+        # Initialize number of curves computed so far
+        numCurves = 0
+
+        # Call intersection function for each pair
+        for ii in range(numGeometries):
+            for jj in range(ii+1,numGeometries):
+
+                # Gather names of parent components
+                name1 = geomObjList[ii].name
+                name2 = geomObjList[jj].name
+
+                # Compute new intersections for the current pair
+                newIntersections = geomObjList[ii].intersect(geomObjList[jj],distTol)
+
+                # Append new curve objects to the dictionary
+                for curve in newIntersections:
+
+                    # Increment curve counter
+                    numCurves = numCurves+1
+
+                    # Store name of parent components
+                    curve.extra_data['parentGeoms'] = [name1, name2]
+
+                    # Add curve to the manager object
+                    self.add_curve(curve)
+
+        # Print log
+        print 'Computed',numCurves,'intersection curves.'
+
+        # Save the current task and its argument
+        if 'intersect' not in self.tasks:
+            self.tasks.append('intersect')
+            self.tasks.append(distTol)
+
+    def intersect_d(self, distTol):
+
+        '''
+        This method will execute the forward AD code for every intersection
+        curve.
+        '''
+
+        # Run the derivative code for every curve
+        for curve in self.intCurves.itervalues():
+
+            # Get pointers to the parent objects
+            geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
+            geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
+
+            # Run the AD intersection code
+            geom1.intersect_d(geom2, curve, distTol)
+
+    def intersect_b(self, distTol, accumulateSeeds=True):
+
+        '''
+        This method will execute the reverse AD code for every intersection
+        curve.
+        '''
+
+        # Run the derivative code for every curve
+        for curve in self.intCurves.itervalues():
+
+            # Get pointers to the parent objects
+            geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
+            geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
+
+            # Run the AD intersection code
+            geom1.intersect_b(geom2, curve, distTol, accumulateSeeds)

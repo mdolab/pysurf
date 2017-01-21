@@ -974,15 +974,16 @@ def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear
 # INTERSECTION FUNCTIONS
 #===================================
 
+'''
 def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
-    '''
+    '/''
     This function will just compute pair-wise intersections
     for all components given in TSurfGeometryList.
 
     distTol is a distance tolerance used to merge nearby nodes when
     generating the intersection finite element data.
-    '''
+    '/''
 
     # Get number of components
     numGeometries = len(TSurfGeometryList)
@@ -1004,21 +1005,16 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
                                                           TSurfGeometryList[jj],
                                                           distTol, comm)
 
-            # Create base name for the new intersection
-            baseName = 'int_'+TSurfGeometryList[ii].name+'_'+TSurfGeometryList[jj].name
-
             # Append new curve objects to the dictionary
-            intID = 0
             for curve in newIntersections:
-                intName = baseName + '_%03d'%intID
-                Intersections[intName] = curve
-                intID = intID+1
+                Intersections[curve.name] = curve
 
     # Print log
     print 'Computed',len(Intersections),'intersection curves.'
 
     # Return all intersections
     return Intersections
+'''
 
 #=================================================================
 
@@ -1071,12 +1067,12 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
             # Increment counter
             intCounter = intCounter + 1
 
-            # Gather name of parent components
+            # Gather names of parent components
             name1 = TSurfGeometryA.name
             name2 = TSurfGeometryB.name
 
             # Create a name for the curve
-            curveName = 'int_'+name1+'_'+name2+'_%02d'%intCounter
+            curveName = 'int_'+name1+'_'+name2+'_%03d'%intCounter
 
             # Slice the parent triangles array using the sorted mapping
             currParents = parentTria[:,currMap]
