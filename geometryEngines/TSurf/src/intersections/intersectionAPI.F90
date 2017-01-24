@@ -99,6 +99,7 @@ contains
     integer(kind=intType) :: arraySize, nAllocations, nBarsConn
     integer(kind=intType), dimension(:,:), allocatable :: extBarsConn, extTempInt
     real(kind=realType), dimension(:,:), allocatable :: extCoor, extTempReal
+    integer(kind=intType), dimension(:), allocatable :: linkOld2New
     real(kind=realType), dimension(3) :: node1A, node2A, node3A
     real(kind=realType), dimension(3) :: node1B, node2B, node3B
     real(kind=realType), dimension(3) :: vecStart, vecEnd
@@ -338,17 +339,21 @@ contains
     parentTria(:,:) = extParentTria(:,:nBarsConn)
     deallocate(extParentTria)
 
+    ! Allocate mapping of the condenseBarNodes step
+    allocate(linkOld2New(size(extCoor,2)))
+
     ! Merge close nodes to get continuous FE data. The condensed coordinates (coor)
     ! will be returned to Python.
     nNodesInt = size(extCoor,2)
     nBarsInt = size(barsConn,2)
     call condenseBarNodes_main(nNodesInt, nBarsInt, distTol, &
-    extCoor, barsConn, nUniqueNodes) ! Defined in utilities.F90
+    extCoor, barsConn, nUniqueNodes, linkOld2New) ! Defined in utilities.F90
 
     ! Allocate array to hold only unique nodes
     allocate(coor(3,nUniqueNodes))
     coor(:,:) = extCoor(:,1:nUniqueNodes)
     deallocate(extCoor)
+    deallocate(linkOld2New)
 
   end subroutine computeIntersection
 

@@ -22,3 +22,10 @@ callgrind*
 *.uns.bak
 *.plt
 *.msg
+*.lay
+*.atr
+*.fbc
+*.fbc_old
+*.par
+*.prj
+*.tin
