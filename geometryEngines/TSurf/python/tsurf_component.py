@@ -915,6 +915,7 @@ class TSurfCurve(Curve):
         self.coor = np.array(coor[:,:nUniqueNodes], order='F')
         self.barsConn = sortedConn
         self.name = name
+        self.numNodes = self.coor.shape[1]
 
         # Create arrays to store derivatives of the nodes
         self.coord = np.zeros(self.coor.shape, order='F')
@@ -1325,12 +1326,12 @@ class TSurfCurve(Curve):
             newBarsConn[-1,-1] = newBarsConn[0,0]
             newCoor = newCoor[:,:-1]
 
+        # Generate name for the new curve
+        newCurveName = self.name + '_remeshed'
+
         # Create a new curve object and return it
         # This way the original curve coordinates and connectivities remain the same
-        newCurve = copy.deepcopy(self)
-        newCurve.coor = newCoor
-        newCurve.barsConn = newBarsConn
-        newCurve.extra_data['parentTria'] = []
+        newCurve = TSurfCurve(newCurveName, newCoor, newBarsConn)
 
         return newCurve
 
@@ -1638,7 +1639,7 @@ class TSurfCurve(Curve):
 
             # Check if we have access to this curve
             if curveName in curveDict:
-                
+
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(curveDict[curveName].coor.shape[1]):
 

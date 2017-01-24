@@ -294,6 +294,17 @@ class Manager(object):
 
         del self.intCurves[curveName]
 
+    def clear_all(self):
+
+        '''
+        This method will clear all intersections and tasks of the current manager,
+        so that it can be used once again from scratch.
+        The geometry objects will remain.
+        '''
+
+        self.intCurves = {}
+        self.tasks = []
+
     #=====================================================
     # AD METHODS
 
@@ -479,6 +490,9 @@ class Manager(object):
         # Initialize number of curves computed so far
         numCurves = 0
 
+        # Initialize list of intersection curve names
+        intCurveNames = []
+
         # Call intersection function for each pair
         for ii in range(numGeometries):
             for jj in range(ii+1,numGeometries):
@@ -496,6 +510,9 @@ class Manager(object):
                     # Increment curve counter
                     numCurves = numCurves+1
 
+                    # Add curve name to the list
+                    intCurveNames.append(curve.name)
+
                     # Store name of parent components
                     curve.extra_data['parentGeoms'] = [name1, name2]
 
@@ -508,6 +525,9 @@ class Manager(object):
         # Save the current task and its argument
         self.tasks.append(['intersect', distTol, geomList])
 
+        # Return the names of the intersection curves
+        return intCurveNames
+
     def intersect_d(self, distTol, geomList):
 
         '''
@@ -517,9 +537,6 @@ class Manager(object):
 
         # Run the derivative code for every curve
         for curve in self.intCurves.itervalues():
-
-            print curve.name
-            print curve.extra_data['parentGeoms']
 
             # Get pointers to the parent objects
             if curve.extra_data['parentGeoms']:
@@ -578,8 +595,7 @@ class Manager(object):
             newCurve.extra_data['parentCurve'] = self.intCurves[curveName].name
 
             # Rename the new curve
-            newCurveName = self.intCurves[curveName].name + '_remeshed'
-            newCurve.name = newCurveName
+            newCurveName = newCurve.name
 
             # Delete intersection history (since the new curve did not come from an intersection)
             newCurve.extra_data['parentGeoms'] = []
@@ -590,11 +606,11 @@ class Manager(object):
             # Save task information
             self.tasks.append(['remesh_intCurve',newCurveName,curveName,optionsDict])
 
-            # Return the name of the new curve
-            return newCurveName
-
         else:
             raise NameError('Cannot remesh curve '+curveName+'. Curve not defined.')
+
+        # Return the name of the new curve
+        return newCurveName
 
     def remesh_intCurve_d(self, newCurveName, curveName, optionsDict):
         '''
@@ -693,11 +709,11 @@ class Manager(object):
             # Save this task
             self.tasks.append(['split_intCurve',curveName,splitCurvesDict.keys()])
 
-            # Return the names of the new curves
-            return splitCurvesDict.keys()
-
         else:
             raise NameError('Cannot split curve '+curveName+'. Curve not defined.')
+
+        # Return the names of the new curves
+        return splitCurvesDict.keys()
 
     def split_intCurve_d(self, curveName, childrenNames):
         '''
