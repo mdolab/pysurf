@@ -86,7 +86,7 @@ class TSurfGeometry(Geometry):
         tst.initialize_curves(self, sectionDict, selectedSections)
 
         # Now we remove unused points
-        self.coor = tst.remove_unused_points(self.coor, triaConn=self.triaConn, quadsConn=self.quadsConn)
+        self.coor, usedPtsMask = tst.remove_unused_points(self.coor, triaConn=self.triaConn, quadsConn=self.quadsConn)
 
         # Create arrays to store derivative seeds
         self.coord = np.zeros(self.coor.shape, order='F')
@@ -580,7 +580,7 @@ class TSurfGeometry(Geometry):
         # Print the number of intersections
         print 'Number of intersections between',self.name,'and',otherGeometry.name,'is',len(Intersection)
         
-        # Return the names of the intersection curves
+        # Return the intersection curves
         return Intersection
 
     def intersect_d(self, otherGeometry, intCurve, distTol=1e-7):
@@ -830,9 +830,9 @@ class TSurfCurve(Curve):
         REQUIRED INPUTS:
         name: string -> Curve name
 
-        coor : array[nNodes,3] -> Nodal X,Y,Z coordinates.
+        coor : array[3,nNodes],dtype='float',order='F' -> Nodal X,Y,Z coordinates.
 
-        barsConn : array[nBars,2] -> Element connectivity matrix.
+        barsConn : array[2,nBars],dtype='int32',order='F' -> Element connectivity matrix.
 
         OPTIONAL INPUTS:
         mergeTol: float -> Tolerance to merge nodes.
@@ -884,10 +884,16 @@ class TSurfCurve(Curve):
                     quit()
 
         # Remove unused points (This will update coor and barsConn)
-        coor = tst.remove_unused_points(coor, barsConn=barsConn)
+        coor, usedPtsMask = tst.remove_unused_points(coor, barsConn=barsConn)
 
         # Call a Fortran code to merge close nodes (This will update coor and barsConn)
-        nUniqueNodes = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
+        nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
+
+        # Save the mapping
+        self.extra_data = {}
+        self.extra_data['linkOld2New'] = linkOld2New-1 #-1 due to the Python indexing
+        self.extra_data['usedPtsMask'] = usedPtsMask-1
+        self.extra_data['parentGeoms'] = []
 
         # Take bar connectivity and reorder it
         sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
@@ -909,7 +915,6 @@ class TSurfCurve(Curve):
         self.coor = np.array(coor[:,:nUniqueNodes], order='F')
         self.barsConn = sortedConn
         self.name = name
-        self.extra_data = {}
 
         # Create arrays to store derivatives of the nodes
         self.coord = np.zeros(self.coor.shape, order='F')
@@ -1123,8 +1128,7 @@ class TSurfCurve(Curve):
         self.coorb = self.coorb + coorb_new
 
     def remesh(self, nNewNodes=None, method='linear', spacing='linear',
-               initialSpacing=0.1, finalSpacing=0.1, guideCurves=[],
-               ref_geom=None):
+               initialSpacing=0.1, finalSpacing=0.1):
 
         '''
         This function will redistribute the nodes along the curve to get
@@ -1151,12 +1155,12 @@ class TSurfCurve(Curve):
         finalSpacing: float -> Desired distance between the last two nodes. Only
                                used by 'hypTan' and 'tangent'.
         guideCurves: list of strings -> Curves to snap nodes to. Especially
-                                        useful for blunt trailing edges.
+                                        useful for blunt trailing edges. (removed since it was not differentiated)
         ref_geom: geometry object -> Container with the data for each curve
-                                     used in guideCurves.
+                                     used in guideCurves. (removed since it was not differentiated)
 
         OUTPUTS:
-        This method has no explicit outputs. It will update self.coor and self.barsConn instead.
+        newCurve: curve object -> This is the remeshed curve object.
 
         Ney Secco 2016-08
         '''
@@ -1186,7 +1190,7 @@ class TSurfCurve(Curve):
             nNewNodes = nNodes
 
         if fortran_flag:
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
+            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, initialSpacing, finalSpacing)
 
         else:
 
@@ -1284,6 +1288,13 @@ class TSurfCurve(Curve):
             newNodeCoor[1,:] = fY(newArcLength)
             newNodeCoor[2,:] = fZ(newArcLength)
 
+            '''
+            # The next commands are to snap a point to guide curves. Since this was not differentiated
+            # and also not added to the Fortran code, I'll leave this commented until future use.
+
+            # If you want to use this, you should include guideCurves=[] and ref_geom=None
+            # as arguments to this function.
+            
             guideIndices = []
             for curve in guideCurves:
                 guideCurve = ref_geom.curves[curve].extract_points()
@@ -1294,6 +1305,7 @@ class TSurfCurve(Curve):
                     curve = guideCurves[i]
                     node = newNodeCoor[:, index]
                     newNodeCoor[:, index], _, __ = ref_geom.project_on_curve((node.reshape(1, 3)), curveCandidates=[curve])
+            '''
 
             # ASSIGN NEW COORDINATES AND CONNECTIVITIES
 
@@ -1318,8 +1330,330 @@ class TSurfCurve(Curve):
         newCurve = copy.deepcopy(self)
         newCurve.coor = newCoor
         newCurve.barsConn = newBarsConn
+        newCurve.extra_data['parentTria'] = []
 
         return newCurve
+
+    #=================================================================
+
+    def remesh_d(self, coord, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+
+        '''
+        The original curve (before the remesh) should be the one that calls this method.
+        '''
+
+        spacing = spacing.lower()
+
+        # Get connectivities and coordinates of the current Curve object
+        coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
+        barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
+
+        # Get the number of elements in the curve
+        nElem = barsConn.shape[1]
+        nNodes = nElem+1
+
+        # Check if the baseline curve is periodic. If this is the case, we artificially repeat
+        # the last point so that we could use the same code of the non-periodic case
+        if barsConn[0,0] == barsConn[1,-1]:
+            periodic = True
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
+            coord = np.array(np.hstack([coord, coord[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(coord[0,0]),order='F')
+            barsConn[-1,-1] = nNodes
+        else:
+            periodic = False
+
+        # Use the original number of nodes if the user did not specify any
+        if nNewNodes is None:
+            nNewNodes = nNodes
+
+        nNewElems = nNewNodes - 1
+
+        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing, initialSpacing, finalSpacing)
+
+        # Adjust seeds if curve is periodic
+        if periodic:
+            newCoord[:, 0] = 0.5*(newCoord[:, 0] + newCoord[:, -1])
+            newCoord = newCoord[:, :-1]
+
+        return newCoord
+
+    #=================================================================
+
+    def remesh_b(self, newCoorb, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+
+        '''
+        The original curve (before the remesh) should be the one that calls this method.
+        '''
+
+        spacing = spacing.lower()
+
+        # Get connectivities and coordinates of the current Curve object
+        coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
+        barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
+
+        # Get the number of elements in the curve
+        nElem = barsConn.shape[1]
+        nNodes = nElem+1
+
+        # Check if the baseline curve is periodic. If this is the case, we artificially repeat
+        # the last point so that we could use the same code of the non-periodic case
+        if barsConn[0,0] == barsConn[1,-1]:
+            periodic = True
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
+            newCoorb = np.array(np.hstack([newCoorb, newCoorb[:,0].reshape((3,1))]),dtype=type(newCoorb[0,0]),order='F')
+            newCoorb[:,0] = 0.5*newCoorb[:,0]
+            newCoorb[:,-1] = 0.5*newCoorb[:,-1]
+            barsConn[-1,-1] = nNodes
+
+        else:
+            periodic = False
+
+        # Use the original number of nodes if the user did not specify any
+        if nNewNodes is None:
+            nNewNodes = nNodes
+
+        nNewElems = nNewNodes - 1
+
+        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing, initialSpacing, finalSpacing)
+
+        # Adjust seeds if curve is periodic
+        if periodic:
+            coorb[:, barsConn[0,0]-1] += coorb[:, -1]
+            coorb = coorb[:,:-1]
+
+        return coorb
+
+    #=================================================================
+    # SPLITTING METHODS
+
+    def split(self, optionsDict={}, criteria='sharpness'):
+        '''
+        This method will split the current curve based on a given criteria.
+
+        ATTENTION: This function assumes that the FE data is sorted.
+
+        INPUTS:
+
+        criteria: string -> Criteria that will be used to split curves. The options
+        available for now are: ['sharpness', 'curve']
+
+        OUTPUTS:
+        splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
+
+        Ney Secco 2017-01
+        '''
+
+        # Call splitting function defined in tsurf_tools.py
+        splitCurvesDict = tst.split_curve_single(self, self.name, optionsDict, criteria)
+
+        # Return dictionary of new curves
+        return splitCurvesDict
+
+    def split_d(self, childCurve):
+        '''
+        This method will propagate the forward AD Seeds from the parent curve
+        to its child (which was generated from the splitting process).
+
+        Ney Secco 2017-01
+        '''
+
+        # Check if the given curve is actually a child
+        if childCurve.name in self.extra_data['splitCurves'].keys():
+
+            # The usedPtsMask of the child curve will help us inherit derivative seeds from
+            # the parent curve
+
+            usedPtsMask = childCurve.extra_data['usedPtsMask']
+
+            for parentNodeID in range(len(usedPtsMask)):
+
+                # Get child node that corresponds to the parent node
+                childNodeID = usedPtsMask[parentNodeID]
+
+                # Update derivatives only if the parent node is present in the child curve
+                if childNodeID >= 0:
+                    childCurve.coord[:,childNodeID] = self.coord[:,parentNodeID]
+
+    def split_b(self, childCurve):
+        '''
+        This method will propagate the forward AD Seeds from the child curve
+        to its parent (which was generated from the splitting process).
+
+        Ney Secco 2017-01
+        '''
+
+        # Check if the given curve is actually a child
+        if childCurve.name in self.extra_data['splitCurves'].keys():
+
+            # The usedPtsMask of the child curve will help us inherit derivative seeds from
+            # the parent curve
+
+            usedPtsMask = childCurve.extra_data['usedPtsMask']
+
+            for parentNodeID in range(len(usedPtsMask)):
+
+                # Get child node that corresponds to the parent node
+                childNodeID = usedPtsMask[parentNodeID]
+
+                # Update derivatives only if the parent node is present in the child curve
+                if childNodeID >= 0:
+                    self.coorb[:,parentNodeID] = self.coorb[:,parentNodeID] + \
+                                                 childCurve.coorb[:,childNodeID]
+
+    #=================================================================
+    # MERGING METHODS
+
+    def merge(self, curveDict, mergedCurveName, curvesToMerge=None):
+        '''
+        This method will merge the current curve with all other curves in
+        the curveDict whose name is in curvesToMerge.
+        '''
+
+        # Add the current curve to the dictionary
+        if self.name not in curveDict.keys():
+            curveDict[self.name] = self
+
+        # Merge all curves if user provided none
+        if curvesToMerge == None:
+            curvesToMerge = curveDict.keys()
+
+        # Check if the current curve is in the curvesToMerge list
+        if self.name not in curvesToMerge:
+            curvesToMerge.append(self.name)
+
+        # Call the merge_curves function defined in tsurf_tools.py
+        mergedCurve = tst.merge_curves(curveDict, mergedCurveName, curvesToMerge)
+
+        # This mergeCurve has mergedCurve.extra_data['linkOld2New'], which will help
+        # propagate derivatives.
+
+        # Add list of parents to the merged curve
+        parentList = curvesToMerge
+        mergedCurve.extra_data['parentCurves'] = curvesToMerge
+
+        # Return the new curve
+        return mergedCurve
+
+    def merge_d(self, curveDict):
+        '''
+        This method will propagate forward AD derivatives from the parent curves to
+        the merged curve.
+
+        ATTENTION: This method should be called from the MERGED CURVE since it knows
+        its parents.
+        '''
+
+        # Initialize index offset. The new curves cannot reference
+        # nodes of the old ones.
+        indexOffset = 0
+
+        # Get mapping between parent and child nodes
+        linkOld2New = self.extra_data['linkOld2New']
+
+        # Initialize list that states how many nodes where merged to generate a single node
+        # of the merged curve.
+        numMergedNodes = np.zeros(self.coor.shape[1],dtype='int')
+
+        # Loop over every curve we want to merge
+        for curveName in self.extra_data['parentCurves']:
+
+            # Check if we have access to this curve
+            if curveName in curveDict:
+
+                # Get derivative seeds of the parent curve
+                coord = curveDict[curveName].get_forwardADSeeds()
+                
+                # Loop over the parent curve nodes to propagate seeds
+                for parentNodeID in range(coord.shape[1]):
+
+                    # Get corresponding ID in the child nodes
+                    childNodeID = linkOld2New[indexOffset + parentNodeID]
+
+                    # Acumulate derivative seed into the child node
+                    # (we will take the average later on)
+                    self.coord[:,childNodeID] = self.coord[:,childNodeID] + curveDict[curveName].coord[:,parentNodeID]
+
+                    # Increment number of parent nodes added to this child node
+                    numMergedNodes[childNodeID] = numMergedNodes[childNodeID] + 1
+
+                # Update offset for next curve
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
+
+        # Compute averages
+        for childNodeID in range(self.coor.shape[1]):
+            self.coord[:,childNodeID] = self.coord[:,childNodeID]/numMergedNodes[childNodeID]
+
+    def merge_b(self, curveDict):
+        '''
+        This method will propagate reverse AD derivatives from the merged curve to
+        the parent curves.
+
+        ATTENTION: This method should be called from the MERGED CURVE since it knows
+        its parents.
+        '''
+
+        # Initialize index offset. The new curves cannot reference
+        # nodes of the old ones.
+        indexOffset = 0
+
+        # Get mapping between parent and child nodes
+        linkOld2New = self.extra_data['linkOld2New']
+
+        # Initialize list that states how many nodes where merged to generate a single node
+        # of the merged curve.
+        numMergedNodes = np.zeros(self.coor.shape[1],dtype='int')
+
+        # We need one loop just to identify how many nodes will be seeded by a merged curve node
+
+        # Loop over every curve we want to merge
+        for curveName in self.extra_data['parentCurves']:
+
+            # Check if we have access to this curve
+            if curveName in curveDict:
+                
+                # Loop over the parent curve nodes to propagate seeds
+                for parentNodeID in range(curveDict[curveName].coor.shape[1]):
+
+                    # Get corresponding ID in the child nodes
+                    childNodeID = linkOld2New[indexOffset + parentNodeID]
+
+                    # Increment number of parent nodes added to this child node
+                    numMergedNodes[childNodeID] = numMergedNodes[childNodeID] + 1
+
+                # Update offset for next curve
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
+        
+        # Compute averages
+        for childNodeID in range(self.coor.shape[1]):
+            self.coorb[:,childNodeID] = self.coorb[:,childNodeID]/numMergedNodes[childNodeID]
+        
+        # Now we have another loop to distribute derivative seeds
+
+        # Initialize index offset. The new curves cannot reference
+        # nodes of the old ones.
+        indexOffset = 0
+
+        # Loop over every curve we want to merge
+        for curveName in self.extra_data['parentCurves']:
+
+            # Check if we have access to this curve
+            if curveName in curveDict:
+                
+                # Loop over the parent curve nodes to propagate seeds
+                for parentNodeID in range(curveDict[curveName].coor.shape[1]):
+
+                    # Get corresponding ID in the child nodes
+                    childNodeID = linkOld2New[indexOffset + parentNodeID]
+
+                    # Acumulate derivative seed into the parent node
+                    # (we will take the average later on)
+                    curveDict[curveName].coorb[:,parentNodeID] = curveDict[curveName].coorb[:,parentNodeID] + \
+                                                                 self.coorb[:,childNodeID]
+
+                # Update offset for next curve
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
+
+    #=================================================================
 
     def condense_disconnect_curves(self,guessNode=0):
 
@@ -1330,7 +1664,7 @@ class TSurfCurve(Curve):
         ICEM where it defines multiple overlapping bar elements.
         '''
 
-        # First we try to sort the curve to how many disconnect FE sets define it
+        # First we try to sort the curve to find how many disconnect FE sets define it
         sortedConn, dummy_map = tst.FEsort(self.barsConn.T.tolist())
 
         # Get number of disconnect curves
@@ -1611,7 +1945,13 @@ class TSurfCurve(Curve):
         startElemID = np.where(barsConn[0,:] == startNodeID)[0][0]
 
         # Then we shift the connectivity list so that startElemID becomes the first element
-        self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:], barsConn[:,:startElemID]])
+        self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:],
+                                        barsConn[:,:startElemID]])
+
+        # Do the same to the list of parent triangles if necessary
+        if self.extra_data['parentTria']:
+            self.extra_data['parentTria'] = np.hstack([self.extra_data['parentTria'][:,startElemID:],
+                                                       self.extra_data['parentTria'][:,:startElemID]])
 
     def export_tecplot(self,outputName='curve'):
 

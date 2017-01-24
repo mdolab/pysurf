@@ -8,7 +8,7 @@ MODULE UTILITIES_B
 CONTAINS
 !============================================================
   SUBROUTINE CONDENSEBARNODES_MAIN(nnodes, nelem, disttol, coor, &
-&   barsconn, nuniquenodes)
+&   barsconn, nuniquenodes, linkold2new)
     IMPLICIT NONE
 ! INPUTS
     INTEGER(kind=inttype), INTENT(IN) :: nnodes, nelem
@@ -19,13 +19,14 @@ CONTAINS
 &   barsconn
 ! OUTPUTS
     INTEGER(kind=inttype), INTENT(OUT) :: nuniquenodes
+    INTEGER(kind=inttype), DIMENSION(nnodes), INTENT(OUT) :: linkold2new
 ! WORKING
     INTEGER(kind=inttype) :: ncopies
     INTEGER(kind=inttype) :: currnodeid, prevnodeid, link, elemid
     REAL(kind=realtype), DIMENSION(3) :: currcoor, prevcoor
     REAL(kind=realtype) :: dist
-    INTEGER(kind=inttype), DIMENSION(SIZE(coor, 2)) :: linkold2new
-    INTRINSIC SIZE
+    INTEGER(kind=inttype), DIMENSION(:), ALLOCATABLE :: numaddednodes
+    REAL(kind=realtype), DIMENSION(:, :), ALLOCATABLE :: newcoor
     REAL(kind=realtype), DIMENSION(3) :: arg1
 ! EXECUTION
 ! Initialize number of unique nodes found so far.
@@ -65,24 +66,32 @@ CONTAINS
         linkold2new(currnodeid) = nuniquenodes
       END IF
     END DO
+! Allocate an array that stores how many nodes will be merged to create a new node
+    ALLOCATE(numaddednodes(nuniquenodes))
+    numaddednodes = 0
+! Allocate array to store merged nodes
+    ALLOCATE(newcoor(3, nuniquenodes))
+    newcoor = 0.0
 ! Initialize number of nodes copied so far
     ncopies = 0
-! We loop once again over the nodes so we can copy the unique values
+! We loop once again over the nodes so we can add the coordinates of nodes to be merged.
+! We will take the average later on.
     DO currnodeid=1,nnodes
 ! Get index of the current node in the new coordinate array
       link = linkold2new(currnodeid)
-! Check if the new link is already used
-      IF (link .GT. ncopies) THEN
-! Get coordinates of current node
-        currcoor = coor(:, currnodeid)
-! Increment number of copies done so far
-        ncopies = ncopies + 1
-! Copy coordinates
-        coor(:, ncopies) = currcoor
-      END IF
+! Add the current node to the corresponding location on the new curve
+      newcoor(:, link) = newcoor(:, link) + coor(:, currnodeid)
+! Increment number of nodes merged to this new location, so we can
+! take the average later on
+      numaddednodes(link) = numaddednodes(link) + 1
     END DO
-! Now zero out the unused points in coor
+! Now reset the given set of coordinates, so we can add just the new nodes
     coor(:, ncopies+1:nnodes) = 0.0
+! Take the average and copy the new nodes to the original coordinate array
+    DO currnodeid=1,nuniquenodes
+      coor(:, currnodeid) = newcoor(:, currnodeid)/numaddednodes(&
+&       currnodeid)
+    END DO
 ! Now the last step is updating the bars connectivity.
 ! Loop over the elements
     DO elemid=1,nelem
@@ -96,8 +105,7 @@ CONTAINS
 !   with respect to varying inputs: coor newcoor
 !   RW status of diff variables: coor:out newcoor:in-out
   SUBROUTINE REMESH_MAIN_B(nnodes, nelem, nnewnodes, coor, coorb, &
-&   barsconn, method, spacing, periodic, sp1, sp2, newcoor, newcoorb, &
-&   newbarsconn)
+&   barsconn, method, spacing, sp1, sp2, newcoor, newcoorb, newbarsconn)
     IMPLICIT NONE
 ! Input variables
     INTEGER(kind=inttype), INTENT(IN) :: nnewnodes, nelem
@@ -106,7 +114,6 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3, nnodes), INTENT(IN) :: coor
     REAL(kind=realtype), DIMENSION(3, nnodes) :: coorb
     INTEGER(kind=inttype), DIMENSION(2, nelem), INTENT(IN) :: barsconn
-    LOGICAL, INTENT(IN) :: periodic
     REAL(kind=realtype), INTENT(IN) :: sp1, sp2
 ! Output variables
     REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
@@ -252,7 +259,7 @@ CONTAINS
     END DO
   END SUBROUTINE REMESH_MAIN_B
   SUBROUTINE REMESH_MAIN(nnodes, nelem, nnewnodes, coor, barsconn, &
-&   method, spacing, periodic, sp1, sp2, newcoor, newbarsconn)
+&   method, spacing, sp1, sp2, newcoor, newbarsconn)
     IMPLICIT NONE
 ! Input variables
     INTEGER(kind=inttype), INTENT(IN) :: nnewnodes, nelem
@@ -260,7 +267,6 @@ CONTAINS
     CHARACTER(len=32), INTENT(IN) :: method, spacing
     REAL(kind=realtype), DIMENSION(3, nnodes), INTENT(IN) :: coor
     INTEGER(kind=inttype), DIMENSION(2, nelem), INTENT(IN) :: barsconn
-    LOGICAL, INTENT(IN) :: periodic
     REAL(kind=realtype), INTENT(IN) :: sp1, sp2
 ! Output variables
     REAL(kind=realtype), DIMENSION(3, nnewnodes) :: newcoor
