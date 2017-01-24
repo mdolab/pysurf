@@ -12,8 +12,8 @@ import pickle
 os.system('rm *.plt')
 
 # Load components
-comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
-comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
+comp1 = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
 #comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
 #comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
