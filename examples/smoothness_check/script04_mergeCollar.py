@@ -12,4 +12,4 @@ mergedGrid = pysurf.plot3d_interface.read_plot3d('merged.xyz',3)
 
 mergedGrid.remove_curves()
 
-pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz')
+pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz', saveNumpy=True)

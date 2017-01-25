@@ -1180,12 +1180,21 @@
         call norm(dr2, normdr2)
 
         arccos_inside = dr1dotdr2 / normdr1 / normdr2
+
+        ! Need to check if value will cause nan upon dacos() evaluation.
+        ! dacos() not defined for values < -1
+        if (arccos_inside .lt. -1.) then
+          arccos_inside = -1.
+        end if
+
         angle = dacos(min(arccos_inside, one))
 
         ! If the cross product points in the same direction of the surface
         ! normal, we have an acute corner
         call dot(dr1crossdr2, N1, dr1crossdr2dotN1)
-        if (dr1crossdr2dotN1 .gt. 0.) then
+        if (abs(dr1crossdr2dotN1) .lt. 1.e-10) then
+          angle = pi
+        else if (dr1crossdr2dotN1 .gt. 0.) then
           angle = pi + angle
         else
           angle = pi - angle

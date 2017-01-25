@@ -22,7 +22,7 @@
       implicit none
 
       ! R_initial_march(i) has the nodes of layer i right after the solution of the linear system of the previous layer
-      real(kind=realType), dimension(:,:), allocatable :: R_initial_march 
+      real(kind=realType), dimension(:,:), allocatable :: R_initial_march
       ! R_smoothed(i) has the nodes of layer i after the smoothing step
       real(kind=realType), dimension(:,:), allocatable :: R_smoothed
       ! R_final(i) has the nodes of layer i after the first projection step
@@ -473,7 +473,7 @@
             ext_N_final(nSubIters+1, :, :) = NNext
 
             ! Save Sm1 for backwards derivative computation
-            !if (nSubiters .eq. 1) then ! Also store Sm1 
+            !if (nSubiters .eq. 1) then ! Also store Sm1
             !   ext_Sm1(nSubIters, :) = Sm1
             !end if
             !ext_Sm1(nSubIters+1, :) = S0
@@ -682,7 +682,7 @@
 
         ! Compute normalized arclengths of each subinterval
         if (retainSpacing) then
-           
+
            ! Do the remesh for each subinterval. We have a self.arcLength entry for each subinterval
            do intervalID=1, numGuides+1
 

@@ -64,9 +64,9 @@ aeroOptions = {
     #'restartFile':'fc_restart_vol.cgns',
     'writeSurfaceSolution':True,
     'writeVolumeSolution':True,
-    'isoSurface':{'shock':1,'vx':-0.0001},    
+    'isoSurface':{'shock':1,'vx':-0.0001},
     'solutionPrecision':'double',
-    
+
     # Physics Parameters
     'equationType':'rans',
     'smoother':'dadi',
@@ -76,22 +76,22 @@ aeroOptions = {
     'vis2':0.250,
     #'vis4':vis4,
     #'turbulenceorder':'first order',
-    #'discretization':discretization, 
+    #'discretization':discretization,
     #'useqcr':qcr,
     #'userotationsa':qcr,
     #'turbulenceproduction':turbulenceproduction,
-    
+
     # Common Parameters
     'CFL':CFL,
     'CFLCoarse':CFL,
     'MGCycle':MGCYCLE,
     'MGStartLevel':MGSTART,
-    'nCyclesCoarse':2500,
-    'nCycles':7500, # 7500,
+    'nCyclesCoarse':3,
+    'nCycles':5, # 7500,
     'monitorvariables':['resrho','resturb', 'cl','cd','cdp','cdv','cmy', 'cpu'],
     'surfaceVariables':['vx','vy','vz','rho','P','cp','cf','cfx','cfy','cfz','blank'],
     'volumevariables':['resrho','mach','cp','resturb','blank'],
-    
+
     # NK parameters
     'useNKSolver':useNK,
     'nkjacobianlag':2,
@@ -103,13 +103,13 @@ aeroOptions = {
     'nkouterpreconits':5,
     'nkinnerpreconits':2,
     'nkls':'non monotone',
-    
+
     # Convergence Parameters
     'L2Convergence':L2Conv,
     'L2ConvergenceCoarse':1e-4,
     'miniterationnum':250,
     'rkreset':True,
-    
+
     # Overset parameters
     'nearWallDist':0.1,
     'debugzipper':True,

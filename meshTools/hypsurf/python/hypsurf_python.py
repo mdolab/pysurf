@@ -54,7 +54,7 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
         # Each entry of this list will correspond to an arc-length subinterval
         # defined by the guide curves.
         arcLength = []
-        
+
         # Now we define a list of nodes that define the boundaries of the subintervals.
         # These are the nodes that follow guide curves (and also the first and last nodes)
         breakNodes = [0] + guideIndices.tolist() + [numNodes-1]
@@ -69,14 +69,14 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
             # Get indices of the first and last nodes of the interval
             node1 = breakNodes[intervalID]
             node2 = breakNodes[intervalID+1]
-            
+
             # Take the slice of the nodal coordinates that corresponds to the
             # current subinterval
             rInterval = rStart[3*node1:3*(node2+1)]
-            
+
             # Compute the normalized arc-lengths of this interval
             currArcLength = compute_arc_length(rInterval)
-            
+
             # Store the arc-lengths of the current interval
             arcLength.append(currArcLength)
 
@@ -137,7 +137,7 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
 
     # We need a guess for the first-before-last curve in order to compute the grid distribution sensor
     # As we still don't have a "first-before-last curve" yet, we will just repeat the coordinates
-    rm1 = rNext[:] 
+    rm1 = rNext[:]
 
     #===========================================================
 
@@ -145,7 +145,7 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
     The marching function actually begins here
     '''
 
-    fail = False 
+    fail = False
 
     # MARCH!!!
     for layerIndex in range(numLayers-1):
@@ -155,7 +155,7 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
         N0 = NNext[:,:]
 
         # Compute the new area factor for the desired marching distance
-        S0, maxStretch = areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices) 
+        S0, maxStretch = areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices)
 
         # The subiterations will use pseudo marching steps.
         # If the required marching step is too large, the hyperbolic marching might become
@@ -164,27 +164,27 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
         # Compute the factor between the current stretching ratio and the allowed one.
         # If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
         # The pseudo-step will be the same as the desired step.
-        cFactor = int(np.ceil(maxStretch/cMax)) 
+        cFactor = int(np.ceil(maxStretch/cMax))
 
         # Constrain the marching distance if the stretching ratio is too high
-        dPseudo = d/cFactor 
+        dPseudo = d/cFactor
 
         # Subiteration
         # The number of subiterations is the one required to meet the desired marching distance
         for indexSubIter in range(cFactor):
 
             # Recompute areas with the pseudo-step
-            Sm1, maxStretch = areaFactor(rm1, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices) 
-            S0, maxStretch = areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices) 
+            Sm1, maxStretch = areaFactor(rm1, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices)
+            S0, maxStretch = areaFactor(r0, dPseudo, nuArea, numAreaPasses, bc1, bc2, guideIndices)
 
             # March using the pseudo-marching distance
             rNext, NNext = subIteration(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, arcLength, extraData, projection_func)
 
             # Update Sm1 (Store the previous area factors)
-            Sm1 = S0[:] 
+            Sm1 = S0[:]
 
             # Update rm1
-            rm1 = r0[:] 
+            rm1 = r0[:]
 
             # Update r0
             r0 = rNext[:]
@@ -196,7 +196,7 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
             N0 = NNext[:,:]
 
         # Store grid points
-        R[layerIndex+1,:] = rNext 
+        R[layerIndex+1,:] = rNext
 
         # Check quality of the mesh
         if layerIndex > 1:
@@ -264,15 +264,15 @@ def subIteration(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, arcLength, extr
     remeshFlag = extraData['remeshFlag']
     eta = layerIndex+2
 
-    dr = computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, extraData) 
+    dr = computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, extraData)
 
     # Update r
-    rNext = r0 + dr 
+    rNext = r0 + dr
 
     # Smooth coordinates
-    rNext_ = smoothing(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes) 
+    rNext_ = smoothing(rNext, eta, alphaP0, numSmoothingPasses, numLayers, numNodes)
 
-    rNext, NNext = projection_func(rNext_) 
+    rNext, NNext = projection_func(rNext_)
 
     # Remesh curve with initial spacing if chosen by the user
     if remeshFlag:
@@ -366,7 +366,7 @@ def areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices):
     if bc2.startswith('curve'):
         S[-1] = d
     # Set guideCurve marching distances
-    if guideIndices:
+    if guideIndices.any():
         for index in guideIndices:
             S[index] = d
 
@@ -457,8 +457,6 @@ def computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, extraData):
                               r0[3*(curr_index):3*(curr_index)+3],
                               r0[3*(neighbor2_index):3*(neighbor2_index)+3],
                               N0[:,curr_index])
-            if np.isnan(angle):
-                pdb.set_trace()
 
         x0_xi = r0_xi[0]
         y0_xi = r0_xi[1]
@@ -639,7 +637,7 @@ def computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, extraData):
     for index in xrange(1,numNodes-1):
 
         # Set guideCurve matrix contributions
-        if guideIndices:
+        if guideIndices.any():
             if index in guideIndices:
 
                 # Populate matrix
