@@ -54,29 +54,31 @@ comp2.update()
 # FORWARD PASS
 
 # Call intersection code
-intNames = comp1.intersect(comp2, distTol)
+intCurves = comp1.intersect(comp2, distTol)
+intCurve = intCurves[0]
 
 # Store coordinates of the initial curve
-intCoor0 = np.array(comp1.curves[intNames[0]].coor, order='F')
+intCoor0 = np.array(intCurve.coor, order='F')
 
 # SETTING DERIVATIVE SEEDS
 
 # Set seeds
-comp1.set_randomADSeeds()
-comp2.set_randomADSeeds()
+comp1.set_randomADSeeds(mode='forward')
+comp2.set_randomADSeeds(mode='forward')
+intCurve.set_randomADSeeds(mode='reverse')
 
 # Get seeds for future comparions
 coor1d, _ = comp1.get_forwardADSeeds()
 coor2d, _ = comp2.get_forwardADSeeds()
-intCoorb = comp1.curves[intNames[0]].get_reverseADSeeds(clean=False)
+intCoorb = intCurve.get_reverseADSeeds(clean=False)
 
 # FORWARD AD
 
 # Compute derivatives in forward mode
-comp1.intersect_d(comp2, distTol)
+comp1.intersect_d(comp2, intCurve, distTol)
 
 # Get derivative seeds of the intersected curve
-intCoord = comp1.curves[intNames[0]].get_forwardADSeeds()
+intCoord = intCurve.get_forwardADSeeds()
 
 # REVERSE AD
 
@@ -85,7 +87,7 @@ intCoord = comp1.curves[intNames[0]].get_forwardADSeeds()
 #comp2.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
 
 # Compute derivatives in forward mode
-comp1.intersect_b(comp2, distTol, accumulateSeeds=False)
+comp1.intersect_b(comp2, intCurve, distTol, accumulateSeeds=False)
 
 # Get derivative seeds of the geometry components
 coor1b, _ = comp1.get_reverseADSeeds()
@@ -101,10 +103,11 @@ comp1.update(comp1.coor + stepSize*coor1d)
 comp2.update(comp2.coor + stepSize*coor2d)
 
 # Run the intersection code once again
-intNames = comp1.intersect(comp2, distTol)
+intCurves = comp1.intersect(comp2, distTol)
+intCurve = intCurves[0]
 
 # Get the new intersection coordinates
-intCoor = np.array(comp1.curves[intNames[0]].coor, order='F')
+intCoor = np.array(intCurve.coor, order='F')
 
 # Compute derivatives with finite differences
 intCoord_FD = (intCoor - intCoor0)/stepSize

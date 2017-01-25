@@ -8,7 +8,7 @@ contains
 !============================================================
 
 subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
-                                 coor, barsConn, nUniqueNodes)
+                                 coor, barsConn, nUniqueNodes, linkOld2New)
 
   ! This subroutine receives a list of bar FE which may have repeated points and
   ! Then condenses (merges) points that are closer than a given tolerance.
@@ -22,6 +22,9 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
   ! OUTPUTS
   !
   ! nUniqueNodes: integer -> Number of unique nodes.
+  !
+  ! linkOld2New: integer(nNodes) -> This array maps the old coordinates (input coor) to the new
+  !                                 set of coordinates (output coor).
   !
   ! INPUTS/OUTPUTS
   !
@@ -45,13 +48,15 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
 
   ! OUTPUTS
   integer(kind=intType), intent(out) :: nUniqueNodes
+  integer(kind=intType), dimension(nNodes), intent(out) :: linkOld2New
 
   ! WORKING
   integer(kind=intType) :: nCopies
   integer(kind=intType) :: currNodeID, prevNodeID, link, elemID
   real(kind=realType), dimension(3) :: currCoor, prevCoor
   real(kind=realType) :: dist
-  integer(kind=intType), dimension(size(coor,2)) :: linkOld2New
+  integer(kind=intType), dimension(:), allocatable :: numAddedNodes
+  real(kind=realType), dimension(:,:), allocatable :: newCoor
 
   ! EXECUTION
 
@@ -108,33 +113,42 @@ subroutine condenseBarNodes_main(nNodes, nElem, distTol, &
 
   end do
 
+  ! Allocate an array that stores how many nodes will be merged to create a new node
+  allocate(numAddedNodes(nUniqueNodes))
+  numAddedNodes = 0
+
+  ! Allocate array to store merged nodes
+  allocate(newCoor(3,nUniqueNodes))
+  newCoor = 0.0
+
   ! Initialize number of nodes copied so far
   nCopies = 0
 
-  ! We loop once again over the nodes so we can copy the unique values
+  ! We loop once again over the nodes so we can add the coordinates of nodes to be merged.
+  ! We will take the average later on.
   do currNodeID = 1,nNodes
 
      ! Get index of the current node in the new coordinate array
      link = linkOld2New(currNodeID)
 
-     ! Check if the new link is already used
-     if (link .gt. nCopies) then
+     ! Add the current node to the corresponding location on the new curve
+     newCoor(:,link) = newCoor(:,link) + coor(:,currNodeID)
 
-        ! Get coordinates of current node
-        currCoor = coor(:,currNodeID)
-
-        ! Increment number of copies done so far
-        nCopies = nCopies + 1
-
-        ! Copy coordinates
-        coor(:,nCopies) = currCoor
-
-     end if
+     ! Increment number of nodes merged to this new location, so we can
+     ! take the average later on
+     numAddedNodes(link) = numAddedNodes(link) + 1
 
   end do
 
-  ! Now zero out the unused points in coor
+  ! Now reset the given set of coordinates, so we can add just the new nodes
   coor(:,nCopies+1:nNodes) = 0.0
+
+  ! Take the average and copy the new nodes to the original coordinate array
+  do currNodeID = 1,nUniqueNodes
+
+     coor(:,currNodeID) = newCoor(:,currNodeID)/numAddedNodes(currNodeID)
+
+  end do
 
   ! Now the last step is updating the bars connectivity.
   ! Loop over the elements
@@ -150,7 +164,7 @@ end subroutine condenseBarNodes_main
 
 
 subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
-  spacing, periodic, Sp1, Sp2, newCoor, newBarsConn)
+  spacing, Sp1, Sp2, newCoor, newBarsConn)
 
   ! This function will redistribute the nodes along the curve to get
   ! better spacing among the nodes.
@@ -177,9 +191,6 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   ! spacing: string -> Desired spacing criteria for new nodes. Current options are:
   !          ['linear']
   !
-  ! periodic: logical -> Flag that is true if the curve is periodic; that is, if
-  !                      the first and last nodes are at the same point
-  !
   ! Sp1: real -> Desired initial spacing for tangent/hypTan remeshes.
   !
   ! Sp2: real -> Desired final spacing for tangent/hypTan remeshes.
@@ -201,7 +212,6 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   character(32), intent(in) :: method, spacing
   real(kind=realType), dimension(3,nNodes), intent(in) :: coor
   integer(kind=intType), dimension(2,nElem), intent(in) :: barsConn
-  logical, intent(in) :: periodic
   real(kind=realType), intent(in) :: Sp1, Sp2
 
   ! Output variables
