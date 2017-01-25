@@ -26,7 +26,7 @@ options = {
   'useRotations':True,
   'zeroCornerRotations':True,
   'cornerAngle':30.0,
-  'bucketSize':1,
+  'bucketSize':8,
 }
 
 # Create a dictionary to store timing information
@@ -45,7 +45,7 @@ def print_line_time(name, time_list, string=''):
 
 if __name__ == "__main__":
 
-    nStates = 2
+    nStates = 11
 
     wingTranslation = np.zeros((nStates,3))
     wingTranslation[:,2] = np.linspace(0., 3., nStates)

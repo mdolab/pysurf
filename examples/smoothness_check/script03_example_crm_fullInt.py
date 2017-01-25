@@ -2,7 +2,6 @@
 
 from __future__ import division
 import numpy as np
-from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, max
 from numpy.random import rand
 # from surface import Surface  # GeoMACH
 import pysurf
@@ -16,7 +15,7 @@ guideCurves = ['curve_te_low']
 # Define translation cases for the wing
 nStates = 2
 
-wingTranslation = [[0.0, 0.0, 1.53]]
+wingTranslation = [[0.0, 0.0, 0.3]]
 
 wingRotation = [0.0 for s in range(len(wingTranslation))]
 
@@ -31,9 +30,9 @@ body = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
 curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt')
 curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt')
 curveName = curve_te_upp.keys()[0]
-wing.add_curve(curveName, curve_te_upp[curveName])
+wing.add_curve(curve_te_upp[curveName])
 curveName = curve_te_low.keys()[0]
-wing.add_curve(curveName, curve_te_low[curveName])
+wing.add_curve(curve_te_low[curveName])
 
 # Flip some curves
 wing.curves['curve_te_low'].flip()
@@ -89,16 +88,16 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
     # Compute intersection
-    Intersections = pysurf.tsurf_tools.compute_intersections([wing,body])
+    Intersections = pysurf.tsurf_tools._compute_pair_intersection(wing, body, 1.e-5)
 
     # Reorder curve so that it starts at the trailing edge
     for intName in Intersections:
-        Intersections[intName].shift_end_nodes(criteria='maxX')
+        intName.shift_end_nodes(criteria='maxX')
 
     # Split curves
     optionsDict = {'splittingCurves' : [wing.curves['curve_le'], wing.curves['curve_te_upp'], wing.curves['curve_te_low']]}
 
-    optionsDict['curvesToBeSplit'] = [Intersections.keys()[0]]
+    optionsDict['curvesToBeSplit'] = [Intersections[0]]
 
     pysurf.tsurf_tools.split_curves(Intersections, optionsDict, criteria='curve')
 

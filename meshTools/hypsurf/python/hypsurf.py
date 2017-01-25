@@ -11,6 +11,7 @@ import numpy as np
 import pdb
 import hypsurfAPI
 import pysurf
+import copy
 
 '''
 TO DO
@@ -109,7 +110,7 @@ class HypSurfMesh(object):
         # Get the number of nodes and layers
         self.numNodes = len(self.rStart)/3
         self.numLayers = self.optionsDict['numLayers']
-        self.mesh = np.zeros((3, self.numNodes, self.numLayers))
+        self.mesh = np.zeros((3, int(self.numNodes), int(self.numLayers)))
 
         # Initialize list to gather dictionary with projection information
         # that will be used to compute derivatives
@@ -144,7 +145,12 @@ class HypSurfMesh(object):
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
-        self.guideIndices = np.array(sorted(set(guideIndices)))
+        newGuideIndices = np.array(sorted(guideIndices))
+        origGuideCurves = copy.copy(self.optionsDict['guideCurves'])
+        for i, index in enumerate(newGuideIndices):
+            j = np.where(index==guideIndices)[0][0]
+            self.optionsDict['guideCurves'][i] = origGuideCurves[j]
+        self.guideIndices = newGuideIndices
 
         # Create list of dictionaries to store projection information for each guide curve
         self.curveProjDictGuide = [[] for s in range(len(guideIndices))]
@@ -250,7 +256,7 @@ class HypSurfMesh(object):
         Y = R[:,1::3]
         Z = R[:,2::3]
 
-        self.mesh = np.zeros((3, self.numNodes, X.T.shape[1]))
+        self.mesh = np.zeros((3, int(self.numNodes), int(X.T.shape[1])))
         self.mesh[0, :, :] = X.T
         self.mesh[1, :, :] = Y.T
         self.mesh[2, :, :] = Z.T
@@ -349,7 +355,7 @@ class HypSurfMesh(object):
                                                             self.optionsDict['numSmoothingPasses'],
                                                             self.optionsDict['numAreaPasses'],
                                                             self.optionsDict['numLayers'])
-        
+
         # Convert to Xd, Yd and Zd
         Xd = Rd[:,::3]
         Yd = Rd[:,1::3]
@@ -472,7 +478,7 @@ class HypSurfMesh(object):
                                                      numProjs,
                                                      R,
                                                      Rb)
-        
+
     def get_reverseAD_inputSeeds(self):
 
         coorb, curveCoorb = self.ref_geom.get_reverseADSeeds()
@@ -521,7 +527,7 @@ class HypSurfMesh(object):
             NNext[:, -1] = NNextAux.T[:, 0]
             self.curveProjDict2 = self.curveProjDict2 + [curveProjDict2]
 
-        if self.guideIndices:
+        if np.any(self.guideIndices):
             for i, index in enumerate(self.guideIndices):
                 curve = self.optionsDict['guideCurves'][i]
                 node = r[3*index:3*index+3].reshape((1, 3))
@@ -739,7 +745,7 @@ class HypSurfMesh(object):
 
                 # Store extension as the relevant marching parameter
                 self.marchParameter = options['extension']
-                
+
                 # Check if we did not flag growth ratio as a parameter previously
                 if self.extension_given is None:
                     self.extension_given = True
@@ -750,7 +756,7 @@ class HypSurfMesh(object):
 
                 # Store extension as the relevant marching parameter
                 self.marchParameter = options['growthratio']
-                
+
                 # Check if we did not flag growth ratio as a parameter previously
                 if self.extension_given is None:
                     self.extension_given = False
@@ -830,7 +836,7 @@ class HypSurfMesh(object):
         coord = np.random.random_sample(coor.shape)
         coord_copy = coord.copy()
         rOut, rOutd = hypsurfAPI.hypsurfapi.smoothing_d(coor, coord, 5., alphaP0, 1, numLayers)
-        
+
         # REVERSE MODE
         rOutb = np.random.random_sample(coor.shape)**2
         rOutb_copy = rOutb.copy()
@@ -906,7 +912,7 @@ class HypSurfMesh(object):
         print 'Dot product test for Projection (this should be around 1e-14):'
         print dotprod
         print
-        
+
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
         stepSize = 1e-7
 
@@ -1041,7 +1047,7 @@ class HypSurfMesh(object):
         mesh_python = self.mesh.copy()
 
         print 'Python version took: ',time() - st, 'secs'
-       
+
         # Compare differences
         differences = np.abs(mesh_fortran-mesh_python)
         error = np.max(differences)
@@ -1091,7 +1097,7 @@ class HypSurfMesh(object):
 
         # Run the initial mesh in Fortran
         self.createMesh(fortran_flag=True)
-        
+
         # Store the initial mesh
         mesh0 = self.mesh[:,:,:]
 
@@ -1103,7 +1109,7 @@ class HypSurfMesh(object):
         # Initial curve seeds
         rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
         rStartd = rStartd/np.sqrt(np.sum(rStartd**2))
-        
+
         # Triangulated surface nodes seeds
         self.ref_geom.set_randomADSeeds(mode='forward')
         coord, curveCoord = self.ref_geom.get_forwardADSeeds()
@@ -1127,10 +1133,10 @@ class HypSurfMesh(object):
         self.ref_geom.update(self.ref_geom.coor + coord*stepSize)
         for curveName in self.ref_geom.curves:
             self.ref_geom.curves[curveName].coor = self.ref_geom.curves[curveName].coor + curveCoord[curveName]*stepSize
-            
+
         # Run the perturbed mesh in Fortran
         self.createMesh(fortran_flag=True)
-        
+
         # Store the perturbed mesh
         mesh = self.mesh[:,:,:]
 
@@ -1187,7 +1193,7 @@ class HypSurfMesh(object):
 
         # Run the initial mesh in Fortran
         self.createMesh(fortran_flag=True)
-        
+
         # Store the initial mesh
         mesh0 = self.mesh[:,:,:]
 
@@ -1197,7 +1203,7 @@ class HypSurfMesh(object):
 
         # Initial curve seeds
         rStartd = np.array(np.random.random_sample(self.rStart.shape),order='F')
-        
+
         # Triangulated surface nodes seeds
         self.ref_geom.set_randomADSeeds(mode='forward')
         coord, curveCoord = self.ref_geom.get_forwardADSeeds()
@@ -1322,7 +1328,7 @@ def view_mat(mat):
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
-    curve = np.asarray(curve)
+    curve = np.asarray(curve.extract_points())
 
     # Get number of points in the seed curve
     nPoints = curve.shape[0]
