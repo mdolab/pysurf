@@ -9,11 +9,13 @@ import pickle
 
 # TESTING FUNCTION
 
-os.system('rm curve_*')
+os.system('rm *.plt')
 
 # Load components
-comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
-comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+comp1 = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
+#comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
+#comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
 name1 = 'wing'
 name2 = 'body'
@@ -41,7 +43,7 @@ def curve_intersection(deltaZ,ii):
 
     # Apply translation
     #comp1.translate(0,-100.0,deltaZ)
-    manager.geoms['wing'].translate(0,-100.0,deltaZ)
+    manager.geoms['wing'].translate(0,0.0,deltaZ)
 
     # FORWARD PASS
     
@@ -49,6 +51,21 @@ def curve_intersection(deltaZ,ii):
     manager.intersect(distTol=distTol)
 
     curveName = manager.intCurves.keys()[0]
+    manager.intCurves[curveName].export_tecplot(curveName)
+
+    newCurveNames = manager.split_intCurve(curveName)
+
+    for curve in newCurveNames:
+        manager.intCurves[curve].export_tecplot(curve)
+
+    mergedCurveName = 'merged_curve'
+    manager.merge_intCurves(newCurveNames, mergedCurveName)
+    curveName = mergedCurveName
+
+    manager.intCurves[mergedCurveName].export_tecplot('curve')
+
+    curveName = manager.remesh_intCurve(curveName)
+    manager.intCurves[curveName].export_tecplot(curveName)
 
     # DERIVATIVE SEEDS
 
@@ -82,8 +99,11 @@ def curve_intersection(deltaZ,ii):
     # Dot product test
     dotProd = 0.0
     dotProd = dotProd + np.sum(intCoorb*intCoord)
+    print dotProd
     dotProd = dotProd - np.sum(coor1b*coor1d)
+    print dotProd
     dotProd = dotProd - np.sum(coor2b*coor2d)
+    print dotProd
 
     print 'dotProd test'
     print dotProd
@@ -222,7 +242,7 @@ class TestIntersectionDerivs(unittest.TestCase):
 
     def test_intersection_derivative(self):
         #curve_intersection_internal(50, 0)
-        curve_intersection(50, 0)
+        curve_intersection(0, 0)
 
 # MAIN PROGRAM
 if __name__ == "__main__":

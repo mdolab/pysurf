@@ -569,11 +569,11 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
     # nodes of the old ones.
     indexOffset = 0
 
-    # Loop over every curve
-    for curveName in curveDict:
+    # Loop over every curve we want to merge
+    for curveName in curvesToMerge:
 
-        # Check if we want to merge this curve
-        if curveName in curvesToMerge:
+        # Check if we have access to this curve
+        if curveName in curveDict:
 
             # Get coor and connectivities of this curve.
             # Remember to apply the offset to the connectivities
@@ -595,7 +595,7 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
 #=================================================================
 
-def split_curves(curveDict, optionsDict={}, criteria='sharpness'):
+def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='sharpness'):
 
     '''
     This function will loop over all curves in curveDict and split
@@ -614,21 +614,27 @@ def split_curves(curveDict, optionsDict={}, criteria='sharpness'):
     John Jasa 2016-11
     '''
 
+    # Split all curves in the dictionary if the user provided None as input
+    if curvesToBeSplit is None:
+        curvesToBeSplit = curveDict.keys()
+
+    '''
     # Set the default curvesToBeSplit; useful if criteria = 'sharpness'
     options = {'curvesToBeSplit' : []}
     options.update(optionsDict)
+    '''
 
     # Loop over every curve to check for splits
     for curveName in curveDict.keys():
 
-        if curveName in options['curvesToBeSplit'] or criteria == 'sharpness':
+        if curveName in curvesToBeSplit:
 
             # First we remove the curve component from the dictionary
             curve = curveDict.pop(curveName)
 
             # Now we run the split function for this single curve
             splitcurves = split_curve_single(curve, curveName,
-                optionsDict=options, criteria=criteria)
+                optionsDict=optionsDict, criteria=criteria)
 
             # Now we add the split curves to the original curves dictionary
             curveDict.update(splitcurves)
@@ -636,7 +642,7 @@ def split_curves(curveDict, optionsDict={}, criteria='sharpness'):
 
 #=============================================================
 
-def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, criteria="sharpness"):
+def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
     '''
     This function receives a single curve object, splits it according to a criteria,
@@ -775,7 +781,7 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         splitBarsConn = barsConn[:,:]
 
         # Generate a name for this new curve
-        splitCurveName = curveName
+        splitCurveName = curveName + '_split'
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -798,6 +804,9 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
     # Initialize dictionary that will contain the split curves
     splitcurvesDict = {}
 
+    # Initialize dictionary that will hold split information
+    curve.extra_data['splitCurves'] = {}
+
     # First we will define all curves that are between the first and the last
     # break point. The remaining part of the curve will be determined depending
     # if the original curve is periodic or not.
@@ -815,10 +824,11 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
 
-        # TODO: Add code to remove unused points from coor
-
         # Append new curve object to the dictionary
         splitcurvesDict[splitCurveName] = splitCurve
+
+        # Store split information in the parent curve
+        curve.extra_data['splitCurves'][splitCurveName] = [breakList[splitID],breakList[splitID+1]]
 
     # Now we need to create curves with elements that come before the first break point and after
     # the last break point.
@@ -840,10 +850,11 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
 
-        # TODO: Add code to remove unused points from coor
-
         # Append new curve object to the dictionary
         splitcurvesDict[splitCurveName] = splitCurve
+
+        # Store split information in the parent curve
+        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1],breakList[0]]
 
     else: # Curve is not periodic, so we need to define two curves
 
@@ -861,10 +872,11 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
 
-        # TODO: Add code to remove unused points from coor
-
         # Append new curve object to the dictionary
         splitcurvesDict[splitCurveName] = splitCurve
+
+        # Store split information in the parent curve
+        curve.extra_data['splitCurves'][splitCurveName] = [0,breakList[0]]
 
         # CURVE 1 : after the first break point
 
@@ -880,93 +892,14 @@ def split_curve_single(curve, curveName, optionsDict={}, splittingCurve=None, cr
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
 
-        # TODO: Add code to remove unused points from coor
-
         # Append new curve object to the dictionary
         splitcurvesDict[splitCurveName] = splitCurve
 
+        # Store split information in the parent curve
+        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1],barsConn.shape[1]]
+
     # Return the dictionary of new curves and the list of breaking elements
     return splitcurvesDict
-
-#=================================================================
-
-
-def _remesh_b(origCurve, newCoorb, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
-
-    spacing = spacing.lower()
-
-    # Get connectivities and coordinates of the current Curve object
-    coor = np.array(origCurve.coor,dtype=type(origCurve.coor[0,0]),order='F')
-    barsConn = np.array(origCurve.barsConn,dtype=type(origCurve.barsConn[0,0]),order='F')
-
-    # Get the number of elements in the curve
-    nElem = barsConn.shape[1]
-    nNodes = nElem+1
-
-    # Check if the baseline curve is periodic. If this is the case, we artificially repeat
-    # the last point so that we could use the same code of the non-periodic case
-    if barsConn[0,0] == barsConn[1,-1]:
-        periodic = True
-        coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(origCurve.coor[0,0]),order='F')
-        newCoorb = np.array(np.hstack([newCoorb, newCoorb[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(newCoorb[0,0]),order='F')
-        barsConn[-1,-1] = nNodes
-
-    else:
-        periodic = False
-
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
-
-    nNewElems = nNewNodes - 1
-
-    _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
-
-    # Adjust seeds if curve is periodic
-    if periodic:
-        coorb[:, 0] += coorb[:, -1]
-        coorb = coorb[:,:-1]
-
-    return coorb
-
-#=================================================================
-
-def _remesh_d(origCurve, coord, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
-
-    spacing = spacing.lower()
-
-    # Get connectivities and coordinates of the current Curve object
-    coor = np.array(origCurve.coor,dtype=type(origCurve.coor[0,0]),order='F')
-    barsConn = np.array(origCurve.barsConn,dtype=type(origCurve.barsConn[0,0]),order='F')
-
-    # Get the number of elements in the curve
-    nElem = barsConn.shape[1]
-    nNodes = nElem+1
-
-    # Check if the baseline curve is periodic. If this is the case, we artificially repeat
-    # the last point so that we could use the same code of the non-periodic case
-    if barsConn[0,0] == barsConn[1,-1]:
-        periodic = True
-        coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(origCurve.coor[0,0]),order='F')
-        coord = np.array(np.hstack([coord, coord[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(coord[0,0]),order='F')
-        barsConn[-1,-1] = nNodes
-    else:
-        periodic = False
-
-    # Use the original number of nodes if the user did not specify any
-    if nNewNodes is None:
-        nNewNodes = nNodes
-
-    nNewElems = nNewNodes - 1
-
-    newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing, periodic, initialSpacing, finalSpacing)
-
-    # Adjust seeds if curve is periodic
-    if periodic:
-        newCoord[:, 0] += newCoord[:, -1]
-        newCoord = newCoord[:, :-1]
-
-    return newCoord
 
 #=================================================================
 
@@ -1082,6 +1015,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
 
             # Store parent triangles as extra data
             newCurve.extra_data['parentTria'] = np.array(currParents)
+            newCurve.extra_data['parentGeoms'] = [name1, name2] # This will also be done by the manager
 
             # Initialize curve object and append it to the list
             Intersections.append(newCurve)
@@ -1536,8 +1470,8 @@ def remove_unused_points(coor,
         barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
         barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]
 
-    # Return the new set of nodes
-    return cropCoor
+    # Return the new set of nodes and the mask used to map nodes
+    return cropCoor, usedPtsMask
 
 #=============================================================
 

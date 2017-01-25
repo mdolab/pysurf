@@ -11,7 +11,7 @@ contains
 !=============================================
 
 subroutine condenseBarNodes(nNodes, nBars, distTol, &
-                            coor, barsConn, nUniqueNodes)
+                            coor, barsConn, nUniqueNodes, linkOld2New)
 
   ! This subroutine receives a list of bar FE which may have repeated points and
   ! Then condenses (merges) points that are closer than a given tolerance.
@@ -35,22 +35,23 @@ subroutine condenseBarNodes(nNodes, nBars, distTol, &
 
   ! Output variables
   integer(kind=intType), intent(out) :: nUniqueNodes
+  integer(kind=intType), dimension(nNodes), intent(out) :: linkOld2New
 
   !f2py intent(in) nNodes, nBars
   !f2py intent(in) distTol
   !f2py intent(inout) coor, barsConn
-  !f2py intent(out) nUniqueNodes
+  !f2py intent(out) nUniqueNodes, linkOld2New
 
   ! EXECUTION
 
   ! Just call the main routine that will do all the job
   call condenseBarNodes_main(nNodes, nBars, distTol, &
-                             coor, barsConn, nUniqueNodes)
+                             coor, barsConn, nUniqueNodes, linkOld2New)
 
 end subroutine condenseBarNodes
 
 subroutine remesh(nNodes, nElem, nNewNodes, coor, barsConn, method, spacing,&
-  periodic, initialSpacing, finalSpacing, newCoor, newBarsConn)
+  initialSpacing, finalSpacing, newCoor, newBarsConn)
 
   ! Remesh the given curve based on user-set options to obtain a better spacing
   ! John Jasa 2016-09
@@ -64,7 +65,6 @@ subroutine remesh(nNodes, nElem, nNewNodes, coor, barsConn, method, spacing,&
   character(32), intent(in) :: method, spacing
   real(kind=realType), dimension(3,nNodes), intent(in) :: coor
   integer(kind=intType), dimension(2,nElem), intent(in) :: barsConn
-  logical, intent(in) :: periodic
   real(kind=realType), intent(in) :: initialSpacing, finalSpacing
 
   ! Output variables
@@ -79,12 +79,12 @@ subroutine remesh(nNodes, nElem, nNewNodes, coor, barsConn, method, spacing,&
 
   ! Just call the main routine that will do the actual job
   call remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method, spacing,&
-    periodic, initialSpacing, finalSpacing, newCoor, newBarsConn)
+    initialSpacing, finalSpacing, newCoor, newBarsConn)
 
 end subroutine remesh
 
 subroutine remesh_b(nNodes, nElem, nNewNodes, nNewElems, coor, newCoorb, barsConn,&
-  method, spacing, periodic, initialSpacing, finalSpacing, newCoor, newBarsConn, coorb)
+  method, spacing, initialSpacing, finalSpacing, newCoor, newBarsConn, coorb)
 
   ! Remesh the given curve based on user-set options to obtain a better spacing
   ! John Jasa 2016-09
@@ -99,7 +99,6 @@ subroutine remesh_b(nNodes, nElem, nNewNodes, nNewElems, coor, newCoorb, barsCon
   real(kind=realType), dimension(3,nNodes), intent(in) :: coor
   real(kind=realType), dimension(3,nNewNodes), intent(in) :: newCoorb
   integer(kind=intType), dimension(2,nElem), intent(in) :: barsConn
-  logical, intent(in) :: periodic
   real(kind=realType), intent(in) :: initialSpacing, finalSpacing
 
   ! Output variables
@@ -117,12 +116,12 @@ subroutine remesh_b(nNodes, nElem, nNewNodes, nNewElems, coor, newCoorb, barsCon
 
   ! Just call the main routine that will do the actual job
   call remesh_main_b(nNodes, nElem, nNewNodes, coor, coorb, barsConn, method,&
-  spacing, periodic, initialSpacing, finalSpacing, newCoor, newCoorb, newBarsConn)
+  spacing, initialSpacing, finalSpacing, newCoor, newCoorb, newBarsConn)
 
 end subroutine remesh_b
 
 subroutine remesh_d(nNodes, nElem, nNewNodes, nNewElems, coor, coord, barsConn,&
-  method, spacing, periodic, initialSpacing, finalSpacing, newCoor, newCoord, newBarsConn)
+  method, spacing, initialSpacing, finalSpacing, newCoor, newCoord, newBarsConn)
 
   ! Remesh the given curve based on user-set options to obtain a better spacing
   ! John Jasa 2016-09
@@ -137,7 +136,6 @@ subroutine remesh_d(nNodes, nElem, nNewNodes, nNewElems, coor, coord, barsConn,&
   real(kind=realType), dimension(3,nNodes), intent(in) :: coor
   real(kind=realType), dimension(3,nNodes), intent(in) :: coord
   integer(kind=intType), dimension(2,nElem), intent(in) :: barsConn
-  logical, intent(in) :: periodic
   real(kind=realType), intent(in) :: initialSpacing, finalSpacing
 
   ! Output variables
@@ -153,7 +151,7 @@ subroutine remesh_d(nNodes, nElem, nNewNodes, nNewElems, coor, coord, barsConn,&
 
   ! Just call the main routine that will do the actual job
   call remesh_main_d(nNodes, nElem, nNewNodes, coor, coord, barsConn, method,&
-  spacing, periodic, initialSpacing, finalSpacing, newCoor, newCoord, newBarsConn)
+  spacing, initialSpacing, finalSpacing, newCoor, newCoord, newBarsConn)
 
 end subroutine remesh_d
 
