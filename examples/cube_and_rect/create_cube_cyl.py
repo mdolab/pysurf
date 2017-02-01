@@ -32,13 +32,13 @@ from pyhyp import pyHyp
 def extrude_cube_volume_mesh():
     """
     First we need to create a primary volume mesh for the cube.
-    We already have a structured surface mesh in `cube.cgns`.
+    We already have a structured surface mesh in `cube_struct.cgns`.
     Next, we use pyHyp to hyperbollicaly extrude a volume mesh.
     Note that we need to set the symmetry boundary condition in the options.
     """
 
     # Input filename for pyHyp
-    fileName = 'cube.cgns'
+    fileName = '../inputs/cube_struct.cgns'
 
     options= {
         # ---------------------------
@@ -85,11 +85,11 @@ def extrude_cube_volume_mesh():
 def extrude_rect_volume_mesh():
     """
     Next we need to create a primary volume mesh for the rectangular prism.
-    We already have a structured surface mesh in `rect.cgns`.
+    We already have a structured surface mesh in `rect_struct.cgns`.
     Next, we use pyHyp to hyperbollicaly extrude a volume mesh.
     Note that we need to set the symmetry boundary condition in the options.
     """
-    fileName = 'rect.cgns'
+    fileName = '../inputs/rect_struct.cgns'
 
     options= {
         # ---------------------------
@@ -145,8 +145,8 @@ def march_surface_meshes():
     comm = MPI.COMM_WORLD
 
     # Load the unstructured cube and rectangular prism cgns files
-    cube = pysurf.TSurfGeometry('cube_uns.cgns', comm)
-    rect = pysurf.TSurfGeometry('rect_uns.cgns', comm)
+    cube = pysurf.TSurfGeometry('../inputs/cube_uns.cgns', comm)
+    rect = pysurf.TSurfGeometry('../inputs/rect_uns.cgns', comm)
 
     # Intersect the cube and rect and obtain the first (and only) intersection curve
     curve = cube.intersect(rect)[0]
