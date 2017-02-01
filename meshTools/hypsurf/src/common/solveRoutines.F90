@@ -18,10 +18,10 @@ contains
     integer :: info, nrhs
     character :: trans
     real(kind=realType) :: Acopy(n,n)
-    Acopy = A
+    Acopy = A(:,:)
     nrhs = 1
     call DGETRF(N, N, Acopy, N, ipiv, info)
-    y = b
+    y = b(:)
     call dgetrs('N', N, nrhs, ACopy, N, ipiv, y, N, info)
 
   end subroutine solve
@@ -29,16 +29,21 @@ contains
 
   subroutine solve_b(A, Ab, y, yb, b, bb, n, ipiv)
     implicit none
-    real(kind=realType):: A(n,n), Ab(n, n), y(n), yb(n)
+    real(kind=realType) :: A(n,n), y(n)
+    real(kind=realType), intent(out) :: Ab(n,n), yb(n)
     real(kind=realType) :: b(n), bb(n)
     integer, intent(inout) :: ipiv(n)
     integer, intent(in) :: n
     integer :: info, i, j
-    real(kind=realType) :: incrbb(n), ACopy(n, n), RHS(n), zero
+    real(kind=realType) :: incrbb(n), ACopy(n,n), RHS(n), zero
 
     zero = 0.
 
-    Acopy = A
+    Ab = zero
+    bb = zero
+
+    Acopy = A(:,:)
+
     call DGETRF(N, N, ACopy, N, ipiv, info)
 
     ! Transpose solve for the bb increment.
@@ -105,12 +110,17 @@ contains
     use precision
     implicit none
     real(kind=realType), intent(inout) :: A(n,n), y(n), b(n)
-    integer, intent(in) :: n, ipiv(n)
-    integer(kind=intType) :: info
+    integer, intent(in) :: n
+    integer, intent(inout) :: ipiv(n)
+    integer(kind=intType) :: ii, jj
 
     ! THIS CODE LITERALLY DOES NOT MATTER! AS LONG AS 'y' DEPENDS ON 'A'
     ! and 'b' IT IS FINE.
-    y(1) = A(1,1)*b(1)
+    do ii = 1,n
+       do jj = 1,n
+          y(ii) = A(ii,jj)*b(ii)
+       end do
+    end do
 
   end subroutine solve
 

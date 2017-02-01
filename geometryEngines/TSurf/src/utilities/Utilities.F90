@@ -229,6 +229,10 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
 
   nNodes = nElem + 1
 
+  ! Initialize outputs
+  newCoor = 0.0
+  newBarsConn = 0
+
   ! First we check if the FE data is ordered
   do elemID=2,nElem
 
@@ -253,6 +257,7 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   ! Store position of the first node (the other nodes will be covered in the loop)
   ! (the -1 is due Fortran indexing)
   nodeCoor(:,1) = coor(:,barsConn(1,1))
+  arcLength(1) = 0.0
 
   ! Loop over each element to increment arcLength
   do elemID=1,nElem

@@ -99,8 +99,15 @@ class TSurfGeometry(Geometry):
         '''
         Renames the current surface object.
         '''
+        # Deallocate previous tree
+        adtAPI.adtapi.adtdeallocateadts(self.name)
+
+        # Update name
         self.name = name
 
+        # Reinitialize ADT with new name
+        tst.update_surface(self)
+        
     def add_curve(self, curve):
         '''
         Adds a given curve instance to the self.curves dictionary.
@@ -364,7 +371,7 @@ class TSurfGeometry(Geometry):
                                                                self.triaConn, self.quadsConn,
                                                                self.nodal_normals, nodal_normalsb)
 
-        self.accumulate_reverseADSeeds(coorb, curveCoorb=None)
+        self.accumulate_reverseADSeeds(coorb)
 
         # Return projection derivatives
         return xyzb
@@ -617,7 +624,7 @@ class TSurfGeometry(Geometry):
                                                     distTol)
 
         # Place the derivative seeds into the curve object
-        intCurve.set_forwardADSeeds(coorIntd)
+        intCurve._set_forwardADSeeds(coorIntd)
 
 
     def intersect_b(self, otherGeometry, intCurve, distTol=1e-7, accumulateSeeds=True):
@@ -699,11 +706,7 @@ class TSurfGeometry(Geometry):
 
         coord = np.array(self.coord, order='F')
 
-        curveCoord = {}
-        for curveName in self.curves:
-            curveCoord[curveName] = np.array(self.curves[curveName].coord, order='F')
-
-        return coord, curveCoord
+        return coord
 
     def set_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
@@ -735,32 +738,18 @@ class TSurfGeometry(Geometry):
         # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
         coorb = np.array(self.coorb, order='F')
 
-        curveCoorb = {}
-        for curveName in self.curves:
-            curveCoorb[curveName] = np.array(self.curves[curveName].coorb, order='F')
-
         # Check if we need to clean the derivative seeds
         if clean:
             self.clean_reverseADSeeds()
 
-        return coorb, curveCoorb
+        return coorb
 
-    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None):
+    def accumulate_reverseADSeeds(self, coorb):
         '''
         This will accumulate derivative seeds to the surface design variables (coor)
-        and the curve design variables (curve.coor).
-
-        curveCoorb: Is a dictionary whose keys are curve names, and whose fields
-        are derivative seeds to be applied on the control points of each curve.
         '''
 
-        if coorb is not None:
-            self.coorb = self.coorb + np.array(coorb, order='F')
-
-        if curveCoorb is not None:
-            for curveName in self.curves:
-                if curveCoorb[curveName] is not None:
-                    self.curves[curveName].coorb = self.curves[curveName].coorb + np.array(curveCoorb[curveName], order='F')
+        self.coorb = self.coorb + np.array(coorb, order='F')
 
     def clean_reverseADSeeds(self):
         '''
@@ -772,9 +761,6 @@ class TSurfGeometry(Geometry):
         '''
 
         self.coorb[:,:] = 0.0
-
-        for curveName in self.curves:
-            self.curves[curveName].coorb[:,:] = 0.0
 
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
@@ -796,17 +782,11 @@ class TSurfGeometry(Geometry):
             coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             self.coord = coord/np.sqrt(np.sum(coord**2))
 
-            for curveName in self.curves:
-                self.curves[curveName].set_randomADSeeds(mode='forward', fixedSeed=fixedSeed)
-
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             self.coorb = coorb/np.sqrt(np.sum(coorb**2))
-
-            for curveName in self.curves:
-                self.curves[curveName].set_randomADSeeds(mode='reverse', fixedSeed=fixedSeed)
 
 
 #=============================================================
@@ -894,6 +874,7 @@ class TSurfCurve(Curve):
         self.extra_data['linkOld2New'] = linkOld2New-1 #-1 due to the Python indexing
         self.extra_data['usedPtsMask'] = usedPtsMask-1
         self.extra_data['parentGeoms'] = []
+        self.extra_data['parentTria'] = []
 
         # Take bar connectivity and reorder it
         sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
@@ -923,34 +904,17 @@ class TSurfCurve(Curve):
 
         # Check if curve is periodic by seeing if the initial and final points
         # are the same
+        '''
         diff = self.coor[:,self.barsConn[0,0]-1] - coor[:,self.barsConn[1,-1]-1]
         if np.all(diff <= 1e-5):
             self.isPeriodic = True
         else:
             self.isPeriodic = False
-
-    def extract_points(self):
-
         '''
-        We will just return the nodes that define the curve.
-        If the user wants another set of points, then he should use self.remesh first.
-        '''
-
-        # Get the number of elements
-        numElems = self.barsConn.shape[1]
-
-        # Initialize coordinates matrix
-        pts = np.zeros((numElems+1, 3))
-
-        # Get the last point
-        pts[-1,:] = self.coor[:, self.barsConn[-1,-1]-1]
-
-        # Get coordinates
-        for ii in range(numElems):
-            pts[ii,:] = self.coor[:, self.barsConn[0,ii]-1]
-
-        # Return coordinates
-        return pts
+        if self.barsConn[0,0] == self.barsConn[-1,-1]:
+            self.isPeriodic = True
+        else:
+            self.isPeriodic = False
 
     def update_dvs(self, coor):
         self.coor = coor
@@ -963,8 +927,10 @@ class TSurfCurve(Curve):
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
         # Flip the extra data
+
         for data in self.extra_data:
-            self.extra_data[data] = self.extra_data[data][::-1]
+            if data in ['parentTria']:
+                self.extra_data[data] = self.extra_data[data][::-1]
 
     def translate(self, x, y, z):
         tst.translate(self, x, y, z)
@@ -1337,13 +1303,16 @@ class TSurfCurve(Curve):
 
     #=================================================================
 
-    def remesh_d(self, coord, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+    def remesh_d(self, newCurve, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
 
         '''
         The original curve (before the remesh) should be the one that calls this method.
         '''
 
         spacing = spacing.lower()
+
+        # Get derivative seeds
+        coord = self._get_forwardADSeeds()
 
         # Get connectivities and coordinates of the current Curve object
         coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
@@ -1371,22 +1340,39 @@ class TSurfCurve(Curve):
 
         newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing, initialSpacing, finalSpacing)
 
+        # DO A LOCAL FD TEST
+        stepSize = 1e-7
+        coord = coord/np.sqrt(np.sum(coor**2))
+        coor = coor + coord*stepSize
+
+        newCoorf, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, initialSpacing, finalSpacing)
+
+        newCoord_FD = (newCoorf - newCoor)/stepSize
+        print 'FD test @ remesh_d'
+        print np.max(np.abs(newCoord_FD - newCoord))
+        
+
         # Adjust seeds if curve is periodic
         if periodic:
             newCoord[:, 0] = 0.5*(newCoord[:, 0] + newCoord[:, -1])
             newCoord = newCoord[:, :-1]
 
-        return newCoord
+        # Store propagated seeds
+        newCurve._set_forwardADSeeds(newCoord)
 
     #=================================================================
 
-    def remesh_b(self, newCoorb, nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
+    def remesh_b(self, newCurve, clean=True, accumulateSeeds=True,
+                 nNewNodes=None, method='linear', spacing='linear', initialSpacing=0.1, finalSpacing=0.1):
 
         '''
         The original curve (before the remesh) should be the one that calls this method.
         '''
 
         spacing = spacing.lower()
+
+        # Get derivative seeds from the new curve
+        newCoorb = newCurve._get_reverseADSeeds(clean=clean)
 
         # Get connectivities and coordinates of the current Curve object
         coor = np.array(self.coor,dtype=type(self.coor[0,0]),order='F')
@@ -1422,7 +1408,11 @@ class TSurfCurve(Curve):
             coorb[:, barsConn[0,0]-1] += coorb[:, -1]
             coorb = coorb[:,:-1]
 
-        return coorb
+        # Store propagated seeds
+        if accumulateSeeds:
+            self._accumulate_reverseADSeeds(coorb)
+        else:
+            self._set_reverseADSeeds(coorb)
 
     #=================================================================
     # SPLITTING METHODS
@@ -1562,8 +1552,8 @@ class TSurfCurve(Curve):
             if curveName in curveDict:
 
                 # Get derivative seeds of the parent curve
-                coord = curveDict[curveName].get_forwardADSeeds()
-
+                coord = curveDict[curveName]._get_forwardADSeeds()
+                
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(coord.shape[1]):
 
@@ -1950,7 +1940,7 @@ class TSurfCurve(Curve):
                                         barsConn[:,:startElemID]])
 
         # Do the same to the list of parent triangles if necessary
-        if self.extra_data['parentTria']:
+        if np.array(self.extra_data['parentTria']).any():
             self.extra_data['parentTria'] = np.hstack([self.extra_data['parentTria'][:,startElemID:],
                                                        self.extra_data['parentTria'][:,:startElemID]])
 
@@ -1967,34 +1957,89 @@ class TSurfCurve(Curve):
         tecCurve.export_tecplot(outputName)
 
     #===========================================================#
-    # DERIVATIVE SEED MANIPULATION METHODS
+    # INTERFACE AND DERIVATIVE SEED MANIPULATION METHODS
+    #
+    # All these methods below assume that the FE data is ordered. That is
+    # The last one of the previous bar in barsConn is the first node of the next bar.
 
-    def set_forwardADSeeds(self, coord=None):
+    def get_points(self):
+
         '''
-        This will apply derivative seeds to the surface design variables (coor)
-        and the curve design variables (curve.coor).
-
-        curveCoord: Is a dictionary whose keys are curve names, and whose fields
-        are derivative seeds to be applied on the control points of each curve.
+        We will just return the nodes that define the curve.
+        If the user wants another set of points, then he should use self.remesh first.
         '''
 
-        if coord is not None:
-            self.coord = np.array(coord, order='F')
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Initialize coordinates matrix
+        pts = np.zeros((3,numElems+1))
+
+        # Get the last point
+        pts[:,-1] = self.coor[:, self.barsConn[-1,-1]-1]
+
+        # Get coordinates
+        for ii in range(numElems):
+            pts[:,ii] = self.coor[:, self.barsConn[0,ii]-1]
+
+        # Return coordinates
+        return pts
+
+    def set_points(self, pts):
+
+        '''
+        We will just return the nodes that define the curve.
+        If the user wants another set of points, then he should use self.remesh first.
+        '''
+
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Set the last point
+        self.coor[:, self.barsConn[-1,-1]-1] = pts[:,-1]
+
+        # Set other points
+        for ii in range(numElems):
+            self.coor[:, self.barsConn[0,ii]-1] = pts[:,ii]
+
+    def set_forwardADSeeds(self, coord):
+        '''
+        This will apply derivative seeds to the curve nodes.
+        
+        coord: array[3xnumNodes] -> Array with derivative seeds. They
+        should follow the order of the curve nodes, which is not necessarily
+        the self.coor ordering.
+        '''
+
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Get the last point
+        self.coord[:, self.barsConn[-1,-1]-1] = coord[:,-1]
+
+        # Get coordinates
+        for ii in range(numElems):
+            self.coord[:, self.barsConn[0,ii]-1] = coord[:,ii]
 
     def get_forwardADSeeds(self):
-        '''
-        This will return the current derivative seeds of the surface design variables (coor)
-        and curve design variables (curve.coor).
 
-        curveCoord: Is a dictionary whose keys are curve names, and whose fields
-        are derivative seeds to be applied on the control points of each curve.
-        '''
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
 
-        coord = np.array(self.coord, order='F')
+        # Initialize seed matrix
+        coord = np.zeros((3,numElems+1),dtype='float',order='F')
 
+        # Get the last point
+        coord[:,-1] = self.coord[:, self.barsConn[-1,-1]-1]
+
+        # Get coordinates
+        for ii in range(numElems):
+            coord[:,ii] = self.coord[:, self.barsConn[0,ii]-1]
+
+        # Return derivatives
         return coord
 
-    def set_reverseADSeeds(self, coorb=None):
+    def set_reverseADSeeds(self, coorb):
         '''
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -2003,8 +2048,18 @@ class TSurfCurve(Curve):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
-        if coorb is not None:
-            self.coorb = np.array(coorb, order='F')
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Reinitialize all seeds
+        self.coorb[:,:] = 0.0
+
+        # Get coordinates
+        for ii in range(numElems):
+            self.coorb[:, self.barsConn[0,ii]-1] = coorb[:,ii]
+
+        # Add the last point
+        self.coorb[:, self.barsConn[-1,-1]-1] = self.coorb[:, self.barsConn[-1,-1]-1] + coorb[:,-1]
 
     def get_reverseADSeeds(self,clean=True):
         '''
@@ -2015,16 +2070,33 @@ class TSurfCurve(Curve):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
-        # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
-        coorb = np.array(self.coorb, order='F')
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
 
-        # Check if we need to clean the derivative seeds
+        # Initialize seed matrix
+        coorb = np.zeros((3,numElems+1),dtype='float',order='F')
+
+        # Get coordinates
+        for ii in range(numElems):
+            coorb[:,ii] = self.coorb[:, self.barsConn[0,ii]-1]
+
+        # Add the last point
+        coorb[:,-1] = self.coorb[:, self.barsConn[-1,-1]-1]
+
+        # Adjust seeds for periodic curves
+        if self.isPeriodic:
+            coorb[:,0] = coorb[:,0]/2.0
+            coorb[:,-1] = coorb[:,-1]/2.0
+
+
+        # Clean derivatives if necessary
         if clean:
-            self.clean_reverseADSeeds()
+            self.coorb[:,:] = 0.0
 
+        # Return derivatives
         return coorb
 
-    def accumulate_reverseADSeeds(self, coorb=None):
+    def accumulate_reverseADSeeds(self, coorb):
         '''
         This will accumulate derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -2033,8 +2105,15 @@ class TSurfCurve(Curve):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
-        if coorb is not None:
-            self.coorb = self.coorb + coorb
+        # Get the number of elements
+        numElems = self.barsConn.shape[1]
+
+        # Get coordinates
+        for ii in range(numElems):
+            self.coorb[:, self.barsConn[0,ii]-1] = self.coorb[:, self.barsConn[0,ii]-1] + coorb[:,ii]
+
+        # Add the last point (if the curve is periodic, this will accumulate the last point into the first one)
+        self.coorb[:, self.barsConn[-1,-1]-1] = self.coorb[:, self.barsConn[-1,-1]-1] + coorb[:,-1]
 
     def clean_reverseADSeeds(self):
         '''
@@ -2072,6 +2151,81 @@ class TSurfCurve(Curve):
 
             coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             self.coorb = coorb/np.sqrt(np.sum(coorb**2))
+
+    #===========================================================#
+    # DERIVATIVE SEED MANIPULATION METHODS (unordered versions)
+    #
+    # These are variations of the original methods above.
+    # The difference is that they operatly directly into coord and coorb, bypassing
+    # the FE ordering specified in barsConn.
+    # These methods are not necessary for other geometry engines.
+
+    def _set_forwardADSeeds(self, coord=None):
+        '''
+        This will apply derivative seeds to the surface design variables (coor)
+        and the curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        if coord is not None:
+            self.coord = np.array(coord, order='F')
+
+    def _get_forwardADSeeds(self):
+        '''
+        This will return the current derivative seeds of the surface design variables (coor)
+        and curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        coord = np.array(self.coord, order='F')
+
+        return coord
+
+    def _set_reverseADSeeds(self, coorb=None):
+        '''
+        This will apply derivative seeds to the surface design variables (coor)
+        and the curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        if coorb is not None:
+            self.coorb = np.array(coorb, order='F')
+
+    def _get_reverseADSeeds(self,clean=True):
+        '''
+        This will return the current derivative seeds of the surface design variables (coor)
+        and curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
+        coorb = np.array(self.coorb, order='F')
+
+        # Check if we need to clean the derivative seeds
+        if clean:
+            self.clean_reverseADSeeds()
+
+        return coorb
+
+    def _accumulate_reverseADSeeds(self, coorb=None):
+        '''
+        This will accumulate derivative seeds to the surface design variables (coor)
+        and the curve design variables (curve.coor).
+
+        curveCoorb: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        if coorb is not None:
+            self.coorb = self.coorb + coorb
 
 ### HELPER FUNCTIONS ###
 

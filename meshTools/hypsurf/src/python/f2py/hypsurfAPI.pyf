@@ -295,6 +295,96 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(n),intent(in),depend(n) :: sb
                 real(kind=realtype) intent(in) :: maxstretch
             end subroutine areafactor_test_b
+            subroutine dissipationcoefficients_test(layerindex,r0_xi,r0_eta,dsensor,angle,numlayers,epse0,epse,epsi) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                integer(kind=inttype) intent(in) :: layerindex
+                real(kind=realtype) dimension(3),intent(in) :: r0_xi
+                real(kind=realtype) dimension(3),intent(in) :: r0_eta
+                real(kind=realtype) intent(in) :: dsensor
+                real(kind=realtype) intent(in) :: angle
+                integer(kind=inttype) intent(in) :: numlayers
+                real(kind=realtype) intent(in) :: epse0
+                real(kind=realtype) intent(out) :: epse
+                real(kind=realtype) intent(out) :: epsi
+            end subroutine dissipationcoefficients_test
+            subroutine dissipationcoefficients_d_test(layerindex,r0_xi,r0_xid,r0_eta,r0_etad,dsensor,dsensord,angle,angled,numlayers,epse0,epse,epsed,epsi,epsid) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_d, only: dissipationcoefficients_d
+                integer(kind=inttype) intent(in) :: layerindex
+                real(kind=realtype) dimension(3),intent(in) :: r0_xi
+                real(kind=realtype) dimension(3),intent(in) :: r0_xid
+                real(kind=realtype) dimension(3),intent(in) :: r0_eta
+                real(kind=realtype) dimension(3),intent(in) :: r0_etad
+                real(kind=realtype) intent(in) :: dsensor
+                real(kind=realtype) intent(in) :: dsensord
+                real(kind=realtype) intent(in) :: angle
+                real(kind=realtype) intent(in) :: angled
+                integer(kind=inttype) intent(in) :: numlayers
+                real(kind=realtype) intent(in) :: epse0
+                real(kind=realtype) intent(out) :: epse
+                real(kind=realtype) intent(out) :: epsed
+                real(kind=realtype) intent(out) :: epsi
+                real(kind=realtype) intent(out) :: epsid
+            end subroutine dissipationcoefficients_d_test
+            subroutine dissipationcoefficients_b_test(layerindex,r0_xi,r0_xib,r0_eta,r0_etab,dsensor,dsensorb,angle,angleb,numlayers,epse0,epse,epseb,epsi,epsib) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_b, only: dissipationcoefficients_b
+                integer(kind=inttype) intent(in) :: layerindex
+                real(kind=realtype) dimension(3),intent(in) :: r0_xi
+                real(kind=realtype) dimension(3),intent(out) :: r0_xib
+                real(kind=realtype) dimension(3),intent(in) :: r0_eta
+                real(kind=realtype) dimension(3),intent(out) :: r0_etab
+                real(kind=realtype) intent(in) :: dsensor
+                real(kind=realtype) intent(out) :: dsensorb
+                real(kind=realtype) intent(in) :: angle
+                real(kind=realtype) intent(out) :: angleb
+                integer(kind=inttype) intent(in) :: numlayers
+                real(kind=realtype) intent(in) :: epse0
+                real(kind=realtype) intent(in) :: epse
+                real(kind=realtype) intent(in) :: epseb
+                real(kind=realtype) intent(in) :: epsi
+                real(kind=realtype) intent(in) :: epsib
+            end subroutine dissipationcoefficients_b_test
+            subroutine matrixbuilder_test(curr_index,bc1,bc2,r0,rm1,n0,s0,sm1,numlayers,epse0,layerindex,theta,numnodes,k,f) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain, only: matrixbuilder
+                integer(kind=inttype) intent(in) :: curr_index
+                character*32 intent(in) :: bc1
+                character*32 intent(in) :: bc2
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
+                real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rm1
+                real(kind=realtype) dimension(3,numnodes),intent(in),depend(numnodes) :: n0
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: s0
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: sm1
+                integer(kind=inttype) intent(in) :: numlayers
+                real(kind=realtype) intent(in) :: epse0
+                integer(kind=inttype) intent(in) :: layerindex
+                real(kind=realtype) intent(in) :: theta
+                integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+                real(kind=realtype) dimension(3 * numnodes,3 * numnodes),intent(inout),depend(numnodes,numnodes) :: k
+                real(kind=realtype) dimension(3 * numnodes),intent(inout),depend(numnodes) :: f
+            end subroutine matrixbuilder_test
+            subroutine matrixbuilder_d_test(curr_index,bc1,bc2,r0,r0d,rm1,rm1d,n0,n0d,s0,s0d,sm1,sm1d,numlayers,epse0,layerindex,theta,numnodes,k,kd,f,fd) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_d, only: matrixbuilder_d
+                integer(kind=inttype) intent(in) :: curr_index
+                character*32 intent(in) :: bc1
+                character*32 intent(in) :: bc2
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
+                real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: r0d
+                real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rm1
+                real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: rm1d
+                real(kind=realtype) dimension(3,numnodes),intent(in),depend(numnodes) :: n0
+                real(kind=realtype) dimension(3,numnodes),intent(in),depend(numnodes) :: n0d
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: s0
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: s0d
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: sm1
+                real(kind=realtype) dimension(numnodes),intent(in),depend(numnodes) :: sm1d
+                integer(kind=inttype) intent(in) :: numlayers
+                real(kind=realtype) intent(in) :: epse0
+                integer(kind=inttype) intent(in) :: layerindex
+                real(kind=realtype) intent(in) :: theta
+                integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+                real(kind=realtype) dimension(3 * numnodes,3 * numnodes),intent(inout),depend(numnodes,numnodes) :: k
+                real(kind=realtype) dimension(3 * numnodes,3 * numnodes),intent(inout),depend(numnodes,numnodes) :: kd
+                real(kind=realtype) dimension(3 * numnodes),intent(inout),depend(numnodes) :: f
+                real(kind=realtype) dimension(3 * numnodes),intent(inout),depend(numnodes) :: fd
+            end subroutine matrixbuilder_d_test
         end module hypsurfapi
     end interface 
 end python module hypsurfAPI

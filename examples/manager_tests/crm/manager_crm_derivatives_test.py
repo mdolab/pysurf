@@ -20,11 +20,18 @@ os.system('rm *.plt')
 comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
 comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
 
+'''
+# I do not know why the rename is not working. It is flipping the elements of both components.
+# I.e.: elements of component 1 go to component 2 and vice-versa.
 name1 = 'wing'
 name2 = 'body'
 
 comp1.rename(name1)
 comp2.rename(name2)
+'''
+
+name1 = comp1.name
+name2 = comp2.name
 
 # Load TE curves and append them to the wing component
 curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
@@ -34,12 +41,17 @@ comp1.add_curve(curve_te_upp[curveName])
 curveName = curve_te_low.keys()[0]
 comp1.add_curve(curve_te_low[curveName])
 
+# Translate the wing
+comp1.translate(0.0, 0.0, 1.5)
+
 # Create manager object and add the geometry objects to it
 manager0 = pysurf.Manager()
 manager0.add_geometry(comp1)
 manager0.add_geometry(comp2)
 
 distTol = 1e-7
+
+current_pass = 0
 
 #======================================================
 # FORWARD PASS
@@ -155,7 +167,7 @@ def forward_pass(manager):
     mergedCurveName = 'intersection'
     manager.merge_intCurves(curveNames, mergedCurveName)
 
-    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
+    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName+'_%03d'%current_pass)
 
     return mergedCurveName
 
@@ -164,6 +176,7 @@ def forward_pass(manager):
 
 # Call the forward pass function to the original manager
 mergedCurveName = forward_pass(manager0)
+current_pass = current_pass + 1
 
 # DERIVATIVE SEEDS
 
@@ -173,8 +186,8 @@ manager0.geoms[name2].set_randomADSeeds(mode='forward')
 manager0.intCurves[mergedCurveName].set_randomADSeeds(mode='reverse')
 
 # Store relevant seeds
-coor1d, _ = manager0.geoms[name1].get_forwardADSeeds()
-coor2d, _ = manager0.geoms[name2].get_forwardADSeeds()
+coor1d = manager0.geoms[name1].get_forwardADSeeds()
+coor2d = manager0.geoms[name2].get_forwardADSeeds()
 intCoorb = manager0.intCurves[mergedCurveName].get_reverseADSeeds(clean=False)
 
 # FORWARD AD
@@ -191,8 +204,8 @@ intCoord = manager0.intCurves[mergedCurveName].get_forwardADSeeds()
 manager0.reverseAD()
     
 # Get relevant seeds
-coor1b,_ = manager0.geoms[name1].get_reverseADSeeds()
-coor2b,_ = manager0.geoms[name2].get_reverseADSeeds()
+coor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor2b = manager0.geoms[name2].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
@@ -219,15 +232,36 @@ manager1.add_geometry(comp2)
 mergedCurveName = forward_pass(manager1)
 
 # Get coordinates of the intersection in both cases
-coor0 = manager0.intCurves[mergedCurveName].coor
-coor1 = manager1.intCurves[mergedCurveName].coor
+coor0 = manager0.intCurves[mergedCurveName].get_points()
+coor1 = manager1.intCurves[mergedCurveName].get_points()
 
 # Compute derivatives with FD
 intCoord_FD = (coor1 - coor0)/stepSize
+
+# Compute difference in derivatives
+FD_error = np.abs(intCoord-intCoord_FD)
+max_FD_error = np.max(FD_error)
+
+# Export predicted position of the new points
+intCurve = manager0.intCurves[mergedCurveName]
+intCoor = intCurve.get_points() + stepSize*intCoord
+print np.max(intCoor - coor0)
+print np.max(coor1 - coor0)
+intCurve.set_points(intCoor)
+intCurve.export_tecplot(mergedCurveName+'_predicted')
 
 # Print results
 print 'dotProd test'
 print dotProd
 print 'FD test'
-print np.max(np.abs(intCoord-intCoord_FD))
-#print np.abs(intCoord-intCoord_FD)
+print max_FD_error
+
+import matplotlib.pyplot as plt
+
+fig = plt.figure()
+plt.plot(FD_error[0,:],label='X')
+plt.plot(FD_error[1,:],label='Y')
+plt.plot(FD_error[2,:],label='Z')
+plt.semilogy()
+plt.legend()
+plt.show()

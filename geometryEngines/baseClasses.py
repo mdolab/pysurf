@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 from mpi4py import MPI
+import pysurf
 
 class Geometry(object):
 
@@ -175,9 +176,12 @@ class Curve(object):
         '''
         self._initialize(*arg)
 
-    def extract_points(self):
+    def get_points(self):
         '''
-        This method should return coordinates along the curve.
+        This method should return ordered coordinates along the curve in
+        a 3 x numNodes array
+        If a curve is periodic, a node should be repeated at the beginning and
+        the end of this array.
         '''
         pass
 
@@ -241,6 +245,9 @@ class Manager(object):
         # Define dictionary to hold intersection curves
         self.intCurves = {}
 
+        # Define dictionary to hold surface meshes
+        self.meshes = {}
+
         # Define a task list.
         # This list will store all tasks done during the forward pass so
         # that we could repeat the same steps when propagating derivatives.
@@ -294,15 +301,24 @@ class Manager(object):
 
         del self.intCurves[curveName]
 
+    def add_mesh(self, mesh):
+
+        '''
+        This method adds a Mesh object to the current Manager's dictionary.
+        '''
+
+        self.meshes[mesh.name] = mesh
+
     def clear_all(self):
 
         '''
-        This method will clear all intersections and tasks of the current manager,
+        This method will clear all intersections, meshes, and tasks of the current manager,
         so that it can be used once again from scratch.
         The geometry objects will remain.
         '''
 
         self.intCurves = {}
+        self.meshes = {}
         self.tasks = []
 
     #=====================================================
@@ -340,10 +356,10 @@ class Manager(object):
 
                 # Get arguments
                 distTol = taskArg[0]
-                geomList = taskArg[1]
+                intCurveNames = taskArg[1]
 
                 # Run the AD code
-                self.intersect_d(distTol, geomList)
+                self.intersect_d(distTol, intCurveNames)
 
             if taskName == 'remesh_intCurve':
 
@@ -372,6 +388,14 @@ class Manager(object):
 
                 # Run the AD code
                 self.merge_intCurves_d(curveNames, mergedCurveName)
+
+            if taskName == 'march_intCurve_surfaceMesh':
+
+                # Get arguments
+                curveName = taskArg[0]
+
+                # Run the AD code
+                self.march_intCurve_surfaceMesh_d(curveName)
 
         print ''
         print 'Finished forward AD pass'
@@ -410,10 +434,10 @@ class Manager(object):
 
                 # Get arguments
                 distTol = taskArg[0]
-                geomList = taskArg[1]
+                intCurveNames = taskArg[1]
 
                 # Run the AD code
-                self.intersect_b(distTol, geomList)
+                self.intersect_b(distTol, intCurveNames)
 
             if taskName == 'remesh_intCurve':
 
@@ -442,6 +466,14 @@ class Manager(object):
 
                 # Run the AD code
                 self.merge_intCurves_b(curveNames, mergedCurveName)
+
+            if taskName == 'march_intCurve_surfaceMesh':
+
+                # Get arguments
+                curveName = taskArg[0]
+
+                # Run the AD code
+                self.march_intCurve_surfaceMesh_b(curveName)
 
         print ''
         print 'Finished reverse AD pass'
@@ -502,7 +534,7 @@ class Manager(object):
                 name2 = geomObjList[jj].name
 
                 # Compute new intersections for the current pair
-                newIntersections = geomObjList[ii].intersect(geomObjList[jj],distTol)
+                newIntersections = geomObjList[ii].intersect(geomObjList[jj],distTol=distTol)
 
                 # Append new curve objects to the dictionary
                 for curve in newIntersections:
@@ -523,12 +555,12 @@ class Manager(object):
         print 'Computed',numCurves,'intersection curves.'
 
         # Save the current task and its argument
-        self.tasks.append(['intersect', distTol, geomList])
+        self.tasks.append(['intersect', distTol, intCurveNames])
 
         # Return the names of the intersection curves
         return intCurveNames
 
-    def intersect_d(self, distTol, geomList):
+    def intersect_d(self, distTol, intCurveNames):
 
         '''
         This method will execute the forward AD code for every intersection
@@ -536,22 +568,19 @@ class Manager(object):
         '''
 
         # Run the derivative code for every curve
-        for curve in self.intCurves.itervalues():
+        for curveName in intCurveNames:
+
+            # Get current curve object
+            curve = self.intCurves[curveName]
 
             # Get pointers to the parent objects
-            if curve.extra_data['parentGeoms']:
+            geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
+            geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
 
-                geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
-                geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
+            # Run the AD intersection code
+            geom1.intersect_d(geom2, curve, distTol)
 
-                # Check if the current intersection was generated by the
-                # current group of geometries
-                if (geom1.name in geomList) and (geom2.name in geomList):
-                    
-                    # Run the AD intersection code
-                    geom1.intersect_d(geom2, curve, distTol)
-
-    def intersect_b(self, distTol, geomList, accumulateSeeds=True):
+    def intersect_b(self, distTol, intCurveNames, accumulateSeeds=True):
 
         '''
         This method will execute the reverse AD code for every intersection
@@ -559,25 +588,22 @@ class Manager(object):
         '''
 
         # Run the derivative code for every curve
-        for curve in self.intCurves.itervalues():
+        for curveName in intCurveNames:
+
+            # Get current curve object
+            curve = self.intCurves[curveName]
 
             # Get pointers to the parent objects
-            if curve.extra_data['parentGeoms']:
-
-                geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
-                geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
-
-                # Check if the current intersection was generated by the
-                # current group of geometries
-                if (geom1.name in geomList) and (geom2.name in geomList):
+            geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
+            geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
                     
-                    # Run the AD intersection code
-                    geom1.intersect_b(geom2, curve, distTol, accumulateSeeds)
+            # Run the AD intersection code
+            geom1.intersect_b(geom2, curve, distTol, accumulateSeeds)
 
     #=====================================================
     # REMESHING METHODS
 
-    def remesh_intCurve(self, curveName, optionsDict={}):
+    def remesh_intCurve(self, curveName, optionsDict={}, inheritParentGeoms=True):
         '''
         This method will remesh an intersection curve defined under the current
         manager object.
@@ -585,6 +611,10 @@ class Manager(object):
         optionsDict: should be a dictionary whose keys are the arguments of the
         remesh function used by the curve.remesh function. The keys are the values
         of these arguments.
+
+        inheritParentGeoms: This is a flag to indicate if the new curve should have
+        the same parents as the original curve. This can make it easier to generate
+        the surface meshes for intersections.
         '''
 
         if curveName in self.intCurves.keys():
@@ -597,8 +627,11 @@ class Manager(object):
             # Rename the new curve
             newCurveName = newCurve.name
 
-            # Delete intersection history (since the new curve did not come from an intersection)
-            newCurve.extra_data['parentGeoms'] = []
+            # Assign intersection history
+            if inheritParentGeoms:
+                newCurve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
+            else:
+                newCurve.extra_data['parentGeoms'] = []
 
             # Add the new curve to the intersection list
             self.add_curve(newCurve)
@@ -635,14 +668,11 @@ class Manager(object):
                 # Set flag to identify errors
                 foundCurves = True
 
-                # Get derivative seeds
-                coord = self.intCurves[curveName].get_forwardADSeeds()
+                # Get pointer to the remeshed curve
+                newCurve = self.intCurves[newCurveName]
 
                 # Call AD code
-                newCoord = self.intCurves[curveName].remesh_d(coord, **optionsDict)
-
-                # Store propagated seeds
-                self.intCurves[newCurveName].set_forwardADSeeds(newCoord)
+                self.intCurves[curveName].remesh_d(newCurve, **optionsDict)
 
         if not foundCurves:
             raise NameError('Cannot use remesh_d with curves '+curveName+' and '+newCurveName+'. Curves not defined.')
@@ -670,17 +700,11 @@ class Manager(object):
                 # Set flag to identify errors
                 foundCurves = True
 
-                # Get derivative seeds
-                newCoorb = self.intCurves[newCurveName].get_reverseADSeeds(clean=clean)
+                # Get pointer to the remeshed curve
+                newCurve = self.intCurves[newCurveName]
 
                 # Call AD code
-                coorb = self.intCurves[curveName].remesh_b(newCoorb, **optionsDict)
-
-                # Store propagated seeds
-                if accumulateSeeds:
-                    self.intCurves[curveName].accumulate_reverseADSeeds(coorb)
-                else:
-                    self.intCurves[curveName].set_reverseADSeeds(coorb)
+                self.intCurves[curveName].remesh_b(newCurve, clean, accumulateSeeds, **optionsDict)
 
         if not foundCurves:
             raise NameError('Cannot use remesh_b with curves '+curveName+' and '+newCurveName+'. Curves not defined.')
@@ -688,12 +712,16 @@ class Manager(object):
     #=====================================================
     # SPLITTING METHODS
 
-    def split_intCurve(self, curveName, optionsDict={}, criteria='sharpness'):
+    def split_intCurve(self, curveName, optionsDict={}, criteria='sharpness', inheritParentGeoms=True):
         '''
         This method will split a given intersection curve based on a certain criteria.
         The child curves will be added to the self.intCurves dictionary.
 
         curveName: string -> Name of the original curve that will be split
+
+        inheritParentGeoms: boolean -> This is a flag to indicate if the new curve should have
+        the same parents as the original curve. This can make it easier to generate
+        the surface meshes for intersections.
         '''
         
         if curveName in self.intCurves.keys():
@@ -703,6 +731,10 @@ class Manager(object):
 
             # Add new curves to the manager's dictionary
             for curve in splitCurvesDict.itervalues():
+
+                # Assign parents if necessary
+                if inheritParentGeoms:
+                    curve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
 
                 self.add_curve(curve)
 
@@ -758,12 +790,17 @@ class Manager(object):
     #=====================================================
     # MERGING METHODS
 
-    def merge_intCurves(self, curveNames, mergedCurveName):
+    def merge_intCurves(self, curveNames, mergedCurveName, inheritParentGeoms=True):
 
         '''
         This will merge all curves whose names are in curveNames
 
         curveNames: list of strings -> Name of the curves to be merged
+
+        inheritParentGeoms: boolean -> This is a flag to indicate if the new curve should have
+        the same parents as the original curve. This can make it easier to generate
+        the surface meshes for intersections. We will take the parents of the first
+        curve that was merged
         '''
 
         # Get the name of the first curve
@@ -772,6 +809,10 @@ class Manager(object):
 
         # Call the mesh function from the main curve
         mergedCurve = mainCurve.merge(self.intCurves, mergedCurveName, curveNames[1:])
+
+        # Check if we need to inherit parent geometry surfaces
+        if inheritParentGeoms:
+            mergedCurve.extra_data['parentGeoms'] = mainCurve.extra_data['parentGeoms'][:]
 
         # Add the new curve to the manager's list
         self.add_curve(mergedCurve)
@@ -812,3 +853,103 @@ class Manager(object):
 
         # Call AD code
         mergedCurve.merge_b(curveDict)
+
+    #=====================================================
+    # SURFACE MESHING METHODS
+
+    def march_intCurve_surfaceMesh(self, curveName, options0={}, options1={}, meshName=None):
+
+        '''
+        This method will generate the surface mesh on both sides of the
+        intersection curve.
+        '''
+
+        # Create a mesh name if the user provided none
+        if meshName is None:
+            meshName = 'mesh_'+curveName
+
+        # Get pointer to the seed curve
+        curve = self.intCurves[curveName]
+
+        # Get geometry objects to march the mesh on
+        parentGeoms = curve.extra_data['parentGeoms']
+
+        if not parentGeoms:
+            raise NameError('The curve does not have parent geometries. Cannot march meshes. Try using manager.set_intCurve_parentGeoms')
+
+        # Create hypsurf objects for the two sides of the mesh
+
+        # Create first mesh
+        mesh0 = pysurf.hypsurf.HypSurfMesh(curve,
+                                           self.geoms[parentGeoms[0]],
+                                           options0,
+                                           meshName+'_0')
+        mesh0.createMesh()
+
+        # Flip the curve
+        curve.flip()
+
+        # March the second mesh
+        mesh1 = pysurf.hypsurf.HypSurfMesh(curve,
+                                           self.geoms[parentGeoms[1]],
+                                           options1,
+                                           meshName+'_1')
+
+        mesh1.createMesh()
+
+        # Unflip the curve
+        curve.flip()
+
+        # Store meshes under the manager
+        self.add_mesh(mesh0)
+        self.add_mesh(mesh1)
+
+        # Get names of the new meshes
+        meshNames = [mesh0.name, mesh1.name]
+
+        # Store these names into the curve object
+        curve.extra_data['childMeshes'] = meshNames
+
+        # Store this task info
+        self.tasks.append(['march_intCurve_surfaceMesh',curveName])
+
+        # Return names of the new meshes
+        return meshNames
+
+    def march_intCurve_surfaceMesh_d(self, curveName):
+
+        # Get pointers to the curve and meshes
+        curve = self.intCurves[curveName]
+        mesh0 = self.meshes[curve.extra_data['childMeshes'][0]]
+        mesh1 = self.meshes[curve.extra_data['childMeshes'][1]]
+
+        # Run AD code for the first mesh
+        mesh0.compute_forwardAD()
+
+        # Flip the curve
+        curve.flip()
+
+        # Run AD code for the second mesh
+        mesh1.compute_forwardAD()
+
+        # Unflip the curve
+        curve.flip()
+
+    def march_intCurve_surfaceMesh_b(self, curveName):
+
+        # Get pointers to the curve and meshes
+        curve = self.intCurves[curveName]
+        mesh0 = self.meshes[curve.extra_data['childMeshes'][0]]
+        mesh1 = self.meshes[curve.extra_data['childMeshes'][1]]
+
+        # Run AD code for the first mesh
+        mesh0.compute_reverseAD()
+
+        # Flip the curve()
+        curve.flip()
+
+        # Run AD code for the second mesh
+        mesh1.compute_reverseAD()
+
+        # Unflip the curve
+        curve.flip()

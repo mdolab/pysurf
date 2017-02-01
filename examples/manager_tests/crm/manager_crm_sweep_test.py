@@ -9,8 +9,8 @@ import pickle
 
 # MESH PARAMETERS
 numSkinNodes = 129
-LE_spacing = 0.01
-TE_spacing = 0.001
+LE_spacing = 0.001
+TE_spacing = 0.01
 
 # WING POSITIONS
 deltaZ = np.linspace(0.0, 3.0, 11)
@@ -23,11 +23,14 @@ os.system('rm *.plt')
 comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
 comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
 
-name1 = 'wing'
-name2 = 'body'
+#name1 = 'wing'
+#name2 = 'body'
 
-comp1.rename(name1)
-comp2.rename(name2)
+#comp1.rename(name1)
+#comp2.rename(name2)
+
+name1 = comp1.name
+name2 = comp2.name
 
 # Load TE curves and append them to the wing component
 curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
@@ -104,7 +107,8 @@ def compute_position(wing_deltaZ):
             # First let's identify if the curve is defined from
             # LE to TE or vice-versa
 
-            deltaX = curve.coor[0,curve.barsConn[0,0]] - curve.coor[0,curve.barsConn[-1,-1]]
+            curveCoor = curve.get_points()
+            deltaX = curveCoor[0,-1] - curveCoor[0,0]
 
             if deltaX > 0:
                 LE_to_TE = True
@@ -164,18 +168,35 @@ def compute_position(wing_deltaZ):
     mergedCurveName = 'intersection'
     manager.merge_intCurves(curveNames, mergedCurveName)
 
-    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+    
+    # Flip the curve for marching if necessary
+    mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
+    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+
+    if deltaZ > 0:
+        print ''
+        print ''
+        print 'FLIPEEEEEEEEEEEEEEEEI'
+        manager.intCurves[mergedCurveName].flip()
+
+    # Export final curve
+    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName+'_%03d'%numPasses)
 
     # DERIVATIVE SEEDS
 
     # Identify the highest node of the intersection
-    intCoor = manager.intCurves[mergedCurveName].coor
+    intCoor = manager.intCurves[mergedCurveName].get_points()
 
+    '''
     Zmax = -999999
     for nodeID in range(intCoor.shape[1]):
         if intCoor[2,nodeID] > Zmax:
             Zmax = intCoor[2,nodeID]
             nodeMax = nodeID
+    '''
+    nodeMax = 110
 
     # Get spanwise position of the highest node
     Y = intCoor[1,nodeMax]
@@ -194,8 +215,8 @@ def compute_position(wing_deltaZ):
     manager.reverseAD()
     
     # Get relevant seeds
-    coor1b,_ = manager.geoms[name1].get_reverseADSeeds()
-    coor2b,_ = manager.geoms[name2].get_reverseADSeeds()
+    coor1b = manager.geoms[name1].get_reverseADSeeds()
+    coor2b = manager.geoms[name2].get_reverseADSeeds()
     
     # Condense derivatives to take into acount the translation
     dYdZ = np.sum(coor1b[2,:])
@@ -218,11 +239,13 @@ Y = np.zeros(numPos)
 dYdZ = np.zeros(numPos)
 
 # Compute intersection for every wing position
+numPasses = 0
 for ii in range(numPos):
     print ''
     print 'translation'
     print deltaZ[ii]
     Y[ii], dYdZ[ii] = compute_position(deltaZ[ii])
+    numPasses = numPasses + 1
     print 'results'
     print Y[ii]
     print dYdZ[ii]

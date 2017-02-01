@@ -65,10 +65,10 @@ elif example == 'line_on_cylinder':
     
     # Flip BC curve
     geom.curves['source'].flip()
+    geom.curves['source'] = geom.curves['source'].remesh(nNewNodes=5)
 
     # Set problem
-    curve = 'source'
-    #curve = geom.curves['source']
+    curve = geom.curves['source']
     bc1 = 'splay'
     bc2 = 'curve:bc1'
         
@@ -76,15 +76,15 @@ elif example == 'line_on_cylinder':
     epsE0 = 5.5
     theta = 0.0
     alphaP0 = 0.25
-    numSmoothingPasses = 3
+    numSmoothingPasses = 0
     nuArea = 0.16
-    numAreaPasses = 3
+    numAreaPasses = 0
     sigmaSplay = 0.2
     cMax = 1.0
     ratioGuess = 20
     
     # Options
-    sBaseline = 0.01#0.01
+    sBaseline = 0.01
     numLayers = 30
     extension = 2.8
     guideCurves = []
@@ -148,6 +148,8 @@ options = {
 mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
 mesh.test_all()
+
+mesh.exportPlot3d('output.xyz')
 quit()
 
 mesh.createMesh()

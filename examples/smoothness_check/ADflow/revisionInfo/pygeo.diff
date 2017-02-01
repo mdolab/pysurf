@@ -1,0 +1,12 @@
+diff -r 71c19c05623f pyGeo.py
+--- a/pyGeo.py	Thu Sep 15 11:43:43 2016 -0400
++++ b/pyGeo.py	Thu Dec 01 17:12:00 2016 -0500
+@@ -103,7 +103,7 @@
+ #               Initialization Type Functions
+ # ----------------------------------------------------------------------------
+ 
+-    def _readPlot3D(self, fileName, order='f'):
++    def _readPlot3D(self, fileName, order='f', options=None):
+         """Load a plot3D file and create the splines to go with each patch
+ 
+         Parameters

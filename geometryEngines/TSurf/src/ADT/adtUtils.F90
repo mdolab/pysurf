@@ -260,6 +260,11 @@
 !       *                                                              *
 !       ****************************************************************
 !
+
+        print *,''
+        print *,'Trying to deallocate ADT:'
+        print *,adtID
+
         ! Determine the index in the array ADTs, which stores the given
         ! ID. As the number of trees stored is limited, a linear search
         ! algorithm is okay.
@@ -276,7 +281,11 @@
 
         ! Return immediately if the ID is not present.
 
-        if(jj > nAlloc) return
+        if(jj > nAlloc) then
+           print *,'This ADT does not exist. Returning...'
+           print *,''
+           return
+        end if
 
         ! Deallocate the data for this ADT entry. Note that the memory
         ! for the nodal coordinates and the connectivity should not be
@@ -292,6 +301,8 @@
           if(ierr /= 0)                             &
             call adtTerminate(jj, "deallocateADTs", &
                               "Deallocation failure for the ADT data")
+          print *,'ADT deallocated.'
+          print *,''
         endif
 
         ! Make sure the ADT is inactive and nullify the pointers.

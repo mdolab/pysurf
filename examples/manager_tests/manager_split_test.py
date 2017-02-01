@@ -91,7 +91,7 @@ print dotProd
 stepSize = 1e-7
 
 # Perturb the initial curve
-initCurve.coor = initCurve.coor + stepSize*initCurveCoord
+initCurve.set_points(initCurve.get_points() + stepSize*initCurveCoord)
 
 # Create new manager
 manager2 = pysurf.Manager()
@@ -103,8 +103,8 @@ newCurveNames = manager2.split_intCurve(initCurveName)
 # Compute derivatives with finite differencing
 splitCurvesCoord_FD = []
 for curve in newCurveNames:
-    coor0 = manager.intCurves[curve].coor
-    coor = manager2.intCurves[curve].coor
+    coor0 = manager.intCurves[curve].get_points()
+    coor = manager2.intCurves[curve].get_points()
 
     curr_FD = (coor - coor0)/stepSize
     splitCurvesCoord_FD.append(curr_FD)

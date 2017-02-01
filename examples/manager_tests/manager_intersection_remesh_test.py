@@ -17,11 +17,13 @@ comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
 #comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
 #comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
-name1 = 'wing'
-name2 = 'body'
+#name1 = 'wing'
+#name2 = 'body'
+#comp1.rename(name1)
+#comp2.rename(name2)
 
-comp1.rename(name1)
-comp2.rename(name2)
+name1 = comp1.name
+name2 = comp2.name
 
 # Create manager object and add the geometry objects to it
 manager = pysurf.Manager()
@@ -38,7 +40,7 @@ curveName = manager.intCurves.keys()[0]
 
 # Call remeshing function
 #curveName = manager.remesh_intCurve(curveName)
-curveName = manager.remesh_intCurve(curveName,{'nNewNodes':100})
+curveName = manager.remesh_intCurve(curveName,{'nNewNodes':200})
 
 manager.intCurves[curveName].export_tecplot(curveName)
 
@@ -50,8 +52,8 @@ manager.geoms[name2].set_randomADSeeds(mode='forward')
 manager.intCurves[curveName].set_randomADSeeds(mode='reverse')
 
 # Store relevant seeds
-coor1d, _ = manager.geoms[name1].get_forwardADSeeds()
-coor2d, _ = manager.geoms[name2].get_forwardADSeeds()
+coor1d = manager.geoms[name1].get_forwardADSeeds()
+coor2d = manager.geoms[name2].get_forwardADSeeds()
 intCoorb = manager.intCurves[curveName].get_reverseADSeeds(clean=False)
 
 # FORWARD AD
@@ -68,8 +70,8 @@ intCoord = manager.intCurves[curveName].get_forwardADSeeds()
 manager.reverseAD()
     
 # Get relevant seeds
-coor1b,_ = manager.geoms[name1].get_reverseADSeeds()
-coor2b,_ = manager.geoms[name2].get_reverseADSeeds()
+coor1b = manager.geoms[name1].get_reverseADSeeds()
+coor2b = manager.geoms[name2].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
@@ -81,7 +83,7 @@ print 'dotProd test'
 print dotProd
 
 # FINITE DIFFERENCE
-stepSize = 1e-8
+stepSize = 1e-9
 
 comp1.update(comp1.coor + stepSize*coor1d)
 comp2.update(comp2.coor + stepSize*coor2d)
@@ -97,11 +99,11 @@ curveName = manager2.intCurves.keys()[0]
 
 # Call remeshing function
 #curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':intCoord.shape[1]+1})
-curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':100})
+curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':200})
 
 # Get coordinates of the intersection
-coor0 = manager.intCurves[curveName].coor
-coor = manager2.intCurves[curveName].coor
+coor0 = manager.intCurves[curveName].get_points()
+coor = manager2.intCurves[curveName].get_points()
 
 # Compute derivatives with FD
 intCoord_FD = (coor - coor0)/stepSize
@@ -109,4 +111,3 @@ intCoord_FD = (coor - coor0)/stepSize
 # Print results
 print 'FD test'
 print np.max(np.abs(intCoord-intCoord_FD))
-print np.abs(intCoord-intCoord_FD)

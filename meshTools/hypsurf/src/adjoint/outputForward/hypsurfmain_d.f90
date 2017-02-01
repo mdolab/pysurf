@@ -24,16 +24,17 @@ module hypsurfmain_d
 
 contains
 !  differentiation of computematrices_main in forward (tangent) mode (with options i4 dr8 r8):
-!   variations   of useful results: f
+!   variations   of useful results: rnew
 !   with respect to varying inputs: s0 sm1 n0 rm1 r0
-!   rw status of diff variables: f:out s0:in sm1:in n0:in rm1:in
+!   rw status of diff variables: s0:in rnew:out sm1:in n0:in rm1:in
 !                r0:in
 !=================================================================
 !=================================================================
   subroutine computematrices_main_d(r0, r0d, n0, n0d, s0, s0d, rm1, rm1d&
 &   , sm1, sm1d, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, guideindices, retainspacing, f, fd, numnodes, numguides)
-    use solveroutines, only : solve_d
+&   epse0, guideindices, retainspacing, rnew, rnewd, numnodes, numguides&
+& )
+    use solveroutines, only : solve, solve_d
     implicit none
     integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
     real(kind=realtype), intent(in) :: r0(3*numnodes), n0(3, numnodes), &
@@ -45,8 +46,8 @@ contains
     real(kind=realtype), intent(in) :: rm1d(3*numnodes), sm1d(numnodes)
     real(kind=realtype), intent(in) :: sigmasplay, epse0
     character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(out) :: f(3*numnodes)
-    real(kind=realtype), intent(out) :: fd(3*numnodes)
+    real(kind=realtype), intent(out) :: rnew(3*numnodes)
+    real(kind=realtype), intent(out) :: rnewd(3*numnodes)
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
     logical, intent(in) :: retainspacing
@@ -56,11 +57,12 @@ contains
 &   , d_vec_rotd(3)
     real(kind=realtype) :: k(3*numnodes, 3*numnodes)
     real(kind=realtype) :: kd(3*numnodes, 3*numnodes)
+    real(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
+    real(kind=realtype) :: fd(3*numnodes), delta_rd(3*numnodes)
     integer(kind=inttype) :: index, i
     integer(kind=inttype) :: ipiv(3*numnodes)
     integer(kind=inttype) :: n, nrhs, ldk, ldf, info
-    real(kind=realtype) :: one, zero, rhs(3*numnodes)
-    real(kind=realtype) :: rhsd(3*numnodes)
+    real(kind=realtype) :: one, zero
     logical :: guide
     one = 1.
     zero = 0.
@@ -292,19 +294,17 @@ contains
     ldk = n
 ! leading dimension of f (should be = n unless we work with submatrices)
     ldf = n
-! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
-    rhsd = fd
-    rhs = f
-    call solve_d(k, kd, f, fd, rhs, rhsd, n, ipiv)
+! solve the linear system k*delta_r = f
+    call solve_d(k, kd, delta_r, delta_rd, f, fd, n, ipiv)
 ! note that this f is rnext when outputted from computematrices_main
-    fd = r0d + fd
-    f = r0 + f
+    rnewd = r0d + delta_rd
+    rnew = r0 + delta_r
   end subroutine computematrices_main_d
 !=================================================================
 !=================================================================
   subroutine computematrices_main(r0, n0, s0, rm1, sm1, layerindex, &
 &   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, &
-&   retainspacing, f, numnodes, numguides)
+&   retainspacing, rnew, numnodes, numguides)
     use solveroutines, only : solve
     implicit none
     integer(kind=inttype), intent(in) :: layerindex, numnodes, numlayers
@@ -314,17 +314,18 @@ contains
 &   theta
     real(kind=realtype), intent(in) :: sigmasplay, epse0
     character(len=32), intent(in) :: bc1, bc2
-    real(kind=realtype), intent(out) :: f(3*numnodes)
+    real(kind=realtype), intent(out) :: rnew(3*numnodes)
     integer(kind=inttype), intent(in) :: numguides
     integer(kind=inttype), intent(in) :: guideindices(numguides)
     logical, intent(in) :: retainspacing
     real(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     real(kind=realtype) :: k(3*numnodes, 3*numnodes)
+    real(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
     integer(kind=inttype) :: index, i
     integer(kind=inttype) :: ipiv(3*numnodes)
     integer(kind=inttype) :: n, nrhs, ldk, ldf, info
-    real(kind=realtype) :: one, zero, rhs(3*numnodes)
+    real(kind=realtype) :: one, zero
     logical :: guide
     one = 1.
     zero = 0.
@@ -488,11 +489,10 @@ contains
     ldk = n
 ! leading dimension of f (should be = n unless we work with submatrices)
     ldf = n
-! call dgesv(n, nrhs, k, ldk, ipiv, f, ldf, info)
-    rhs = f
-    call solve(k, f, rhs, n, ipiv)
+! solve the linear system k*delta_r = f
+    call solve(k, delta_r, f, n, ipiv)
 ! note that this f is rnext when outputted from computematrices_main
-    f = r0 + f
+    rnew = r0 + delta_r
   end subroutine computematrices_main
 !  differentiation of matrixbuilder in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: f k
@@ -1031,9 +1031,8 @@ contains
       a = 1.0
       ad = 0.0_8
     else
-      ad = -((angled*sin(angle/2)*cos(angle/2)/2+cos(angle/2)*angled*sin&
-&       (angle/2)/2)/(1.0-cos(angle/2)*cos(angle/2))**2)
-      a = 1.0/(1.0-cos(angle/2)*cos(angle/2))
+      ad = -(cos(angle/2)*angled*sin(angle/2)/(1.0-cos(angle/2)**2)**2)
+      a = 1.0/(1.0-cos(angle/2)**2)
     end if
 ! compute auxiliary variable r (eq. 6.4)
     rd = sl*(dbard*a+dbar*ad)
@@ -1089,7 +1088,7 @@ contains
 ! convex corner
       a = 1.0
     else
-      a = 1.0/(1.0-cos(angle/2)*cos(angle/2))
+      a = 1.0/(1.0-cos(angle/2)**2)
     end if
 ! compute auxiliary variable r (eq. 6.4)
     r = sl*dbar*a
@@ -1364,13 +1363,14 @@ contains
     real(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
 &   nodaljacs(3, 3, numlayers, numnodes), norm_val
     integer(kind=inttype) :: i, j
-    real(kind=realtype) :: zero
+    real(kind=realtype) :: zero, eps
     intrinsic minval
     intrinsic maxval
     real :: result1
     real :: result2
     real :: result10
     zero = 0.
+    eps = 1e-15
 ! convert the flattened array r into a 3 x numnodes x numlayers array.
 ! numlayers -> number of layers in the marching direction
 ! numnodes -> number of nodes in direction of curve
@@ -1461,8 +1461,7 @@ contains
 ! throw an error and set the failure flag if the mesh is not valid
     do i=1,numnodes-1
       do j=1,numlayers-1
-        if ((ratios(j, i) .ne. ratios(j, i) .or. ratios(j, i) .le. zero)&
-&           .and. layerindex .ge. 1) then
+        if (ratios(j, i) .lt. zero + eps .and. layerindex .ge. 1) then
           print*, '========= failure detected ============'
           fail = 1
         end if
@@ -1472,9 +1471,10 @@ contains
 &                    layerindex + 1
 ! throw a warning if the mesh is low quality
     result10 = minval(ratios)
-    if (result10 .le. .2 .and. layerindex .ge. 1) print*, &
+    if (result10 .lt. 0.2 + eps .and. layerindex .ge. 1) print*, &
 &                               'the mesh may be low quality after step'&
-&                                                 , layerindex + 1
+&                                                        , layerindex + &
+&                                                        1
   end subroutine qualitycheck
 !  differentiation of findradius in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: radius
@@ -1993,10 +1993,11 @@ contains
     real(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     real(kind=realtype) :: normdr1d, normdr2d
     intrinsic min
-    intrinsic dacos
+    intrinsic acos
     real(kind=realtype) :: min1
     real(kind=realtype) :: min1d
     pi = 3.14159265358979323846264338
+!pi = 3.14159265358979
     one = 1.0
     dr1d = r1d - r0d
     dr1 = r1 - r0
@@ -2022,9 +2023,9 @@ contains
     if (min1 .eq. 1.0 .or. min1 .eq. (-1.0)) then
       angled = 0.0_8
     else
-      angled = -(min1d/sqrt(1.d0-min1**2))
+      angled = -(min1d/sqrt(1.0-min1**2))
     end if
-    angle = dacos(min1)
+    angle = acos(min1)
 ! if the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     call dot(dr1crossdr2, n1, dr1crossdr2dotn1)
@@ -2044,9 +2045,10 @@ contains
     real(kind=realtype) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
     real(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     intrinsic min
-    intrinsic dacos
+    intrinsic acos
     real(kind=realtype) :: min1
     pi = 3.14159265358979323846264338
+!pi = 3.14159265358979
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2063,7 +2065,7 @@ contains
     else
       min1 = arccos_inside
     end if
-    angle = dacos(min1)
+    angle = acos(min1)
 ! if the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     call dot(dr1crossdr2, n1, dr1crossdr2dotn1)
