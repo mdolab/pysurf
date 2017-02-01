@@ -29,3 +29,5 @@ callgrind*
 *.par
 *.prj
 *.tin
+*/revisionInfo/*
+*.zipper
