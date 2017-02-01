@@ -19,7 +19,7 @@ import pickle
 
 os.system('rm curve*')
 
-wing = pysurf.TSurfGeometry('rect_uns.cgns', MPI.COMM_WORLD)
+wing = pysurf.TSurfGeometry('../inputs/rect_uns.cgns', MPI.COMM_WORLD)
 
 wing.extract_curves()
 

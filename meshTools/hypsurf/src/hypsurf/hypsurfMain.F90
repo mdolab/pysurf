@@ -1156,7 +1156,7 @@
         subroutine giveAngle(r0, r1, r2, N1, angle)
 
           implicit none
-          
+
           real(kind=realType), intent(in), dimension(3) :: r0, r1, r2, N1
 
           !f2py intent(in) r0, r1, r2, N1
