@@ -907,16 +907,16 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 # INTERSECTION FUNCTIONS
 #===================================
 
-'''
+
 def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
-    '/''
+    '''
     This function will just compute pair-wise intersections
     for all components given in TSurfGeometryList.
 
     distTol is a distance tolerance used to merge nearby nodes when
     generating the intersection finite element data.
-    '/''
+    '''
 
     # Get number of components
     numGeometries = len(TSurfGeometryList)
@@ -947,7 +947,7 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
     # Return all intersections
     return Intersections
-'''
+
 
 #=================================================================
 

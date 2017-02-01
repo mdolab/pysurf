@@ -1127,7 +1127,7 @@
 
         implicit none
 
-        !! Performs a direct calculation of the inverse of a 3×3 matrix.
+        !! Performs a direct calculation of the inverse of a 3x3 matrix.
         real(kind=realType), intent(in)  :: A(3,3)   !! Matrix
         real(kind=realType), intent(out) :: B(3,3)   !! Inverse matrix
         real(kind=realType)              :: detinv
