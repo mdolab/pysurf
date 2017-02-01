@@ -191,8 +191,10 @@ def march_surface_meshes():
             counter += 1
 
             # Extract the curve points and compute the length
-            pts = split_curve[name].extract_points()
+            pts = split_curve[name].get_points().T
             length = pts[0, 2] - pts[-1, 2]
+
+            print name, length
 
             # Hardcoded logic here based on the length of edges
             if np.abs(length) > 1:
@@ -201,6 +203,7 @@ def march_surface_meshes():
                 if length > 0:
                     split_curve[name].flip()
 
+                # if '004' not in split_curve[name].name:
                 # Add the long curve to the list
                 long_curves.append(split_curve[name])
 
@@ -210,6 +213,8 @@ def march_surface_meshes():
     for ext_curve in long_curves:
         rect.add_curve(ext_curve)
         guideCurves.append(ext_curve.name)
+
+    print guideCurves
 
     # Add intersection curve to each component
     rect.add_curve(curve)
