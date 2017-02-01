@@ -19,21 +19,22 @@
 !     ******************************************************************
 !
 MODULE HYPSURFMAIN_B
-  USE PRECISION
+  USE PRECISION_B
   IMPLICIT NONE
 
 CONTAINS
 !  Differentiation of computematrices_main in reverse (adjoint) mode (with options i4 dr8 r8):
-!   gradient     of useful results: f
-!   with respect to varying inputs: f s0 sm1 n0 rm1 r0
-!   RW status of diff variables: f:in-zero s0:out sm1:out n0:out
+!   gradient     of useful results: rnew
+!   with respect to varying inputs: s0 rnew sm1 n0 rm1 r0
+!   RW status of diff variables: s0:out rnew:in-zero sm1:out n0:out
 !                rm1:out r0:out
 !=================================================================
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN_B(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
 &   , sm1, sm1b, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
-&   epse0, guideindices, retainspacing, f, fb, numnodes, numguides)
-    USE SOLVEROUTINES, ONLY : solve
+&   epse0, guideindices, retainspacing, rnew, rnewb, numnodes, numguides&
+& )
+    USE SOLVEROUTINES_B, ONLY : solve, solve_b
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
     REAL(kind=realtype), INTENT(IN) :: r0(3*numnodes), n0(3, numnodes), &
@@ -45,8 +46,8 @@ CONTAINS
     REAL(kind=realtype) :: rm1b(3*numnodes), sm1b(numnodes)
     REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype) :: f(3*numnodes)
-    REAL(kind=realtype) :: fb(3*numnodes)
+    REAL(kind=realtype) :: rnew(3*numnodes)
+    REAL(kind=realtype) :: rnewb(3*numnodes)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
     LOGICAL, INTENT(IN) :: retainspacing
@@ -56,14 +57,13 @@ CONTAINS
 &   , d_vec_rotb(3)
     REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
     REAL(kind=realtype) :: kb(3*numnodes, 3*numnodes)
+    REAL(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
+    REAL(kind=realtype) :: fb(3*numnodes), delta_rb(3*numnodes)
     INTEGER(kind=inttype) :: index, i
     INTEGER(kind=inttype) :: ipiv(3*numnodes)
     INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
-    REAL(kind=realtype) :: one, zero, rhs(3*numnodes)
-    REAL(kind=realtype) :: rhsb(3*numnodes)
+    REAL(kind=realtype) :: one, zero
     LOGICAL :: guide
-    EXTERNAL SOLVE
-    EXTERNAL SOLVE_B
     INTEGER :: branch
     one = 1.
     zero = 0.
@@ -240,15 +240,13 @@ CONTAINS
 ! number of right hand sides in f
 ! leading dimension of K (should be = n unless we work with submatrices)
 ! leading dimension of f (should be = n unless we work with submatrices)
-! call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
-    rhs = f
+! Solve the linear system K*delta_r = f
 ! Note that this f is rNext when outputted from computeMatrices_main
     r0b = 0.0_8
-    r0b = fb
-    kb = 0.0_8
-    rhsb = 0.0_8
-    CALL SOLVE_B(k, kb, f, fb, rhs, rhsb, n, ipiv)
-    fb = fb + rhsb
+    delta_rb = 0.0_8
+    r0b = rnewb
+    delta_rb = rnewb
+    CALL SOLVE_B(k, kb, delta_r, delta_rb, f, fb, n, ipiv)
     CALL POPCONTROL3B(branch)
     IF (branch .LT. 3) THEN
       IF (branch .EQ. 0) THEN
@@ -405,13 +403,13 @@ CONTAINS
         r0b(1:3) = r0b(1:3) + r_currb
       END IF
     END IF
-    fb = 0.0_8
+    rnewb = 0.0_8
   END SUBROUTINE COMPUTEMATRICES_MAIN_B
 !=================================================================
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex, &
 &   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, &
-&   retainspacing, f, numnodes, numguides)
+&   retainspacing, rnew, numnodes, numguides)
     USE SOLVEROUTINES_B, ONLY : solve
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -421,19 +419,19 @@ CONTAINS
 &   theta
     REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
-    REAL(kind=realtype), INTENT(OUT) :: f(3*numnodes)
+    REAL(kind=realtype), INTENT(OUT) :: rnew(3*numnodes)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
     INTEGER(kind=inttype), INTENT(IN) :: guideindices(numguides)
     LOGICAL, INTENT(IN) :: retainspacing
     REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
+    REAL(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
     INTEGER(kind=inttype) :: index, i
     INTEGER(kind=inttype) :: ipiv(3*numnodes)
     INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
-    REAL(kind=realtype) :: one, zero, rhs(3*numnodes)
+    REAL(kind=realtype) :: one, zero
     LOGICAL :: guide
-    EXTERNAL SOLVE
     one = 1.
     zero = 0.
 ! Initialize arrays
@@ -596,11 +594,10 @@ CONTAINS
     ldk = n
 ! leading dimension of f (should be = n unless we work with submatrices)
     ldf = n
-! call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
-    rhs = f
-    CALL SOLVE(k, f, rhs, n, ipiv)
+! Solve the linear system K*delta_r = f
+    CALL SOLVE(k, delta_r, f, n, ipiv)
 ! Note that this f is rNext when outputted from computeMatrices_main
-    f = r0 + f
+    rnew = r0 + delta_r
   END SUBROUTINE COMPUTEMATRICES_MAIN
 !  Differentiation of matrixbuilder in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: f k s0 sm1 n0 rm1 r0
@@ -1222,7 +1219,7 @@ CONTAINS
       a = 1.0
       CALL PUSHCONTROL1B(0)
     ELSE
-      a = 1.0/(1.0-COS(angle/2)*COS(angle/2))
+      a = 1.0/(1.0-COS(angle/2)**2)
       CALL PUSHCONTROL1B(1)
     END IF
 ! Compute auxiliary variable R (Eq. 6.4)
@@ -1291,7 +1288,7 @@ CONTAINS
 ! Convex corner
       a = 1.0
     ELSE
-      a = 1.0/(1.0-COS(angle/2)*COS(angle/2))
+      a = 1.0/(1.0-COS(angle/2)**2)
     END IF
 ! Compute auxiliary variable R (Eq. 6.4)
     r = sl*dbar*a
@@ -1652,13 +1649,14 @@ CONTAINS
     REAL(kind=realtype) :: normals(3, numlayers-2, numnodes-2), &
 &   nodaljacs(3, 3, numlayers, numnodes), norm_val
     INTEGER(kind=inttype) :: i, j
-    REAL(kind=realtype) :: zero
+    REAL(kind=realtype) :: zero, eps
     INTRINSIC MINVAL
     INTRINSIC MAXVAL
     REAL :: result1
     REAL :: result2
     REAL :: result10
     zero = 0.
+    eps = 1e-15
 ! Convert the flattened array R into a 3 x numNodes x numLayers array.
 ! numLayers -> number of layers in the marching direction
 ! numNodes -> number of nodes in direction of curve
@@ -1749,8 +1747,7 @@ CONTAINS
 ! Throw an error and set the failure flag if the mesh is not valid
     DO i=1,numnodes-1
       DO j=1,numlayers-1
-        IF ((ratios(j, i) .NE. ratios(j, i) .OR. ratios(j, i) .LE. zero)&
-&           .AND. layerindex .GE. 1) THEN
+        IF (ratios(j, i) .LT. zero + eps .AND. layerindex .GE. 1) THEN
           PRINT*, '========= FAILURE DETECTED ============'
           fail = 1
         END IF
@@ -1760,9 +1757,10 @@ CONTAINS
 &                    layerindex + 1
 ! Throw a warning if the mesh is low quality
     result10 = MINVAL(ratios)
-    IF (result10 .LE. .2 .AND. layerindex .GE. 1) PRINT*, &
+    IF (result10 .LT. 0.2 + eps .AND. layerindex .GE. 1) PRINT*, &
 &                               'The mesh may be low quality after step'&
-&                                                 , layerindex + 1
+&                                                        , layerindex + &
+&                                                        1
   END SUBROUTINE QUALITYCHECK
 !  Differentiation of findradius in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: radius
@@ -2447,12 +2445,13 @@ CONTAINS
     REAL(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     REAL(kind=realtype) :: normdr1b, normdr2b
     INTRINSIC MIN
-    INTRINSIC DACOS
+    INTRINSIC ACOS
     INTEGER :: branch
     REAL(kind=realtype) :: min1
     REAL(kind=realtype) :: tempb0
     REAL(kind=realtype) :: min1b
     REAL(kind=realtype) :: tempb
+!pi = 3.14159265358979
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2478,7 +2477,7 @@ CONTAINS
     IF (min1 .EQ. 1.0 .OR. min1 .EQ. (-1.0)) THEN
       min1b = 0.0
     ELSE
-      min1b = -(angleb/SQRT(1.D0-min1**2))
+      min1b = -(angleb/SQRT(1.0-min1**2))
     END IF
     CALL POPCONTROL1B(branch)
     IF (branch .EQ. 0) THEN
@@ -2507,9 +2506,10 @@ CONTAINS
     REAL(kind=realtype) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
     REAL(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     INTRINSIC MIN
-    INTRINSIC DACOS
+    INTRINSIC ACOS
     REAL(kind=realtype) :: min1
     pi = 3.14159265358979323846264338
+!pi = 3.14159265358979
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2526,7 +2526,7 @@ CONTAINS
     ELSE
       min1 = arccos_inside
     END IF
-    angle = DACOS(min1)
+    angle = ACOS(min1)
 ! If the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     CALL DOT(dr1crossdr2, n1, dr1crossdr2dotn1)

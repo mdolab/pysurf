@@ -228,6 +228,10 @@ contains
     ! The user should run the primal function first in order to obtain the correct values for
     ! allElemIDs. This way we can avoid another search for the closest projection.
     !
+    ! ATTENTION:
+    ! This code DOES NOT ACCUMULATE DERIVATIVE SEEDS. It just gives the updates. So you
+    ! have to add them later on to continue the AD propagation.
+    !
     ! Ney Secco 2016-11
 
     use curveUtils_b
@@ -265,6 +269,10 @@ contains
     integer(kind=intType) :: i, barID, node1, node2
 
     ! EXECUTION
+
+    ! Initialize derivative seeds
+    xyzb = 0.0
+    coorb = 0.0
 
     ! Loop over all points to be projected
     do i = 1,nxyz

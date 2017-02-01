@@ -27,13 +27,13 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Retrieve data from the CGNS file.
     # We need to do actual copies, otherwise data will be overwritten if we read another
     # CGNS file.
-    coor = np.array(cgnsAPI.cgnsapi.coor)
-    triaConn = np.array(cgnsAPI.cgnsapi.triaconn)
-    quadsConn = np.array(cgnsAPI.cgnsapi.quadsconn)
-    barsConn = np.array(cgnsAPI.cgnsapi.barsconn)
-    surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr)
-    surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr)
-    curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr)
+    coor = np.array(cgnsAPI.cgnsapi.coor,order='F')
+    triaConn = np.array(cgnsAPI.cgnsapi.triaconn,order='F')
+    quadsConn = np.array(cgnsAPI.cgnsapi.quadsconn,order='F')
+    barsConn = np.array(cgnsAPI.cgnsapi.barsconn,order='F')
+    surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr,order='F')
+    surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr,order='F')
+    curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr,order='F')
     surfNames = cgnsAPI.cgnsapi.surfnames.copy()
     curveNames = cgnsAPI.cgnsapi.curvenames.copy()
 
@@ -481,7 +481,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         newCurve = tsurf_component.TSurfCurve(coor, currCurveConn, curveName)
 
         # Initialize curve object and append it to the list
-        TSurfGeometry.add_curve(curveName, newCurve)
+        TSurfGeometry.add_curve(newCurve)
 
     # Print log
     print 'Number of extracted curves: ',len(selectedBarsConn)
@@ -536,6 +536,10 @@ def merge_surface_sections(sectionDict, selectedSections):
 
             # The user provided a name that is not a surface section
             print sectionName,'is not a surface section.'
+
+    # Convert it to Fortran ordering
+    triaConn = np.array(triaConn, order='F')
+    quadsConn = np.array(quadsConn, order='F')
 
     return triaConn, quadsConn
 
@@ -1830,7 +1834,7 @@ def scale(Geometry, factor, point=None):
     relCoor[0,:] = relCoor[0,:] + point[0]
     relCoor[1,:] = relCoor[1,:] + point[1]
     relCoor[2,:] = relCoor[2,:] + point[2]
-    Geometry.coor = relCoor
+    Geometry.coor = np.array(relCoor,order='F')
 
 def rotate(Geometry, angle, axis, point=None):
     '''
@@ -1843,7 +1847,7 @@ def rotate(Geometry, angle, axis, point=None):
     if not point:
         point = [0.0, 0.0, 0.0]
     angle = angle * np.pi / 180.
-    rotationMat = np.zeros((3, 3))
+    rotationMat = np.zeros((3, 3),order='F')
 
     if axis==0:
         ind1 = 1
@@ -1871,7 +1875,7 @@ def rotate(Geometry, angle, axis, point=None):
     relCoor[0,:] = relCoor[0,:] + point[0]
     relCoor[1,:] = relCoor[1,:] + point[1]
     relCoor[2,:] = relCoor[2,:] + point[2]
-    Geometry.coor = relCoor
+    Geometry.coor = np.array(relCoor,order='F')
 
 #============================================================
 #============================================================
@@ -1895,9 +1899,14 @@ def normalize(vec):
     Ney Secco 2016-10
     '''
 
+    # STEP 1: compute sum of squares
     vecNorms = np.array([np.sum(vec**2,axis=1)]).T
+
+    # STEP 2: compute norms
     vecNorms = np.sqrt(vecNorms)
-    normalVec = vec/vecNorms
+
+    # STEP 3: normalize vec
+    normalVec = np.array(vec/vecNorms,order='F')
 
     return normalVec
 
@@ -1910,12 +1919,15 @@ def normalize_d(vec, vecd):
     Ney Secco 2016-10
     '''
 
-    vecNorms = np.array([np.sum(vec**2,axis=1)]).T
-    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)]).T
+    # STEP 1_d
+    vecNorms = np.array([np.sum(vec**2,axis=1)],order='F').T
+    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)],order='F').T
 
+    # STEP 2_d
     vecNorms = np.sqrt(vecNorms)
     vecNormsd = 0.5*vecNormsd/vecNorms
 
+    # STEP 3_d
     normalVec = vec/vecNorms
     normalVecd = vecd/vecNorms - vec*vecNormsd/vecNorms**2
 
@@ -1930,17 +1942,23 @@ def normalize_b(vec, normalVecb):
     Ney Secco 2016-10
     '''
 
-    vecNorms1 = np.array([np.sum(vec**2,axis=1)]).T
+    # STEP 1
+    vecNorms1 = np.array([np.sum(vec**2,axis=1)],order='F').T
 
+    # STEP 2
     vecNorms2 = np.sqrt(vecNorms1)
 
+    # STEP 3
     normalVec = vec/vecNorms2
 
-    vecNorms2b = np.array([np.sum(-vec/vecNorms2**2*normalVecb,axis=1)]).T
+    # STEP 3_b
+    vecNorms2b = np.array([np.sum(-vec/vecNorms2**2*normalVecb,axis=1)],order='F').T
     vecb = normalVecb/vecNorms2
 
+    # STEP 2_b
     vecNorms1b = vecNorms2b/2.0/vecNorms2
 
+    # STEP 1_b
     vecb = vecb + 2.0*vec*vecNorms1b
 
     return vecb

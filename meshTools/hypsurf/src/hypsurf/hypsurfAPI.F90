@@ -107,12 +107,15 @@
            ! Find the characteristic radius of the mesh
            call findRadius(rNext, numNodes, radius)
 
-          ! Find the desired marching distance
-          ! Here marchParameter = extension
-          dMax = radius * (marchParameter-1.)
+           print *,'radius'
+           print *,radius
 
-          ! Compute the growth ratio necessary to match this distance
-          call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
+           ! Find the desired marching distance
+           ! Here marchParameter = extension
+           dMax = radius * (marchParameter-1.)
+           
+           ! Compute the growth ratio necessary to match this distance
+           call findRatio(dMax, dStart, numLayers, ratioGuess, dGrowth)
 
         else
           ! Here marchParameter = growthRatio
@@ -920,7 +923,7 @@
           integer(kind=inttype) :: layerIndex, indexSubIter, cFactor, layerID, projID
           integer(kind=inttype) :: minorIndex, cFactorVec(numLayers), m1Index
           intrinsic int
-          integer :: arg1, arg10, ii
+          integer :: arg10, ii
           integer :: ad_to
 
           ! ====================================
@@ -1358,7 +1361,7 @@
         integer(kind=intType) :: n, nrhs, ldK, ldf, info
         real(kind=realType) :: one, zero
 
-        call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
+        call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
         sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNext, numNodes, numGuides)
 
         end subroutine computeMatrices
@@ -1486,7 +1489,7 @@
         !=================================================================
 
         subroutine areafactor_test_d(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, numguides, n, s, sd, maxstretch)
+             &   bc2, guideindices, numguides, n, s, sd, maxstretch)
 
         use hypsurfmain_d, only: areafactor_d
         implicit none
@@ -1501,14 +1504,14 @@
         integer(kind=inttype), intent(in) :: guideindices(numguides)
 
         call areafactor_d(r0, r0d, d, dd, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, numguides, n, s, sd, maxstretch)
+             &   bc2, guideindices, numguides, n, s, sd, maxstretch)
 
         end subroutine
 
         !=================================================================
 
         subroutine areafactor_test_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, numguides, n, s, sb, maxstretch)
+             &   bc2, guideindices, numguides, n, s, sb, maxstretch)
 
         use hypsurfmain_b, only: areafactor_b
         implicit none
@@ -1522,10 +1525,120 @@
         integer(kind=inttype), intent(in) :: numguides
         integer(kind=inttype), intent(in) :: guideindices(numguides)
 
+        r0b = 0.0
+        db = 0.0
+
         call areafactor_b(r0, r0b, d, db, nuarea, numareapasses, bc1, &
-      &   bc2, guideindices, numguides, n, s, sb, maxstretch)
+             &   bc2, guideindices, numguides, n, s, sb, maxstretch)
 
-        end subroutine
+        end subroutine areafactor_test_b
+        
+        !=================================================================
 
+        subroutine dissipationcoefficients_test(layerindex, r0_xi, r0_eta, dsensor, &
+             angle, numlayers, epse0, epse, epsi)
+
+          implicit none
+
+          integer(kind=inttype), intent(in) :: layerindex, numlayers
+          real(kind=realtype), intent(in) :: dsensor, angle, epse0, r0_xi(3), &
+               &   r0_eta(3)
+          real(kind=realtype), intent(out) :: epse, epsi
+          
+          call dissipationcoefficients(layerindex, r0_xi, r0_eta, dsensor, &
+               angle, numlayers, epse0, epse, epsi)
+          
+        end subroutine dissipationcoefficients_test
+        
+        !=================================================================
+        
+        subroutine dissipationcoefficients_d_test(layerindex, r0_xi, r0_xid, r0_eta&
+             &   , r0_etad, dsensor, dsensord, angle, angled, numlayers, epse0, epse&
+             &   , epsed, epsi, epsid)
+          
+          use hypsurfmain_d, only: dissipationcoefficients_d
+          implicit none
+          
+          integer(kind=inttype), intent(in) :: layerindex, numlayers
+          real(kind=realtype), intent(in) :: dsensor, angle, epse0, r0_xi(3), &
+               &   r0_eta(3)
+          real(kind=realtype), intent(in) :: dsensord, angled, r0_xid(3), &
+               &   r0_etad(3)
+          real(kind=realtype), intent(out) :: epse, epsi
+          real(kind=realtype), intent(out) :: epsed, epsid
+          
+          call dissipationcoefficients_d(layerindex, r0_xi, r0_xid, r0_eta&
+               &   , r0_etad, dsensor, dsensord, angle, angled, numlayers, epse0, epse&
+               &   , epsed, epsi, epsid)
+          
+        end subroutine dissipationcoefficients_d_test
+        
+        !=================================================================
+
+        subroutine dissipationcoefficients_b_test(layerindex, r0_xi, r0_xib, r0_eta&
+             &   , r0_etab, dsensor, dsensorb, angle, angleb, numlayers, epse0, epse&
+             &   , epseb, epsi, epsib)
+
+          use hypsurfmain_b, only: dissipationcoefficients_b
+          implicit none
+
+          integer(kind=inttype), intent(in) :: layerindex, numlayers
+          real(kind=realtype), intent(in) :: dsensor, angle, epse0, r0_xi(3), &
+               &   r0_eta(3)
+          real(kind=realtype), intent(out) :: dsensorb, angleb, r0_xib(3), r0_etab(3)
+          real(kind=realtype), intent(in) :: epse, epsi
+          real(kind=realtype), intent(in) :: epseb, epsib
+          
+          
+          
+          call dissipationcoefficients_b(layerindex, r0_xi, r0_xib, r0_eta&
+               &   , r0_etab, dsensor, dsensorb, angle, angleb, numlayers, epse0, epse&
+               &   , epseb, epsi, epsib)
+          
+        end subroutine dissipationcoefficients_b_test
+
+        !=================================================================
+
+        subroutine matrixBuilder_test(curr_index, bc1, bc2, r0, rm1, N0, S0, Sm1, &
+             numLayers, epsE0, layerIndex, theta, numNodes, K, f)
+
+          use hypsurfMain, only: matrixBuilder
+          implicit none
+
+          integer(kind=intType), intent(in) :: curr_index, numNodes, numLayers, layerIndex
+          real(kind=realType), intent(in) :: r0(3*numNodes), rm1(3*numNodes), N0(3, numNodes)
+          real(kind=realType), intent(in) :: Sm1(numNodes), epsE0, S0(numNodes), theta
+          character*32, intent(in) :: bc1, bc2
+          real(kind=realType), intent(inout) :: K(3*numNodes, 3*numNodes), f(3*numNodes)
+        
+          call matrixBuilder(curr_index, bc1, bc2, r0, rm1, N0, S0, Sm1, &
+               numLayers, epsE0, layerIndex, theta, numNodes, K, f)
+
+        end subroutine matrixBuilder_test
+
+        !=================================================================
+
+        subroutine matrixBuilder_d_test(curr_index, bc1, bc2, r0, r0d, rm1, rm1d, &
+             &   n0, n0d, s0, s0d, sm1, sm1d, numlayers, epse0, layerindex, theta, &
+             &   numnodes, k, kd, f, fd)
+
+          use hypsurfMain_d, only: matrixBuilder_d
+          implicit none
+
+          integer(kind=inttype), intent(in) :: curr_index, numnodes, numlayers, layerindex
+          real(kind=realtype), intent(in) :: r0(3*numnodes), rm1(3*numnodes), n0(3, numnodes)
+          real(kind=realtype), intent(in) :: r0d(3*numnodes), rm1d(3*numnodes), n0d(3, numnodes)
+          real(kind=realtype), intent(in) :: sm1(numnodes), epse0, s0(numnodes), theta
+          real(kind=realtype), intent(in) :: sm1d(numnodes), s0d(numnodes)
+          character(len=32), intent(in) :: bc1, bc2
+          real(kind=realtype), intent(inout) :: k(3*numnodes, 3*numnodes), f(3*numnodes)
+          real(kind=realtype), intent(inout) :: kd(3*numnodes, 3*numnodes), fd(3*numnodes)
+        
+          call matrixbuilder_d(curr_index, bc1, bc2, r0, r0d, rm1, rm1d, &
+               &   n0, n0d, s0, s0d, sm1, sm1d, numlayers, epse0, layerindex, theta, &
+               &   numnodes, k, kd, f, fd)
+
+        end subroutine matrixBuilder_d_test
 
       end module
+      

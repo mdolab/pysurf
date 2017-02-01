@@ -169,10 +169,10 @@ CONTAINS
 ! These statements should initially create parametric coordinates in the interval
 ! [0.0, 1.0]. We will rescale it after the if statements.
     IF (spacing .EQ. 'linear') THEN
-      CALL LINSPACE(0.0_8, 1.0_8, nnewnodes, newarclength)
+      CALL LINSPACE(0.0, 1.0, nnewnodes, newarclength)
       newarclengthd = 0.0
     ELSE IF (spacing .EQ. 'cosine') THEN
-      CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
+      CALL LINSPACE(0.0, 3.141592653589793, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
       newarclengthd = 0.0
     ELSE IF (spacing .EQ. 'hyptan') THEN
@@ -275,9 +275,9 @@ CONTAINS
 ! These statements should initially create parametric coordinates in the interval
 ! [0.0, 1.0]. We will rescale it after the if statements.
     IF (spacing .EQ. 'linear') THEN
-      CALL LINSPACE(0.0_8, 1.0_8, nnewnodes, newarclength)
+      CALL LINSPACE(0.0, 1.0, nnewnodes, newarclength)
     ELSE IF (spacing .EQ. 'cosine') THEN
-      CALL LINSPACE(0.0_8, 3.141592653589793_8, nnewnodes, newarclength)
+      CALL LINSPACE(0.0, 3.141592653589793, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
     ELSE IF (spacing .EQ. 'hyptan') THEN
       CALL GETHYPTANDIST(sp1/arclength(nelem+1), sp2/arclength(nelem+1)&

@@ -23,7 +23,8 @@ patt_comment = re.compile(r'\s*!.*')
 print "Directory of input source files  :", DIR_ORI
 print "Directory of output source files :", DIR_MOD
 
-useful_modules = ['solve_d']
+#useful_modules = ['solve_d']
+useful_modules = []
 
 for f in os.listdir(DIR_ORI):
     if f.endswith(EXT):
@@ -86,7 +87,7 @@ for f in os.listdir(DIR_ORI):
                     if m in line:
                         found = True
                 if not found:
-                    line = line.replace('_d', '')
+                    line = line.replace('_d', '', 2)
 
             if 'external solve' not in line:
                 # write the modified line to new file

@@ -107,7 +107,7 @@ manager.reverseAD()
 # Get relevant seeds
 initCurveCoorb = []
 for curve in initCurveNames:
-    coorb = manager.intCurves[curve].get_reverseADSeeds()
+    coorb = manager.intCurves[curve].get_reverseADSeeds(clean=False)
     initCurveCoorb.append(coorb)
 
 # Dot product test
@@ -120,7 +120,35 @@ print 'dotProd test'
 print dotProd
 
 # FINITE DIFFERENCE TEST
+# Define step size
+stepSize = 1e-7
 
+# Perturb the initial curves
+for ii in range(len(initCurveList)):
+    initCurveList[ii].set_points(initCurveList[ii].get_points() + stepSize*initCurveCoord[ii])
+
+# Create new manager
+manager2 = pysurf.Manager()
+for curve in initCurveList:
+    manager2.add_curve(curve)
+
+# Now let's merge these curves
+mergedCurveName = 'merged_curve'
+manager2.merge_intCurves(initCurveNames,mergedCurveName)
+
+# Get coordinates of the merged curve on the original and perturbed case
+mergedCurveCoor0 = manager.intCurves[mergedCurveName].get_points()
+mergedCurveCoor = manager2.intCurves[mergedCurveName].get_points()
+
+# Compute derivatives with finite differencing
+mergedCurveCoord_FD = (mergedCurveCoor - mergedCurveCoor0)/stepSize
+
+# Finite difference test
+FD_error = np.max(np.abs(mergedCurveCoord - mergedCurveCoord_FD))
+print 'FD test'
+print FD_error
+
+'''
 # Define step size
 stepSize = 1e-7
 
@@ -148,3 +176,4 @@ mergedCurveCoord_FD = (mergedCurveCoor - mergedCurveCoor0)/stepSize
 FD_error = np.max(np.abs(mergedCurveCoord - mergedCurveCoord_FD))
 print 'FD test'
 print FD_error
+'''

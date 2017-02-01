@@ -28,7 +28,7 @@
         !=================================================================
 
         subroutine computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
-        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, f, numNodes, numGuides)
+        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNew, numNodes, numGuides)
 
 
         use solveRoutines, only: solve
@@ -39,7 +39,7 @@
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
         real(kind=realType), intent(in) :: sigmaSplay, epsE0
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(out) :: f(3*numNodes)
+        real(kind=realType), intent(out) :: rNew(3*numNodes)
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
         logical, intent(in) :: retainSpacing
@@ -47,10 +47,11 @@
 
         real(kind=realType) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), d_vec_rot(3), eye(3, 3)
         real(kind=realType) :: K(3*numNodes, 3*numNodes)
+        real(kind=realType) :: f(3*numNodes), delta_r(3*numNodes)
         integer(kind=intType) :: index, i
         integer(kind=intType) :: ipiv(3*numNodes)
         integer(kind=intType) :: n, nrhs, ldK, ldf, info
-        real(kind=realType) :: one, zero, rhs(3*numNodes)
+        real(kind=realType) :: one, zero
         logical :: guide
 
         one = 1.
@@ -256,13 +257,11 @@
         ldK = n  ! leading dimension of K (should be = n unless we work with submatrices)
         ldf = n  ! leading dimension of f (should be = n unless we work with submatrices)
 
-        ! call dgesv(n, nrhs, K, ldK, ipiv, f, ldf, info)
-        rhs = f
-
-        call solve(K, f, rhs, n, ipiv)
+        ! Solve the linear system K*delta_r = f
+        call solve(K, delta_r, f, n, ipiv)
 
         ! Note that this f is rNext when outputted from computeMatrices_main
-        f = r0 + f
+        rNew = r0 + delta_r
 
         end subroutine computeMatrices_main
 
@@ -348,9 +347,9 @@
 
           ! Compute the local grid angle based on the neighbors
           call giveAngle(neigh1_point, &
-                            r0(3*(curr_index-1)+1:3*(curr_index-1)+3), &
-                            neigh2_point, &
-                            N0(:,curr_index), angle)
+               r0(3*(curr_index-1)+1:3*(curr_index-1)+3), &
+               neigh2_point, &
+               N0(:,curr_index), angle)
 
         end if
 
@@ -486,7 +485,7 @@
 
         ! Compute N (Eq. 6.3)
         call norm(r0_eta, normeta)
-        call norm (r0_xi, normxi)
+        call norm(r0_xi, normxi)
 
         N = normeta / normxi
 
@@ -507,7 +506,7 @@
         if (angle .le. pi) then ! Convex corner
           a = 1.0
         else
-          a = 1.0 / (1.0 - cos(angle/2)*cos(angle/2))
+          a = 1.0 / (1.0 - cos(angle/2)**2)
         end if
 
         ! Compute auxiliary variable R (Eq. 6.4)
@@ -665,9 +664,10 @@
         real(kind=realType) :: nodalDerivs(3, 2, numLayers, numNodes), det(numLayers, numNodes)
         real(kind=realType) :: normals(3, numLayers-2, numNodes-2), nodalJacs(3, 3, numLayers, numNodes), norm_val
         integer(kind=intType) :: i, j
-        real(kind=realType) :: zero
+        real(kind=realType) :: zero, eps
 
         zero = 0.
+        eps = 1e-15
 
         ! Convert the flattened array R into a 3 x numNodes x numLayers array.
         ! numLayers -> number of layers in the marching direction
@@ -762,7 +762,7 @@
         ! Throw an error and set the failure flag if the mesh is not valid
         do i=1,numNodes-1
           do j=1,numLayers-1
-            if (((ratios(j, i) .ne. ratios(j, i)) .or. ratios(j, i) .le. zero) .and. (layerIndex .ge. 1)) then
+            if ((ratios(j, i) .lt. zero+eps) .and. (layerIndex .ge. 1)) then
               print *,'========= FAILURE DETECTED ============'
               fail = 1
             end if
@@ -773,7 +773,7 @@
         end if
 
         ! Throw a warning if the mesh is low quality
-        if ((minval(ratios) .le. .2) .and. (layerIndex .ge. 1)) then
+        if ((minval(ratios) .lt. 0.2+eps) .and. (layerIndex .ge. 1)) then
           print *,"The mesh may be low quality after step", layerIndex+1
         end if
 
@@ -1127,7 +1127,7 @@
 
         implicit none
 
-        !! Performs a direct calculation of the inverse of a 3x3 matrix.
+        !! Performs a direct calculation of the inverse of a 3×3 matrix.
         real(kind=realType), intent(in)  :: A(3,3)   !! Matrix
         real(kind=realType), intent(out) :: B(3,3)   !! Inverse matrix
         real(kind=realType)              :: detinv
@@ -1155,16 +1155,17 @@
 
         subroutine giveAngle(r0, r1, r2, N1, angle)
 
-        implicit none
+          implicit none
+          
+          real(kind=realType), intent(in), dimension(3) :: r0, r1, r2, N1
 
-        real(kind=realType), intent(in), dimension(3) :: r0, r1, r2, N1
+          !f2py intent(in) r0, r1, r2, N1
+          !f2py intent(out) angle
 
-        !f2py intent(in) r0, r1, r2, N1
-        !f2py intent(out) angle
+          real(kind=realType), dimension(3) :: dr1, dr2, dr1crossdr2
+          real(kind=realType) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
+          real(kind=realType) :: normdr1, normdr2, dr1crossdr2dotN1
 
-        real(kind=realType), dimension(3) :: dr1, dr2, dr1crossdr2
-        real(kind=realType) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
-        real(kind=realType) :: normdr1, normdr2, dr1crossdr2dotN1
 
         pi = 3.14159265358979323846264338
         one = 1.0
