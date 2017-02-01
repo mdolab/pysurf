@@ -1,0 +1,74 @@
+#      ******************************************************************
+#      *                                                                *
+#      * File:          Makefile                                        *
+#      * Author:        John Jasa (based on Gaetan Kenway's work)       *
+#      * Starting date: 02-01-2017                                      *
+#      * Last modified: 02-01-2017                                      *
+#      *                                                                *
+#      ******************************************************************
+
+REAL_SRC = 	src/utilities	\
+
+SUBDIR_SRC =	src_cs/utilities       \
+
+WARP_SUBDIRS       = $(SUBDIR_SRC_CS)
+WARP_CLEAN_SUBDIRS = $(SUBDIR_SRC_CS)
+
+default:
+# Check if the config.mk file is in the config dir.
+	@if [ ! -f "config/config.mk" ]; then \
+	echo "Before compiling, copy an existing config file from the "; \
+	echo "config/defaults/ directory to the config/ directory and  "; \
+	echo "rename to config.mk. For example:"; \
+	echo " ";\
+	echo "  cp config/defaults/config.LINUX_INTEL_OPENMPI.mk config/config.mk"; \
+	echo " ";\
+	echo "The modify this config file as required. Typically the CGNS directory "; \
+	echo "will have to be modified. With the config file specified, rerun "; \
+	echo "'make' and the build will start"; \
+	else make -f Makefile_CS TSurf;\
+	fi;
+
+dirs:
+	mkdir -p obj_cs
+	mkdir -p mod_cs
+	@for subdir in $(SUBDIR_SRC) ; \
+	     do \
+	     	 echo "Creating Complex Directory $$subdir"; \
+	         (mkdir -p $$subdir) || exit 1;  \
+	     done
+clean:
+	ln -sf Common_CS.mk Common.mk
+	@echo " Making clean ... "
+	@for subdir in $(SUBDIR_SRC) ; \
+	     do \
+	     	 echo "Removing Complex Directory $$subdir"; \
+	         (rm -fr $$subdir) || exit 1;  \
+	     done
+
+#	(cd src_cs/f2py && make clean)
+	rm -f *~ config.mk;
+	rm -f lib_cs/lib* mod_cs/* obj_cs/*
+
+TSurf:
+	make -f Makefile_CS dirs
+	ln -sf config/config.mk config.mk
+	ln -sf Common_CS.mk Common.mk
+
+	@for subdir in $(REAL_SRC) ; \
+		do \
+			echo "complexifying $@ in $$subdir"; \
+			echo; \
+			(cd $$subdir && make complexify) || exit 1; \
+		done
+
+	@for subdir in $(SUBDIR_SRC) ; \
+		do \
+			echo "making $@ in $$subdir"; \
+			echo; \
+			(cd $$subdir && make) || exit 1; \
+		done
+
+	(cd lib_cs && make)
+	(cd src/f2py && make complexify)
+	(cd src_cs/f2py && make)

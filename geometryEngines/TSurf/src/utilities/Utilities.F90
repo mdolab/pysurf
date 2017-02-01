@@ -222,7 +222,7 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   real(kind=realType), dimension(3,nNodes) :: nodeCoor
   real(kind=realType), dimension(nNodes) :: arcLength
   integer(kind=intType) :: elemID, prevNodeID, currNodeID
-  real(kind=realType) :: dist
+  real(kind=realType) :: dist, zero, one, pi
 
   real(kind=realType), dimension(nNewNodes) :: newArcLength
   real(kind=realType), dimension(3) :: node1, node2
@@ -274,14 +274,18 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
 
   ! SAMPLING POSITION FOR NEW NODES
 
+  zero = 0.
+  one = 1.
+  pi = 3.1415926535897932384626
+
   ! Now that we know the initial and final arcLength, we can redistribute the
   ! parametric coordinates based on the used defined spacing criteria.
   ! These statements should initially create parametric coordinates in the interval
   ! [0.0, 1.0]. We will rescale it after the if statements.
   if (spacing .eq. 'linear') then
-    call linspace(0.0_8, 1.0_8, nNewNodes, newArcLength)
+    call linspace(zero, one, nNewNodes, newArcLength)
   else if (spacing .eq. 'cosine') then
-    call linspace(0.0_8, 3.141592653589793_8, nNewNodes, newArcLength)
+    call linspace(zero, pi, nNewNodes, newArcLength)
     newArcLength = 0.5 * (1.0 - cos(newArcLength))
   else if (spacing .eq. 'hyptan') then
     call getHypTanDist(Sp1/arcLength(nElem+1), Sp2/arcLength(nElem+1), nNewNodes, newArcLength)
@@ -614,8 +618,8 @@ subroutine computeBBox(coor, BBox)
   ! EXECUTION
 
   ! Get bounding values
-  BBox(:, 1) = minval(coor, 2)
-  BBox(:, 2) = maxval(coor, 2)
+  BBox(:, 1) = minval(real(coor), 2)
+  BBox(:, 2) = maxval(real(coor), 2)
 
 end subroutine computeBBox
 
@@ -672,8 +676,8 @@ subroutine computeBBoxPerElements(nNodes, nTria, nQuads, &
 
      ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
      ! based on the nodal coordinates.
-     triaBBox(1:3, elemID) = minval(triaCoor, 2)
-     triaBBox(4:6, elemID) = maxval(triaCoor, 2)
+     triaBBox(1:3, elemID) = minval(real(triaCoor), 2)
+     triaBBox(4:6, elemID) = maxval(real(triaCoor), 2)
 
   end do
 
@@ -688,8 +692,8 @@ subroutine computeBBoxPerElements(nNodes, nTria, nQuads, &
 
      ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
      ! based on the nodal coordinates.
-     quadsBBox(1:3, elemID) = minval(quadsCoor, 2)
-     quadsBBox(4:6, elemID) = maxval(quadsCoor, 2)
+     quadsBBox(1:3, elemID) = minval(real(quadsCoor), 2)
+     quadsBBox(4:6, elemID) = maxval(real(quadsCoor), 2)
 
   end do
 
