@@ -29,15 +29,17 @@ CONTAINS
     REAL(kind=realtype), INTENT(OUT) :: u
     REAL(kind=realtype) :: ud
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec
-    REAL(kind=realtype), DIMENSION(3) :: x21d, p1d
+    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec, dummyvec
+    REAL(kind=realtype), DIMENSION(3) :: x21d, p1d, dummyvecd
     REAL(kind=realtype) :: mag2, dotresult
     REAL(kind=realtype) :: mag2d, dotresultd
 ! EXECUTION
 ! Get the relative vectors for the bar element and the point
     x21d = x2d - x1d
     x21 = x2 - x1
-    CALL DOT_D0(x21, x21d, x21, x21d, mag2, mag2d)
+    dummyvecd = x21d
+    dummyvec = x21
+    CALL DOT_D0(x21, x21d, dummyvec, dummyvecd, mag2, mag2d)
     p1d = xd - x1d
     p1 = x - x1
 ! Compute the amount of the point that projects onto the element
@@ -72,12 +74,13 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
     REAL(kind=realtype), INTENT(OUT) :: u
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec
+    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec, dummyvec
     REAL(kind=realtype) :: mag2, dotresult
 ! EXECUTION
 ! Get the relative vectors for the bar element and the point
     x21 = x2 - x1
-    CALL DOT(x21, x21, mag2)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, mag2)
     p1 = x - x1
 ! Compute the amount of the point that projects onto the element
     CALL DOT(x21, p1, dotresult)
@@ -110,8 +113,8 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: tangent
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: tangentd
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21
-    REAL(kind=realtype), DIMENSION(3) :: x21d
+    REAL(kind=realtype), DIMENSION(3) :: x21, dummyvec
+    REAL(kind=realtype), DIMENSION(3) :: x21d, dummyvecd
     REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultd
     INTRINSIC SQRT
@@ -122,7 +125,9 @@ CONTAINS
     x21d = x2d - x1d
     x21 = x2 - x1
 ! Normalize vector (dot defined in Utilities.F90)
-    CALL DOT_D0(x21, x21d, x21, x21d, dotresult, dotresultd)
+    dummyvecd = x21d
+    dummyvec = x21
+    CALL DOT_D0(x21, x21d, dummyvec, dummyvecd, dotresult, dotresultd)
     IF (dotresult .EQ. 0.0) THEN
       result1d = 0.0
     ELSE
@@ -144,7 +149,7 @@ CONTAINS
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: tangent
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21
+    REAL(kind=realtype), DIMENSION(3) :: x21, dummyvec
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
     REAL(kind=realtype) :: result1
@@ -152,7 +157,8 @@ CONTAINS
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
 ! Normalize vector (dot defined in Utilities.F90)
-    CALL DOT(x21, x21, dotresult)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, dotresult)
     result1 = SQRT(dotresult)
     tangent = x21/result1
   END SUBROUTINE COMPUTETANGENT

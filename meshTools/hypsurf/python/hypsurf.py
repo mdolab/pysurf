@@ -20,7 +20,6 @@ TO DO
 - blend the angle-based dissipation coefficient
 '''
 
-
 class HypSurfMesh(object):
     """
     Hyperbolic surface mesh created by projecting points extruded from a
@@ -663,11 +662,19 @@ class HypSurfMesh(object):
                 node = r[3*index:3*index+3].reshape((1, 3))
                 curve = self.optionsDict['guideCurves'][i]
 
+
                 rbAux = self.ref_geom.project_on_curve_b(node,
                                                          rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
                                                          NNext[:,index], NNextb[:,index],
                                                          curveProjDict)
-
+                '''
+                elemIDs = curveProjDict['elemIDs']
+                curveMask = [1]
+                nodeb = np.zeros(node.shape)
+                self.ref_geom.curves[curve].project_b(node, nodeb, rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
+                                                      NNext[:,index], NNextb[:,index], elemIDs, curveMask)
+                rbAux = nodeb
+                '''
                 rb[3*index:3*index+3] = rbAux
 
         return rb
@@ -960,7 +967,7 @@ class HypSurfMesh(object):
         print 'Dot product test for Projection (this should be around 1e-14):'
         print dotprod
         print ''
-        
+
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
 
         stepSize = 1e-7

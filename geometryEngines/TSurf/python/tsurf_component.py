@@ -894,7 +894,7 @@ class TSurfCurve(Curve):
 
         # Assing coor and barsConn. Remember to crop coor to get unique nodes only
         self.coor = np.array(coor[:,:nUniqueNodes], order='F')
-        self.barsConn = sortedConn
+        self.barsConn = np.array(sortedConn, dtype='int32', order='F')
         self.name = name
         self.numNodes = self.coor.shape[1]
 
@@ -921,11 +921,16 @@ class TSurfCurve(Curve):
 
     def flip(self):
 
+        '''
         # Flip elements
         self.barsConn = self.barsConn[::-1]
         # Flip nodes
         for ii in range(len(self.barsConn)):
             self.barsConn[ii] = self.barsConn[ii][::-1]
+        '''
+
+        self.barsConn = np.array(self.barsConn[::-1,::-1],order='F')
+
         # Flip the extra data
 
         for data in self.extra_data:
@@ -942,7 +947,7 @@ class TSurfCurve(Curve):
         tst.rotate(self, angle, axis)
 
     def update(self, coor):
-        self.coor = coor
+        self.coor = np.array(coor,order='F')
 
     def project(self, xyz, dist2=None, xyzProj=None, tangents=None, elemIDs=None):
 

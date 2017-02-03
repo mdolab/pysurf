@@ -97,10 +97,12 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
 #========================================
 
-def read_tecplot_curves(fileName):
+def read_tecplot_curves(fileName, mergeTol=1e-7):
 
     '''
-    This function reads curve described in tecplot format
+    This function reads curve described in tecplot format.
+
+    mergeTol: float -> Tolerance used to merge nearby nodes after reading tecplot data.
 
     Ney Secco 2016-11
     '''
@@ -121,7 +123,7 @@ def read_tecplot_curves(fileName):
         currTecCurve = tecCurves[curveID]
 
         # Create new curve object
-        currCurve = tsurf_component.TSurfCurve(currTecCurve.coor, currTecCurve.barsConn, currTecCurve.name)
+        currCurve = tsurf_component.TSurfCurve(currTecCurve.coor, currTecCurve.barsConn, currTecCurve.name, mergeTol)
 
         # Add it to the TSurf curve dictionary
         curves[currTecCurve.name] = currCurve

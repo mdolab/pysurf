@@ -301,13 +301,12 @@ contains
           x2b_tang = 0.0
           call computeTangent_b(x1, x1b_tang, x2, x2b_tang, tangent, tangentb)
 
-
           ! Call projection function
           x1b = 0.0
           x2b = 0.0
           xb = 0.0
           call barProjection_b(x1,x1b,x2,x2b,x,xb,xf,xfb,u)
-          
+
           ! Store derivatives in the full array
           xyzb(:, i) = xyzb(:, i) + xb
           coorb(:, node1) = coorb(:, node1) + x1b + x1b_tang

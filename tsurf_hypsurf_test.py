@@ -5,14 +5,16 @@ from pysurf import hypsurf
 import numpy as np
 from numpy.random import rand
 from pysurf import TSurfGeometry
+from pysurf import tsurf_tools
 import os
 from mpi4py import MPI
 import unittest
 import pickle
 
 #example = 'kink_on_plate'
-example = 'line_on_cylinder'
+#example = 'line_on_cylinder'
 #example = 'line_on_cylinder_with_guides'
+example = 'crm_wing'
 
 if example == 'kink_on_plate':
 
@@ -122,6 +124,46 @@ elif example == 'line_on_cylinder_with_guides':
     numLayers = 30
     extension = 2.8
     guideCurves = ['bc1']
+
+elif example == 'crm_wing':
+
+    geom = TSurfGeometry('examples/inputs/initial_full_wing_crm4.cgns',['wing'])
+
+    # Load TE curves and append them to the wing component
+    curve_te_upp = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/curve_te_upp.plt_')
+    curve_te_low = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/curve_te_low.plt_')
+    curveName = curve_te_upp.keys()[0]
+    geom.add_curve(curve_te_upp[curveName])
+    curveName = curve_te_low.keys()[0]
+    geom.add_curve(curve_te_low[curveName])
+    geom.curves[curveName].flip()
+
+    # Load intersection curve
+    intCurveDict = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/intersection.plt_')
+    curveName = intCurveDict.keys()[0]
+    curve = intCurveDict[curveName]
+    curve.shift_end_nodes(criteria='maxX')
+
+    # Set problem
+    bc1 = 'continuous'#'curve:curve_te_upp'
+    bc2 = 'continuous'#'curve:curve_te_upp'
+        
+    # Set parameters
+    epsE0 = 12.5
+    theta = -0.8
+    alphaP0 = 0.25
+    numSmoothingPasses = 4
+    nuArea = 0.16
+    numAreaPasses = 0
+    sigmaSplay = 0.3
+    cMax = 10.0
+    ratioGuess = 10.0
+    
+    # Options
+    sBaseline = 0.01#0.01
+    numLayers = 49
+    extension = 1.4
+    guideCurves = ['curve_te_low']
 
 # Set options
 options = {
