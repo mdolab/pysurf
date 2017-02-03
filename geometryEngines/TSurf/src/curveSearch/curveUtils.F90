@@ -26,14 +26,15 @@ contains
     real(kind=realType), intent(out) :: u
 
     ! Working variables
-    real(kind=realType), dimension(3) :: x21, p1, vec
+    real(kind=realType), dimension(3) :: x21, p1, vec, dummyVec
     real(kind=realType) :: mag2, dotResult
 
     ! EXECUTION
 
     ! Get the relative vectors for the bar element and the point
     x21 = x2 - x1
-    call dot(x21, x21, mag2)
+    dummyVec = x21
+    call dot(x21, dummyVec, mag2)
     p1 = x - x1
 
     ! Compute the amount of the point that projects onto the element
@@ -71,7 +72,7 @@ contains
     real(kind=realType), dimension(3), intent(out) :: tangent
 
     ! Working variables
-    real(kind=realType), dimension(3) :: x21
+    real(kind=realType), dimension(3) :: x21, dummyVec
     real(kind=realType) :: dotResult
 
     ! EXECUTION
@@ -80,7 +81,8 @@ contains
     x21 = x2 - x1
 
     ! Normalize vector (dot defined in Utilities.F90)
-    call dot(x21, x21, dotResult)
+    dummyVec = x21
+    call dot(x21, dummyVec, dotResult)
     tangent = x21 / sqrt(dotResult)
 
   end subroutine computeTangent

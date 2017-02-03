@@ -512,8 +512,9 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: residuald
     REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
-    REAL(kind=realtype), DIMENSION(3) :: x10d, x21d, x41d, x3142d
+    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142, dummyvec
+    REAL(kind=realtype), DIMENSION(3) :: x10d, x21d, x41d, x3142d, &
+&   dummyvecd
     REAL(kind=realtype), DIMENSION(9) :: a
     REAL(kind=realtype), DIMENSION(9) :: ad
     REAL(kind=realtype), DIMENSION(2, 9) :: graduv
@@ -534,7 +535,10 @@ newtonquads:DO ll=1,itermax
     x3142d = x3d - x1d - x21d - x41d
     x3142 = x3 - x1 - x21 - x41
 ! Determine vector of coefficients (A)
-    CALL DOTPROD_D(x10, x10d, x10, x10d, dotresult, dotresultd)
+    dummyvecd = x10d
+    dummyvec = x10
+    CALL DOTPROD_D(x10, x10d, dummyvec, dummyvecd, dotresult, dotresultd&
+&           )
     ad = 0.0
     ad(1) = dotresultd
     a(1) = dotresult
@@ -544,7 +548,10 @@ newtonquads:DO ll=1,itermax
     CALL DOTPROD_D(x10, x10d, x41, x41d, dotresult, dotresultd)
     ad(3) = 2*dotresultd
     a(3) = 2*dotresult
-    CALL DOTPROD_D(x21, x21d, x21, x21d, dotresult, dotresultd)
+    dummyvecd = x21d
+    dummyvec = x21
+    CALL DOTPROD_D(x21, x21d, dummyvec, dummyvecd, dotresult, dotresultd&
+&           )
     ad(4) = dotresultd
     a(4) = dotresult
     CALL DOTPROD_D(x10, x10d, x3142, x3142d, dotresult, dotresultd)
@@ -553,7 +560,10 @@ newtonquads:DO ll=1,itermax
     CALL DOTPROD_D(x21, x21d, x41, x41d, dotresult, dotresultd)
     ad(5) = ad(5) + 2*dotresultd
     a(5) = a(5) + 2*dotresult
-    CALL DOTPROD_D(x41, x41d, x41, x41d, dotresult, dotresultd)
+    dummyvecd = x41d
+    dummyvec = x41
+    CALL DOTPROD_D(x41, x41d, dummyvec, dummyvecd, dotresult, dotresultd&
+&           )
     ad(6) = dotresultd
     a(6) = dotresult
     CALL DOTPROD_D(x21, x21d, x3142, x3142d, dotresult, dotresultd)
@@ -562,7 +572,10 @@ newtonquads:DO ll=1,itermax
     CALL DOTPROD_D(x41, x41d, x3142, x3142d, dotresult, dotresultd)
     ad(8) = 2*dotresultd
     a(8) = 2*dotresult
-    CALL DOTPROD_D(x3142, x3142d, x3142, x3142d, dotresult, dotresultd)
+    dummyvecd = x3142d
+    dummyvec = x3142
+    CALL DOTPROD_D(x3142, x3142d, dummyvec, dummyvecd, dotresult, &
+&            dotresultd)
     ad(9) = dotresultd
     a(9) = dotresult
 ! Assemble the gradient of the vector of independent variables (grad(X))
@@ -629,7 +642,7 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), DIMENSION(2), INTENT(OUT) :: residual
     REAL(kind=realtype), DIMENSION(2, 2), INTENT(OUT) :: invjac
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142
+    REAL(kind=realtype), DIMENSION(3) :: x10, x21, x41, x3142, dummyvec
     REAL(kind=realtype), DIMENSION(9) :: a
     REAL(kind=realtype), DIMENSION(2, 9) :: graduv
     REAL(kind=realtype), DIMENSION(2) :: graddist2
@@ -642,25 +655,29 @@ newtonquads:DO ll=1,itermax
     x41 = x4 - x1
     x3142 = x3 - x1 - x21 - x41
 ! Determine vector of coefficients (A)
-    CALL DOTPROD(x10, x10, dotresult)
+    dummyvec = x10
+    CALL DOTPROD(x10, dummyvec, dotresult)
     a(1) = dotresult
     CALL DOTPROD(x10, x21, dotresult)
     a(2) = 2*dotresult
     CALL DOTPROD(x10, x41, dotresult)
     a(3) = 2*dotresult
-    CALL DOTPROD(x21, x21, dotresult)
+    dummyvec = x21
+    CALL DOTPROD(x21, dummyvec, dotresult)
     a(4) = dotresult
     CALL DOTPROD(x10, x3142, dotresult)
     a(5) = 2*dotresult
     CALL DOTPROD(x21, x41, dotresult)
     a(5) = a(5) + 2*dotresult
-    CALL DOTPROD(x41, x41, dotresult)
+    dummyvec = x41
+    CALL DOTPROD(x41, dummyvec, dotresult)
     a(6) = dotresult
     CALL DOTPROD(x21, x3142, dotresult)
     a(7) = 2*dotresult
     CALL DOTPROD(x41, x3142, dotresult)
     a(8) = 2*dotresult
-    CALL DOTPROD(x3142, x3142, dotresult)
+    dummyvec = x3142
+    CALL DOTPROD(x3142, dummyvec, dotresult)
     a(9) = dotresult
 ! Assemble the gradient of the vector of independent variables (grad(X))
 ! gradUV(1,:) are derivatives with respect to u
@@ -884,8 +901,8 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype) :: x1d(3), x2d(3), x3d(3), x4d(3)
     REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
     REAL(kind=realtype) :: x12d(3), x23d(3), x13d(3), x24d(3)
-    REAL(kind=realtype) :: dotresult
-    REAL(kind=realtype) :: dotresultd
+    REAL(kind=realtype) :: dotresult, dummyvec(3)
+    REAL(kind=realtype) :: dotresultd, dummyvecd(3)
     INTRINSIC SQRT
     REAL(kind=realtype) :: result1
     REAL(kind=realtype) :: result1d
@@ -916,7 +933,9 @@ newtonquads:DO ll=1,itermax
 ! Take the cross-product of these vectors to obtain the normal vector
       CALL CROSSPROD_D(x12, x12d, x23, x23d, normal1, normal1d)
 ! Normalize this normal vector
-      CALL DOTPROD_D(normal1, normal1d, normal1, normal1d, dotresult, &
+      dummyvecd = normal1d
+      dummyvec = normal1
+      CALL DOTPROD_D(normal1, normal1d, dummyvec, dummyvecd, dotresult, &
 &              dotresultd)
       IF (dotresult .EQ. 0.0) THEN
         result1d = 0.0
@@ -965,7 +984,9 @@ newtonquads:DO ll=1,itermax
 ! Take the cross-product of these vectors to obtain the normal vectors
 ! Normalize these normal vectors
       CALL CROSSPROD_D(x13, x13d, x24, x24d, normal1, normal1d)
-      CALL DOTPROD_D(normal1, normal1d, normal1, normal1d, dotresult, &
+      dummyvecd = normal1d
+      dummyvec = normal1
+      CALL DOTPROD_D(normal1, normal1d, dummyvec, dummyvecd, dotresult, &
 &              dotresultd)
       IF (dotresult .EQ. 0.0) THEN
         result1d = 0.0
@@ -1002,7 +1023,9 @@ newtonquads:DO ll=1,itermax
 ! Normalize these new averaged nodal normals
       normal1d = nodalnormalsd(:, i)
       normal1 = nodalnormals(:, i)
-      CALL DOTPROD_D(normal1, normal1d, normal1, normal1d, dotresult, &
+      dummyvecd = normal1d
+      dummyvec = normal1
+      CALL DOTPROD_D(normal1, normal1d, dummyvec, dummyvecd, dotresult, &
 &              dotresultd)
       IF (dotresult .EQ. 0.0) THEN
         result1d = 0.0
@@ -1039,7 +1062,7 @@ newtonquads:DO ll=1,itermax
     INTEGER(kind=inttype) :: i, ind1, ind2, ind3, ind4
     REAL(kind=realtype) :: x1(3), x2(3), x3(3), x4(3)
     REAL(kind=realtype) :: x12(3), x23(3), x13(3), x24(3)
-    REAL(kind=realtype) :: dotresult
+    REAL(kind=realtype) :: dotresult, dummyvec(3)
     INTRINSIC SQRT
     REAL(kind=realtype) :: result1
 !===============================================================
@@ -1062,7 +1085,8 @@ newtonquads:DO ll=1,itermax
 ! Take the cross-product of these vectors to obtain the normal vector
       CALL CROSSPROD(x12, x23, normal1)
 ! Normalize this normal vector
-      CALL DOTPROD(normal1, normal1, dotresult)
+      dummyvec = normal1
+      CALL DOTPROD(normal1, dummyvec, dotresult)
       result1 = SQRT(dotresult)
       normal1 = normal1/result1
 ! Add the contribution of this normal to the nodalNormals array
@@ -1095,7 +1119,8 @@ newtonquads:DO ll=1,itermax
 ! Take the cross-product of these vectors to obtain the normal vectors
 ! Normalize these normal vectors
       CALL CROSSPROD(x13, x24, normal1)
-      CALL DOTPROD(normal1, normal1, dotresult)
+      dummyvec = normal1
+      CALL DOTPROD(normal1, dummyvec, dotresult)
       result1 = SQRT(dotresult)
       normal1 = normal1/result1
 ! Add the contribution of this normal to the nodalNormals array
@@ -1119,7 +1144,8 @@ newtonquads:DO ll=1,itermax
     DO i=1,ncoor
 ! Normalize these new averaged nodal normals
       normal1 = nodalnormals(:, i)
-      CALL DOTPROD(normal1, normal1, dotresult)
+      dummyvec = normal1
+      CALL DOTPROD(normal1, dummyvec, dotresult)
       result1 = SQRT(dotresult)
       nodalnormals(:, i) = normal1/result1
     END DO
@@ -1169,14 +1195,10 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), INTENT(OUT) :: cd
 ! Working variables
     INTEGER(kind=inttype) :: ii
-    INTRINSIC SIZE
+    INTRINSIC SUM
 ! EXECUTION
-    c = 0.0
-    cd = 0.0
-    DO ii=1,SIZE(a)
-      cd = cd + ad(ii)*b(ii) + a(ii)*bd(ii)
-      c = c + a(ii)*b(ii)
-    END DO
+    cd = SUM(ad*b + a*bd)
+    c = SUM(a*b)
   END SUBROUTINE DOTPROD_D
 !===============================================================
   SUBROUTINE DOTPROD(a, b, c)
@@ -1188,12 +1210,9 @@ newtonquads:DO ll=1,itermax
     REAL(kind=realtype), INTENT(OUT) :: c
 ! Working variables
     INTEGER(kind=inttype) :: ii
-    INTRINSIC SIZE
+    INTRINSIC SUM
 ! EXECUTION
-    c = 0.0
-    DO ii=1,SIZE(a)
-      c = c + a(ii)*b(ii)
-    END DO
+    c = SUM(a*b)
   END SUBROUTINE DOTPROD
 !===============================================================
   SUBROUTINE INVERT2X2(a, ainv)

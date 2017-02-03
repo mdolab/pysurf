@@ -28,8 +28,8 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3) :: xfb
     REAL(kind=realtype) :: u
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec
-    REAL(kind=realtype), DIMENSION(3) :: x21b, p1b
+    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec, dummyvec
+    REAL(kind=realtype), DIMENSION(3) :: x21b, p1b, dummyvecb
     REAL(kind=realtype) :: mag2, dotresult
     REAL(kind=realtype) :: mag2b, dotresultb
     INTEGER :: branch
@@ -37,7 +37,8 @@ CONTAINS
 ! EXECUTION
 ! Get the relative vectors for the bar element and the point
     x21 = x2 - x1
-    CALL DOT(x21, x21, mag2)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, mag2)
     p1 = x - x1
 ! Compute the amount of the point that projects onto the element
     CALL DOT(x21, p1, dotresult)
@@ -70,7 +71,9 @@ CONTAINS
     CALL DOT_B0(x21, x21b, p1, p1b, dotresult, dotresultb)
     xb = 0.0
     xb = p1b
-    CALL DOT_B0(x21, x21b, x21, x21b, mag2, mag2b)
+    dummyvecb = 0.0
+    CALL DOT_B0(x21, x21b, dummyvec, dummyvecb, mag2, mag2b)
+    x21b = x21b + dummyvecb
     x1b = x1b - x21b - p1b
     x2b = 0.0
     x2b = x21b
@@ -91,12 +94,13 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: xf
     REAL(kind=realtype), INTENT(OUT) :: u
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec
+    REAL(kind=realtype), DIMENSION(3) :: x21, p1, vec, dummyvec
     REAL(kind=realtype) :: mag2, dotresult
 ! EXECUTION
 ! Get the relative vectors for the bar element and the point
     x21 = x2 - x1
-    CALL DOT(x21, x21, mag2)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, mag2)
     p1 = x - x1
 ! Compute the amount of the point that projects onto the element
     CALL DOT(x21, p1, dotresult)
@@ -129,8 +133,8 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3) :: tangent
     REAL(kind=realtype), DIMENSION(3) :: tangentb
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21
-    REAL(kind=realtype), DIMENSION(3) :: x21b
+    REAL(kind=realtype), DIMENSION(3) :: x21, dummyvec
+    REAL(kind=realtype), DIMENSION(3) :: x21b, dummyvecb
     REAL(kind=realtype) :: dotresult
     REAL(kind=realtype) :: dotresultb
     INTRINSIC SQRT
@@ -139,7 +143,8 @@ CONTAINS
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
 ! Normalize vector (dot defined in Utilities.F90)
-    CALL DOT(x21, x21, dotresult)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, dotresult)
     x21b = 0.0
     temp = SQRT(dotresult)
     x21b = tangentb/temp
@@ -148,7 +153,9 @@ CONTAINS
     ELSE
       dotresultb = SUM(-(x21*tangentb/temp))/(temp**2*2.0)
     END IF
-    CALL DOT_B0(x21, x21b, x21, x21b, dotresult, dotresultb)
+    dummyvecb = 0.0
+    CALL DOT_B0(x21, x21b, dummyvec, dummyvecb, dotresult, dotresultb)
+    x21b = x21b + dummyvecb
     x2b = x2b + x21b
     x1b = x1b - x21b
     tangentb = 0.0
@@ -165,14 +172,15 @@ CONTAINS
 ! Output variables
     REAL(kind=realtype), DIMENSION(3), INTENT(OUT) :: tangent
 ! Working variables
-    REAL(kind=realtype), DIMENSION(3) :: x21
+    REAL(kind=realtype), DIMENSION(3) :: x21, dummyvec
     REAL(kind=realtype) :: dotresult
     INTRINSIC SQRT
 ! EXECUTION
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
 ! Normalize vector (dot defined in Utilities.F90)
-    CALL DOT(x21, x21, dotresult)
+    dummyvec = x21
+    CALL DOT(x21, dummyvec, dotresult)
     tangent = x21/SQRT(dotresult)
   END SUBROUTINE COMPUTETANGENT
 END MODULE CURVEUTILS_B

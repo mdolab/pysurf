@@ -350,7 +350,7 @@
           real(kind=realType), dimension(2,2), intent(out) :: invJac
 
           ! Working variables
-          real(kind=realType), dimension(3) :: x10, x21, x41, x3142
+          real(kind=realType), dimension(3) :: x10, x21, x41, x3142, dummyVec
           real(kind=realType), dimension(9) :: A
           real(kind=realType), dimension(2,9) :: gradUV
           real(kind=realType), dimension(2) :: gradDist2
@@ -366,8 +366,8 @@
           x3142 = x3 - x1 - x21 - x41
 
           ! Determine vector of coefficients (A)
-
-          call dotProd(x10, x10, dotResult)
+          dummyVec = x10
+          call dotProd(x10, dummyVec, dotResult)
           A(1) = dotResult
 
           call dotProd(x10, x21, dotResult)
@@ -376,7 +376,8 @@
           call dotProd(x10, x41, dotResult)
           A(3) = 2*dotResult
 
-          call dotProd(x21, x21, dotResult)
+          dummyVec = x21
+          call dotProd(x21, dummyVec, dotResult)
           A(4) = dotResult
 
           call dotProd(x10, x3142, dotResult)
@@ -384,7 +385,8 @@
           call dotProd(x21, x41, dotResult)
           A(5) = A(5) + 2*dotResult
 
-          call dotProd(x41, x41, dotResult)
+          dummyVec = x41
+          call dotProd(x41, dummyVec, dotResult)
           A(6) = dotResult
 
           call dotProd(x21, x3142, dotResult)
@@ -393,7 +395,8 @@
           call dotProd(x41, x3142, dotResult)
           A(8) = 2*dotResult
 
-          call dotProd(x3142, x3142, dotResult)
+          dummyVec = x3142
+          call dotProd(x3142, dummyVec, dotResult)
           A(9) = dotResult
 
           ! Assemble the gradient of the vector of independent variables (grad(X))
@@ -622,7 +625,7 @@
         integer(kind=intType) :: i, ind1, ind2, ind3, ind4
         real(kind=realType) :: x1(3), x2(3), x3(3), x4(3)
         real(kind=realType) :: x12(3), x23(3), x13(3), x24(3)
-        real(kind=realType) :: dotResult
+        real(kind=realType) :: dotResult, dummyVec(3)
 
 
         !===============================================================
@@ -652,7 +655,8 @@
           call crossProd(x12, x23, normal1)
 
           ! Normalize this normal vector
-          call dotProd(normal1, normal1, dotResult)
+          dummyVec = normal1
+          call dotProd(normal1, dummyVec, dotResult)
           normal1 = normal1 / sqrt(dotResult)
 
           ! Add the contribution of this normal to the nodalNormals array
@@ -692,7 +696,8 @@
           ! Take the cross-product of these vectors to obtain the normal vectors
           ! Normalize these normal vectors
           call crossProd(x13, x24, normal1)
-          call dotProd(normal1, normal1, dotResult)
+          dummyVec = normal1
+          call dotProd(normal1, dummyVec, dotResult)
           normal1 = normal1 / sqrt(dotResult)
 
           ! Add the contribution of this normal to the nodalNormals array
@@ -720,7 +725,8 @@
         do i=1,nCoor
           ! Normalize these new averaged nodal normals
           normal1 = nodalNormals(:, i)
-          call dotProd(normal1, normal1, dotResult)
+          dummyVec = normal1
+          call dotProd(normal1, dummyVec, dotResult)
           nodalNormals(:, i) = normal1 / sqrt(dotResult)
         end do
 
@@ -772,10 +778,7 @@
           integer(kind=intType) :: ii
 
           ! EXECUTION
-          c = 0.0
-          do ii=1,size(a)
-             c = c + a(ii)*b(ii)
-          end do
+          c = sum(a*b)
 
         end subroutine dotProd
 

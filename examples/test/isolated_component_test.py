@@ -64,7 +64,9 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
     # Call derivatives code in backward mode
     xyzb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
 
-    _, allCoorb = cube.get_reverseADSeeds()
+    allCoorb = {}
+    for curve in cube.curves.itervalues():
+        allCoorb[curve.name] = curve._get_reverseADSeeds()
 
     # Print results
     print

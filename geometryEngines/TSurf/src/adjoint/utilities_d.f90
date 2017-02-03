@@ -123,7 +123,7 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
     REAL(kind=realtype), DIMENSION(nnodes) :: arclengthd
     INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
-    REAL(kind=realtype) :: dist
+    REAL(kind=realtype) :: dist, zero, one, pi
     REAL(kind=realtype) :: distd
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclengthd
@@ -131,6 +131,9 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3) :: node1d, node2d
     INTRINSIC COS
     nnodes = nelem + 1
+! Initialize outputs
+    newcoor = 0.0
+    newbarsconn = 0
 ! First we check if the FE data is ordered
     DO elemid=2,nelem
 ! Get node indices
@@ -146,6 +149,7 @@ CONTAINS
     nodecoord = 0.0
     nodecoord(:, 1) = coord(:, barsconn(1, 1))
     nodecoor(:, 1) = coor(:, barsconn(1, 1))
+    arclength(1) = 0.0
     arclengthd = 0.0
 ! Loop over each element to increment arcLength
     DO elemid=1,nelem
@@ -164,15 +168,18 @@ CONTAINS
       nodecoor(:, elemid+1) = node2
     END DO
 ! SAMPLING POSITION FOR NEW NODES
+    zero = 0.
+    one = 1.
+    pi = 3.1415926535897932384626
 ! Now that we know the initial and final arcLength, we can redistribute the
 ! parametric coordinates based on the used defined spacing criteria.
 ! These statements should initially create parametric coordinates in the interval
 ! [0.0, 1.0]. We will rescale it after the if statements.
     IF (spacing .EQ. 'linear') THEN
-      CALL LINSPACE(0.0, 1.0, nnewnodes, newarclength)
+      CALL LINSPACE(zero, one, nnewnodes, newarclength)
       newarclengthd = 0.0
     ELSE IF (spacing .EQ. 'cosine') THEN
-      CALL LINSPACE(0.0, 3.141592653589793, nnewnodes, newarclength)
+      CALL LINSPACE(zero, pi, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
       newarclengthd = 0.0
     ELSE IF (spacing .EQ. 'hyptan') THEN
@@ -233,11 +240,14 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoor
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
     INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
-    REAL(kind=realtype) :: dist
+    REAL(kind=realtype) :: dist, zero, one, pi
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
     REAL(kind=realtype), DIMENSION(3) :: node1, node2
     INTRINSIC COS
     nnodes = nelem + 1
+! Initialize outputs
+    newcoor = 0.0
+    newbarsconn = 0
 ! First we check if the FE data is ordered
     DO elemid=2,nelem
 ! Get node indices
@@ -257,6 +267,7 @@ CONTAINS
 ! Store position of the first node (the other nodes will be covered in the loop)
 ! (the -1 is due Fortran indexing)
     nodecoor(:, 1) = coor(:, barsconn(1, 1))
+    arclength(1) = 0.0
 ! Loop over each element to increment arcLength
     DO elemid=1,nelem
 ! Get node positions (the -1 is due Fortran indexing)
@@ -270,14 +281,17 @@ CONTAINS
       nodecoor(:, elemid+1) = node2
     END DO
 ! SAMPLING POSITION FOR NEW NODES
+    zero = 0.
+    one = 1.
+    pi = 3.1415926535897932384626
 ! Now that we know the initial and final arcLength, we can redistribute the
 ! parametric coordinates based on the used defined spacing criteria.
 ! These statements should initially create parametric coordinates in the interval
 ! [0.0, 1.0]. We will rescale it after the if statements.
     IF (spacing .EQ. 'linear') THEN
-      CALL LINSPACE(0.0, 1.0, nnewnodes, newarclength)
+      CALL LINSPACE(zero, one, nnewnodes, newarclength)
     ELSE IF (spacing .EQ. 'cosine') THEN
-      CALL LINSPACE(0.0, 3.141592653589793, nnewnodes, newarclength)
+      CALL LINSPACE(zero, pi, nnewnodes, newarclength)
       newarclength = 0.5*(1.0-COS(newarclength))
     ELSE IF (spacing .EQ. 'hyptan') THEN
       CALL GETHYPTANDIST(sp1/arclength(nelem+1), sp2/arclength(nelem+1)&
@@ -417,16 +431,17 @@ CONTAINS
     REAL(kind=realtype), INTENT(IN) :: ad(3), bd(3)
     REAL(kind=realtype), INTENT(OUT) :: dot_
     REAL(kind=realtype), INTENT(OUT) :: dot_d
-    dot_d = ad(1)*b(1) + a(1)*bd(1) + ad(2)*b(2) + a(2)*bd(2) + ad(3)*b(&
-&     3) + a(3)*bd(3)
-    dot_ = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
+    INTRINSIC SUM
+    dot_d = SUM(ad*b + a*bd)
+    dot_ = SUM(a*b)
   END SUBROUTINE DOT_D0
 !============================================================
   SUBROUTINE DOT(a, b, dot_)
     IMPLICIT NONE
     REAL(kind=realtype), INTENT(IN) :: a(3), b(3)
     REAL(kind=realtype), INTENT(OUT) :: dot_
-    dot_ = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
+    INTRINSIC SUM
+    dot_ = SUM(a*b)
   END SUBROUTINE DOT
 !  Differentiation of norm in forward (tangent) mode:
 !   variations   of useful results: norm_
@@ -628,8 +643,11 @@ CONTAINS
 ! WORKING
     INTEGER(kind=inttype) :: elemid, nodeid
     REAL(kind=realtype) :: triacoor(3, 3), quadscoor(3, 4), bbox(6)
+    INTRINSIC REAL
     INTRINSIC MINVAL
     INTRINSIC MAXVAL
+    REAL, DIMENSION(3, 3) :: arg1
+    REAL, DIMENSION(3, 4) :: arg10
 ! EXECUTION
 ! Loop over all triangles
     DO elemid=1,ntria
@@ -639,8 +657,10 @@ CONTAINS
       triacoor(:, 3) = coor(:, triaconn(3, elemid))
 ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
 ! based on the nodal coordinates.
-      triabbox(1:3, elemid) = MINVAL(triacoor, 2)
-      triabbox(4:6, elemid) = MAXVAL(triacoor, 2)
+      arg1(:, :) = REAL(triacoor)
+      triabbox(1:3, elemid) = MINVAL(arg1(:, :), 2)
+      arg1(:, :) = REAL(triacoor)
+      triabbox(4:6, elemid) = MAXVAL(arg1(:, :), 2)
     END DO
 ! Loop over all quads
     DO elemid=1,nquads
@@ -651,8 +671,10 @@ CONTAINS
       quadscoor(:, 4) = coor(:, quadsconn(4, elemid))
 ! Assign min values (BBox(1:3)) and max values (BBox(4:6))
 ! based on the nodal coordinates.
-      quadsbbox(1:3, elemid) = MINVAL(quadscoor, 2)
-      quadsbbox(4:6, elemid) = MAXVAL(quadscoor, 2)
+      arg10(:, :) = REAL(quadscoor)
+      quadsbbox(1:3, elemid) = MINVAL(arg10(:, :), 2)
+      arg10(:, :) = REAL(quadscoor)
+      quadsbbox(4:6, elemid) = MAXVAL(arg10(:, :), 2)
     END DO
   END SUBROUTINE COMPUTEBBOXPERELEMENTS
 !============================================================

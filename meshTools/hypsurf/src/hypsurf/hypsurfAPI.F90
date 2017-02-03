@@ -1018,6 +1018,7 @@
              ! Compute the cFactor
              call areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices, &
                   numGuides, numNodes, S0, maxStretch)
+
              cFactor = ceiling(maxStretch/cMax)
 
              ! Store cFactor
