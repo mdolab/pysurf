@@ -49,8 +49,8 @@ comp1.translate(0.0, 0.0, 1.5)
 
 # Get the intersection curve from a file
 curveDict = pysurf.tsurf_tools.read_tecplot_curves('intersection_000.plt_')
-curveName = curveDict.keys()[0]
-curve = curveDict[curveName]
+intCurveName = curveDict.keys()[0]
+curve = curveDict[intCurveName]
 curve.extra_data['parentGeoms'] = [name1, name2]
 
 # Create manager object and add the geometry objects to it
@@ -110,7 +110,7 @@ def forward_pass(manager):
         
     }
 
-    meshNames = manager.march_intCurve_surfaceMesh(curveName, options0=options_wing, options1=options_body, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(intCurveName, options0=options_wing, options1=options_body, meshName=meshName)
 
     for meshName in meshNames:
         manager.meshes[meshName].exportPlot3d(meshName+'_%03d'%numPasses+'.xyz')
@@ -128,37 +128,14 @@ numPasses = numPasses + 1
 # Generate random seeds
 manager0.geoms[name1].set_randomADSeeds(mode='forward')
 
-for intCurveName in comp1.curves:
-    manager0.geoms[name1].curves[intCurveName].set_randomADSeeds(mode='forward')
+coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
+coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
 
-manager0.geoms[name2].set_randomADSeeds(mode='forward')
-
-for intCurveName in comp2.curves:
-    manager0.geoms[name2].curves[intCurveName].set_randomADSeeds(mode='forward')
-
-manager0.intCurves[curveName].set_randomADSeeds(mode='forward')
-
-for meshName in meshNames:
-    manager0.meshes[meshName].set_randomADSeeds(mode='reverse')
-
-# Store relevant seeds
-coor1d = manager0.geoms[name1].get_forwardADSeeds()
-
-curveCoor1d = []
-for intCurveName in comp1.curves:
-    curveCoor1d.append(manager0.geoms[name1].curves[intCurveName].get_forwardADSeeds())
-
-coor2d = manager0.geoms[name2].get_forwardADSeeds()
-
-curveCoor2d = []
-for intCurveName in comp2.curves:
-    curveCoor2d.append(manager0.geoms[name2].curves[intCurveName].get_forwardADSeeds())
-
-intCoord = manager0.intCurves[curveName].get_forwardADSeeds()
+intCoord = manager0.intCurves[intCurveName].set_randomADSeeds(mode='forward')
 
 meshb = []
 for meshName in meshNames:
-    meshb.append(manager0.meshes[meshName].get_reverseADSeeds(clean=False))
+    meshb.append(manager0.meshes[meshName].set_randomADSeeds(mode='reverse'))
 
 # FORWARD AD
 
@@ -176,19 +153,10 @@ for meshName in meshNames:
 manager0.reverseAD()
     
 # Get relevant seeds
-coor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
 
-curveCoor1b = []
-for intCurveName in comp1.curves:
-    curveCoor1b.append(manager0.geoms[name1].curves[intCurveName].get_reverseADSeeds())
-
-coor2b = manager0.geoms[name2].get_reverseADSeeds()
-
-curveCoor2b = []
-for intCurveName in comp2.curves:
-    curveCoor2b.append(manager0.geoms[name2].curves[intCurveName].get_reverseADSeeds())
-
-intCoorb = manager0.intCurves[curveName].get_reverseADSeeds()
+intCoorb = manager0.intCurves[intCurveName].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
@@ -202,8 +170,8 @@ dotProd = dotProd + np.sum(coor1b*coor1d)
 print dotProd
 
 print 'curves1'
-for ii in range(len(curveCoor1d)):
-    dotProd = dotProd + np.sum(curveCoor1d[ii]*curveCoor1b[ii])
+for curveName in curveCoor1d:
+    dotProd = dotProd + np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
     print dotProd
 
 print 'coor2'
@@ -211,8 +179,8 @@ dotProd = dotProd + np.sum(coor2b*coor2d)
 print dotProd
 
 print 'curves2'
-for ii in range(len(curveCoor2d)):
-    dotProd = dotProd + np.sum(curveCoor2d[ii]*curveCoor2b[ii])
+for curveName in curveCoor2d:
+    dotProd = dotProd + np.sum(curveCoor2d[curveName]*curveCoor2b[curevName])
     print dotProd
 
 print 'mesh'
@@ -228,17 +196,13 @@ stepSize = 1e-7
 
 comp1.update(comp1.coor + stepSize*coor1d)
 
-ii = 0
-for intCurveName in comp1.curves:
-    comp1.curves[intCurveName].set_points(comp1.curves[intCurveName].get_points() + stepSize*curveCoor1d[ii])
-    ii = ii + 1
+for curveName in comp1.curves:
+    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
 
 comp2.update(comp2.coor + stepSize*coor2d)
 
-ii = 0
-for intCurveName in comp2.curves:
-    comp2.curves[intCurveName].set_points(comp2.curves[intCurveName].get_points() + stepSize*curveCoor2d[ii])
-    ii = ii + 1
+for curveName in comp2.curves:
+    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
 curve.set_points(curve.get_points() + stepSize*intCoord)
 

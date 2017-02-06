@@ -50,7 +50,7 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
     # Replace baseline coordinates if the user provided it
     if allCoor is not None:
         for curveName in cube.curves:
-            cube.curves[curveName].update(allCoor[curveName])
+            cube.curves[curveName].set_points(allCoor[curveName])
 
     # Call projection algorithm
     xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
@@ -66,7 +66,7 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
 
     allCoorb = {}
     for curve in cube.curves.itervalues():
-        allCoorb[curve.name] = curve._get_reverseADSeeds()
+        allCoorb[curve.name] = curve.get_reverseADSeeds()
 
     # Print results
     print
@@ -94,7 +94,9 @@ coord = coord/np.array([np.linalg.norm(coord,axis=1)]).T
 
 allCoord = {}
 for curveName in cube.curves:
-    curveCoord = np.array(np.random.rand(cube.curves[curveName].coor.shape[0],cube.curves[curveName].coor.shape[1]),order='F')
+    # Get curve coordinate size
+    coor = cube.curves[curveName].get_points()
+    curveCoord = np.array(np.random.rand(coor.shape[0],coor.shape[1]),order='F')
     allCoord[curveName] = curveCoord/np.array([np.linalg.norm(curveCoord,axis=1)]).T
 
 xyzProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
@@ -159,7 +161,7 @@ xyzProj0, xyzProjd_AD, tanProj0, tanProjd_AD, xyzb_AD, allCoorb_AD = computeCurv
 # Create coordinates of perturbed points
 allCoor = {}
 for curveName in cube.curves:
-    coor = cube.curves[curveName].coor
+    coor = cube.curves[curveName].get_points()
     allCoor[curveName] = coor + allCoord[curveName]*stepSize
 
 # Call projection function at the perturbed point

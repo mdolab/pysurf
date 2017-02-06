@@ -553,6 +553,60 @@ def merge_surface_sections(sectionDict, selectedSections):
 
 #=================================================================
 
+def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
+
+    '''
+    This function will generate a curve object from a list
+    of points provided by the user.
+    This function automatically generate the bar element connectivity
+    assuming that the points in coor are ordered.
+
+    INPUTS:
+
+    coor -> float[3,numNodes] : coordinates (X,Y,Z) of the curve nodes.
+
+    curveName -> string : name for the new curve object.
+
+    periodic -> Boolean : if True, a bar element will connect the first and
+                          the last node defined in coor.
+
+    mergeTol -> float : threshold used to merge nearby nodes.
+
+    OUTPUTS:
+
+    curve -> TSurfCurve object : curve object defined by the given nodes.
+
+    Ney Secco 2017-02
+    '''
+
+    # Check if we have 3D data
+    if coor.shape[0] != 3:
+        raise ValueError('coor should be of shape [3,numNodes]')
+
+    # Determine the number of nodes
+    numNodes = coor.shape[1]
+
+    # Create bar element connectivity
+    barsConn = np.zeros((2,numNodes-1))
+    barsConn[0,:] = range(numNodes-1)
+    barsConn[1,:] = barsConn[0,:] + 1
+
+    # Add an extra element if the curve is periodic
+    if periodic:
+        newBar = np.array([[barsConn[-1,-1],1]]).T
+        np.hstack([barsConn, newBar])
+
+    # Add 1 to everything due to Fortran indexing
+    barsConn = barsConn + 1
+
+    # Create curve object
+    curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol)
+    
+    # Return curve object
+    return curve
+
+#=================================================================
+
 def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
     '''

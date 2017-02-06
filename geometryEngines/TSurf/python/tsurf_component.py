@@ -371,7 +371,7 @@ class TSurfGeometry(Geometry):
                                                                self.triaConn, self.quadsConn,
                                                                self.nodal_normals, nodal_normalsb)
 
-        self.accumulate_reverseADSeeds(coorb)
+        self.accumulate_reverseADSeeds(coorb, curveCoorb=None)
 
         # Return projection derivatives
         return xyzb
@@ -443,7 +443,7 @@ class TSurfGeometry(Geometry):
             if curveName in curveCandidates:
 
                 # Run projection code
-                curveMask = self.curves[curveName].project(xyz, dist2, xyzProj, tanProj, elemIDs)
+                _,_,_,curveMask = self.curves[curveName].project(xyz, dist2, xyzProj, tanProj, elemIDs)
 
                 # Use curveMask to update names of curves that got best projections
                 for ii in range(numPts):
@@ -693,7 +693,7 @@ class TSurfGeometry(Geometry):
             for curveName in self.curves:
                 if curveName in curveCoord.keys():
                     if curveCoord[curveName] is not None:
-                        self.curves[curveName].coord = np.array(curveCoord[curveName], order='F')
+                        self.curves[curveName].set_forwardADSeeds(curveCoord[curveName])
 
     def get_forwardADSeeds(self):
         '''
@@ -706,7 +706,11 @@ class TSurfGeometry(Geometry):
 
         coord = np.array(self.coord, order='F')
 
-        return coord
+        curveCoord = {}
+        for curveName in self.curves:
+            curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
+
+        return coord, curveCoord
 
     def set_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
@@ -724,7 +728,7 @@ class TSurfGeometry(Geometry):
             for curveName in self.curves:
                 if curveName in curveCoorb.keys():
                     if curveCoorb[curveName] is not None:
-                        self.curves[curveName].coorb = np.array(curveCoorb[curveName], order='F')
+                        self.curves[curveName].set_reverseADSeeds(curveCoorb[curveName])
 
     def get_reverseADSeeds(self,clean=True):
         '''
@@ -738,18 +742,32 @@ class TSurfGeometry(Geometry):
         # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
         coorb = np.array(self.coorb, order='F')
 
+        curveCoorb = {}
+        for curveName in self.curves:
+            curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean)
+
         # Check if we need to clean the derivative seeds
         if clean:
-            self.clean_reverseADSeeds()
+            self.coorb[:,:] = 0.0
 
-        return coorb
+        return coorb, curveCoorb
 
-    def accumulate_reverseADSeeds(self, coorb):
+    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
         This will accumulate derivative seeds to the surface design variables (coor)
+        and the curve design variables (curve.coor).
+
+        curveCoorb: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
         '''
 
-        self.coorb = self.coorb + np.array(coorb, order='F')
+        if coorb is not None:
+            self.coorb = self.coorb + np.array(coorb, order='F')
+
+        if curveCoorb is not None:
+            for curveName in self.curves:
+                if curveCoorb[curveName] is not None:
+                    self.curves[curveName].coorb = self.accumulate_reverseADSeeds(curveCoorb[curveName])
 
     def clean_reverseADSeeds(self):
         '''
@@ -761,6 +779,9 @@ class TSurfGeometry(Geometry):
         '''
 
         self.coorb[:,:] = 0.0
+
+        for curveName in self.curves:
+            self.curves[curveName].coorb[:,:] = 0.0
 
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
@@ -780,13 +801,37 @@ class TSurfGeometry(Geometry):
         if mode=='forward' or mode=='both':
 
             coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
-            self.coord = coord/np.sqrt(np.sum(coord**2))
+            coord = coord/np.sqrt(np.sum(coord**2))
+            self.coord = coord
+
+            curveCoord = {}
+            for curveName in self.curves:
+                self.curves[curveName].set_randomADSeeds(mode='forward', fixedSeed=fixedSeed)
+                curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
 
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
-            self.coorb = coorb/np.sqrt(np.sum(coorb**2))
+            coorb = coorb/np.sqrt(np.sum(coorb**2))
+            self.coorb = coorb
+
+            curveCoorb = {}
+            for curveName in self.curves:
+                self.curves[curveName].set_randomADSeeds(mode='reverse', fixedSeed=fixedSeed)
+                curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean=False)
+
+
+        # Return the randomly generated seeds
+
+        if mode == 'forward':
+            return coord, curveCoord
+
+        elif mode == 'reverse':
+            return coorb, curveCoorb
+
+        elif mode == 'both':
+            return coord, curveCoord, coorb, curveCoorb
 
 
 #=============================================================
@@ -949,7 +994,11 @@ class TSurfCurve(Curve):
     def update(self, coor):
         self.coor = np.array(coor,order='F')
 
-    def project(self, xyz, dist2=None, xyzProj=None, tangents=None, elemIDs=None):
+    #=================================================================
+    # PROJECTION FUNCTIONS
+    #=================================================================
+
+    def project(self, xyz, dist2=None, xyzProj=None, tanProj=None, elemIDs=None):
 
         '''
         This function will take the points given in xyz and project them to the curve.
@@ -969,7 +1018,7 @@ class TSurfCurve(Curve):
                                       If you don't have previous values, just initialize all elements to zero. Also
                                       remember to set dist2 to a huge number so that all values are replaced.
 
-        tangents -> float[nPoints,3] : tangent directions for the curve at the projected points.
+        tanProj -> float[nPoints,3] : tangent directions for the curve at the projected points.
 
         elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
                                   the execution of the primal routine.
@@ -983,25 +1032,20 @@ class TSurfCurve(Curve):
         # Initialize references if user provided none
         if dist2 is None:
             dist2 = np.ones(nPoints)*1e10
-
         if xyzProj is None:
             xyzProj = np.zeros((nPoints,3))
-
-        if tangents is None:
-            tangents = np.zeros((nPoints,3))
-
+        if tanProj is None:
+            tanProj = np.zeros((nPoints,3))
         if elemIDs is None:
             elemIDs = np.zeros((nPoints),dtype='int32')
 
         # Call fortran code
+        # This will modify xyzProj, tanProj, dist2, and elemIDs if we find better projections than dist2.
         curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(xyz.T, self.coor, self.barsConn,
-                                                                   xyzProj.T, tangents.T, dist2, elemIDs)
+                                                                   xyzProj.T, tanProj.T, dist2, elemIDs)
 
-        # curveMask is an array of length nPoints. If point ii finds a better projection on this curve, then curveMask[ii]=1.
-        # Otherwise, curveMask[ii]=0
 
-        return curveMask
-
+        return xyzProj, tanProj, elemIDs, curveMask
 
     def project_d(self, xyz, xyzd, xyzProj, xyzProjd, tanProj, tanProjd, elemIDs, curveMask):
 
@@ -1098,6 +1142,10 @@ class TSurfCurve(Curve):
         # Accumulate derivatives
         xyzb[:,:] = xyzb + xyzb_new.T
         self.coorb = self.coorb + coorb_new
+
+    #=================================================================
+    # REMESHING FUNCTIONS
+    #=================================================================
 
     def remesh(self, nNewNodes=None, method='linear', spacing='linear',
                initialSpacing=0.1, finalSpacing=0.1):
@@ -2149,13 +2197,26 @@ class TSurfCurve(Curve):
         if mode=='forward' or mode=='both':
 
             coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
-            self.coord = coord/np.sqrt(np.sum(coord**2))
+            coord = coord/np.sqrt(np.sum(coord**2))
+            self.coord = coord
 
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
-            self.coorb = coorb/np.sqrt(np.sum(coorb**2))
+            coorb = coorb/np.sqrt(np.sum(coorb**2))
+            self.coorb = coorb
+
+        # Return the randomly generated seeds
+
+        if mode == 'forward':
+            return self.get_forwardADSeeds()
+
+        elif mode == 'reverse':
+            return self.get_reverseADSeeds(clean=False)
+
+        elif mode == 'both':
+            return self.get_forwardADSeeds(), self.get_reverseADSeeds(clean=False)
 
     #===========================================================#
     # DERIVATIVE SEED MANIPULATION METHODS (unordered versions)

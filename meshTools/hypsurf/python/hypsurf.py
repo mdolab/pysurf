@@ -495,14 +495,27 @@ class HypSurfMesh(object):
         if mode=='forward' or mode=='both':
 
             meshd = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
-            self.meshd = meshd/np.sqrt(np.sum(meshd**2))
+            meshd = meshd/np.sqrt(np.sum(meshd**2))
+            self.meshd = meshd
 
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             # Set reverse AD seeds
             meshb = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
-            self.meshb = meshb/np.sqrt(np.sum(meshb**2))
+            meshb = meshb/np.sqrt(np.sum(meshb**2))
+            self.meshb = meshb
+
+        # Return generated seeds
+
+        if mode == 'forward':
+            return meshd
+
+        elif mode == 'reverse':
+            return meshb
+
+        elif mode == 'both':
+            return meshd, meshb
 
     #================================================================
     #================================================================
@@ -923,12 +936,7 @@ class HypSurfMesh(object):
         r0d = r0d/np.sqrt(np.sum(r0d**2))
 
         # Set geomtry object seeds
-        self.ref_geom.set_randomADSeeds(mode='forward')
-        coord = self.ref_geom.get_forwardADSeeds()
-        curveCoord = {}
-        for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].set_randomADSeeds(mode='forward')
-            curveCoord[curveName] = self.ref_geom.curves[curveName].get_forwardADSeeds()
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
 
         # Propagate derivatives
         rNextd, NNextd = self.projection_d(r0, r0d, rNext, NNext, 0)
@@ -950,15 +958,12 @@ class HypSurfMesh(object):
         rNextb = rNextb_copy
         NNextb = NNextb_copy
 
-        coorb = self.ref_geom.get_reverseADSeeds(clean=True)
-        curveCoorb = {}
-        for curveName in self.ref_geom.curves:
-            curveCoorb[curveName] = self.ref_geom.curves[curveName].get_reverseADSeeds(clean=True)
+        coorb, curveCoorb = self.ref_geom.get_reverseADSeeds(clean=True)
 
         dotprod = 0.0
         dotprod = dotprod + np.sum(r0d*r0b)
         dotprod = dotprod + np.sum(coord*coorb)
-        for curveName in self.ref_geom.curves:
+        for curveName in curveCoord:
             dotprod = dotprod + np.sum(curveCoord[curveName]*curveCoorb[curveName])
         dotprod = dotprod - np.sum(rNextd*rNextb)
         dotprod = dotprod - np.sum(NNextd*NNextb)
@@ -1376,17 +1381,11 @@ class HypSurfMesh(object):
         # DERIVATIVE SEEDS
 
         # Triangulated surface nodes seeds
-        self.ref_geom.set_randomADSeeds(mode='forward')
-        coord = self.ref_geom.get_forwardADSeeds()
-        curveCoord = {}
-        for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].set_randomADSeeds(mode='forward')
-            curveCoord[curveName] = self.ref_geom.curves[curveName].get_forwardADSeeds()
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
 
         # Initial curve seeds
-        self.curve.set_randomADSeeds(mode='forward')
+        initCurveCoord = self.curve.set_randomADSeeds(mode='forward')
         initCurveCoor0 = self.curve.get_points()
-        initCurveCoord = self.curve.get_forwardADSeeds()
 
         # AD VERSION
 
@@ -1481,29 +1480,13 @@ class HypSurfMesh(object):
         # Generate a set of random derivative seeds
 
         # Triangulated surface nodes seeds
-        self.ref_geom.set_randomADSeeds(mode='forward')
-        for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
 
         # Initial curve seeds
-        self.curve.set_randomADSeeds(mode='forward')
+        initCurveCoord = self.curve.set_randomADSeeds(mode='forward')
 
         # Surface mesh seeds
-        self.set_randomADSeeds(mode='reverse')
-
-        # Store relevant seeds
-
-        # Triangulated surface nodes seeds
-        coord = self.ref_geom.get_forwardADSeeds()
-        curveCoord = {}
-        for curveName in self.ref_geom.curves:
-            curveCoord[curveName] = self.ref_geom.curves[curveName].get_forwardADSeeds()
-
-        # Initial curve seeds
-        initCurveCoord = self.curve.get_forwardADSeeds()
-
-        # Surface mesh seeds
-        meshb = self.get_reverseADSeeds(clean=False)
+        meshb = self.set_randomADSeeds(mode='reverse')
 
         # FORWARD AD VERSION
 
@@ -1519,10 +1502,7 @@ class HypSurfMesh(object):
         self.compute_reverseAD()
 
         # Get input derivatives
-        coorb = self.ref_geom.get_reverseADSeeds(clean=False)
-        curveCoorb = {}
-        for curveName in self.ref_geom.curves:
-            curveCoorb[curveName] = self.ref_geom.curves[curveName].get_reverseADSeeds(clean=False)
+        coorb, curveCoorb = self.ref_geom.get_reverseADSeeds(clean=False)
 
         initCurveCoorb = self.curve.get_reverseADSeeds(clean=False)
 

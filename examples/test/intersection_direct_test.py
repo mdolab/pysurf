@@ -56,21 +56,17 @@ comp2.update()
 # Call intersection code
 intCurves = comp1.intersect(comp2, distTol)
 intCurve = intCurves[0]
+intName = intCurve.name
 
 # Store coordinates of the initial curve
-intCoor0 = np.array(intCurve.coor, order='F')
+intCoor0 = intCurve.get_points()
 
 # SETTING DERIVATIVE SEEDS
 
 # Set seeds
-comp1.set_randomADSeeds(mode='forward')
-comp2.set_randomADSeeds(mode='forward')
-intCurve.set_randomADSeeds(mode='reverse')
-
-# Get seeds for future comparions
-coor1d, _ = comp1.get_forwardADSeeds()
-coor2d, _ = comp2.get_forwardADSeeds()
-intCoorb = intCurve.get_reverseADSeeds(clean=False)
+coor1d, curveCoor1d = comp1.set_randomADSeeds(mode='forward')
+coor2d, curveCoor2d = comp2.set_randomADSeeds(mode='forward')
+intCoorb = intCurve.set_randomADSeeds(mode='reverse')
 
 # FORWARD AD
 
@@ -86,12 +82,12 @@ intCoord = intCurve.get_forwardADSeeds()
 #comp1.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
 #comp2.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
 
-# Compute derivatives in forward mode
+# Compute derivatives in reverse mode
 comp1.intersect_b(comp2, intCurve, distTol, accumulateSeeds=False)
 
 # Get derivative seeds of the geometry components
-coor1b, _ = comp1.get_reverseADSeeds()
-coor2b, _ = comp2.get_reverseADSeeds()
+coor1b, curveCoor1b = comp1.get_reverseADSeeds()
+coor2b, curveCoor2b = comp2.get_reverseADSeeds()
 
 # FINITE DIFFERENCES
 
@@ -100,14 +96,18 @@ stepSize = 1e-7
 
 # Change the geometry
 comp1.update(comp1.coor + stepSize*coor1d)
+for curveName in curveCoor1d:
+    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
 comp2.update(comp2.coor + stepSize*coor2d)
+for curveName in curveCoor2d:
+    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
 # Run the intersection code once again
 intCurves = comp1.intersect(comp2, distTol)
 intCurve = intCurves[0]
 
 # Get the new intersection coordinates
-intCoor = np.array(intCurve.coor, order='F')
+intCoor = intCurve.get_points()
 
 # Compute derivatives with finite differences
 intCoord_FD = (intCoor - intCoor0)/stepSize
@@ -127,6 +127,10 @@ dotProd = 0.0
 dotProd = dotProd + np.sum(coor1d*coor1b)
 dotProd = dotProd + np.sum(coor2d*coor2b)
 dotProd = dotProd - np.sum(intCoord*intCoorb)
+for curveName in curveCoor1d:
+    dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+for curveName in curveCoor2d:
+    dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
 print ''
 print 'dot product test (this should be around 1e-14):'
@@ -134,7 +138,6 @@ print dotProd
 print ''
 
 
-'''
 def view_mat(mat):
     """ Helper function used to visually examine matrices. """
     import matplotlib.pyplot as plt
@@ -144,7 +147,7 @@ def view_mat(mat):
     im = plt.imshow(mat, interpolation='none')
     plt.colorbar(im, orientation='horizontal')
     plt.show()
-
+'''
 # BUILDING THE JACOBIAN
 
 nNodes1 = comp1.coor.shape[1]
@@ -161,7 +164,7 @@ Jac_rev = np.zeros((3*(nNodes1+nNodes2),3*nNodesInt))
 # Initialize arrays of derivatives
 coor1d = np.zeros(comp1.coor.shape, order='F')
 coor2d = np.zeros(comp2.coor.shape, order='F')
-intCoorb = np.zeros(comp1.curves[intNames[0]].coor.shape,order='F')
+intCoorb = np.zeros(intCurve.coor.shape,order='F')
 
 # FORWARD AD
 
