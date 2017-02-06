@@ -28,6 +28,9 @@ from mpi4py import MPI
 import numpy as np
 import os
 from pyhyp import pyHyp
+from pywarpustruct import USMesh
+from scipy.spatial import cKDTree
+import subprocess
 
 def extrude_cube_volume_mesh():
     """
@@ -133,6 +136,11 @@ def extrude_rect_volume_mesh():
     hyp.run()
     hyp.writeCGNS('rect_vol.cgns')
 
+    print rectTranslation
+    # Translate wing primary mesh
+    subprocess.call(["cp rect_vol.cgns rect_vol_temp.cgns"], shell=True)
+    subprocess.call(["cgns_utils translate rect_vol_temp.cgns {} {} {}".format(rectTranslation[0], rectTranslation[1], rectTranslation[2])], shell=True)
+
 
 def march_surface_meshes():
     """
@@ -141,30 +149,21 @@ def march_surface_meshes():
     We do this using hypsurf, the included surface meshing tool.
     """
 
-    # Set communicator
-    comm = MPI.COMM_WORLD
+    # Load components
+    comp1 = pysurf.TSurfGeometry('../inputs/cube_uns.cgns',['geom'])
+    comp2 = pysurf.TSurfGeometry('../inputs/rect_uns.cgns',['geom'])
 
-    # Load the unstructured cube and rectangular prism cgns files
-    cube = pysurf.TSurfGeometry('../inputs/cube_uns.cgns', comm)
-    rect = pysurf.TSurfGeometry('../inputs/rect_uns.cgns', comm)
+    name1 = comp1.name
+    name2 = comp2.name
 
-    # Intersect the cube and rect and obtain the first (and only) intersection curve
-    curve = cube.intersect(rect)[0]
+    #name1 = 'wing'
+    #name2 = 'body'
 
-    # Split curves based on sharpness
-    splitcurves = pysurf.tsurf_tools.split_curve_single(curve, 'intersections', criteria='sharpness')
+    #comp1.rename(name1)
+    #comp2.rename(name2)
 
-    # Remesh each individual edge of the intersection curve
-    for curveName in splitcurves:
-        splitcurves[curveName] = splitcurves[curveName].remesh(nNewNodes=21)
-
-    # Merge the four curves back together into a single curve
-    curve = pysurf.tsurf_tools.merge_curves(splitcurves,'intersection')
-
-    # Export intersection curve
-    curve.export_tecplot('curve')
-
-    # Create curve list based on imported curves
+    # ADDING GUIDE CURVES
+    # Create curve dictionary based on imported curves
     # !!! Make sure to call `extract_curves.py` before running this script
     curves = []
     curves.append(pysurf.tsurf_tools.read_tecplot_curves('extracted_curve_000.plt'))
@@ -191,10 +190,8 @@ def march_surface_meshes():
             counter += 1
 
             # Extract the curve points and compute the length
-            pts = split_curve[name].get_points().T
-            length = pts[0, 2] - pts[-1, 2]
-
-            print name, length
+            pts = split_curve[name].get_points()
+            length = pts[2, 0] - pts[2, -1]
 
             # Hardcoded logic here based on the length of edges
             if np.abs(length) > 1:
@@ -203,82 +200,118 @@ def march_surface_meshes():
                 if length > 0:
                     split_curve[name].flip()
 
-                # if '004' not in split_curve[name].name:
                 # Add the long curve to the list
                 long_curves.append(split_curve[name])
 
     # Create a list of guideCurves based on the extracted long curves
-    # Note here we need the strings, not the curve objects
+    # Note here we need the strings, not the curve objects.
+    # We use the same loop to add the guide curves to the rectangle object
     guideCurves = []
     for ext_curve in long_curves:
-        rect.add_curve(ext_curve)
-        guideCurves.append(ext_curve.name)
+        print ext_curve.name
+        comp2.add_curve(ext_curve)
+        if ext_curve.name != 'int_011':
+            guideCurves.append(ext_curve.name)
 
-    print guideCurves
+    # Rotate the rectangle in 5 degrees
+    comp2.rotate(5,2)
 
-    # Add intersection curve to each component
-    rect.add_curve(curve)
-    cube.add_curve(curve)
+    # Create manager object and add the geometry objects to it
+    manager0 = pysurf.Manager()
+    manager0.add_geometry(comp1)
+    manager0.add_geometry(comp2)
 
-    # Function to actually call hypsurf given inputs for the cube and rect
-    def generateMesh(curve, geom, options, output_name):
+    distTol = 1e-7
 
-        # Set guideCurves for the rect case
-        if output_name == 'rect.xyz':
-            options['remesh'] = True
-            options['guideCurves'] = guideCurves
-        else:
-            options['remesh'] = False
-            options['guideCurves'] = []
+    # Set up integer to export different meshes
+    mesh_pass = 0
 
-        mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
+    #======================================================
+    # FORWARD PASS
 
-        mesh.createMesh()
+    def forward_pass(manager):
 
-        mesh.exportPlot3d(output_name)
+        '''
+        This function will apply all geometry operations to the given manager.
+        '''
 
-    # GENERATE RECT MESH
-    print 'Generating rect mesh'
+        # INTERSECT
 
-    # Set options
-    options = {
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.03,
-        'numLayers' : 17,
-        'extension' : 3.5,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 10000.0,
-        'ratioGuess' : 1.5,
-    }
+        # Call intersection function
+        intCurveNames = manager.intersect(distTol=distTol)
+        intCurveName = intCurveNames[0]
 
-    # Flip the curve so the normal orientation is correct.
-    # This is very important so the marching function knows which direction
-    # to march on the surface.
-    curve.flip()
+        manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
-    # Call meshing function
-    generateMesh(curve, rect, options, 'rect.xyz')
+        # REMESH
+        optionsDict = {
+            'nNewNodes':81,
+            'spacing':'linear',
+            'initialSpacing':0.005,
+            'finalSpacing':0.005,
+        }
+        remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
 
-    # GENERATE CUBE MESH
-    print 'Generating cube mesh'
+        manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
 
-    # Options
-    options['dStart'] = 0.02
-    options['numLayers'] = 17
-    options['extension'] = 2.5
+        # MARCH SURFACE MESHES
+        meshName = 'mesh'
 
-    # Flip the curve back to its original orientation.
-    curve.flip()
+        options_rect = {
 
-    # Call meshing function
-    generateMesh(curve, cube, options, 'cube.xyz')
+            'bc1' : 'curve:int_011',
+            'bc2' : 'curve:int_011',
+            'dStart' : 0.03,
+            'numLayers' : 17,
+            'extension' : 3.5,
+            'epsE0' : 4.5,
+            'theta' : -0.5,
+            'alphaP0' : 0.25,
+            'numSmoothingPasses' : 0,
+            'nuArea' : 0.16,
+            'numAreaPasses' : 20,
+            'sigmaSplay' : 0.3,
+            'cMax' : 10000.0,
+            'ratioGuess' : 1.5,
+            'guideCurves':guideCurves,
+
+        }
+
+        options_cube = {
+
+            'bc1' : 'continuous',
+            'bc2' : 'continuous',
+            'dStart' : 0.02,
+            'numLayers' : 17,
+            'extension' : 2.5,
+            'epsE0' : 4.5,
+            'theta' : -0.5,
+            'alphaP0' : 0.25,
+            'numSmoothingPasses' : 0,
+            'nuArea' : 0.16,
+            'numAreaPasses' : 20,
+            'sigmaSplay' : 0.3,
+            'cMax' : 10000.0,
+            'ratioGuess' : 1.5,
+
+        }
+
+        meshName = 'mesh'
+        meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+
+        # EXPORT
+        for meshName in meshNames:
+            print meshName+'_'+str(mesh_pass)+'.xyz'
+            manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
+
+        return meshNames
+
+    # END OF forward_pass
+    #======================================================
+
+    # Call the forward pass function to the original manager
+    meshNames = forward_pass(manager0)
+    mesh_pass = mesh_pass + 1
 
 
 def merge_surface_meshes():
@@ -287,13 +320,17 @@ def merge_surface_meshes():
     and joins them so that we can run pyHyp
     """
 
-    pysurf.plot3d_interface.merge_plot3d(['cube.xyz', 'rect.xyz'], [[1,0,0], [0,1,0]])
+    pysurf.plot3d_interface.merge_plot3d(['mesh_0_0.xyz', 'mesh_1_0.xyz'], [[1,0,0], [0,1,0]])
 
     mergedGrid = pysurf.plot3d_interface.read_plot3d('merged.xyz',3)
 
     mergedGrid.remove_curves()
 
-    pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz')
+    pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz', saveNumpy=True)
+
+    # Copy the numpy array containing coordinate info from the surface mesh
+    # of the collar so we can access it later without recreating the mesh.
+    subprocess.call(["cp merged.npy merged_"+str(i).zfill(2)+".npy"], shell=True)
 
 
 def run_pyhyp_for_collar():
@@ -351,6 +388,73 @@ def run_pyhyp_for_collar():
     hyp.run()
     hyp.writeCGNS('collar.cgns')
 
+    subprocess.call(["cp collar.cgns collar_master.cgns"], shell=True)
+
+    # Set options for the pywarpustruct instance
+    options = {
+      'gridFile':'collar_master.cgns',
+      'fileType':'CGNS',
+      'specifiedSurfaces':None,
+      'symmetrySurfaces':None,
+      'symmetryPlanes':[],
+      'aExp': 3.0,
+      'bExp': 5.0,
+      'LdefFact':100.0,
+      'alpha':0.25,
+      'errTol':0.0001,
+      'evalMode':'fast',
+      'useRotations':True,
+      'zeroCornerRotations':True,
+      'cornerAngle':30.0,
+      'bucketSize':8,
+    }
+
+    # Create the mesh object using pywarpustruct
+    mesh = USMesh(options=options, comm=MPI.COMM_WORLD)
+
+    # Get the initial coordinates in the order that the mesh object
+    # uses them
+    warp_coords = mesh.getSurfaceCoordinates()
+
+    # Load the coordinates from the collar surface mesh we marched
+    # earlier. Note that here in the first iteration the coordinate
+    # points between this and the warp coords should be exactly the same.
+    #
+    # However, their order is not the same, so we must match the
+    # coordinate points and save the indices so that we can reorder
+    # our future surface marched points into the order that
+    # pywarpustruct expects.
+    march_coords = np.load('merged.npy')
+
+    # To do this, we setup a KDTree using the pySurf generated
+    # surface mesh coordinates.
+    tree = cKDTree(march_coords)
+
+    # We then query this tree with the warp coordinates to obtain
+    # `index`, the mapping of the coordinate points.
+    d, index = tree.query(warp_coords)
+
+    return mesh, index
+
+def run_pywarp_for_collar(mesh, index):
+
+    print 'Using previously created volume mesh and warping it to the new surface.\n'
+    coords = np.load('merged.npy')
+
+    # Here we use the remapped coordinate points to pass in to
+    # pywarpustruct.
+    mesh.setSurfaceCoordinates(coords[index])
+
+    # Actually warp the mesh and then write out the new volume mesh.
+    mesh.warpMesh()
+    mesh.writeGrid('collar.cgns')
+
+    dXvWarpb = np.random.random(mesh.warp.griddata.warpmeshdof)
+    mesh.warpDeriv(dXvWarpb, solverVec=False)
+    # print 'here are the dXs!'
+    # for i in mesh.getdXs():
+    #     print i
+
 
 def create_OCart_mesh_and_merge():
     """
@@ -365,9 +469,7 @@ def create_OCart_mesh_and_merge():
     print "Now creating OCart mesh"
     print
 
-    import subprocess
-
-    subprocess.call(["cgns_utils combine cube_vol.cgns rect_vol.cgns collar.cgns half_full.cgns"], shell=True)
+    subprocess.call(["cgns_utils combine cube_vol.cgns rect_vol_temp.cgns collar.cgns half_full.cgns"], shell=True)
 
     # Now create the background mesh
     # positional arguments:
@@ -455,20 +557,40 @@ def run_ADflow_to_check_connections():
 
         # Debugging parameters
         'debugzipper':True,
+        'writeTecplotSurfaceSolution':True,
     }
 
     # Create solver
     CFDSolver = AEROSOLVER(options=aeroOptions, comm=comm, debug=True)
 
-    # Uncoment this if just want to check flooding
+    # Here we just want to check flooding
     CFDSolver.setAeroProblem(ap)
     CFDSolver.writeSolution()
 
-# Here we actually run all the functions we just defined.
-extrude_cube_volume_mesh()
-extrude_rect_volume_mesh()
-march_surface_meshes()
-merge_surface_meshes()
-run_pyhyp_for_collar()
-create_OCart_mesh_and_merge()
-run_ADflow_to_check_connections()
+    subprocess.call(["cp fc_-001_surf.plt fc_surf_"+str(i).zfill(2)+".plt"], shell=True)
+
+n = 2
+for i in range(1):
+
+
+    # These settings are known to be probably incorrect for valid overset
+    # mesh generation, but we are using them primarily to check derivative
+    # seed passing in and out of pySurf.
+    extent = 0.0001
+    trans = (i) * extent / (n - 1)
+    rectTranslation = np.array([trans, trans, trans])
+
+    extrude_cube_volume_mesh()
+    extrude_rect_volume_mesh()
+
+    # Here we actually run all the functions we just defined.
+    march_surface_meshes()
+    merge_surface_meshes()
+
+    if i == 0:
+        mesh, index = run_pyhyp_for_collar()
+    else:
+        run_pywarp_for_collar(mesh, index)
+
+    create_OCart_mesh_and_merge()
+    run_ADflow_to_check_connections()

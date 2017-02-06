@@ -62,13 +62,18 @@ class HypSurfMesh(object):
         # Detect nodes that should follow guide curves
         guideIndices = []
 
+        # Compute the closest node for each guideCurve and store the index
+        # corresponding to that point on the intersection curve in guideIndices
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
+        # Sort the guideIndices so they are in increasing order
         newGuideIndices = np.array(sorted(guideIndices))
         origGuideCurves = copy.copy(self.optionsDict['guideCurves'])
+
+        # Sort the guideCurves list so they match the guideIndices ordering
         for i, index in enumerate(newGuideIndices):
             j = np.where(index==guideIndices)[0][0]
             self.optionsDict['guideCurves'][i] = origGuideCurves[j]
@@ -464,7 +469,7 @@ class HypSurfMesh(object):
 
         # Accumulate seeds back to the curve object
         self.curve.accumulate_reverseADSeeds(rStartb)
- 
+
     def get_reverseADSeeds(self, clean=True):
 
         '''
@@ -477,7 +482,7 @@ class HypSurfMesh(object):
             self.meshb[:,:,:] = 0.0
 
         return meshb
-       
+
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
         '''
@@ -495,14 +500,14 @@ class HypSurfMesh(object):
         # Set forward AD seeds
         if mode=='forward' or mode=='both':
 
-            meshd = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
+            meshd = np.array(np.random.random_sample(self.mesh.shape),order='F')
             self.meshd = meshd/np.sqrt(np.sum(meshd**2))
 
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             # Set reverse AD seeds
-            meshb = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
+            meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
             self.meshb = meshb/np.sqrt(np.sum(meshb**2))
 
     #================================================================
@@ -960,7 +965,7 @@ class HypSurfMesh(object):
         print 'Dot product test for Projection (this should be around 1e-14):'
         print dotprod
         print ''
-        
+
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
 
         stepSize = 1e-7
