@@ -61,13 +61,18 @@ class HypSurfMesh(object):
         # Detect nodes that should follow guide curves
         guideIndices = []
 
+        # Compute the closest node for each guideCurve and store the index
+        # corresponding to that point on the intersection curve in guideIndices
         if self.optionsDict['guideCurves']:
             for curve in self.optionsDict['guideCurves']:
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
+        # Sort the guideIndices so they are in increasing order
         newGuideIndices = np.array(sorted(guideIndices))
         origGuideCurves = copy.copy(self.optionsDict['guideCurves'])
+
+        # Sort the guideCurves list so they match the guideIndices ordering
         for i, index in enumerate(newGuideIndices):
             j = np.where(index==guideIndices)[0][0]
             self.optionsDict['guideCurves'][i] = origGuideCurves[j]
@@ -494,7 +499,7 @@ class HypSurfMesh(object):
         # Set forward AD seeds
         if mode=='forward' or mode=='both':
 
-            meshd = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
+            meshd = np.array(np.random.random_sample(self.mesh.shape),order='F')
             meshd = meshd/np.sqrt(np.sum(meshd**2))
             self.meshd = meshd
 
@@ -502,7 +507,7 @@ class HypSurfMesh(object):
         if mode=='reverse' or mode=='both':
 
             # Set reverse AD seeds
-            meshb = np.array(np.random.rand(self.mesh.shape[0],self.mesh.shape[1],self.mesh.shape[2]),order='F')
+         	meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
             meshb = meshb/np.sqrt(np.sum(meshb**2))
             self.meshb = meshb
 
@@ -935,7 +940,7 @@ class HypSurfMesh(object):
         r0d = np.array(np.random.rand(r0.shape[0]),order='F')
         r0d = r0d/np.sqrt(np.sum(r0d**2))
 
-        # Set geomtry object seeds
+        # Set geometry object seeds
         coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
 
         # Propagate derivatives
