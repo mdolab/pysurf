@@ -13,7 +13,7 @@ LE_spacing = 0.001
 TE_spacing = 0.01
 
 # WING POSITIONS
-deltaZ = np.linspace(0.000001, 3.0, 11)
+deltaZ = np.linspace(0.0, 0.04, 5)
 
 # TRACKING POINT
 # Give i coordinate that we will use to create the tracking slice
@@ -255,17 +255,14 @@ def compute_position(wing_deltaZ):
     manager.reverseAD()
     
     # Get relevant seeds
-    coor1b = manager.geoms[name1].get_reverseADSeeds()
-    coor2b = manager.geoms[name2].get_reverseADSeeds()
-    curveCoorb = []
-    for curveName in manager.geoms[name1].curves:
-        curveCoorb.append(manager.geoms[name1].curves[curveName].get_reverseADSeeds())
+    coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+    coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
 
     # Condense derivatives to take into acount the translation
     dYdZ = 0.0
     dYdZ = np.sum(coor1b[2,:])
-    for ii in range(len(curveCoorb)):
-        dYdZ = dYdZ + np.sum(curveCoorb[ii][2,:])
+    for curveName in curveCoor1b:
+        dYdZ = dYdZ + np.sum(curveCoor1b[curveName][2,:])
 
     # Move the wing back to its original position
     manager.geoms[name1].translate(0.0, 0.0, -wing_deltaZ)

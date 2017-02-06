@@ -30,7 +30,7 @@ manager = pysurf.Manager()
 manager.add_geometry(comp1)
 manager.add_geometry(comp2)
 
-distTol = 1e-6
+distTol = 1e-7
 
 # FORWARD PASS
     
@@ -43,14 +43,9 @@ manager.intCurves[curveName].export_tecplot(curveName)
 # DERIVATIVE SEEDS
 
 # Generate random seeds
-manager.geoms[name1].set_randomADSeeds(mode='forward')
-manager.geoms[name2].set_randomADSeeds(mode='forward')
-manager.intCurves[curveName].set_randomADSeeds(mode='reverse')
-
-# Store relevant seeds
-coor1d = manager.geoms[name1].get_forwardADSeeds()
-coor2d = manager.geoms[name2].get_forwardADSeeds()
-intCoorb = manager.intCurves[curveName].get_reverseADSeeds(clean=False)
+coor1d, curveCoor1d = manager.geoms[name1].set_randomADSeeds(mode='forward')
+coor2d, curveCoor2d = manager.geoms[name2].set_randomADSeeds(mode='forward')
+intCoorb = manager.intCurves[curveName].set_randomADSeeds(mode='reverse')
 
 # FORWARD AD
 
@@ -66,14 +61,18 @@ intCoord = manager.intCurves[curveName].get_forwardADSeeds()
 manager.reverseAD()
     
 # Get relevant seeds
-coor1b = manager.geoms[name1].get_reverseADSeeds()
-coor2b = manager.geoms[name2].get_reverseADSeeds()
+coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
 dotProd = dotProd + np.sum(intCoorb*intCoord)
 dotProd = dotProd - np.sum(coor1b*coor1d)
 dotProd = dotProd - np.sum(coor2b*coor2d)
+for curveName in curveCoor1d:
+    dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+for curveName in curveCoor2d:
+    dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
 print 'dotProd test'
 print dotProd

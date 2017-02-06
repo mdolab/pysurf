@@ -181,14 +181,10 @@ current_pass = current_pass + 1
 # DERIVATIVE SEEDS
 
 # Generate random seeds
-manager0.geoms[name1].set_randomADSeeds(mode='forward')
-manager0.geoms[name2].set_randomADSeeds(mode='forward')
-manager0.intCurves[mergedCurveName].set_randomADSeeds(mode='reverse')
+coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
+coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+intCoorb = manager0.intCurves[mergedCurveName].set_randomADSeeds(mode='reverse')
 
-# Store relevant seeds
-coor1d = manager0.geoms[name1].get_forwardADSeeds()
-coor2d = manager0.geoms[name2].get_forwardADSeeds()
-intCoorb = manager0.intCurves[mergedCurveName].get_reverseADSeeds(clean=False)
 
 # FORWARD AD
 
@@ -204,14 +200,18 @@ intCoord = manager0.intCurves[mergedCurveName].get_forwardADSeeds()
 manager0.reverseAD()
     
 # Get relevant seeds
-coor1b = manager0.geoms[name1].get_reverseADSeeds()
-coor2b = manager0.geoms[name2].get_reverseADSeeds()
+coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
 dotProd = dotProd + np.sum(intCoorb*intCoord)
 dotProd = dotProd - np.sum(coor1b*coor1d)
 dotProd = dotProd - np.sum(coor2b*coor2d)
+for curveName in curveCoor1d:
+    dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+for curveName in curveCoor2d:
+    dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
 print 'dotProd test (this will be repeated at the end as well)'
 print dotProd
@@ -221,7 +221,11 @@ stepSize = 1e-8
 
 # Apply perturbations to the geometries
 comp1.update(comp1.coor + stepSize*coor1d)
+for curveName in curveCoor1d:
+    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
 comp2.update(comp2.coor + stepSize*coor2d)
+for curveName in curveCoor2d:
+    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
 # Create new manager with perturbed components
 manager1 = pysurf.Manager()

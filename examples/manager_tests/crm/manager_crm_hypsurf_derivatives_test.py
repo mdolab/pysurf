@@ -231,35 +231,12 @@ mergedCurveName = forward_pass(manager0)
 # DERIVATIVE SEEDS
 
 # Generate random seeds
-manager0.geoms[name1].set_randomADSeeds(mode='forward')
-
-for curveName in comp1.curves:
-    manager0.geoms[name1].curves[curveName].set_randomADSeeds(mode='forward')
-
-manager0.geoms[name2].set_randomADSeeds(mode='forward')
-
-for curveName in comp2.curves:
-    manager0.geoms[name2].curves[curveName].set_randomADSeeds(mode='forward')
-
-for mesh in manager0.meshes.itervalues():
-    mesh.set_randomADSeeds(mode='reverse')
-
-# Store relevant seeds
-coor1d = manager0.geoms[name1].get_forwardADSeeds()
-
-curveCoor1d = []
-for curveName in comp1.curves:
-    curveCoor1d.append(manager0.geoms[name1].curves[curveName].get_forwardADSeeds())
-
-coor2d = manager0.geoms[name2].get_forwardADSeeds()
-
-curveCoor2d = []
-for curveName in comp2.curves:
-    curveCoor2d.append(manager0.geoms[name2].curves[curveName].get_forwardADSeeds())
+coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
+coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
 
 meshb = []
 for mesh in manager0.meshes.itervalues():
-    meshb.append(mesh.get_reverseADSeeds(clean=False))
+    meshb.append(mesh.set_randomADSeeds(mode='reverse'))
 
 # FORWARD AD
 
@@ -277,17 +254,8 @@ for mesh in manager0.meshes.itervalues():
 manager0.reverseAD()
     
 # Get relevant seeds
-coor1b = manager0.geoms[name1].get_reverseADSeeds()
-
-curveCoor1b = []
-for curveName in comp1.curves:
-    curveCoor1b.append(manager0.geoms[name1].curves[curveName].get_reverseADSeeds())
-
-coor2b = manager0.geoms[name2].get_reverseADSeeds()
-
-curveCoor2b = []
-for curveName in comp2.curves:
-    curveCoor2b.append(manager0.geoms[name2].curves[curveName].get_reverseADSeeds())
+coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
@@ -297,13 +265,13 @@ for ii in range(len(meshd)):
 
 dotProd = dotProd - np.sum(coor1b*coor1d)
 
-for ii in range(len(curveCoor1d)):
-    dotProd = dotProd - np.sum(curveCoor1d[ii]*curveCoor1b[ii])
+for curveName in curveCoor1d:
+    dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
 
 dotProd = dotProd - np.sum(coor2b*coor2d)
 
-for ii in range(len(curveCoor2d)):
-    dotProd = dotProd - np.sum(curveCoor2d[ii]*curveCoor2b[ii])
+for curveName in curveCoor2d:
+    dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
 
 print 'dotProd test (this will be repeated at the end as well)'
 print dotProd
@@ -314,17 +282,13 @@ stepSize = 1e-7
 # Apply perturbations to the geometries
 comp1.update(comp1.coor + stepSize*coor1d)
 
-ii = 0
 for curveName in comp1.curves:
-    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[ii])
-    ii = ii + 1
+    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
 
 comp2.update(comp2.coor + stepSize*coor2d)
 
-ii = 0
 for curveName in comp2.curves:
-    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[ii])
-    ii = ii + 1
+    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
 # Create new manager with perturbed components
 manager1 = pysurf.Manager()

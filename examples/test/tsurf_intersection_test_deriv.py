@@ -178,127 +178,77 @@ def curve_intersection(deltaZ,ii):
     comp1.translate(0,-100.0,deltaZ)
 
     # Call intersection function
-    intNames = comp1.intersect(comp2)
+    intCurves = comp1.intersect(comp2)
+    intCurve = intCurves[0]
 
     # Testing derivatives
 
     # Get intersection curve
-    for curve in comp1.curves:
-        if 'int' in curve:
-            intCurve = comp1.curves[curve]
-            intCurve2 = intCurve.remesh()
-            intCurve.export_tecplot(outputName='init_curve')
+    intCurve2 = intCurve.remesh()
+    intCurve.export_tecplot(outputName='init_curve')
 
-            # Save initial coordinates of the curve
-            coorInt0 = np.array(intCurve2.coor,order='F')
+    # Save initial coordinates of the curve
+    coorInt0 = np.array(intCurve2.coor,order='F')
 
-            np.random.seed(123)
+    np.random.seed(123)
 
-            # FORWARD MODE
+    # FORWARD MODE
 
-            comp1.set_randomADSeeds()
-            comp2.set_randomADSeeds()
+    coor1d, curveCoor1d = comp1.set_randomADSeeds(mode='forward')
+    coor2d, curveCoor2d = comp2.set_randomADSeeds(mode='forward')
 
-            coor1d, _ = comp1.get_forwardADSeeds()
-            coor2d, _ = comp2.get_forwardADSeeds()
+    comp1.intersect_d(comp2, intCurve, distTol=distTol)
 
-            comp1.intersect_d(comp2, distTol=distTol)
+    # Get derivative seeds defined on both sides (which should be the same in this case)
+    newCoorIntd = intCurve.get_forwardADSeeds()
 
-            # Get derivative seeds defined on both sides (which should be the same in this case)
-            newCoorInt1d = comp1.curves[curve].get_forwardADSeeds()
-            newCoorInt2d = comp2.curves[curve].get_forwardADSeeds()
+    # REVERSE MODE
 
-            # REVERSE MODE
+    # Store seeds of the intersection curve
+    newCoorIntb = intCurve.set_randomADSeeds(mode='reverse')
 
-            # Store seeds of the intersection curve
-            newCoorInt1b = comp1.curves[curve].get_reverseADSeeds(clean=False)
-            newCoorInt2b = comp2.curves[curve].get_reverseADSeeds(clean=False)
-            
-            comp1.intersect_b(comp2, distTol=distTol, accumulateSeeds=False)
-            coor1b, _ = comp1.get_reverseADSeeds()
-            coor2b, _ = comp2.get_reverseADSeeds()
+    comp1.intersect_b(comp2, intCurve, distTol=distTol, accumulateSeeds=False)
+    coor1b, curveCoor1b = comp1.get_reverseADSeeds()
+    coor2b, curveCoor2b = comp2.get_reverseADSeeds()
 
-            # Dot product test
-            dotProd = 0.0
-            dotProd = dotProd + np.sum(newCoorInt1b*newCoorInt1d)
-            dotProd = dotProd + np.sum(newCoorInt2b*newCoorInt2d)
-            dotProd = dotProd - np.sum(coor1b*coor1d)
-            dotProd = dotProd - np.sum(coor2b*coor2d)
+    # Dot product test
+    dotProd = 0.0
+    dotProd = dotProd + np.sum(newCoorIntb*newCoorIntd)
+    print dotProd
+    dotProd = dotProd - np.sum(coor1b*coor1d)
+    print dotProd
+    dotProd = dotProd - np.sum(coor2b*coor2d)
 
-            '''
-            # Run perturbed geometry to get finite differences
-            stepSize = 1e-1
-            comp1.update(comp1.coor + stepSize*coor1d)
-            comp2.update(comp2.coor + stepSize*coor2d)
-            Intersections = pysurf.tsurf_tools._compute_pair_intersection(comp1,
-                                                                          comp2,
-                                                                          distTol)
-            Intersections[0].export_tecplot(outputName='pert_curve')
-            Intersections[0] = Intersections[0].remesh(nNewNodes=intCurve.coor.shape[1])
+    '''
+    # Run perturbed geometry to get finite differences
+    stepSize = 1e-1
+    comp1.update(comp1.coor + stepSize*coor1d)
+    comp2.update(comp2.coor + stepSize*coor2d)
+    Intersections = pysurf.tsurf_tools._compute_pair_intersection(comp1,
+                                                                  comp2,
+                                                                  distTol)
+    Intersections[0].export_tecplot(outputName='pert_curve')
+    Intersections[0] = Intersections[0].remesh(nNewNodes=intCurve.coor.shape[1])
 
-            coorIntPert = np.array(Intersections[0].coor,order='F')
-            comp1.update(comp1.coor - stepSize*coor1d)
-            comp2.update(comp2.coor - stepSize*coor2d)
+    coorIntPert = np.array(Intersections[0].coor,order='F')
+    comp1.update(comp1.coor - stepSize*coor1d)
+    comp2.update(comp2.coor - stepSize*coor2d)
 
-            coorIntd_FD = (coorIntPert - coorInt0)/stepSize
-            newCoorIntd_FD = coorIntd_FD
+    coorIntd_FD = (coorIntPert - coorInt0)/stepSize
+    newCoorIntd_FD = coorIntd_FD
 
-            # Finite difference test
-            FD_error = np.max(np.abs(newCoorIntd - newCoorIntd_FD))
+    # Finite difference test
+    FD_error = np.max(np.abs(newCoorIntd - newCoorIntd_FD))
 
-            print 'FD test (this should be around',stepSize,' or less)'
-            print FD_error
-            '''
+    print 'FD test (this should be around',stepSize,' or less)'
+    print FD_error
+    '''
 
-            # Print results; should be 0
-            print 'dotProd test'
-            print dotProd
-            np.testing.assert_almost_equal(dotProd, 0.)
+    # Print results; should be 0
+    print 'dotProd test'
+    print dotProd
+    np.testing.assert_almost_equal(dotProd, 0.)
 
-            # Remesh the curve in a linear spacing
-            newIntCurve = intCurve.remesh()
-
-            # Save the curve
-            newIntCurve.export_tecplot('curve_%03d'%ii)
-
-            # Find the upper skin trailing edge point
-            pt0 = newIntCurve.barsConn[0,0]
-            pt1 = newIntCurve.barsConn[-1,-1]
-            Z0 = newIntCurve.coor[2,pt0-1]
-            Z1 = newIntCurve.coor[2,pt1-1]
-            if Z0 > Z1:
-                pointID = pt0
-            else:
-                pointID = pt1
-
-            # Now compute the derivative for the Y coordinate of the first point of the intersection
-            X = newIntCurve.coor[0,pointID-1]
-            Y = newIntCurve.coor[1,pointID-1]
-            Z = newIntCurve.coor[2,pointID-1]
-            newCoorIntb[:,:] = 0.0
-            newCoorIntb[1,pointID-1] = 1.0
-
-            # Compute the remesh derivatives
-            coorIntb = pysurf.tsurf_tools._remesh_b(intCurve, newCoorIntb)
-
-            coorAb, coorBb = pysurf.tsurf_tools._compute_pair_intersection_b(comp1,
-                                                                             comp2,
-                                                                             intCurve,
-                                                                             coorIntb,
-                                                                             distTol)
-            dYdZ = np.sum(coorAb[2,:])
-
-    # Remove translation
-    comp1.translate(0.0,+100.0,-deltaZ)
-
-    # Print results
-    print 'results'
-    print 'Y:',Y
-    print 'dYdZ:',dYdZ
-    print ''
-
-    # Return results
-    return Y, dYdZ
 
 #========================================================
 

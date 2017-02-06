@@ -11,15 +11,15 @@ from mpi4py import MPI
 import unittest
 import pickle
 
-#example = 'kink_on_plate'
+example = 'kink_on_plate'
 #example = 'line_on_cylinder'
 #example = 'line_on_cylinder_with_guides'
-example = 'crm_wing'
+#example = 'crm_wing'
 
 if example == 'kink_on_plate':
 
     # Read inputs from CGNS file
-    geom = TSurfGeometry('examples/inputs/plate.cgns')
+    geom = TSurfGeometry('../inputs/plate.cgns')
 
     # Set source curve
     '''
@@ -31,13 +31,16 @@ if example == 'kink_on_plate':
                       [5,0,0]])
     '''
     numNodes = 70
-    curve = np.zeros((numNodes,3))
-    curve[:,0] = 1.0
-    curve[:,1] = np.linspace(0.6, 0.1, numNodes)*5
-    curve[:,2] = np.linspace(0.1, 0.6, numNodes)*5
+    coor = np.zeros((3,numNodes))
+    coor[0,:] = 1.0
+    coor[1,:] = np.linspace(0.6, 0.1, numNodes)*5
+    coor[2,:] = np.linspace(0.1, 0.6, numNodes)*5
     
+    # Create curve object
+    curve = tsurf_tools.create_curve_from_points(coor, 'source')
+
     # Flip curve to change marching direction
-    curve = curve[::-1,:]
+    curve.flip()
     
     # Define boundary conditions
     bc1 = 'splay'
@@ -63,14 +66,14 @@ if example == 'kink_on_plate':
 elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
-    geom = TSurfGeometry('examples/inputs/cylinder.cgns')
+    geom = TSurfGeometry('../inputs/cylinder.cgns')
     
-    # Flip BC curve
-    geom.curves['source'].flip()
-    geom.curves['source'] = geom.curves['source'].remesh(nNewNodes=5)
+    # Set initial curve
+    curve = geom.curves['source']
+    curve.flip()
+    curve = curve.remesh(nNewNodes=15)
 
     # Set problem
-    curve = geom.curves['source']
     bc1 = 'splay'
     bc2 = 'curve:bc1'
         
@@ -94,17 +97,17 @@ elif example == 'line_on_cylinder':
 elif example == 'line_on_cylinder_with_guides':
 
     # Read inputs from CGNS file
-    geom = TSurfGeometry('examples/inputs/cylinder.cgns')
+    geom = TSurfGeometry('../inputs/cylinder.cgns')
     
-    # Flip BC curve
-    geom.curves['source'].flip()
+    # Set initial curve
+    numNodes = 50
+    coor = np.zeros((3,numNodes))
+    coor[0,:] = 1.03
+    coor[1,:] = np.linspace(0.6, 0.0, numNodes)
+    coor[2,:] = np.linspace(0.0, 0.6, numNodes)
+    curve = tsurf_tools.create_curve_from_points(coor, 'seed')
 
     # Set problem
-    numNodes = 50
-    curve = np.zeros((numNodes,3))
-    curve[:,0] = 1.03
-    curve[:,1] = np.linspace(0.6, 0.0, numNodes)
-    curve[:,2] = np.linspace(0.0, 0.6, numNodes)
     bc1 = 'splay'
     bc2 = 'splay'
         
@@ -127,11 +130,11 @@ elif example == 'line_on_cylinder_with_guides':
 
 elif example == 'crm_wing':
 
-    geom = TSurfGeometry('examples/inputs/initial_full_wing_crm4.cgns',['wing'])
+    geom = TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing'])
 
     # Load TE curves and append them to the wing component
-    curve_te_upp = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/curve_te_upp.plt_')
-    curve_te_low = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/curve_te_low.plt_')
+    curve_te_upp = tsurf_tools.read_tecplot_curves('../manager_tests/crm/curve_te_upp.plt_')
+    curve_te_low = tsurf_tools.read_tecplot_curves('../manager_tests/crm/curve_te_low.plt_')
     curveName = curve_te_upp.keys()[0]
     geom.add_curve(curve_te_upp[curveName])
     curveName = curve_te_low.keys()[0]
@@ -139,14 +142,14 @@ elif example == 'crm_wing':
     geom.curves[curveName].flip()
 
     # Load intersection curve
-    intCurveDict = tsurf_tools.read_tecplot_curves('examples/manager_tests/crm/intersection.plt_')
+    intCurveDict = tsurf_tools.read_tecplot_curves('../manager_tests/crm/intersection.plt_')
     curveName = intCurveDict.keys()[0]
     curve = intCurveDict[curveName]
     curve.shift_end_nodes(criteria='maxX')
 
     # Set problem
-    bc1 = 'continuous'#'curve:curve_te_upp'
-    bc2 = 'continuous'#'curve:curve_te_upp'
+    bc1 = 'curve:curve_te_upp'
+    bc2 = 'curve:curve_te_upp'
         
     # Set parameters
     epsE0 = 12.5
@@ -192,11 +195,6 @@ mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 mesh.test_all()
 
 mesh.exportPlot3d('output.xyz')
-quit()
-
-mesh.createMesh()
-
-mesh.exportPlot3d('output_fortran.xyz')
 
 
     # def test_line_on_cylinder(self):

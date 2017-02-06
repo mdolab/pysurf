@@ -176,9 +176,6 @@ def compute_position(wing_deltaZ):
     deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
 
     if deltaZ > 0:
-        print ''
-        print ''
-        print 'FLIPEEEEEEEEEEEEEEEEI'
         manager.intCurves[mergedCurveName].flip()
 
     # Export final curve
@@ -215,11 +212,13 @@ def compute_position(wing_deltaZ):
     manager.reverseAD()
     
     # Get relevant seeds
-    coor1b = manager.geoms[name1].get_reverseADSeeds()
-    coor2b = manager.geoms[name2].get_reverseADSeeds()
+    coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+    coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
     
     # Condense derivatives to take into acount the translation
     dYdZ = np.sum(coor1b[2,:])
+    for curveName in curveCoor1b:
+        dYdZ = dYdZ + np.sum(curveCoor1b[curveName][2,:])
 
     # Move the wing back to its original position
     manager.geoms[name1].translate(0.0, 0.0, -wing_deltaZ)

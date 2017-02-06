@@ -6,6 +6,7 @@ import numpy as np
 import unittest
 import os
 import pickle
+import copy
 
 # TESTING FUNCTION
 
@@ -31,8 +32,10 @@ def forward_pass(manager):
     # Erase previous data
     manager.clear_all()
 
-    # First we will trick the manager by assigning a fake intersection curve
-    curve = geom.curves['source']
+    # First we will create a new "intersection" curve based on the curves defined in the cylinder geometry
+    ref_curve = geom.curves['source']
+    #curve = copy.deepcopy(ref_curve)
+    curve = pysurf.TSurfCurve(ref_curve.name, ref_curve.coor, ref_curve.barsConn)
     curve.extra_data['parentGeoms'] = [geom.name, geom.name]
     manager.add_curve(curve)
     curveName = curve.name
@@ -55,7 +58,6 @@ def forward_pass(manager):
         'sigmaSplay' : 0.2,
         'cMax' : 1.0,
         'ratioGuess' : 10.0,
-        'remesh':True
         
     }
     
@@ -95,17 +97,13 @@ curveName, meshNames = forward_pass(manager0)
 # DERIVATIVE SEEDS
 
 # Generate random seeds
-manager0.geoms[name1].set_randomADSeeds(mode='forward')
-manager0.intCurves[curveName].set_randomADSeeds(mode='forward')
-for meshName in meshNames:
-    manager0.meshes[meshName].set_randomADSeeds(mode='reverse')
+coor1d, curveCoord = manager0.geoms[name1].set_randomADSeeds(mode='forward')
 
-# Store relevant seeds
-coor1d = manager0.geoms[name1].get_forwardADSeeds()
-intCoord = manager0.intCurves[curveName].get_forwardADSeeds()
+intCoord = manager0.intCurves[curveName].set_randomADSeeds(mode='forward')
+
 meshb = []
 for meshName in meshNames:
-    meshb.append(manager0.meshes[meshName].get_reverseADSeeds(clean=False))
+    meshb.append(manager0.meshes[meshName].set_randomADSeeds(mode='reverse'))
 
 # FORWARD AD
 
@@ -123,13 +121,15 @@ for meshName in meshNames:
 manager0.reverseAD()
     
 # Get relevant seeds
-coor1b = manager0.geoms[name1].get_reverseADSeeds()
+coor1b, curveCoorb = manager0.geoms[name1].get_reverseADSeeds()
 intCoorb = manager0.intCurves[curveName].get_reverseADSeeds()
 
 # Dot product test
 dotProd = 0.0
 dotProd = dotProd + np.sum(intCoorb*intCoord)
 dotProd = dotProd + np.sum(coor1b*coor1d)
+for curveName in curveCoord:
+    dotProd = dotProd + np.sum(curveCoord[curveName]*curveCoorb[curveName])
 for ii in range(len(meshNames)):
     dotProd = dotProd - np.sum(meshb[ii]*meshd[ii])
 
@@ -139,8 +139,14 @@ print dotProd
 # FINITE DIFFERENCE
 stepSize = 1e-7
 
+# Store initial coordinates of the seed curve
+seedCurveCoor = geom.curves['source'].get_points()
+
+# Perturb the geometries
 geom.update(geom.coor + stepSize*coor1d)
-geom.curves['source'].set_points(geom.curves['source'].get_points() + stepSize*intCoord)
+for curveName in curveCoord:
+    geom.curves[curveName].set_points(geom.curves[curveName].get_points() + stepSize*curveCoord[curveName])
+geom.curves['source'].set_points(seedCurveCoor + stepSize*intCoord)
 
 # Create new manager with perturbed components
 manager2 = pysurf.Manager()
@@ -160,7 +166,7 @@ for meshName in meshNames:
 for ii in range(len(meshNames)):
 
     # Print results
-    print 'FD test for mesh',meshNames[ii]
+    print 'FD test'
     print np.max(np.abs(meshd[ii]-meshd_FD[ii]))
 
 print 'dotProd test'

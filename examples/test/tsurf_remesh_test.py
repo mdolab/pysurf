@@ -1,3 +1,7 @@
+'''
+OUTDATED
+'''
+
 # IMPORTS
 import pysurf
 from mpi4py import MPI

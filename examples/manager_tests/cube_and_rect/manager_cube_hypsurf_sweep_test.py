@@ -195,7 +195,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
     meshb[2, i_node, j_node] = 1.0
 
     # Set derivatives to the intersection curve
-    manager.meshes[meshNames[0]].set_reverseAD_outputSeeds(meshb)
+    manager.meshes[meshNames[0]].set_reverseADSeeds(meshb)
 
     # REVERSE AD
     
@@ -203,11 +203,13 @@ def compute_position(rect_deltaZ, i_track, j_track):
     manager.reverseAD()
     
     # Get relevant seeds
-    coor1b = manager.geoms[name1].get_reverseADSeeds()
-    coor2b = manager.geoms[name2].get_reverseADSeeds()
+    coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+    coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
     
     # Condense derivatives to take into acount the translation
     dYdZ = np.sum(coor2b[1,:])
+    for curveName in curveCoor2b:
+        dYdZ = dYdZ + np.sum(curveCoor2b[curveName][1,:])
 
     # Translate the rectangle back
     manager.geoms[name2].translate(0.0, -rect_deltaZ, 0.0)
