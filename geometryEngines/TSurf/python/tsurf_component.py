@@ -107,7 +107,7 @@ class TSurfGeometry(Geometry):
 
         # Reinitialize ADT with new name
         tst.update_surface(self)
-        
+
     def add_curve(self, curve):
         '''
         Adds a given curve instance to the self.curves dictionary.
@@ -1350,7 +1350,7 @@ class TSurfCurve(Curve):
         newCoord_FD = (newCoorf - newCoor)/stepSize
         print 'FD test @ remesh_d'
         print np.max(np.abs(newCoord_FD - newCoord))
-        
+
 
         # Adjust seeds if curve is periodic
         if periodic:
@@ -1553,7 +1553,7 @@ class TSurfCurve(Curve):
 
                 # Get derivative seeds of the parent curve
                 coord = curveDict[curveName]._get_forwardADSeeds()
-                
+
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(coord.shape[1]):
 
@@ -1847,7 +1847,7 @@ class TSurfCurve(Curve):
             self.coor = newCoor.T
             self.barsConn = newBarsConn.T
 
-    def shift_end_nodes(self, criteria='maxX'):
+    def shift_end_nodes(self, criteria='maxX', startPoint=np.zeros((3))):
 
         '''
         This method will shift the finite element ordering of
@@ -1862,7 +1862,7 @@ class TSurfCurve(Curve):
         INPUTS:
 
         criteria: string -> criteria used to reorder FE data. Available options are:
-                  ['maxX', 'maxY', 'maxZ']
+                  ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ', 'startPoint']
 
         OUTPUTS:
         This function has no explicit outputs. It changes self.barsConn.
@@ -1931,6 +1931,17 @@ class TSurfCurve(Curve):
             # Get maximum value of the desired coordinate.
             # The +1 is to make it consistent with Fortran ordering.
             startNodeID = np.argmin(coor[coorID,:]) + 1
+
+        elif criteria == 'startPoint':
+
+            # Compute the squared distances between the selected startPoint
+            # the coordinates of the curve.
+            deltas = coor.T - startPoint
+            dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+
+            # Set the start node as the curve coordinate point closest to the
+            # selected startPoint
+            startNodeID = np.where(np.min(dist_2) == dist_2)[0][0]
 
         # Now we look for an element that starts at the reference node
         startElemID = np.where(barsConn[0,:] == startNodeID)[0][0]
@@ -2005,7 +2016,7 @@ class TSurfCurve(Curve):
     def set_forwardADSeeds(self, coord):
         '''
         This will apply derivative seeds to the curve nodes.
-        
+
         coord: array[3xnumNodes] -> Array with derivative seeds. They
         should follow the order of the curve nodes, which is not necessarily
         the self.coor ordering.

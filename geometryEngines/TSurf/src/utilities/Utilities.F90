@@ -739,6 +739,9 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
   real(kind=realType), dimension(6), intent(out) :: BBoxAB
   logical, intent(out) :: overlap
 
+  ! WORKING
+  real(kind=realType), dimension(6) :: bounds
+
   ! EXECUTION
 
   ! Check overlaps along each dimension
@@ -761,6 +764,19 @@ subroutine computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
      end if
 
   end if
+
+  ! Determine the size of the edges of the bounding box
+  bounds(1) = BBoxAB(4) - BBoxAB(1)
+  bounds(2) = BBoxAB(5) - BBoxAB(2)
+  bounds(3) = BBoxAB(6) - BBoxAB(3)
+  bounds(4:6) = -bounds(1:3)
+
+  ! Add buffer space to the bounding box.
+  ! Although this slightly slows down the intersection algorithm, it is on the
+  ! order of hundredths of seconds for the CRM case and solves a small bug.
+  ! Will need to fix the filterElements code later so we can use a tighter
+  ! bounding box.
+  BBoxAB = BBoxAB - 0.01 * bounds
 
   ! Remember that overlap may be set to false in the Z overlap test
 
