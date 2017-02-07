@@ -221,11 +221,15 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   ! Working variables
   real(kind=realType), dimension(3,nNodes) :: nodeCoor
   real(kind=realType), dimension(nNodes) :: arcLength
-  integer(kind=intType) :: elemID, prevNodeID, currNodeID
-  real(kind=realType) :: dist, zero, one, pi
+  integer(kind=intType) :: elemID, prevNodeID, currNodeID, ii, jj
+  real(kind=realType) :: dist, zero, one, pi, distTol
 
   real(kind=realType), dimension(nNewNodes) :: newArcLength
-  real(kind=realType), dimension(3) :: node1, node2
+  real(kind=realType), dimension(3) :: node1, node2, newNode, oldNode
+  real(kind=realType), dimension(3) :: distVec
+
+  ! Tolerance to avoid any interpolation if new node is too close to an original node
+  distTol = 1e-7
 
   nNodes = nElem + 1
 
@@ -315,6 +319,42 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
   do elemID=1,nNewNodes-1
     newBarsConn(1, elemID) = elemID
     newBarsConn(2, elemID) = elemID + 1
+  end do
+
+  ! NODE MERGING
+  ! If a new node is very close to an old node, the derivative of this new node
+  ! is undefined, because it is at the discontinuity between two elements.
+  ! In this case, we will add some extra code to assign the position of these
+  ! old nodes directly to the new nodes.
+  ! We do this so that the AD codes uses the derivative seeds coming from
+  ! the old nodes as well, avoiding the undefined derivative issue.
+
+  ! Loop over the new nodes to see if they are too close to an old node
+  do ii=1,nNewNodes
+
+     ! Get coordinates of the new node
+     newNode = newCoor(:,ii)
+
+     ! Loop over the old nodes
+     do jj=1,nNodes
+
+        ! Get coordinates of the old node
+        oldNode = nodeCoor(:,jj)
+
+        ! Compute the distance between nodes
+        distVec = newNode - oldNode
+        dist = sqrt(distVec(1)**2 + distVec(2)**2 + distVec(3)**2)
+
+        ! Check if distance is below a threshold
+        if (dist .lt. distTol) then
+
+           ! Repeat the old node to avoid indetermination in derivatives
+           newCoor(:,ii) = nodeCoor(:,jj)
+
+        end if
+
+     end do
+
   end do
 
 end subroutine
