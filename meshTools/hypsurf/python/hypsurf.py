@@ -468,7 +468,7 @@ class HypSurfMesh(object):
 
         # Accumulate seeds back to the curve object
         self.curve.accumulate_reverseADSeeds(rStartb)
- 
+
     def get_reverseADSeeds(self, clean=True):
 
         '''
@@ -481,7 +481,7 @@ class HypSurfMesh(object):
             self.meshb[:,:,:] = 0.0
 
         return meshb
-       
+
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
         '''
@@ -507,7 +507,7 @@ class HypSurfMesh(object):
         if mode=='reverse' or mode=='both':
 
             # Set reverse AD seeds
-         	meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
+            meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
             meshb = meshb/np.sqrt(np.sum(meshb**2))
             self.meshb = meshb
 
