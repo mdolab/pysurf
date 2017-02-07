@@ -1,3 +1,9 @@
+'''
+In this example, we split the 4 edges of the intersection curve to
+perform individual remesh steps. This avoids the undefined derivatives
+at the rectangle edges.
+'''
+
 # IMPORTS
 from __future__ import division
 import pysurf
@@ -102,21 +108,38 @@ def forward_pass(manager):
     # Call intersection function
     intCurveNames = manager.intersect(distTol=distTol)
     intCurveName = intCurveNames[0]
-
     manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
-    manager.intCurves[intCurveName].export_tecplot('intersection_shifted_'+str(mesh_pass))
+    # SPLIT
+
+    # Split the intersection curve
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             criteria='sharpness')
 
     # REMESH
-    optionsDict = {
-        'nNewNodes':41,
-        'spacing':'linear',
-        'initialSpacing':0.005,
-        'finalSpacing':0.005,
-    }
-    remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
+    remeshedCurveNames = []
+    for splitCurveName in splitCurveNames:
 
-    manager.intCurves[remeshedCurveName].export_tecplot('intersection_'+str(mesh_pass))
+        # Remesh each splitted curve individually
+        optionsDict = {
+            'nNewNodes':21,
+            'spacing':'linear',
+            'initialSpacing':0.005,
+            'finalSpacing':0.005,
+        }
+
+        # The remesh function returns a name that we will append to the list
+        # of curve names so we can merge them later
+        remeshedCurveNames.append(manager.remesh_intCurve(splitCurveName,optionsDict))
+
+    # MERGE
+    mergedCurveName = 'intersection'
+    manager.merge_intCurves(remeshedCurveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+
+    manager.intCurves[mergedCurveName].export_tecplot('intersection_'+str(mesh_pass))
 
     # MARCH SURFACE MESHES
     meshName = 'mesh'
@@ -160,7 +183,7 @@ def forward_pass(manager):
         
     }
 
-    meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
 
     # EXPORT
     for meshName in meshNames:
@@ -268,11 +291,11 @@ FD_error = 0.0
 for ii in range(len(manager0.meshes)):
     print meshNames[ii]
     curr_error = np.max(np.abs(meshd[ii] - meshd_FD[ii]))
-    '''
+
     view_mat(np.abs(meshd[ii][0,:,:] - meshd_FD[ii][0,:,:]))
     view_mat(np.abs(meshd[ii][1,:,:] - meshd_FD[ii][1,:,:]))
     view_mat(np.abs(meshd[ii][2,:,:] - meshd_FD[ii][2,:,:]))
-    '''
+
     '''
     view_mat(meshd_FD[ii][0,:,:])
     view_mat(meshd_FD[ii][1,:,:])

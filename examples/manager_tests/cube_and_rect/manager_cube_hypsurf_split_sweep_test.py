@@ -1,3 +1,9 @@
+'''
+In this example, we split the 4 edges of the intersection curve to
+perform individual remesh steps. This avoids the undefined derivatives
+at the rectangle edges.
+'''
+
 # IMPORTS
 from __future__ import division
 import pysurf
@@ -8,12 +14,14 @@ import os
 import pickle
 
 # WING POSITIONS
-deltaZ = np.linspace(-0.1, 0.15, 11)
+#deltaZ = np.linspace(-0.1, 0.15, 11)
+deltaZ = np.linspace(0.145, 0.15, 11)
+
 
 # TRACKING POINT
 # Give i coordinate that we will use to create the tracking slice
-i_node = 26
-j_node = 15
+i_node = 53
+j_node = 11
 
 # TESTING FUNCTION
 
@@ -124,40 +132,39 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
-    # REMESH
-    optionsDict = {
-        'nNewNodes':41,
-        'spacing':'linear',
-        'initialSpacing':0.005,
-        'finalSpacing':0.005,
-    }
-    remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
+    # SPLIT
 
-    manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
+    # Split the intersection curve
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             criteria='sharpness')
+
+    # REMESH
+    remeshedCurveNames = []
+    for splitCurveName in splitCurveNames:
+
+        # Remesh each splitted curve individually
+        optionsDict = {
+            'nNewNodes':21,
+            'spacing':'linear',
+            'initialSpacing':0.005,
+            'finalSpacing':0.005,
+        }
+
+        # The remesh function returns a name that we will append to the list
+        # of curve names so we can merge them later
+        remeshedCurveNames.append(manager.remesh_intCurve(splitCurveName,optionsDict))
+
+    # MERGE
+    mergedCurveName = 'intersection'
+    manager.merge_intCurves(remeshedCurveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+
+    manager.intCurves[mergedCurveName].export_tecplot('intersection_'+str(mesh_pass))
 
     # MARCH SURFACE MESHES
-    meshName = 'mesh'
 
-    options_rect = {
-    
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.03,
-        'numLayers' : 17,
-        'extension' : 3.5,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 10000.0,
-        'ratioGuess' : 1.5,
-        #'guideCurves':guideCurves,
-        
-    }
-    '''
     options_rect = {
     
         'bc1' : 'curve:int_011',
@@ -177,7 +184,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
         'guideCurves':guideCurves,
         
     }
-    '''
+
     options_cube = {
     
         'bc1' : 'continuous',
@@ -198,7 +205,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
     }
 
     meshName = 'mesh'
-    meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
 
     # EXPORT
     for meshName in meshNames:
@@ -254,6 +261,7 @@ for ii in range(numPos):
     print 'translation'
     print deltaZ[ii]
     Y[ii], dYdZ[ii] = compute_position(deltaZ[ii], i_node, j_node)
+    mesh_pass = mesh_pass + 1
     print 'results'
     print Y[ii]
     print dYdZ[ii]
