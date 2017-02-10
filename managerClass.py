@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 from mpi4py import MPI
 import pysurf
+from collections import OrderedDict
 
 class Manager(object):
 
@@ -35,6 +36,12 @@ class Manager(object):
         # For instance, one sub-list could be: ['remesh',optionsDict], or
         # ['intersect',distTol].
         self.tasks = []
+
+        # MACH INTERFACE ATTRIBUTES
+        
+        # Set dictionary that will contain surface mesh points for different sets.
+        self.points = OrderedDict()
+        self.updated = {}
 
         pass
 
@@ -86,6 +93,14 @@ class Manager(object):
         '''
 
         self.meshes[mesh.name] = mesh
+
+    def remove_mesh(self, meshName):
+
+        '''
+        This method removes a Mesh object from the current Manager's dictionary.
+        '''
+
+        del self.meshes[meshName]
 
     def clear_all(self):
 
@@ -731,3 +746,20 @@ class Manager(object):
 
         # Unflip the curve
         curve.flip()
+
+    #=====================================================
+    # MACH INTERFACE METHODS
+
+    def addPointsSet(coor, ptSetName, origConfig=True, **kwargs):
+
+        '''
+        This function will receive an array of coordinates, and then assign
+        these coordinates to the corresponding FFD, under the set ptSetName.
+
+        ADflow will call this function to provide all surface points of the
+        structured meshes, so we need to assign the correct points to their
+        corresponding FFD. For instance, the surface mesh points of the wing should
+        be assigned to the wing object FFD.
+
+        Ney Secco 2017-02
+        '''

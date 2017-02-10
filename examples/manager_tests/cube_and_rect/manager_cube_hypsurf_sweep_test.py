@@ -7,6 +7,13 @@ import unittest
 import os
 import pickle
 
+'''
+This script tracks the "spanwise" position of a surface mesh node on the cube
+as we move the rectangle vertically.
+
+It generates results.pickle, which will be read by plotDeriv.py
+'''
+
 # WING POSITIONS
 deltaZ = np.linspace(-0.1, 0.15, 11)
 
@@ -140,26 +147,6 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     options_rect = {
     
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.03,
-        'numLayers' : 17,
-        'extension' : 3.5,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 10000.0,
-        'ratioGuess' : 1.5,
-        #'guideCurves':guideCurves,
-        
-    }
-    '''
-    options_rect = {
-    
         'bc1' : 'curve:int_011',
         'bc2' : 'curve:int_011',
         'dStart' : 0.03,
@@ -177,7 +164,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
         'guideCurves':guideCurves,
         
     }
-    '''
+
     options_cube = {
     
         'bc1' : 'continuous',
@@ -202,7 +189,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     # EXPORT
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
+        manager.meshes[meshName].exportPlot3d(meshName+'_%03d'%mesh_pass+'.xyz')
 
     # DERIVATIVE SEEDS
 
@@ -254,6 +241,7 @@ for ii in range(numPos):
     print 'translation'
     print deltaZ[ii]
     Y[ii], dYdZ[ii] = compute_position(deltaZ[ii], i_node, j_node)
+    mesh_pass = mesh_pass + 1
     print 'results'
     print Y[ii]
     print dYdZ[ii]

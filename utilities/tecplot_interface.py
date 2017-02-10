@@ -158,6 +158,63 @@ def writeTecplotFEdata(coor,barsConn,curveName,fileName):
 #==================================================================
 #==================================================================
 
+def writeTecplotSurfaceFEData(coor,triaConn,quadsConn,surfName,fileName):
+
+    '''
+    This method will export the triangulated surface data into a tecplot format.
+    The will write all elements as quad data. The triangle elements will be exported
+    as degenerated quads (quads with a repeated node).
+    
+    Ney Secco 2017-02
+    '''
+
+    # Add extension to the file name
+    fileName = fileName + '.plt'
+
+    # Open file
+    fileID = open(fileName, 'w')
+
+    # Add title
+    fileID.write('Title = \"TSurf Surface FE data\" \n')
+
+    # Add variable names
+    fileID.write('Variables = ')
+    var_names = ['X', 'Y', 'Z']
+    for name in var_names:
+        fileID.write('\"Coordinate' + name + '\" ')
+    fileID.write('\n')
+    
+    # Gather number of nodes and finite elements
+    nNodes = coor.shape[1]
+    nTria = triaConn.shape[1]
+    nQuads = quadsConn.shape[1]
+
+    # Write curve data
+    fileID.write('Zone T= \"'+surfName+'\"\n')
+    fileID.write('Nodes=' + str(nNodes) + ', Elements=' + str(nTria+nQuads) + ', ZONETYPE=FEQUADRILATERAL\n')
+    fileID.write('DATAPACKING=POINT\n')
+    
+    # Write nodal coordinates
+    np.savetxt(fileID, coor.T)
+
+    # Extend tria connectivities to include degenerate node
+    triaConnExt = np.vstack([triaConn, triaConn[-1,:]])
+
+    # Write tria connectivities
+    np.savetxt(fileID, triaConnExt.T, fmt='%i')
+
+    # Write quad connectivities
+    np.savetxt(fileID, quadsConn.T, fmt='%i')
+
+    # Close output file
+    fileID.close()
+
+    # Print log
+    print 'Surface '+surfName+' saved to file '+fileName
+
+#==================================================================
+#==================================================================
+
 def convert(oldData, oldConn):
 
     # Written by Gaetan Kenway
