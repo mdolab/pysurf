@@ -1689,7 +1689,7 @@ class TSurfCurve(Curve):
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
-                    # Acumulate derivative seed into the parent node
+                    # Accumulate derivative seed into the parent node
                     # (we will take the average later on)
                     curveDict[curveName].coorb[:,parentNodeID] = curveDict[curveName].coorb[:,parentNodeID] + \
                                                                  self.coorb[:,childNodeID]

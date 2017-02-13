@@ -156,12 +156,6 @@ def march_surface_meshes():
     name1 = comp1.name
     name2 = comp2.name
 
-    #name1 = 'wing'
-    #name2 = 'body'
-
-    #comp1.rename(name1)
-    #comp2.rename(name2)
-
     # ADDING GUIDE CURVES
     # Create curve dictionary based on imported curves
     # !!! Make sure to call `extract_curves.py` before running this script
@@ -210,11 +204,11 @@ def march_surface_meshes():
     for ext_curve in long_curves:
         print ext_curve.name
         comp2.add_curve(ext_curve)
-        if ext_curve.name != 'int_011':
-            guideCurves.append(ext_curve.name)
+        # if ext_curve.name != 'int_011':
+        guideCurves.append(ext_curve.name)
 
     # Rotate the rectangle in 5 degrees
-    comp2.rotate(5,2)
+    # comp2.rotate(5,2)
 
     # Create manager object and add the geometry objects to it
     manager0 = pysurf.Manager()
@@ -241,26 +235,33 @@ def march_surface_meshes():
         intCurveNames = manager.intersect(distTol=distTol)
         intCurveName = intCurveNames[0]
 
-        manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
+        # Split the intersection curve based on sharpness
+        curveNames = manager.split_intCurve(intCurveName)
 
-        # REMESH
-        optionsDict = {
-            'nNewNodes':81,
-            'spacing':'linear',
-            'initialSpacing':0.005,
-            'finalSpacing':0.005,
-        }
-        remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
+        # Set the remesh options
+        optionsDict = {'nNewNodes':21,
+                       'spacing':'linear'}
 
-        manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
+        # Remesh each side of the intersection curve
+        remeshed_curves = []
+        for curveName in curveNames:
+            remeshed_curves.append(manager.remesh_intCurve(curveName, optionsDict))
+
+        # Merge the four split curves back into one intersection curve
+        manager.merge_intCurves(remeshed_curves, 'intersection')
+
+        # This isn't the most elegant way to shift the nodes, but this allows
+        # us to use all four of the extracted curves as guide curves
+        manager.intCurves['intersection'].shift_end_nodes(criteria='startPoint', startPoint=np.array([1.5, 1.5, 1.5]))
+
+        manager.intCurves['intersection'].export_tecplot('intersection')
 
         # MARCH SURFACE MESHES
         meshName = 'mesh'
 
         options_rect = {
-
-            'bc1' : 'curve:int_011',
-            'bc2' : 'curve:int_011',
+            'bc1' : 'continuous',
+            'bc2' : 'continuous',
             'dStart' : 0.03,
             'numLayers' : 17,
             'extension' : 3.5,
@@ -274,11 +275,9 @@ def march_surface_meshes():
             'cMax' : 10000.0,
             'ratioGuess' : 1.5,
             'guideCurves':guideCurves,
-
         }
 
         options_cube = {
-
             'bc1' : 'continuous',
             'bc2' : 'continuous',
             'dStart' : 0.02,
@@ -293,16 +292,15 @@ def march_surface_meshes():
             'sigmaSplay' : 0.3,
             'cMax' : 10000.0,
             'ratioGuess' : 1.5,
-
         }
 
         meshName = 'mesh'
-        meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+        meshNames = manager.march_intCurve_surfaceMesh('intersection', options0=options_cube, options1=options_rect, meshName=meshName)
 
         # EXPORT
         for meshName in meshNames:
-            print meshName+'_'+str(mesh_pass)+'.xyz'
-            manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
+            print meshName + '.xyz'
+            manager.meshes[meshName].exportPlot3d(meshName + '.xyz')
 
         return meshNames
 
@@ -313,24 +311,20 @@ def march_surface_meshes():
     meshNames = forward_pass(manager0)
     mesh_pass = mesh_pass + 1
 
-
-def merge_surface_meshes():
     """
     This function takes the two blocks that define the collar mesh
     and joins them so that we can run pyHyp
     """
 
-    pysurf.plot3d_interface.merge_plot3d(['mesh_0_0.xyz', 'mesh_1_0.xyz'], [[1,0,0], [0,1,0]])
+    manager0.merge_meshes(meshNames, [[1, 0, 0], [0, 1, 0]])
+    # manager0.merge_meshes(meshNames, [[0, 0, 0], [0, 0, 0]])
 
-    mergedGrid = pysurf.plot3d_interface.read_plot3d('merged.xyz',3)
-
-    mergedGrid.remove_curves()
-
-    pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz', saveNumpy=True)
 
     # Copy the numpy array containing coordinate info from the surface mesh
     # of the collar so we can access it later without recreating the mesh.
     subprocess.call(["cp merged.npy merged_"+str(i).zfill(2)+".npy"], shell=True)
+
+    return name1, name2, manager0
 
 
 def run_pyhyp_for_collar():
@@ -426,34 +420,46 @@ def run_pyhyp_for_collar():
     # pywarpustruct expects.
     march_coords = np.load('merged.npy')
 
-    # To do this, we setup a KDTree using the pySurf generated
+    # To do this, we set up a KDTree using the pySurf generated
     # surface mesh coordinates.
     tree = cKDTree(march_coords)
 
     # We then query this tree with the warp coordinates to obtain
-    # `index`, the mapping of the coordinate points.
-    d, index = tree.query(warp_coords)
+    # `pySurf2pyWarp`, the mapping of the coordinate points.
+    d, pySurf2pyWarp = tree.query(warp_coords)
 
-    return mesh, index
+    tree = cKDTree(warp_coords)
+    d, pyWarp2pySurf = tree.query(march_coords)
 
-def run_pywarp_for_collar(mesh, index):
+    return mesh, pySurf2pyWarp, pyWarp2pySurf
+
+def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
 
     print 'Using previously created volume mesh and warping it to the new surface.\n'
     coords = np.load('merged.npy')
 
     # Here we use the remapped coordinate points to pass in to
     # pywarpustruct.
-    mesh.setSurfaceCoordinates(coords[index])
+    mesh.setSurfaceCoordinates(coords[pySurf2pyWarp])
 
     # Actually warp the mesh and then write out the new volume mesh.
     mesh.warpMesh()
     mesh.writeGrid('collar.cgns')
 
+    np.random.seed(314)
+
+    dXsd = np.random.random((mesh.nSurf, 3))
+    dXvWarpd = mesh.warpDerivFwd(dXsd, solverVec=False)
+
     dXvWarpb = np.random.random(mesh.warp.griddata.warpmeshdof)
     mesh.warpDeriv(dXvWarpb, solverVec=False)
-    # print 'here are the dXs!'
-    # for i in mesh.getdXs():
-    #     print i
+    dXsb = mesh.getdXs()
+
+    dotProd = 0.0
+    dotProd += np.sum(dXvWarpd * dXvWarpb)
+    dotProd -= np.sum(dXsb * dXsd)
+    print 'pyWarp dot-product:', dotProd
+    print
 
 
 def create_OCart_mesh_and_merge():
@@ -569,28 +575,103 @@ def run_ADflow_to_check_connections():
 
     subprocess.call(["cp fc_-001_surf.plt fc_surf_"+str(i).zfill(2)+".plt"], shell=True)
 
-n = 2
+n = 3
 for i in range(1):
-
 
     # These settings are known to be probably incorrect for valid overset
     # mesh generation, but we are using them primarily to check derivative
     # seed passing in and out of pySurf.
-    extent = 0.0001
-    trans = (i) * extent / (n - 1)
+    extent = 0.0011
+    trans = i * extent / (n - 1)
     rectTranslation = np.array([trans, trans, trans])
 
     extrude_cube_volume_mesh()
     extrude_rect_volume_mesh()
 
     # Here we actually run all the functions we just defined.
-    march_surface_meshes()
-    merge_surface_meshes()
+    name1, name2, manager0 = march_surface_meshes()
 
     if i == 0:
-        mesh, index = run_pyhyp_for_collar()
+        surface_mesh, pySurf2pyWarp, pyWarp2pySurf = run_pyhyp_for_collar()
     else:
-        run_pywarp_for_collar(mesh, index)
+        run_pywarp_for_collar(surface_mesh, pySurf2pyWarp, pyWarp2pySurf)
 
     create_OCart_mesh_and_merge()
     run_ADflow_to_check_connections()
+
+    # Generate random seeds
+    coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
+    coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+    meshb = []
+    for mesh in manager0.meshes.itervalues():
+        meshb.append(mesh.set_randomADSeeds(mode='reverse'))
+
+    mergedDerivs_b = np.random.random((manager0.mergedMeshes['collar'].n, 3))
+
+    # Need to convert pywarpustruct input
+    # mergedDerivs_b = mergedDerivs_b[pyWarp2pySurf]
+
+    manager0.mergedMeshes['collar'].set_reverseADSeeds(mergedDerivs_b)
+
+    # FORWARD AD
+
+    # Call AD code
+    manager0.forwardAD()
+
+    # Get relevant seeds
+    meshd = []
+    for mesh in manager0.meshes.itervalues():
+        meshd.append(mesh.get_forwardADSeeds())
+    mergedDerivs_d = manager0.mergedMeshes['collar'].mergedDerivs_d
+
+    # REVERSE AD
+
+    # Call AD code
+    manager0.reverseAD()
+
+    # Get relevant seeds
+    coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
+    coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
+
+    # Dot product test
+    dotProd = 0.0
+    for ii in range(len(meshd)):
+        dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
+    dotProd = dotProd - np.sum(coor1b*coor1d)
+    dotProd = dotProd - np.sum(coor2b*coor2d)
+    for curveName in curveCoor1b:
+        dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
+    for curveName in curveCoor2b:
+        dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+
+    print 'no merged dot-product here'
+    print dotProd
+    print
+
+    # Dot product test
+    dotProd = 0.0
+    for ii in range(len(meshd)):
+        dotProd = dotProd + np.sum(mergedDerivs_d * mergedDerivs_b)
+    dotProd = dotProd - np.sum(coor1b*coor1d)
+    dotProd = dotProd - np.sum(coor2b*coor2d)
+    for curveName in curveCoor1b:
+        dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
+    for curveName in curveCoor2b:
+        dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+
+    print 'Full dot-product here'
+    print dotProd
+    print
+
+    print 'fwd seeds pysurf ordering'
+    print manager0.mergedMeshes['collar'].mergedDerivs_d
+
+    # This is what we'd give to pywarpustruct
+    meshd = manager0.mergedMeshes['collar'].mergedDerivs_d[pySurf2pyWarp]
+    print 'fwd seeds pywarp ordering'
+    print meshd
+
+    for entry in sorted(pySurf2pyWarp):
+        print entry
+    for entry in sorted(pyWarp2pySurf):
+        print entry

@@ -686,6 +686,8 @@ CONTAINS
 ! OUTPUTS
     REAL(kind=realtype), DIMENSION(6), INTENT(OUT) :: bboxab
     LOGICAL, INTENT(OUT) :: overlap
+! WORKING
+    REAL(kind=realtype), DIMENSION(6) :: bounds
 ! EXECUTION
 ! Check overlaps along each dimension
 ! We have an actual BBox intersection if there are overlaps in all dimensions
@@ -701,6 +703,17 @@ CONTAINS
 &                                          , bboxab(6), overlap)
 ! Z overlap
     END IF
+! Determine the size of the edges of the bounding box
+    bounds(1) = bboxab(4) - bboxab(1)
+    bounds(2) = bboxab(5) - bboxab(2)
+    bounds(3) = bboxab(6) - bboxab(3)
+    bounds(4:6) = -bounds(1:3)
+! Add buffer space to the bounding box.
+! Although this slightly slows down the intersection algorithm, it is on the
+! order of hundredths of seconds for the CRM case and solves a small bug.
+! Will need to fix the filterElements code later so we can use a tighter
+! bounding box.
+    bboxab = bboxab - 0.01*bounds
   END SUBROUTINE COMPUTEBBOXINTERSECTION
 !============================================================
   SUBROUTINE LINEINTERSECTIONINTERVAL(xmina, xmaxa, xminb, xmaxb, xminab&

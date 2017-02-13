@@ -123,9 +123,9 @@ def forward_pass(manager):
 
     # MARCH SURFACE MESHES
     meshName = 'mesh'
-    
+
     options_rect = {
-    
+
         'bc1' : 'curve:int_011',
         'bc2' : 'curve:int_011',
         'dStart' : 0.03,
@@ -141,11 +141,11 @@ def forward_pass(manager):
         'cMax' : 10000.0,
         'ratioGuess' : 1.5,
         'guideCurves':guideCurves,
-        
+
     }
 
     options_cube = {
-    
+
         'bc1' : 'continuous',
         'bc2' : 'continuous',
         'dStart' : 0.02,
@@ -160,7 +160,7 @@ def forward_pass(manager):
         'sigmaSplay' : 0.3,
         'cMax' : 10000.0,
         'ratioGuess' : 1.5,
-        
+
     }
 
     meshName = 'mesh'
@@ -202,7 +202,7 @@ for mesh in manager0.meshes.itervalues():
 
 # Call AD code
 manager0.reverseAD()
-    
+
 # Get relevant seeds
 coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
 coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
