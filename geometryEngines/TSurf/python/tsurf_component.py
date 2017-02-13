@@ -3,7 +3,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from ...baseClasses import Geometry, Curve
-from ....utilities import plot3d_interface
+from ....utilities import plot3d_interface, tecplot_interface
 import utilitiesAPI, curveSearchAPI
 import tsurf_tools as tst
 import adtAPI
@@ -168,6 +168,9 @@ class TSurfGeometry(Geometry):
         tst.update_surface(self)
         for curve in self.curves.itervalues():
             curve.rotate(angle, axis)
+
+    #===========================================================#
+    # SURFACE PROJECTION METHODS
 
     def project_on_surface(self, xyz):
 
@@ -375,6 +378,9 @@ class TSurfGeometry(Geometry):
 
         # Return projection derivatives
         return xyzb
+
+    #===========================================================#
+    # CURVE PROJECTION METHODS
 
     def project_on_curve(self, xyz, curveCandidates=None):
 
@@ -670,6 +676,27 @@ class TSurfGeometry(Geometry):
             otherGeometry.set_reverseADSeeds(coorb=coorBb)
 
     #===========================================================#
+    # POINT METHODS
+
+    def set_points(self,coor):
+
+        '''
+        This will replace the nodal coordinates that define the surface.
+
+        coor: float[nPts,3] -> Nodal coordinates (X,Y,Z)
+        '''
+
+        self.update(np.array(coor,order='F'))
+
+    def get_points(self):
+
+        '''
+        This will give the nodal coordinates that define the surface.
+        '''
+
+        return self.coor
+
+    #===========================================================#
     # DERIVATIVE SEED MANIPULATION METHODS
 
     def set_forwardADSeeds(self, coord=None, curveCoord=None):
@@ -833,6 +860,92 @@ class TSurfGeometry(Geometry):
         elif mode == 'both':
             return coord, curveCoord, coorb, curveCoorb
 
+    #===========================================================#
+    # VISUALIZATION METHODS
+
+    def export_tecplot(self, fileName):
+
+        '''
+        This method will export the triangulated surface data into a tecplot format.
+        The will write all elements as quad data. The triangle elements will be exported
+        as degenerated quads (quads with a repeated node).
+        
+        Ney Secco 2017-02
+        '''
+
+        # Call the function that export FE data
+        tecplot_interface.writeTecplotSurfaceFEData(self.coor, self.triaConn, self.quadsConn, self.name, fileName)
+        
+
+    #===========================================================#
+    # MANIPULATOR INTERFACE METHODS
+
+    def _assign_manipulator(self):
+
+        '''
+        This is a method that should be implemented in the derived classes in order to
+        do the specialized assignment of points to the geometry manipulator object.
+
+        At this step, we already know that self.manipulator is already set.
+
+        Ney Secco 2017-02
+        '''
+
+        # Generate name for the triangulated surface point set
+        ptSetName = self.name + ':triaSurfNodes'
+
+        # Assing the triangulated surface nodes to the geometry manipulator
+        print 'Assigning surface nodes from ',self.name,' to the manipulator'
+        self.manipulator.addPointSet(self.coor.T, ptSetName)
+        print 'Done'
+
+        # Store the set name for future uses
+        self.ptSetName = ptSetName
+
+        # Now we need to assign every curve to the manipulator as well
+        for curveName in self.curves:
+
+            # Generate name for the curve point set
+            ptSetName = self.name + ':curves:' + curveName
+
+            # Assign curve nodes to the geometry manipulator
+            print 'Assigning nodes from curve ',self.name,' to the manipulator'
+            self.manipulator.addPointSet(self.curves[curveName].coor.T, ptSetName)
+            print 'Done'
+
+            # Store the set name for future uses
+            self.curves[curveName].ptSetName = ptSetName
+
+    def manipulator_update(self):
+
+        '''
+        This method will call the update functions from the manipulator object accordingly
+        to update the geometry based on the new set of design variables.
+
+        Some geometry manipulators (such as DVGeo) do not have a general update function to
+        update all embedded points at once. So we need this separate class to call the update
+        function as many times as needed, based on the internal structured of the derived
+        geometry class.
+
+        Ney Secco 2017-02
+
+        I NEED TO FIX ALL COOR.T SO THAT WE CAN BRING THIS TO THE BASECLASS DEFINITION
+        '''
+
+        # Update triangulated surface nodes
+        print 'Updating surface nodes from ',self.name
+        coor = self.manipulator.update(self.ptSetName)
+        self.update(np.array(coor.T,order='F'))
+        print 'Done'
+
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',self.name
+            coor = self.manipulator.update(self.curves[curveName].ptSetName)
+            self.curves[curveName] = np.array(coor.T,order='F')
+            print 'Done' 
 
 #=============================================================
 #=============================================================

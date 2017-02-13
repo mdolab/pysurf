@@ -36,6 +36,9 @@ class Geometry(object):
         else:
             self.comm = MPI.COMM_WORLD
 
+        # Define attribute to hold the geometry manipulation object
+        self.manipulator = None
+
         self._initialize(*arg, **kwargs)
 
     def _initialize(self, *arg):
@@ -73,6 +76,9 @@ class Geometry(object):
         '''
         pass
 
+    #===========================================================#
+    # SURFACE PROJECTION METHODS
+
     def project_on_surface(self, xyz):
         '''
         This function projects a point in space to the component surface.
@@ -92,6 +98,9 @@ class Geometry(object):
         This is the reverse AD mode of project_on_surface.
         '''
         pass
+
+    #===========================================================#
+    # CURVE PROJECTION METHODS
 
     def project_on_curve(self, xyz, curveCandidates=None):
         '''
@@ -113,6 +122,9 @@ class Geometry(object):
         '''
         pass
 
+    #===========================================================#
+    # DERIVATIVE SEED MANIPULATION METHODS
+
     def set_forwardADSeeds(self, coord, curveCoord):
         '''
         This will apply derivative seeds to the surface design variables (coor)
@@ -122,9 +134,32 @@ class Geometry(object):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
+        # This is just an example. The actual function should be overwritten
+        # in the new geometry class definition
         self.coord = coord
         for curveName in self.curves:
             self.curves[curveName].coord = curveCoord[curveName]
+
+
+    def get_forwardADSeeds(self):
+        '''
+        This will return the current derivative seeds of the surface design variables (coor)
+        and curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        # This is just an example. The actual function should be overwritten
+        # in the new geometry class definition
+        coord = np.array(self.coord, order='F')
+
+        curveCoord = {}
+        for curveName in self.curves:
+            curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
+
+        return coord, curveCoord
+
 
     def set_reverseADSeeds(self, coorb, curveCoorb):
         '''
@@ -135,9 +170,38 @@ class Geometry(object):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
+        # This is just an example. The actual function should be overwritten
+        # in the new geometry class definition
         self.coorb = coorb
         for curveName in self.curves:
             self.curves[curveName].coorb = curveCoord[curveName]
+
+
+    def get_reverseADSeeds(self,clean=True):
+        '''
+        This will return the current derivative seeds of the surface design variables (coor)
+        and curve design variables (curve.coor).
+
+        curveCoord: Is a dictionary whose keys are curve names, and whose fields
+        are derivative seeds to be applied on the control points of each curve.
+        '''
+
+        # This is just an example. The actual function should be overwritten
+        # in the new geometry class definition
+
+        # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
+        coorb = np.array(self.coorb, order='F')
+
+        curveCoorb = {}
+        for curveName in self.curves:
+            curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean)
+
+        # Check if we need to clean the derivative seeds
+        if clean:
+            self.coorb[:,:] = 0.0
+
+        return coorb, curveCoorb
+
 
     def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
@@ -148,9 +212,85 @@ class Geometry(object):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
+        # This is just an example. The actual function should be overwritten
+        # in the new geometry class definition
         self.coorb = self.coorb + coorb
         for curveName in self.curves:
             self.curves[curveName].coorb = self.curves[curveName].coorb + curveCoord[curveName]
+
+    #===========================================================#
+    # MANIPULATOR INTERFACE METHODS
+
+    def assign_manipulator(self, GMObj):
+
+        '''
+        This function assign a geometry manipulation object (such ad DVGeo) to the
+        current Geometry object.
+
+        INPUTS:
+
+        GMObj: Geometry Manipulation Object
+
+        Ney Secco 2017-02
+        '''
+
+        print ''
+        print 'Assigning ',self.name,' to manipulator object'
+
+        # Store the geometry manipulator object
+        self.manipulator = GMObj
+
+        # Call method to do specialized assignments according to the derived object.
+        self._assign_manipulator()
+
+
+
+        print 'Manipulator assignment finished'
+        print ''
+
+    def manipulator_update(self):
+
+        '''
+        This method will call the update functions from the manipulator object accordingly
+        to update the geometry based on the new set of design variables.
+
+        Some geometry manipulators (such as DVGeo) do not have a general update function to
+        update all embedded points at once. So we need this separate class to call the update
+        function as many times as needed, based on the internal structured of the derived
+        geometry class.
+
+        Ney Secco 2017-02
+        '''
+
+        pass
+
+    def manipulator_forwardAD(self, xDVd, ptSetName):
+
+        '''
+        This function will use forward AD to propagate derivative seeds from
+        the manipulator design variables to the triangulated surface (and associated
+        curves) nodes.
+
+        Ney Secco 2017-02
+        '''
+
+        pass
+
+        xSd = self.manipulator.totalSensitivityProd(xDVd, ptSetName)
+
+    def manipulator_reverseAD(self, xDVd, ptSetName):
+
+        '''
+        This function will use reverse AD to propagate derivative seeds from
+        the triangulated surface (and associated
+        curves) nodes to the manipulator design variables.
+
+        Ney Secco 2017-02
+        '''
+
+        pass
+
+        xDVb = self.manipulator.totalSensitivity(ptSetName)
 
 class Curve(object):
 

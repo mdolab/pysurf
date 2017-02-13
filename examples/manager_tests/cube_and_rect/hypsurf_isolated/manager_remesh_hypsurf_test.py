@@ -7,13 +7,24 @@ import unittest
 import os
 import pickle
 
-# TESTING FUNCTION
+'''
+This script tests just the surface mesh generation derivatives
+starting from a given intersection curve.
+This isolate the surface marching process from the geometry-handling steps.
+'''
 
+# MESH PARAMETERS
+numSkinNodes = 129
+LE_spacing = 0.001
+TE_spacing = 0.01
+
+# TESTING FUNCTION
 os.system('rm *.plt')
+os.system('rm *.xyz')
 
 # Load components
-comp1 = pysurf.TSurfGeometry('../../inputs/cube_uns.cgns',['geom'])
-comp2 = pysurf.TSurfGeometry('../../inputs/rect_uns.cgns',['geom'])
+comp1 = pysurf.TSurfGeometry('../../../inputs/cube_uns.cgns',['geom'])
+comp2 = pysurf.TSurfGeometry('../../../inputs/rect_uns.cgns',['geom'])
 
 name1 = comp1.name
 name2 = comp2.name
@@ -78,35 +89,29 @@ for ext_curve in long_curves:
 # Rotate the rectangle in 5 degrees
 comp2.rotate(5,2)
 
-# Create manager object and add the geometry objects to it
-manager0 = pysurf.Manager()
-manager0.add_geometry(comp1)
-manager0.add_geometry(comp2)
-
 distTol = 1e-7
 
 # Set up integer to export different meshes
 mesh_pass = 0
 
-#======================================================
-# FORWARD PASS
+# Get the intersection curve from a file
+curveDict = pysurf.tsurf_tools.read_tecplot_curves('intersection_shifted.plt_')
+intCurveName = curveDict.keys()[0]
+curve = curveDict[intCurveName]
+curve.extra_data['parentGeoms'] = [name1, name2]
+
+# Create manager object and add the geometry objects to it
+manager0 = pysurf.Manager()
+manager0.add_geometry(comp1)
+manager0.add_geometry(comp2)
+manager0.add_curve(curve)
+
+distTol = 1e-7
 
 def forward_pass(manager):
 
-    '''
-    This function will apply all geometry operations to the given manager.
-    '''
-
-    # INTERSECT
-
-    # Call intersection function
-    intCurveNames = manager.intersect(distTol=distTol)
-    intCurveName = intCurveNames[0]
-
-    manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
-
-    manager.intCurves[intCurveName].export_tecplot('intersection_shifted_'+str(mesh_pass))
-
+    # FORWARD PASS
+    
     # REMESH
     optionsDict = {
         'nNewNodes':41,
@@ -116,13 +121,11 @@ def forward_pass(manager):
     }
     remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
 
-    manager.intCurves[remeshedCurveName].export_tecplot('intersection_'+str(mesh_pass))
-
     # MARCH SURFACE MESHES
     meshName = 'mesh'
-
+    
     options_rect = {
-
+    
         'bc1' : 'curve:int_011',
         'bc2' : 'curve:int_011',
         'dStart' : 0.03,
@@ -138,11 +141,11 @@ def forward_pass(manager):
         'cMax' : 10000.0,
         'ratioGuess' : 1.5,
         'guideCurves':guideCurves,
-
+        
     }
 
     options_cube = {
-
+    
         'bc1' : 'continuous',
         'bc2' : 'continuous',
         'dStart' : 0.02,
@@ -157,10 +160,10 @@ def forward_pass(manager):
         'sigmaSplay' : 0.3,
         'cMax' : 10000.0,
         'ratioGuess' : 1.5,
-
+        
     }
 
-    meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(intCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
 
     # EXPORT
     for meshName in meshNames:
@@ -168,10 +171,9 @@ def forward_pass(manager):
 
     return meshNames
 
-# END OF forward_pass
-#======================================================
+#===============================================
 
-# Call the forward pass function to the original manager
+# RUN FORWARD CODE
 meshNames = forward_pass(manager0)
 mesh_pass = mesh_pass + 1
 
@@ -180,9 +182,12 @@ mesh_pass = mesh_pass + 1
 # Generate random seeds
 coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
 coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+
+intCoord = manager0.intCurves[intCurveName].set_randomADSeeds(mode='forward')
+
 meshb = []
-for mesh in manager0.meshes.itervalues():
-    meshb.append(mesh.set_randomADSeeds(mode='reverse'))
+for meshName in meshNames:
+    meshb.append(manager0.meshes[meshName].set_randomADSeeds(mode='reverse'))
 
 # FORWARD AD
 
@@ -191,97 +196,90 @@ manager0.forwardAD()
 
 # Get relevant seeds
 meshd = []
-for mesh in manager0.meshes.itervalues():
-    meshd.append(mesh.get_forwardADSeeds())
+for meshName in meshNames:
+    meshd.append(manager0.meshes[meshName].get_forwardADSeeds())
 
 # REVERSE AD
 
 # Call AD code
 manager0.reverseAD()
-
+    
 # Get relevant seeds
 coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
 coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
 
+intCoorb = manager0.intCurves[intCurveName].get_reverseADSeeds()
+
 # Dot product test
 dotProd = 0.0
-for ii in range(len(meshd)):
-    dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
-dotProd = dotProd - np.sum(coor1b*coor1d)
+
+print 'int'
+dotProd = dotProd + np.sum(intCoorb*intCoord)
 print dotProd
-dotProd = dotProd - np.sum(coor2b*coor2d)
+
+print 'coor1'
+dotProd = dotProd + np.sum(coor1b*coor1d)
 print dotProd
-for curveName in curveCoor1b:
-    dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
-    print dotProd
-for curveName in curveCoor2b:
-    dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+
+print 'curves1'
+for curveName in curveCoor1d:
+    dotProd = dotProd + np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
     print dotProd
 
-print 'dotProd test (this will be repeated at the end as well)'
+print 'coor2'
+dotProd = dotProd + np.sum(coor2b*coor2d)
+print dotProd
+
+print 'curves2'
+for curveName in curveCoor2d:
+    dotProd = dotProd + np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+    print dotProd
+
+print 'mesh'
+for ii in range(len(meshNames)):
+    dotProd = dotProd - np.sum(meshb[ii]*meshd[ii])
+    print dotProd
+
+print 'dotProd test'
 print dotProd
 
 # FINITE DIFFERENCE
 stepSize = 1e-7
 
-# Apply perturbations to the geometries
 comp1.update(comp1.coor + stepSize*coor1d)
-for curveName in curveCoor1d:
+
+for curveName in comp1.curves:
     comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
+
 comp2.update(comp2.coor + stepSize*coor2d)
-for curveName in curveCoor2d:
+
+for curveName in comp2.curves:
     comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
+curve.set_points(curve.get_points() + stepSize*intCoord)
+
 # Create new manager with perturbed components
-manager1 = pysurf.Manager()
-manager1.add_geometry(comp1)
-manager1.add_geometry(comp2)
+manager2 = pysurf.Manager()
+manager2.add_geometry(comp1)
+manager2.add_geometry(comp2)
+manager2.add_curve(curve)
 
-# Do the forward pass to the perturbed case
-meshNames = forward_pass(manager1)
-mesh_pass = mesh_pass + 1
+# Execute code with the perturbed geometry
+meshNames = forward_pass(manager2)
 
-# Get coordinates of the meshes in both cases to compute FD derivatives
+# Get coordinates of the mesh nodes
 meshd_FD = []
-for meshName in manager0.meshes:
-    meshCoor0 = manager0.meshes[meshName].mesh[:,:,:]
-    meshCoor1 = manager1.meshes[meshName].mesh[:,:,:]
+for meshName in meshNames:
+    mesh0 = manager0.meshes[meshName].mesh
+    mesh = manager2.meshes[meshName].mesh
+    curr_meshd = (mesh - mesh0)/stepSize
+    meshd_FD.append(curr_meshd)
 
-    # Compute derivatives with FD
-    meshCoord_FD = (meshCoor1 - meshCoor0)/stepSize
+for ii in range(len(meshNames)):
 
-    # Append to the dictionary
-    meshd_FD.append(meshCoord_FD)
+    # Print results
+    print 'FD test for mesh',meshNames[ii]
+    print np.max(np.abs(meshd[ii]-meshd_FD[ii]))
 
-def view_mat(mat):
-    """ Helper function used to visually examine matrices. """
-    import matplotlib.pyplot as plt
-    if len(mat.shape) > 2:
-        mat = np.sum(mat, axis=2)
-    # print "Cond #:", np.linalg.cond(mat)
-    im = plt.imshow(mat, interpolation='none')
-    plt.colorbar(im, orientation='horizontal')
-    plt.show()
-
-# Find the largest difference in derivatives
-FD_error = 0.0
-for ii in range(len(manager0.meshes)):
-    print meshNames[ii]
-    curr_error = np.max(np.abs(meshd[ii] - meshd_FD[ii]))
-    '''
-    view_mat(np.abs(meshd[ii][0,:,:] - meshd_FD[ii][0,:,:]))
-    view_mat(np.abs(meshd[ii][1,:,:] - meshd_FD[ii][1,:,:]))
-    view_mat(np.abs(meshd[ii][2,:,:] - meshd_FD[ii][2,:,:]))
-    '''
-    '''
-    view_mat(meshd_FD[ii][0,:,:])
-    view_mat(meshd_FD[ii][1,:,:])
-    view_mat(meshd_FD[ii][2,:,:])
-    '''
-    FD_error = max(FD_error, curr_error)
-
-# Print results
 print 'dotProd test'
 print dotProd
-print 'FD test'
-print FD_error

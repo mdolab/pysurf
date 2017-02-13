@@ -1,3 +1,9 @@
+'''
+In this example, we split the 4 edges of the intersection curve to
+perform individual remesh steps. This avoids the undefined derivatives
+at the rectangle edges.
+'''
+
 # IMPORTS
 from __future__ import division
 import pysurf
@@ -7,20 +13,15 @@ import unittest
 import os
 import pickle
 
-'''
-This script tracks the "spanwise" position of a surface mesh node on the cube
-as we move the rectangle vertically.
-
-It generates results.pickle, which will be read by plotDeriv.py
-'''
-
 # WING POSITIONS
-deltaZ = np.linspace(-0.1, 0.15, 11)
+#deltaZ = np.linspace(-0.1, 0.15, 11)
+deltaZ = np.linspace(0.145, 0.15, 11)
+
 
 # TRACKING POINT
 # Give i coordinate that we will use to create the tracking slice
-i_node = 26
-j_node = 15
+i_node = 53
+j_node = 11
 
 # TESTING FUNCTION
 
@@ -131,19 +132,38 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
-    # REMESH
-    optionsDict = {
-        'nNewNodes':41,
-        'spacing':'linear',
-        'initialSpacing':0.005,
-        'finalSpacing':0.005,
-    }
-    remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
+    # SPLIT
 
-    manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
+    # Split the intersection curve
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             criteria='sharpness')
+
+    # REMESH
+    remeshedCurveNames = []
+    for splitCurveName in splitCurveNames:
+
+        # Remesh each splitted curve individually
+        optionsDict = {
+            'nNewNodes':21,
+            'spacing':'linear',
+            'initialSpacing':0.005,
+            'finalSpacing':0.005,
+        }
+
+        # The remesh function returns a name that we will append to the list
+        # of curve names so we can merge them later
+        remeshedCurveNames.append(manager.remesh_intCurve(splitCurveName,optionsDict))
+
+    # MERGE
+    mergedCurveName = 'intersection'
+    manager.merge_intCurves(remeshedCurveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+
+    manager.intCurves[mergedCurveName].export_tecplot('intersection_'+str(mesh_pass))
 
     # MARCH SURFACE MESHES
-    meshName = 'mesh'
 
     options_rect = {
     
@@ -185,11 +205,11 @@ def compute_position(rect_deltaZ, i_track, j_track):
     }
 
     meshName = 'mesh'
-    meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
 
     # EXPORT
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'_%03d'%mesh_pass+'.xyz')
+        manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
 
     # DERIVATIVE SEEDS
 

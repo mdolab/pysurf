@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 from mpi4py import MPI
 import pysurf
+from collections import OrderedDict
 
 class Manager(object):
 
@@ -38,6 +39,12 @@ class Manager(object):
         # For instance, one sub-list could be: ['remesh',optionsDict], or
         # ['intersect',distTol].
         self.tasks = []
+
+        # MACH INTERFACE ATTRIBUTES
+        
+        # Set dictionary that will contain surface mesh points for different sets.
+        self.points = OrderedDict()
+        self.updated = {}
 
         pass
 
@@ -89,6 +96,14 @@ class Manager(object):
         '''
 
         self.meshes[mesh.name] = mesh
+
+    def remove_mesh(self, meshName):
+
+        '''
+        This method removes a Mesh object from the current Manager's dictionary.
+        '''
+
+        del self.meshes[meshName]
 
     def add_merged_mesh(self, mergedMesh):
 
@@ -312,7 +327,7 @@ class Manager(object):
         geomObjList = []
 
         for geomName in self.geoms:
-
+            
             # Detect if the user want to use the current geometry
             if geomName in geomList:
 
@@ -404,7 +419,7 @@ class Manager(object):
             # Get pointers to the parent objects
             geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
             geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
-
+                    
             # Run the AD intersection code
             geom1.intersect_b(geom2, curve, distTol, accumulateSeeds)
 
@@ -531,7 +546,7 @@ class Manager(object):
         the same parents as the original curve. This can make it easier to generate
         the surface meshes for intersections.
         '''
-
+        
         if curveName in self.intCurves.keys():
 
             # Call split function
@@ -762,153 +777,19 @@ class Manager(object):
         # Unflip the curve
         curve.flip()
 
-    def merge_meshes(self, meshNames, flips):
-        """
-        This function merges two surface meshes into a single
-        surface mesh. This newly merged mesh can then be saved as a plot3d
-        file and used in pyHyp for volume mesh extrusion.
-        """
+    #=====================================================
+    # MACH INTERFACE METHODS
 
-        n = 0
-        for meshName in meshNames:
-            n += self.meshes[meshName].mesh.shape[1] * self.meshes[meshName].mesh.shape[2]
-
-        collar = MergedMesh(meshNames, n)
-
-        newMeshNames = []
-        for meshName in meshNames:
-            meshName += '.xyz'
-            newMeshNames.append(meshName)
-
-        pysurf.plot3d_interface.merge_plot3d(newMeshNames, flips)
-
-        mergedGrid = pysurf.plot3d_interface.read_plot3d('merged.xyz', 3)
-
-        mergedGrid.remove_curves()
-
-        pysurf.plot3d_interface.export_plot3d(mergedGrid, 'merged.xyz', saveNumpy=True)
-
-        self.add_merged_mesh(collar)
-
-        self.tasks.append(['merge_meshes', collar.name, flips])
-
-
-    def _merge_meshes_d(self, mergedName, flips):
-
-        all_meshd = np.zeros((0, 3))
-
-        meshNames = self.mergedMeshes[mergedName].meshNames
-
-        for meshName in meshNames:
-            meshd = self.meshes[meshName].get_forwardADSeeds()
-
-            Xd, Yd, Zd = meshd[0, :, :], meshd[1, :, :], meshd[2, :, :]
-            Xd = Xd.flatten(order='F')
-            Yd = Yd.flatten(order='F')
-            Zd = Zd.flatten(order='F')
-
-            flattened_meshd = np.array([Xd, Yd, Zd]).T
-
-            all_meshd = np.vstack((all_meshd, flattened_meshd))
-
-        self.mergedMeshes[mergedName].mergedDerivs_d = all_meshd
-
-
-    def _merge_meshes_b(self, mergedName, flips):
-
-        print 'merging b'
-
-        all_meshb = self.mergedMeshes[mergedName].mergedDerivs_b
-        print all_meshb.shape
-
-        meshNames = self.mergedMeshes[mergedName].meshNames
-
-        tot_n = 0
-        for meshName in meshNames:
-            nNodes, nLayers = self.meshes[meshName].mesh.shape[1:]
-            n = nNodes * nLayers
-
-            Xb, Yb, Zb = all_meshb[tot_n:tot_n+n, 0], all_meshb[tot_n:tot_n+n, 1], all_meshb[tot_n:tot_n+n, 2]
-
-            Xb = Xb.reshape(nNodes, nLayers, order='F')
-            Yb = Yb.reshape(nNodes, nLayers, order='F')
-            Zb = Zb.reshape(nNodes, nLayers, order='F')
-
-            meshb = np.zeros((3, nNodes, nLayers))
-            meshb[0, :, :] = Xb
-            meshb[1, :, :] = Yb
-            meshb[2, :, :] = Zb
-
-            self.meshes[meshName].meshb = meshb
-            tot_n += n
-
-
-class MergedMesh(object):
-
-    def __init__(self, meshNames, n, name='collar'):
-
-        self.name = name
-        self.meshNames = meshNames
-        self.n = n
-
-    def set_reverseADSeeds(self, meshb):
+    def addPointsSet(coor, ptSetName, origConfig=True, **kwargs):
 
         '''
-        This function will just overwrite the surface mesh seeds used by
-        the reverse mode AD to propagate derivatives.
+        This function will receive an array of coordinates, and then assign
+        these coordinates to the corresponding FFD, under the set ptSetName.
 
-        This method updates self.meshb. Then user can use self.get_reverseADSeeds
-        to retrieve this result.
+        ADflow will call this function to provide all surface points of the
+        structured meshes, so we need to assign the correct points to their
+        corresponding FFD. For instance, the surface mesh points of the wing should
+        be assigned to the wing object FFD.
 
-        INPUTS:
-
-        meshb -> float[3, numNodes, numLayers] : Reverse derivative seeds
-        of the surface mesh coordinates.
+        Ney Secco 2017-02
         '''
-
-        # Verify shape
-        if np.zeros((self.n, 3)).shape != meshb.shape:
-            raise ValueError('The shape of derivatives array in not consistent.')
-
-        # Set values
-        self.mergedDerivs_b = np.array(meshb, order='F')
-
-    def set_randomADSeeds(self, mode='both', fixedSeed=True):
-
-        '''
-        This will set random normalized seeds to all variables.
-        This can be used for testing purposes.
-
-        mode: ['both','forward','reverse'] -> Which mode should have
-        its derivatives replaced.
-        '''
-
-        # See if we should use a fixed seed for the RNG
-        if fixedSeed:
-            np.random.seed(123)
-
-        # Set forward AD seeds
-        if mode=='forward' or mode=='both':
-
-            meshd = np.array(np.random.random((self.n, 3)), order='F')
-            meshd = meshd / np.sqrt(np.sum(meshd**2))
-            self.mergedDerivs_d = meshd
-
-        # Set reverse AD seeds
-        if mode=='reverse' or mode=='both':
-
-            # Set reverse AD seeds
-            meshb = np.array(np.random.random((self.n, 3)), order='F')
-            meshb = meshb / np.sqrt(np.sum(meshb**2))
-            self.mergedDerivs_b = meshb
-
-        # Return generated seeds
-
-        if mode == 'forward':
-            return meshd
-
-        elif mode == 'reverse':
-            return meshb
-
-        elif mode == 'both':
-            return meshd, meshb

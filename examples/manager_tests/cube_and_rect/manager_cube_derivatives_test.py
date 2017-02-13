@@ -55,12 +55,21 @@ def forward_pass(manager):
     manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
     # REMESH
+    '''
     optionsDict = {
         'nNewNodes':200,
         'spacing':'hypTan',
         'initialSpacing':0.001,
         'finalSpacing':0.001,
     }
+    '''
+    optionsDict = {
+        'nNewNodes':41,
+        'spacing':'linear',
+        'initialSpacing':0.005,
+        'finalSpacing':0.005,
+    }
+
     remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
 
     manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
