@@ -262,7 +262,7 @@ def export_plot3d(grid, fileName, saveNumpy=False):
         # Save this current block's coordinates in an array then update the
         # fullCoords with all information up to and including the current block.
         if saveNumpy:
-            blockCoords = np.array([block.X.flatten(), block.Y.flatten(), block.Z.flatten()]).T
+            blockCoords = np.array([block.X.flatten(order='F'), block.Y.flatten(order='F'), block.Z.flatten(order='F')]).T
             fullCoords = np.vstack((fullCoords, blockCoords))
 
     # Actually save the file that contains all of the coordinate info.

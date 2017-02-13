@@ -115,7 +115,7 @@ dotProd = 0.0
 for ii in range(len(initCurveNames)):
     dotProd = dotProd + np.sum(initCurveCoorb[ii]*initCurveCoord[ii])
 dotProd = dotProd - np.sum(mergedCurveCoorb*mergedCurveCoord)
-   
+
 print 'dotProd test'
 print dotProd
 

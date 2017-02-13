@@ -81,7 +81,7 @@ dotProd = 0.0
 dotProd = dotProd + np.sum(initCurveCoorb*initCurveCoord)
 for ii in range(len(newCurveNames)):
     dotProd = dotProd - np.sum(splitCurvesCoorb[ii]*splitCurvesCoord[ii])
-    
+
 print 'dotProd test'
 print dotProd
 
