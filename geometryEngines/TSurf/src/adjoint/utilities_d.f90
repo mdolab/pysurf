@@ -122,14 +122,19 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoord
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
     REAL(kind=realtype), DIMENSION(nnodes) :: arclengthd
-    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
-    REAL(kind=realtype) :: dist, zero, one, pi
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, ii, jj
+    REAL(kind=realtype) :: dist, zero, one, pi, disttol
     REAL(kind=realtype) :: distd
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclengthd
-    REAL(kind=realtype), DIMENSION(3) :: node1, node2
+    REAL(kind=realtype), DIMENSION(3) :: node1, node2, newnode, oldnode
     REAL(kind=realtype), DIMENSION(3) :: node1d, node2d
+    REAL(kind=realtype), DIMENSION(3) :: distvec
     INTRINSIC COS
+    INTRINSIC SQRT
+    REAL(kind=realtype) :: arg1
+! Tolerance to avoid any interpolation if new node is too close to an original node
+    disttol = 1e-7
     nnodes = nelem + 1
 ! Initialize outputs
     newcoor = 0.0
@@ -214,6 +219,33 @@ CONTAINS
       newbarsconn(1, elemid) = elemid
       newbarsconn(2, elemid) = elemid + 1
     END DO
+! NODE MERGING
+! If a new node is very close to an old node, the derivative of this new node
+! is undefined, because it is at the discontinuity between two elements.
+! In this case, we will add some extra code to assign the position of these
+! old nodes directly to the new nodes.
+! We do this so that the AD codes uses the derivative seeds coming from
+! the old nodes as well, avoiding the undefined derivative issue.
+! Loop over the new nodes to see if they are too close to an old node
+    DO ii=1,nnewnodes
+! Get coordinates of the new node
+      newnode = newcoor(:, ii)
+! Loop over the old nodes
+      DO jj=1,nnodes
+! Get coordinates of the old node
+        oldnode = nodecoor(:, jj)
+! Compute the distance between nodes
+        distvec = newnode - oldnode
+        arg1 = distvec(1)**2 + distvec(2)**2 + distvec(3)**2
+        dist = SQRT(arg1)
+! Check if distance is below a threshold
+        IF (dist .LT. disttol) THEN
+! Repeat the old node to avoid indetermination in derivatives
+          newcoord(:, ii) = nodecoord(:, jj)
+          newcoor(:, ii) = nodecoor(:, jj)
+        END IF
+      END DO
+    END DO
     GOTO 110
 ! Print warning
  100 PRINT*, &
@@ -239,11 +271,16 @@ CONTAINS
 ! Working variables
     REAL(kind=realtype), DIMENSION(3, nnodes) :: nodecoor
     REAL(kind=realtype), DIMENSION(nnodes) :: arclength
-    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid
-    REAL(kind=realtype) :: dist, zero, one, pi
+    INTEGER(kind=inttype) :: elemid, prevnodeid, currnodeid, ii, jj
+    REAL(kind=realtype) :: dist, zero, one, pi, disttol
     REAL(kind=realtype), DIMENSION(nnewnodes) :: newarclength
-    REAL(kind=realtype), DIMENSION(3) :: node1, node2
+    REAL(kind=realtype), DIMENSION(3) :: node1, node2, newnode, oldnode
+    REAL(kind=realtype), DIMENSION(3) :: distvec
     INTRINSIC COS
+    INTRINSIC SQRT
+    REAL(kind=realtype) :: arg1
+! Tolerance to avoid any interpolation if new node is too close to an original node
+    disttol = 1e-7
     nnodes = nelem + 1
 ! Initialize outputs
     newcoor = 0.0
@@ -314,6 +351,30 @@ CONTAINS
     DO elemid=1,nnewnodes-1
       newbarsconn(1, elemid) = elemid
       newbarsconn(2, elemid) = elemid + 1
+    END DO
+! NODE MERGING
+! If a new node is very close to an old node, the derivative of this new node
+! is undefined, because it is at the discontinuity between two elements.
+! In this case, we will add some extra code to assign the position of these
+! old nodes directly to the new nodes.
+! We do this so that the AD codes uses the derivative seeds coming from
+! the old nodes as well, avoiding the undefined derivative issue.
+! Loop over the new nodes to see if they are too close to an old node
+    DO ii=1,nnewnodes
+! Get coordinates of the new node
+      newnode = newcoor(:, ii)
+! Loop over the old nodes
+      DO jj=1,nnodes
+! Get coordinates of the old node
+        oldnode = nodecoor(:, jj)
+! Compute the distance between nodes
+        distvec = newnode - oldnode
+        arg1 = distvec(1)**2 + distvec(2)**2 + distvec(3)**2
+        dist = SQRT(arg1)
+! Check if distance is below a threshold
+        IF (dist .LT. disttol) newcoor(:, ii) = nodecoor(:, jj)
+! Repeat the old node to avoid indetermination in derivatives
+      END DO
     END DO
   END SUBROUTINE REMESH_MAIN
 !============================================================
