@@ -177,7 +177,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
 
     # REORDER
     manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
-    
+
     # Flip the curve for marching if necessary
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
     deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
@@ -190,9 +190,9 @@ def compute_position(wing_deltaZ, i_node, j_node):
 
     # MARCH SURFACE MESHES
     meshName = 'mesh'
-    
+
     options_body = {
-    
+
         'bc1' : 'continuous',
         'bc2' : 'continuous',
         'dStart' : 0.01,
@@ -207,11 +207,11 @@ def compute_position(wing_deltaZ, i_node, j_node):
         'sigmaSplay' : 0.3,
         'cMax' : 5.0,
         'ratioGuess' : 10.0,
-        
+
     }
 
     options_wing = {
-    
+
         'bc1' : 'curve:curve_te_upp',
         'bc2' : 'curve:curve_te_upp',
         'dStart' : 0.01,
@@ -228,7 +228,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
         'ratioGuess' : 10.0,
         'guideCurves' : ['curve_te_low'],
         'remesh' : True
-        
+
     }
 
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
@@ -250,10 +250,10 @@ def compute_position(wing_deltaZ, i_node, j_node):
     manager.meshes[meshNames[0]].set_reverseADSeeds(meshb)
 
     # REVERSE AD
-    
+
     # Call AD code
     manager.reverseAD()
-    
+
     # Get relevant seeds
     coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
     coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
@@ -277,7 +277,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
 for j_node in j_list:
 
     # Now we will execute the function for every wing position
-    
+
     # Initialize arrays to hold results
     numPos = len(deltaZ)
     Y = np.zeros(numPos)
@@ -303,4 +303,3 @@ for j_node in j_list:
     results = np.vstack([deltaZ,Y,dYdZ])
     with open('results_%03d_%03d.pickle'%(i_node,j_node),'w') as fid:
         pickle.dump(results,fid)
-
