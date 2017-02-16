@@ -132,7 +132,7 @@ class TSurfGeometry(Geometry):
     def update(self, coor=None):
 
         '''
-        This function updates the nodal coordinates used by both surface and curve objects.
+        This function updates the nodal coordinates used by the surface object.
         '''
 
         if coor is not None:
@@ -146,7 +146,7 @@ class TSurfGeometry(Geometry):
                 print ''
 
             # Update coordinates
-            self.coor = coor
+            self.coor = np.array(coor,order='F')
 
         # Update surface definition
         tst.update_surface(self)
@@ -699,7 +699,7 @@ class TSurfGeometry(Geometry):
     #===========================================================#
     # DERIVATIVE SEED MANIPULATION METHODS
 
-    def set_forwardADSeeds(self, coord=None, curveCoord=None):
+    def set_forwardADSeeds(self, coord=None, curveCoord=None, meshCoord=None):
         '''
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -722,6 +722,10 @@ class TSurfGeometry(Geometry):
                     if curveCoord[curveName] is not None:
                         self.curves[curveName].set_forwardADSeeds(curveCoord[curveName])
 
+        if meshCoord is not None:
+            self.meshObj.set_forwardADSeeds(meshCoord)
+            
+
     def get_forwardADSeeds(self):
         '''
         This will return the current derivative seeds of the surface design variables (coor)
@@ -737,9 +741,14 @@ class TSurfGeometry(Geometry):
         for curveName in self.curves:
             curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
 
-        return coord, curveCoord
+        if self.meshObj is not None:
+            meshCoord = self.meshObj.get_forwardADSeeds()
+            return coord, curveCoord, meshCoord
 
-    def set_reverseADSeeds(self, coorb=None, curveCoorb=None):
+        else:
+            return coord, curveCoord
+
+    def set_reverseADSeeds(self, coorb=None, curveCoorb=None, meshCoorb=None):
         '''
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -757,6 +766,9 @@ class TSurfGeometry(Geometry):
                     if curveCoorb[curveName] is not None:
                         self.curves[curveName].set_reverseADSeeds(curveCoorb[curveName])
 
+        if meshCoorb is not None:
+            self.meshObj.set_reverseADSeeds(meshCoorb)        
+
     def get_reverseADSeeds(self,clean=True):
         '''
         This will return the current derivative seeds of the surface design variables (coor)
@@ -769,17 +781,23 @@ class TSurfGeometry(Geometry):
         # We use np.arrays to make hard copies, and also to enforce Fortran ordering.
         coorb = np.array(self.coorb, order='F')
 
-        curveCoorb = {}
-        for curveName in self.curves:
-            curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean)
-
         # Check if we need to clean the derivative seeds
         if clean:
             self.coorb[:,:] = 0.0
 
-        return coorb, curveCoorb
+        # Get curve derivatives
+        curveCoorb = {}
+        for curveName in self.curves:
+            curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean)
 
-    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None):
+        if self.meshObj is not None:
+            meshCoorb = self.meshObj.get_reverseADSeeds(clean)
+            return coorb, curveCoorb, meshCoorb
+
+        else: # We have no mesh information to return
+            return coorb, curveCoorb
+
+    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None, meshCoorb=None):
         '''
         This will accumulate derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -796,6 +814,9 @@ class TSurfGeometry(Geometry):
                 if curveCoorb[curveName] is not None:
                     self.curves[curveName].coorb = self.accumulate_reverseADSeeds(curveCoorb[curveName])
 
+        if meshCoorb is not None:
+            self.meshObj.accumulate_reverseADSeeds(meshCoorb) 
+
     def clean_reverseADSeeds(self):
         '''
         This will erase all reverse derivative seeds of the surface design variables (coor)
@@ -809,6 +830,9 @@ class TSurfGeometry(Geometry):
 
         for curveName in self.curves:
             self.curves[curveName].coorb[:,:] = 0.0
+
+        if self.meshObj is not None:
+            self.meshObj.clean_reverseADSeeds()
 
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
@@ -829,37 +853,56 @@ class TSurfGeometry(Geometry):
 
             coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             coord = coord/np.sqrt(np.sum(coord**2))
-            self.coord = coord
+            self.coord = np.array(coord,order='F')
 
             curveCoord = {}
             for curveName in self.curves:
                 self.curves[curveName].set_randomADSeeds(mode='forward', fixedSeed=fixedSeed)
                 curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
 
+            if self.meshObj is not None:
+                meshCoord = self.meshObj.set_randomADSeeds(mode='forward',fixedSeed=fixedSeed)
+
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
             coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             coorb = coorb/np.sqrt(np.sum(coorb**2))
-            self.coorb = coorb
+            self.coorb = np.array(coorb,order='F')
 
             curveCoorb = {}
             for curveName in self.curves:
                 self.curves[curveName].set_randomADSeeds(mode='reverse', fixedSeed=fixedSeed)
                 curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean=False)
 
+            if self.meshObj is not None:
+                meshCoorb = self.meshObj.set_randomADSeeds(mode='reverse',fixedSeed=fixedSeed)
+
 
         # Return the randomly generated seeds
 
-        if mode == 'forward':
-            return coord, curveCoord
+        if self.meshObj is not None:
 
-        elif mode == 'reverse':
-            return coorb, curveCoorb
+            if mode == 'forward':
+                return coord, curveCoord, meshCoord
 
-        elif mode == 'both':
-            return coord, curveCoord, coorb, curveCoorb
+            elif mode == 'reverse':
+                return coorb, curveCoorb, meshCoorb
 
+            elif mode == 'both':
+                return coord, curveCoord, meshCoord, coorb, curveCoorb, meshCoorb
+
+        else:
+
+            if mode == 'forward':
+                return coord, curveCoord
+
+            elif mode == 'reverse':
+                return coorb, curveCoorb
+
+            elif mode == 'both':
+                return coord, curveCoord, coorb, curveCoorb
+                
     #===========================================================#
     # VISUALIZATION METHODS
 
@@ -895,8 +938,9 @@ class TSurfGeometry(Geometry):
         ptSetName = self.name + ':triaSurfNodes'
 
         # Assing the triangulated surface nodes to the geometry manipulator
-        print 'Assigning surface nodes from ',self.name,' to the manipulator'
-        self.manipulator.addPointSet(self.coor.T, ptSetName)
+        print 'Assigning triangulated surface nodes from ',self.name,' to the manipulator'
+        coor = self.get_points().T
+        self.manipulator.addPointSet(coor, ptSetName)
         print 'Done'
 
         # Store the set name for future uses
@@ -909,13 +953,18 @@ class TSurfGeometry(Geometry):
             ptSetName = self.name + ':curves:' + curveName
 
             # Assign curve nodes to the geometry manipulator
-            print 'Assigning nodes from curve ',self.name,' to the manipulator'
-            self.manipulator.addPointSet(self.curves[curveName].coor.T, ptSetName)
+            print 'Assigning nodes from curve ',curveName,' to the manipulator'
+            coor = self.curves[curveName].get_points().T
+            self.manipulator.addPointSet(coor, ptSetName)
             print 'Done'
 
             # Store the set name for future uses
             self.curves[curveName].ptSetName = ptSetName
 
+        # Assign surface mesh node if we already have one
+        if self.meshFileName is not None:
+            self.embed_mesh_points()
+            
     def manipulator_update(self):
 
         '''
@@ -933,18 +982,103 @@ class TSurfGeometry(Geometry):
         '''
 
         # Update triangulated surface nodes
-        print 'Updating surface nodes from ',self.name
+        print 'Updating triangulated surface nodes from ',self.name
         coor = self.manipulator.update(self.ptSetName)
-        self.update(np.array(coor.T,order='F'))
+        self.set_points(coor.T)
         print 'Done'
 
         # Now we need to update every curve as well
         for curveName in self.curves:
 
             # Update curve nodes
-            print 'Updating nodes from curve ',self.name
+            print 'Updating nodes from curve ',curveName
             coor = self.manipulator.update(self.curves[curveName].ptSetName)
-            self.curves[curveName] = np.array(coor.T,order='F')
+            self.curves[curveName].set_points(coor.T)
+            print 'Done' 
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            self.meshObj.set_points(self.manipulator.update(self.meshPtSetName))
+            print 'Done' 
+
+    def manipulator_forwardAD(self, xDVd):
+
+        '''
+        This method uses forward AD to propagate derivative seeds from the design
+        variables to the surface mesh coordinates.
+
+        xDVd : dictionary whose keys are the design variable names, and whose
+               values are the derivative seeds of the corresponding design variable.
+        '''
+
+        # Print log
+        print ''
+        print 'Forward AD call to manipulator of ',self.name,' object'
+
+        # Update triangulated surface nodes
+        print 'Updating triangulated surface nodes from ',self.name
+        coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
+        self.set_forwardADSeeds(coord=coord.reshape((-1,3)).T)
+        print 'Done'
+
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',curveName
+            coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
+            self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)).T)
+            print 'Done' 
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            coor = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
+            self.meshObj.set_forwardADSeeds(coor.reshape((-1,3)))
+            print 'Done' 
+
+    def manipulator_reverseAD(self, xDVb, clean=True):
+
+        '''
+        This method uses reverse AD to propagate derivative seeds from the surface mesh
+        coordinates to the design variables.
+
+        xDVb : dictionary whose keys are the design variable names, and whose
+               values are the derivative seeds of the corresponding design variable.
+               This function will acuumulate the derivative seeds contained in xDVb.
+        '''
+
+        # Print log
+        print ''
+        print 'Reverse AD call to manipulator of ',self.name,' object'
+
+        # Get derivative seeds
+        if self.meshPtSetName is not None:
+            coorb, curveCoorb, meshCoorb = self.get_reverseADSeeds(clean=clean)
+        else:
+            coorb, curveCoorb = self.get_reverseADSeeds(clean=clean)
+
+        # Update triangulated surface nodes
+        print 'Updating triangulated surface nodes from ',self.name
+        xDVb_curr = self.manipulator.totalSensitivity(coorb.T, self.ptSetName)
+        accumulate_dict(xDVb, xDVb_curr)
+        print 'Done'
+
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',curveName
+            xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName].T, self.curves[curveName].ptSetName)
+            accumulate_dict(xDVb, xDVb_curr)
+            print 'Done' 
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            xDVb_curr = self.manipulator.totalSensitivity(meshCoorb, self.meshPtSetName)
+            accumulate_dict(xDVb, xDVb_curr)
             print 'Done' 
 
 #=============================================================
@@ -1033,6 +1167,7 @@ class TSurfCurve(Curve):
         self.extra_data['usedPtsMask'] = usedPtsMask-1
         self.extra_data['parentGeoms'] = []
         self.extra_data['parentTria'] = []
+        self.extra_data['childMeshes'] = []
 
         # Take bar connectivity and reorder it
         sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
@@ -2430,3 +2565,15 @@ def closest_node(guideCurve, curve):
             minDist = np.min(dist_2)
             ind = np.argmin(dist_2)
     return ind
+
+def accumulate_dict(majorDict, minorDict):
+
+    '''
+    This function will loop over all keys of minorDict. If majorDict
+    shares the same key, then we will accumulate (add) the values into
+    majorDict.
+    '''
+
+    for key in minorDict:
+        if key in majorDict.keys():
+            majorDict[key] = majorDict[key] + minorDict[key]

@@ -39,6 +39,15 @@ class Geometry(object):
         # Define attribute to hold the geometry manipulation object
         self.manipulator = None
 
+        # Define attribute to hold mesh object
+        self.meshObj = None
+
+        # Define attribute to hold structured surface mesh file name (we will use this to call pyHyp)
+        self.meshFileName = None
+
+        # Define attribute to hold structured surface mesh point set name (used by the geometry manipulator)
+        self.meshPtSetName = None
+
         self._initialize(*arg, **kwargs)
 
     def _initialize(self, *arg):
@@ -276,9 +285,9 @@ class Geometry(object):
 
         pass
 
-        xSd = self.manipulator.totalSensitivityProd(xDVd, ptSetName)
+        #xSd = self.manipulator.totalSensitivityProd(xDVd, ptSetName)
 
-    def manipulator_reverseAD(self, xDVd, ptSetName):
+    def manipulator_reverseAD(self, xDVb, ptSetName):
 
         '''
         This function will use reverse AD to propagate derivative seeds from
@@ -290,7 +299,76 @@ class Geometry(object):
 
         pass
 
-        xDVb = self.manipulator.totalSensitivity(ptSetName)
+        #xDVb = self.manipulator.totalSensitivity(ptSetName)
+
+    def manipulator_getDVs(self):
+
+        '''
+        This returns the design variables of the current manipulator.
+        '''
+
+        dvDict = self.manipulator.getValues()
+
+        return dvDict
+
+    #===========================================================#
+    # MESH METHODS
+
+    def assign_structured_surface_mesh(self, fileName):
+
+        '''
+        This method reads a CGNS or Plot3D file that contains just a structured
+        SURFACE mesh and assigns its nodes to the current geometry.
+
+        INPUTS:
+        fileName: string -> It should specify the file name that
+        contains the surface coordinates. If the file extension is
+        ".cgns" we will use the CGNS reader. Otherwise, we will treat it
+        as a formatted Plot3D file.
+
+        Ney Secco 2017-02
+        '''
+
+        # Add spaces for printing statements
+        print ''
+
+        # Save filename
+        self.meshFileName = fileName
+
+        # Initialize mesh object
+        print 'Assigning surface mesh to ',self.name
+        print 'mesh file:',fileName
+        self.meshObj = pysurf.SurfaceMesh('mesh', fileName)
+
+        # Print statements
+        print 'Done'
+        print ''
+
+    def embed_mesh_points(self):
+
+        '''
+        This method will assign the structured surface mesh points to the
+        geometry manipulator. The manipulator and the mesh should be assigned
+        BEFORE this method is called.
+        '''
+
+        # Add spaces for printing statements
+        print ''
+
+        # Generate name for the mesh point set
+        ptSetName = self.name + ':surfMesh'
+        self.meshPtSetName = ptSetName
+
+        # Get surface mesh coordinates
+        coor = self.meshObj.get_points()
+
+        # Embed coordinates into the manipulator
+        print 'Assigning surface mesh of ',self.name,' to the manipulator'
+        self.manipulator.addPointSet(coor, self.meshPtSetName)
+        print 'Done'
+
+        # Add spaces for printing statements
+        print ''
 
 class Curve(object):
 

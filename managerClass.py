@@ -19,13 +19,16 @@ class Manager(object):
     def __init__(self):
 
         # Define dictionary that will hold all geometries
-        self.geoms = {}
+        self.geoms = OrderedDict()
 
         # Define dictionary to hold intersection curves
         self.intCurves = {}
 
+        # Define dictionary to hold mesh generators
+        self.meshGenerators = {}
+
         # Define dictionary to hold surface meshes
-        self.meshes = {}
+        self.collarMeshes = OrderedDict()
 
         # Define dictionary to hold merged meshes
         self.mergedMeshes = {}
@@ -48,6 +51,8 @@ class Manager(object):
 
         pass
 
+    #---------
+
     def add_geometry(self, geom):
 
         '''
@@ -67,6 +72,8 @@ class Manager(object):
         '''
 
         del self.geoms[geomName]
+
+    #---------
 
     def add_curve(self, curve):
 
@@ -89,21 +96,42 @@ class Manager(object):
 
         del self.intCurves[curveName]
 
-    def add_mesh(self, mesh):
+    #---------
+
+    def add_meshGenerator(self, meshGen):
+
+        '''
+        This method adds a Mesh Generator object to the current Manager's dictionary.
+        '''
+
+        self.meshGenerators[meshGen.name] = meshGen
+
+    def remove_meshGenerator(self, meshGenName):
+
+        '''
+        This method removes a Mesh Generator object from the current Manager's dictionary.
+        '''
+
+        del self.meshGenerators[meshName]
+
+    #---------
+
+    def add_collarMesh(self, mesh):
 
         '''
         This method adds a Mesh object to the current Manager's dictionary.
         '''
 
-        self.meshes[mesh.name] = mesh
+        self.collarMeshes[mesh.name] = mesh
 
-    def remove_mesh(self, meshName):
+    def remove_collarMesh(self, meshName):
 
         '''
         This method removes a Mesh object from the current Manager's dictionary.
         '''
 
-        del self.meshes[meshName]
+        del self.collarMeshes[meshName]
+
 
     def add_merged_mesh(self, mergedMesh):
 
@@ -122,7 +150,8 @@ class Manager(object):
         '''
 
         self.intCurves = {}
-        self.meshes = {}
+        self.meshGenerators = {}
+        self.collarMeshes = OrderedDict()
         self.mergedMeshes = {}
         self.tasks = []
 
@@ -703,32 +732,32 @@ class Manager(object):
         # Create hypsurf objects for the two sides of the mesh
 
         # Create first mesh
-        mesh0 = pysurf.hypsurf.HypSurfMesh(curve,
-                                           self.geoms[parentGeoms[0]],
-                                           options0,
-                                           meshName+'_0')
-        mesh0.createMesh()
+        meshGen0 = pysurf.hypsurf.HypSurfMesh(curve,
+                                              self.geoms[parentGeoms[0]],
+                                              options0,
+                                              meshName+'_0')
+        meshGen0.createMesh()
 
         # Flip the curve
         curve.flip()
 
         # March the second mesh
-        mesh1 = pysurf.hypsurf.HypSurfMesh(curve,
-                                           self.geoms[parentGeoms[1]],
-                                           options1,
-                                           meshName+'_1')
+        meshGen1 = pysurf.hypsurf.HypSurfMesh(curve,
+                                              self.geoms[parentGeoms[1]],
+                                              options1,
+                                              meshName+'_1')
 
-        mesh1.createMesh()
+        meshGen1.createMesh()
 
         # Unflip the curve
         curve.flip()
 
         # Store meshes under the manager
-        self.add_mesh(mesh0)
-        self.add_mesh(mesh1)
+        self.add_meshGenerator(meshGen0)
+        self.add_meshGenerator(meshGen1)
 
         # Get names of the new meshes
-        meshNames = [mesh0.name, mesh1.name]
+        meshNames = [meshGen0.name, meshGen1.name]
 
         # Store these names into the curve object
         curve.extra_data['childMeshes'] = meshNames
@@ -743,8 +772,8 @@ class Manager(object):
 
         # Get pointers to the curve and meshes
         curve = self.intCurves[curveName]
-        mesh0 = self.meshes[curve.extra_data['childMeshes'][0]]
-        mesh1 = self.meshes[curve.extra_data['childMeshes'][1]]
+        mesh0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
+        mesh1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
 
         # Run AD code for the first mesh
         mesh0.compute_forwardAD()
@@ -762,8 +791,8 @@ class Manager(object):
 
         # Get pointers to the curve and meshes
         curve = self.intCurves[curveName]
-        mesh0 = self.meshes[curve.extra_data['childMeshes'][0]]
-        mesh1 = self.meshes[curve.extra_data['childMeshes'][1]]
+        mesh0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
+        mesh1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
 
         # Run AD code for the first mesh
         mesh0.compute_reverseAD()
