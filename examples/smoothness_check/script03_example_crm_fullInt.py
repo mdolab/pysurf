@@ -1,248 +1,236 @@
 # IMPORTS
-
 from __future__ import division
-import numpy as np
-from numpy.random import rand
-# from surface import Surface  # GeoMACH
 import pysurf
-import os
 from mpi4py import MPI
-import copy
+import numpy as np
+import unittest
+import os
+import pickle
 
-# USER INPUTS
-guideCurves = ['curve_te_low']
+# MESH PARAMETERS
+numSkinNodes = 129
+LE_spacing = 0.001
+TE_spacing = 0.01
 
-# Define translation cases for the wing
-nStates = 2
+# WING POSITIONS
+wingTranslation = [0.0, 0.0, 3.0]
 
-wingTranslation = [[0.0, 0.0, 0.3]]
+# TESTING FUNCTION
 
-wingRotation = [0.0 for s in range(len(wingTranslation))]
-
-# Define video parameters
-fps = 2
+os.system('rm *.plt')
+os.system('rm *.xyz')
 
 # Load components
-wing = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
-body = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
+comp1 = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
+
+name1 = comp1.name
+name2 = comp2.name
 
 # Load TE curves and append them to the wing component
-curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt')
-curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt')
+curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
+curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt_')
 curveName = curve_te_upp.keys()[0]
-wing.add_curve(curve_te_upp[curveName])
+comp1.add_curve(curve_te_upp[curveName])
 curveName = curve_te_low.keys()[0]
-wing.add_curve(curve_te_low[curveName])
+comp1.add_curve(curve_te_low[curveName])
+comp1.curves[curveName].flip()
 
-# Flip some curves
-wing.curves['curve_te_low'].flip()
+# Create manager object and add the geometry objects to it
+manager = pysurf.Manager()
+manager.add_geometry(comp1)
+manager.add_geometry(comp2)
 
-# Define function to generate a wing body mesh for a given wing position and angle
+distTol = 1e-7
 
-def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
+#======================================================
 
-    # OPTIONS
-    generate_wing = True
-    generate_body = True
+def compute_position():
 
-    # DEFINE FUNCTION TO GENERATE MESH
+    '''
+    This function will apply all geometry operations to compute the
+    intersection and its derivative at the new location.
+    '''
 
-    def generateMesh(curve, geom, output_name):
+    # Clear the manager object first
+    manager.clear_all()
 
-        # Set options
-        options = {
+    # Translate the wing
+    manager.geoms[name1].translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
-            'bc1' : bc1,
-            'bc2' : bc2,
-            'dStart' : sBaseline,
-            'numLayers' : numLayers,
-            'extension' : extension,
-            'epsE0' : epsE0,
-            'theta' : theta,
-            'alphaP0' : alphaP0,
-            'numSmoothingPasses' : numSmoothingPasses,
-            'nuArea' : nuArea,
-            'numAreaPasses' : numAreaPasses,
-            'sigmaSplay' : sigmaSplay,
-            'cMax' : cMax,
-            'ratioGuess' : ratioGuess,
+    # INTERSECT
 
-        }
+    # Call intersection function
+    intCurveNames = manager.intersect(distTol=distTol)
+    intCurveName = intCurveNames[0]
 
-        # Set guideCurves for the wing case
-        if output_name == 'wing.xyz':
-            options['guideCurves'] = guideCurves
-            options['remesh'] = True
+    # SPLIT
 
-        mesh = pysurf.hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
+    # Split curves based on TE and LE curves
+    optionsDict = {'splittingCurves' : [comp1.curves['curve_le'],
+                                        comp1.curves['curve_te_upp'],
+                                        comp1.curves['curve_te_low']]}
 
-        mesh.createMesh()
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             optionsDict,
+                                             criteria='curve')
 
-        mesh.exportPlot3d(output_name)
+    # REMESH
 
+    # Find the highest z-coordinate of the entire intersection (vertical position)
+    maxZ = -99999
+    for curve in splitCurveNames:
+        curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+        maxZ = max(maxZ, curr_maxZ)
 
-    #================================================
+    # Now we can identify and remesh each curve properly
+    for curveName in splitCurveNames:
 
-    # Apply transformations to the wing
-    print wingTranslation
-    wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
+        # Get pointer to the curve object
+        curve = manager.intCurves[curveName]
 
-    # Compute intersection
-    Intersections = pysurf.tsurf_tools._compute_pair_intersection(wing, body, 1.e-5)
+        # The trailing edge curve will have less nodes than the other ones
+        if curve.numNodes < 20:
 
-    # Reorder curve so that it starts at the trailing edge
-    for intName in Intersections:
-        intName.shift_end_nodes(criteria='maxX')
+            # This is the trailing edge curve.
+            # Just apply an uniform spacing
+            optionsDict = {'nNewNodes':9}
+            TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
 
-    # Split curves
-    optionsDict = {'splittingCurves' : [wing.curves['curve_le'], wing.curves['curve_te_upp'], wing.curves['curve_te_low']]}
-
-    optionsDict['curvesToBeSplit'] = [Intersections[0]]
-
-    pysurf.tsurf_tools.split_curves(Intersections, optionsDict, criteria='curve')
-
-    # Remesh curve to get better spacing
-    # Dirty hard-coded logic that works for this specific case.
-    # In the future we'll have a more sophisticated and robust method to sort
-    # the curve results.
-    curveNames = Intersections.keys()
-    maxCoor = -99999.
-    for cur in curveNames:
-        curveMax = np.max(Intersections[cur].coor, axis=1)[2]
-        if maxCoor < curveMax:
-            maxCoor = curveMax
-
-    for cur in curveNames:
-        if Intersections[cur].coor.shape[1] < 20:
-            Intersections[cur] = Intersections[cur].remesh(nNewNodes=9)
         else:
-            end_to_end = Intersections[cur].extract_points()[0, :] - Intersections[cur].extract_points()[-1, :]
-            if np.max(Intersections[cur].coor, axis=1)[2] < maxCoor:
-                if end_to_end[0] > 0:
-                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
-                else:
-                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
-                    Intersections[cur].flip()
+
+            # We have an upper or lower skin curve.
+            # First let's identify if the curve is defined from
+            # LE to TE or vice-versa
+
+            curveCoor = curve.get_points()
+            deltaX = curveCoor[0,-1] - curveCoor[0,0]
+
+            if deltaX > 0:
+                LE_to_TE = True
             else:
-                if end_to_end[0] < 0:
-                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.001, finalSpacing=.01)
+                LE_to_TE = False
+
+            # Compute the highest vertical coordinate of the curve
+            curr_maxZ = np.max(curve.coor[2,:])
+
+            # Now we can determine if we have upper or lower skin
+            if curr_maxZ < maxZ:
+
+                # We are at the lower skin
+
+                if LE_to_TE:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':LE_spacing,
+                                   'finalSpacing':TE_spacing}
+
+                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
                 else:
-                    Intersections[cur] = Intersections[cur].remesh(nNewNodes=129, spacing='hypTan', initialSpacing=0.01, finalSpacing=.001)
-                    Intersections[cur].flip()
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':TE_spacing,
+                                   'finalSpacing':LE_spacing}
+
+                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+            else:
+
+                # We are at the upper skin
+
+                if LE_to_TE:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':LE_spacing,
+                                   'finalSpacing':TE_spacing}
+
+                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+                else:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':TE_spacing,
+                                   'finalSpacing':LE_spacing}
+
+                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+    # Now we can merge the new curves
+    curveNames = [TE_curveName, LS_curveName, US_curveName]
+    mergedCurveName = 'intersection'
+    manager.merge_intCurves(curveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+
+    # Flip the curve for marching if necessary
+    mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
+    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+
+    if deltaZ > 0:
+        manager.intCurves[mergedCurveName].flip()
+
+    # Export final curve
+    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
+
+    # MARCH SURFACE MESHES
+    meshName = 'mesh'
+
+    options_body = {
+
+        'bc1' : 'continuous',
+        'bc2' : 'continuous',
+        'dStart' : 0.01,
+        'numLayers' : 49,
+        'extension' : 1.3,
+        'epsE0' : 4.5,
+        'theta' : -0.5,
+        'alphaP0' : 0.25,
+        'numSmoothingPasses' : 0,
+        'nuArea' : 0.16,
+        'numAreaPasses' : 20,
+        'sigmaSplay' : 0.3,
+        'cMax' : 5.0,
+        'ratioGuess' : 10.0,
+
+    }
+
+    options_wing = {
+
+        'bc1' : 'curve:curve_te_upp',
+        'bc2' : 'curve:curve_te_upp',
+        'dStart' : 0.01,
+        'numLayers' : 49,
+        'extension' : 1.4,
+        'epsE0' : 12.5,
+        'theta' : -0.8,
+        'alphaP0' : 0.25,
+        'numSmoothingPasses' : 4,
+        'nuArea' : 0.16,
+        'numAreaPasses' : 0,
+        'sigmaSplay' : 0.3,
+        'cMax' : 10.0,
+        'ratioGuess' : 10.0,
+        'guideCurves' : ['curve_te_low'],
+        'remesh' : True
+
+    }
+
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
+
+    for meshName in meshNames:
+        if '0' in meshName:
+            manager.meshes[meshName].exportPlot3d('wing.xyz')
+        else:
+            manager.meshes[meshName].exportPlot3d('body.xyz')
 
 
-    # Check if we need to flip the curve
-    # if Intersections[curveNames[1]].coor[2,0] > Intersections[curveNames[1]].coor[2,-1]:
-    #     Intersections[curveNames[0]].flip()
-    #     Intersections[curveNames[1]].flip()
-    #     Intersections[curveNames[2]].flip()
 
-    # Merge curves
-    mergedCurve = pysurf.tsurf_tools.merge_curves(Intersections,'intersection')
+# END OF compute_position
+#======================================================
 
-    mergedCurve.shift_end_nodes(criteria='maxX')
-
-    # Export intersection curve
-    mergedCurve.export_tecplot('curve')
-
-    # Add intersection curve to each component
-    wing.add_curve('intersection',mergedCurve)
-    body.add_curve('intersection',mergedCurve)
-
-    # GENERATE WING MESH
-
-    if generate_wing:
-
-        print 'Generating wing mesh'
-
-        # Flip BC curve
-        #wing.curves['intersection'].flip()
-        #wing.curves['te'].flip()
-
-        # Set problem
-        curve = 'intersection'
-        bc1 = 'curve:curve_te_upp'
-        bc2 = 'curve:curve_te_upp'
-
-        # Set parameters
-        epsE0 = 12.5
-        theta = -0.8
-        alphaP0 = 0.25
-        numSmoothingPasses = 4
-        nuArea = 0.16
-        numAreaPasses = 0
-        sigmaSplay = 0.
-        cMax = 10.0
-        ratioGuess = 20
-
-        # Options
-        sBaseline = 0.01
-        numLayers = 49
-        extension = 1.4
-
-        # Call meshing function
-        generateMesh(curve, wing, 'wing.xyz')
-
-    # GENERATE BODY MESH
-
-    if generate_body:
-
-        print 'Generating body mesh'
-
-        # Flip BC curve
-        body.curves['intersection'].flip()
-
-        # Set problem
-        curve = 'intersection'
-        bc1 = 'continuous'
-        bc2 = 'continuous'
-
-        # Set parameters
-        epsE0 = 4.5
-        theta = -0.5
-        alphaP0 = 0.25
-        numSmoothingPasses = 0
-        nuArea = 0.16
-        numAreaPasses = 20
-        sigmaSplay = 0.3
-        cMax = 10000.0
-        ratioGuess = 20
-
-        # Options
-        sBaseline = 0.01
-        numLayers = 49
-        extension = 1.3
-
-        # Call meshing function
-        generateMesh(curve, body, 'body.xyz')
-
-
-    # Run tecplot in bash mode to save picture
-    # os.system('tec360 -b plotMesh.mcr')
-    # os.system('tec360 layout_mesh.lay')
-
-
-    # Rename image file
-    # os.system('mv images/image.png images/image%03d.png'%(meshIndex))
-
-
-    # Revert transformations to the wing
-    wing.translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    #wing.curves['te_low_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-    #wing.curves['te_upp_curve'].translate(-wingTranslation[0],-wingTranslation[1],-wingTranslation[2])
-
-# end of genereteWingBodyMesh
-    ###########################################
-
-# Generate mesh for each case
-
-for index in range(len(wingTranslation)):
-
-    # Generate mesh for each case
-    #try:
-    generateWingBodyMesh(wingTranslation[index],wingRotation[index],index+1)
-    #except:
-        #pass
-
-#Generate a video with all the images using the ffmpeg command
-#os.system('ffmpeg -f image2 -r ' + str(fps) + ' -i images/image%03d.png -vcodec mpeg4 -y movie.mp4')
+compute_position()
