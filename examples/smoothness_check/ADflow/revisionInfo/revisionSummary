@@ -1,65 +1,65 @@
 DO NOT MODIFY THE CONTENtS OF THIS FILE. THE EXACT STRUCTURE IS REQUIRED FOR RESTORATION
 --------------------------------------------------------------------------------
-Package: /home/ney/hg/pyspline
+Package: /home/john/hg/tripan
 --------------------------------------------------------------------------------
-parent: 387:3468277b9403 tip
- replaced rank with ndim due to deprecation warning.
+parent: 486:1049d6b09f5b tip
+ Updating code to support petsc 3.7
+branch: pmat-mod
+commit: 1 modified, 2 unknown
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/john/hg/pyspline
+--------------------------------------------------------------------------------
+parent: 388:c5f3d2550088 tip
+ integer math for newer numpy compatibility
 branch: pySpline
 commit: 3 unknown (clean)
 update: (current)
 --------------------------------------------------------------------------------
-Package: /home/ney/hg/baseclasses
---------------------------------------------------------------------------------
-parent: 96:01f4653a2fa9 tip
- fixed bug with name change
-branch: default
-commit: 13 unknown (clean)
-update: (current)
---------------------------------------------------------------------------------
-Package: /home/ney/hg/repostate
---------------------------------------------------------------------------------
-parent: 11:6cedaaf32684 tip
- remove empty from hgpaths
-branch: default
-commit: 2 unknown (clean)
-update: (current)
---------------------------------------------------------------------------------
-Package: /home/ney/hg/pygeo
---------------------------------------------------------------------------------
-parent: 569:71c19c05623f tip
- added missing input files for reg test
-branch: pyGeo
-commit: 1 modified, 17 unknown
-update: (current)
---------------------------------------------------------------------------------
-Package: /home/ney/hg/tripan
---------------------------------------------------------------------------------
-parent: 453:ed07340535e9 tip
- Small bug fix
-branch: pmat-mod
-commit: 2 unknown (clean)
-update: (current)
---------------------------------------------------------------------------------
-Package: /home/ney/hg/adflow
---------------------------------------------------------------------------------
-parent: 1744:6925abe3fe9f tip
- Fixed the second half of the process dependence issue. It is necesary to have
-branch: default
-commit: 1 unknown (clean)
-update: (current)
---------------------------------------------------------------------------------
-Package: /home/ney/hg/pywarp
+Package: /home/john/hg/pywarp
 --------------------------------------------------------------------------------
 parent: 277:313405e80993 tip
  added faceSizes optiont to setSurfaceDefinition in MultiBlockMesh to comply with format in pywarpustruct.
 branch: pywarp_solid
-commit: 148 unknown (clean)
+commit: 146 unknown (clean)
 update: (current)
 --------------------------------------------------------------------------------
-Package: /home/ney/hg/tacs
+Package: /home/john/hg/baseclasses
 --------------------------------------------------------------------------------
-parent: 1639:e7a73ed1d096 tip
- Modified the bdf output. CQUADR instead of CQUAD4 is now used. Smeared
+parent: 107:baca49bd816e tip
+ Fixed a couple typos in pyAero_problem.
+branch: default
+commit: 1 modified, 14 unknown
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/john/hg/tacs
+--------------------------------------------------------------------------------
+parent: 1849:17fff63da479 tip
+ Added a special routine for zeroing uSurf_aeroSens. This is necessary when
 branch: pmat-mod
 commit: 8 unknown (clean)
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/john/hg/repostate
+--------------------------------------------------------------------------------
+parent: 13:6777551a7c9c tip
+ repoSave.py edited online with Bitbucket
+branch: default
+commit: 2 unknown (clean)
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/john/hg/pygeo
+--------------------------------------------------------------------------------
+parent: 587:6c05aa06b040 tip
+ merged out
+branch: pyGeo
+commit: 1 modified, 18 unknown
+update: (current)
+--------------------------------------------------------------------------------
+Package: /home/john/hg/adflow
+--------------------------------------------------------------------------------
+parent: 1820:2df82715ed42 tip
+ added zipper gathered
+branch: default
+commit: 6 modified, 2 unknown
 update: (current)

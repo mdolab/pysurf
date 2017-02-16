@@ -10,9 +10,28 @@ from pywarpustruct import USMesh
 from scipy.spatial import cKDTree
 from time import time
 
-# Set options for the pywarpustruct instance
+# Set options for the collar pywarpustruct instance
 options = {
   'gridFile':'collar_master.cgns',
+  'fileType':'CGNS',
+  'specifiedSurfaces':None,
+  'symmetrySurfaces':None,
+  'symmetryPlanes':[],
+  'aExp': 3.0,
+  'bExp': 5.0,
+  'LdefFact':100.0,
+  'alpha':0.25,
+  'errTol':0.0001,
+  'evalMode':'fast',
+  'useRotations':True,
+  'zeroCornerRotations':True,
+  'cornerAngle':30.0,
+  'bucketSize':8,
+}
+
+# Set options for the wing pywarpustruct instance
+wing_options = {
+  'gridFile':'primary_meshes/wing_L1_hyp.cgns',
   'fileType':'CGNS',
   'specifiedSurfaces':None,
   'symmetrySurfaces':None,
@@ -48,7 +67,7 @@ if __name__ == "__main__":
     nStates = 2
 
     wingTranslation = np.zeros((nStates,3))
-    wingTranslation[:,2] = np.linspace(0., 3., nStates)
+    wingTranslation[:, 2] = np.linspace(0., 3., nStates)
 
     for i, wingT in enumerate(wingTranslation):
         # print "Extracting curves.\n"
@@ -61,10 +80,7 @@ if __name__ == "__main__":
         python_string_replacement = "sed -i -e 's/wingTranslation =.*/wingTranslation = [{}, {}, {}]/g' script03_example_crm_fullInt.py".format(wingT[0], wingT[1], wingT[2])
         subprocess.call([python_string_replacement], shell=True)
 
-        cgns_string_replacement = "sed -i -e 's/cgns_utils translate wing_L1_temp.cgns .*/cgns_utils translate wing_L1_temp.cgns {} {} {}/g' script06_mergeMeshes.sh".format(wingT[0], wingT[1], wingT[2])
-        subprocess.call([cgns_string_replacement], shell=True)
-
-        cgns_string_replacement = "sed -i -e 's/cgns_utils coarsen crm_wb.cgns .*/cgns_utils coarsen crm_wb.cgns crm_wb_L2_" + str(i).zfill(2) + ".cgns/g' script06_mergeMeshes.sh"
+        cgns_string_replacement = "sed -i -e 's/cgns_utils coarsen crm_wb.cgns .*/cgns_utils coarsen crm_wb.cgns crm_wb_L2_" + str(i).zfill(2) + ".cgns/g' script06_alternative.sh"
         subprocess.call([cgns_string_replacement], shell=True)
 
         t1 = time()
@@ -99,6 +115,14 @@ if __name__ == "__main__":
 
             # Create the mesh object using pywarpustruct
             collar_mesh = USMesh(options=options, comm=MPI.COMM_WORLD)
+
+            subprocess.call(["cp primary_meshes/wing_L1_hyp.cgns wing_L1_temp.cgns"], shell=True)
+
+            # Create the wing mesh object using pywarpustruct
+            wing_mesh = USMesh(options=wing_options, comm=MPI.COMM_WORLD)
+
+            # Get the wing coordinates from the primary mesh
+            wing_coords = wing_mesh.getSurfaceCoordinates()
 
             # Get the initial coordinates in the order that the mesh object
             # uses them
@@ -138,11 +162,19 @@ if __name__ == "__main__":
             collar_mesh.warpMesh()
             collar_mesh.writeGrid('collar.cgns')
 
+            # Translate the initial wing coords based on the wingT values
+            new_wing_coords = wing_coords + wingT / .0254
+
+            # Set the new wing coords, warp the mesh, and save the grid
+            wing_mesh.setSurfaceCoordinates(new_wing_coords)
+            wing_mesh.warpMesh()
+            wing_mesh.writeGrid('wing_L1_temp.cgns')
+
             t5 = time()
             times['pywarp'].append(t5 - t3)
 
         print "Merging meshes into single .cgns file.\n"
-        subprocess.call(["sh script06_mergeMeshes.sh"], shell=True)
+        subprocess.call(["sh script06_alternative.sh"], shell=True)
 
         t6 = time()
         times['mergeMeshes'].append(t6 - t5)
