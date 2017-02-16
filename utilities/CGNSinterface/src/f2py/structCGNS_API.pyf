@@ -1,0 +1,56 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module structCGNS_API ! in 
+    interface  ! in :structCGNS_API
+        subroutine openfile(filename,mode,cg) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            character*(*) intent(in) :: filename
+            integer(kind=inttype) intent(in) :: mode
+            integer(kind=inttype) intent(out) :: cg
+        end subroutine openfile
+        subroutine closefile(cg) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+        end subroutine closefile
+        subroutine getnblocks(cg,n) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+            integer(kind=inttype) intent(out) :: n
+        end subroutine getnblocks
+        subroutine getgriddimension(cg,celldim) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+            integer(kind=inttype) intent(out) :: celldim
+        end subroutine getgriddimension
+        subroutine getblockinfo(cg,iblock,zonename,dims,nboco,nb2b) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+            integer(kind=inttype) intent(in) :: iblock
+            character*512 intent(out) :: zonename
+            integer(kind=inttype) dimension(3),intent(out) :: dims
+            integer(kind=inttype) intent(out) :: nboco
+            integer(kind=inttype) intent(out) :: nb2b
+        end subroutine getblockinfo
+        subroutine getcoordinates3d(cg,iblock,il,jl,kl,x) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+            integer(kind=inttype) intent(in) :: iblock
+            integer(kind=inttype) intent(in) :: il
+            integer(kind=inttype) intent(in) :: jl
+            integer(kind=inttype) intent(in) :: kl
+            real(kind=realtype) dimension(il,jl,kl,3),intent(out),depend(il,jl,kl) :: x
+        end subroutine getcoordinates3d
+        subroutine getcoordinates2d(cg,iblock,il,jl,x) ! in :structCGNS_API:structCGNS_API.F90
+            use precision
+            integer(kind=inttype) intent(in) :: cg
+            integer(kind=inttype) intent(in) :: iblock
+            integer(kind=inttype) intent(in) :: il
+            integer(kind=inttype) intent(in) :: jl
+            real(kind=realtype) dimension(il,jl,3),intent(out),depend(il,jl) :: x
+        end subroutine getcoordinates2d
+    end interface 
+end python module structCGNS_API
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

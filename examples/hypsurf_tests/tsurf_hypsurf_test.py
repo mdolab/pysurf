@@ -11,9 +11,9 @@ from mpi4py import MPI
 import unittest
 import pickle
 
-example = 'kink_on_plate'
+#example = 'kink_on_plate'
 #example = 'line_on_cylinder'
-#example = 'line_on_cylinder_with_guides'
+example = 'line_on_cylinder_with_guides'
 #example = 'crm_wing'
 
 if example == 'kink_on_plate':
@@ -194,7 +194,7 @@ mesh = hypsurf.HypSurfMesh(curve=curve, ref_geom=geom, options=options)
 
 mesh.test_all()
 
-mesh.exportPlot3d('output.xyz')
+mesh.export_plot3d('output.xyz')
 
 
     # def test_line_on_cylinder(self):
