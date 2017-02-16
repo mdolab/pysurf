@@ -5,7 +5,6 @@ Ney Secco 2016-08
 '''
 
 from __future__ import division
-from ..meshClass import Mesh
 import numpy as np
 from mpi4py import MPI
 import tfiMeshTools
@@ -17,9 +16,9 @@ from pysurf import plot3d_interface
 tol = 1e-2
 
 # Create a child class from the parent Mesh class defined in meshClass.py
-class TFIMesh(Mesh):
+class TFIMesh(object):
 
-    def _initialize(self, leftCurve, bottomCurve, rightCurve, topCurve, refComp):
+    def __init__(self, leftCurve, bottomCurve, rightCurve, topCurve, refComp):
 
         '''
         This function will receive four curve objects/array and
