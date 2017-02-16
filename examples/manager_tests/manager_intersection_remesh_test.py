@@ -6,113 +6,128 @@ import numpy as np
 import unittest
 import os
 import pickle
+import unittest
 
-# TESTING FUNCTION
+class RemeshTest(unittest.TestCase):
 
-os.system('rm *.plt')
+    def __init__(self, *args, **kwargs):
+        super(RemeshTest, self).__init__(*args, **kwargs)
 
-# Load components
-comp1 = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
-comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
-#comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
-#comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
+    def test_remesh(self):
 
-#name1 = 'wing'
-#name2 = 'body'
-#comp1.rename(name1)
-#comp2.rename(name2)
+        # TESTING FUNCTION
 
-name1 = comp1.name
-name2 = comp2.name
+        os.system('rm *.plt')
 
-comp1.translate(0.0, 0.0, 0.0001)
+        # Load components
+        comp1 = pysurf.TSurfGeometry('../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+        comp2 = pysurf.TSurfGeometry('../inputs/fuselage_crm4.cgns',['fuse'])
+        #comp1 = pysurf.TSurfGeometry('../inputs/crm.cgns',['w_upp','w_low'])
+        #comp2 = pysurf.TSurfGeometry('../inputs/crm.cgns',['b_fwd','b_cnt','b_rrf'])
 
-# Create manager object and add the geometry objects to it
-manager = pysurf.Manager()
-manager.add_geometry(comp1)
-manager.add_geometry(comp2)
+        #name1 = 'wing'
+        #name2 = 'body'
+        #comp1.rename(name1)
+        #comp2.rename(name2)
 
-distTol = 1e-7
+        name1 = comp1.name
+        name2 = comp2.name
 
-# FORWARD PASS
-    
-# Call intersection function
-manager.intersect(distTol=distTol)
-curveName = manager.intCurves.keys()[0]
+        comp1.translate(0.0, 0.0, 0.0001)
 
-# Call remeshing function
-#curveName = manager.remesh_intCurve(curveName)
-curveName = manager.remesh_intCurve(curveName,{'nNewNodes':200})
+        # Create manager object and add the geometry objects to it
+        manager = pysurf.Manager()
+        manager.add_geometry(comp1)
+        manager.add_geometry(comp2)
 
-manager.intCurves[curveName].export_tecplot(curveName)
+        distTol = 1e-7
 
-# DERIVATIVE SEEDS
+        # FORWARD PASS
 
-# Generate random seeds
-coor1d, curveCoor1d = manager.geoms[name1].set_randomADSeeds(mode='forward')
-coor2d, curveCoor2d = manager.geoms[name2].set_randomADSeeds(mode='forward')
-intCoorb = manager.intCurves[curveName].set_randomADSeeds(mode='reverse')
+        # Call intersection function
+        manager.intersect(distTol=distTol)
+        curveName = manager.intCurves.keys()[0]
 
-# FORWARD AD
+        # Call remeshing function
+        #curveName = manager.remesh_intCurve(curveName)
+        curveName = manager.remesh_intCurve(curveName,{'nNewNodes':200})
 
-# Call AD code
-manager.forwardAD()
+        manager.intCurves[curveName].export_tecplot(curveName)
 
-# Get relevant seeds
-intCoord = manager.intCurves[curveName].get_forwardADSeeds()
+        # DERIVATIVE SEEDS
 
-# REVERSE AD
+        # Generate random seeds
+        coor1d, curveCoor1d = manager.geoms[name1].set_randomADSeeds(mode='forward')
+        coor2d, curveCoor2d = manager.geoms[name2].set_randomADSeeds(mode='forward')
+        intCoorb = manager.intCurves[curveName].set_randomADSeeds(mode='reverse')
 
-# Call AD code
-manager.reverseAD()
-    
-# Get relevant seeds
-coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
-coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
+        # FORWARD AD
 
-# Dot product test
-dotProd = 0.0
-dotProd = dotProd + np.sum(intCoorb*intCoord)
-dotProd = dotProd - np.sum(coor1b*coor1d)
-dotProd = dotProd - np.sum(coor2b*coor2d)
-for curveName in curveCoor1d:
-    dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
-for curveName in curveCoor2d:
-    dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
+        # Call AD code
+        manager.forwardAD()
 
-print 'dotProd test'
-print dotProd
+        # Get relevant seeds
+        intCoord = manager.intCurves[curveName].get_forwardADSeeds()
 
-# FINITE DIFFERENCE
-stepSize = 1e-9
+        # REVERSE AD
 
-comp1.update(comp1.coor + stepSize*coor1d)
-for curveName in curveCoor1d:
-    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
-comp2.update(comp2.coor + stepSize*coor2d)
-for curveName in curveCoor2d:
-    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
+        # Call AD code
+        manager.reverseAD()
 
-# Create new manager with perturbed components
-manager2 = pysurf.Manager()
-manager2.add_geometry(comp1)
-manager2.add_geometry(comp2)
+        # Get relevant seeds
+        coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+        coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
 
-# Call intersection function
-manager2.intersect(distTol=distTol)
-curveName = manager2.intCurves.keys()[0]
+        # Dot product test
+        dotProd = 0.0
+        dotProd = dotProd + np.sum(intCoorb*intCoord)
+        dotProd = dotProd - np.sum(coor1b*coor1d)
+        dotProd = dotProd - np.sum(coor2b*coor2d)
+        for curveName in curveCoor1d:
+            dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+        for curveName in curveCoor2d:
+            dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
-# Call remeshing function
-#curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':intCoord.shape[1]+1})
-curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':200})
+        print 'dotProd test'
+        print dotProd
+        np.testing.assert_almost_equal(dotProd, 0., decimal=11)
 
-# Get coordinates of the intersection
-coor0 = manager.intCurves[curveName].get_points()
-coor = manager2.intCurves[curveName].get_points()
+        # FINITE DIFFERENCE
+        stepSize = 1e-9
 
-# Compute derivatives with FD
-intCoord_FD = (coor - coor0)/stepSize
+        comp1.update(comp1.coor + stepSize*coor1d)
+        for curveName in curveCoor1d:
+            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
+        comp2.update(comp2.coor + stepSize*coor2d)
+        for curveName in curveCoor2d:
+            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
 
-# Print results
-print 'FD test'
-print np.max(np.abs(intCoord-intCoord_FD))
+        # Create new manager with perturbed components
+        manager2 = pysurf.Manager()
+        manager2.add_geometry(comp1)
+        manager2.add_geometry(comp2)
+
+        # Call intersection function
+        manager2.intersect(distTol=distTol)
+        curveName = manager2.intCurves.keys()[0]
+
+        # Call remeshing function
+        #curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':intCoord.shape[1]+1})
+        curveName = manager2.remesh_intCurve(curveName,{'nNewNodes':200})
+
+        # Get coordinates of the intersection
+        coor0 = manager.intCurves[curveName].get_points()
+        coor = manager2.intCurves[curveName].get_points()
+
+        # Compute derivatives with FD
+        intCoord_FD = (coor - coor0)/stepSize
+
+        # Print results
+        print 'FD test'
+        FD_results = np.max(np.abs(intCoord-intCoord_FD))
+        print FD_results
+        # Note that this is a pretty loose tolerance for the test here
+        np.testing.assert_almost_equal(FD_results, 0., decimal=4)
+
+if __name__ == "__main__":
+    unittest.main()

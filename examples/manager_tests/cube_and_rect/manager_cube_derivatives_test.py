@@ -101,7 +101,7 @@ intCoord = manager0.intCurves[remeshedCurveName].get_forwardADSeeds()
 
 # Call AD code
 manager0.reverseAD()
-    
+
 # Get relevant seeds
 coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
 coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()

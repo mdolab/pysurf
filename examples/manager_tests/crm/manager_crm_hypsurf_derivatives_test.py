@@ -7,330 +7,343 @@ import unittest
 import os
 import pickle
 
-# MESH PARAMETERS
-numSkinNodes = 129
-LE_spacing = 0.01
-TE_spacing = 0.001
+class HypsurfTest(unittest.TestCase):
 
-# TESTING FUNCTION
+    def __init__(self, *args, **kwargs):
+        super(HypsurfTest, self).__init__(*args, **kwargs)
 
-os.system('rm *.plt')
+    def test_hypsurf(self):
 
-# Load components
-comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
-comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
+        # MESH PARAMETERS
+        numSkinNodes = 129
+        LE_spacing = 0.01
+        TE_spacing = 0.001
 
-name1 = comp1.name
-name2 = comp2.name
+        # TESTING FUNCTION
 
-#comp1.rename(name1)
-#comp2.rename(name2)
+        os.system('rm *.plt')
 
-# Load TE curves and append them to the wing component
-curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
-curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt_')
-curveName = curve_te_upp.keys()[0]
-comp1.add_curve(curve_te_upp[curveName])
-curveName = curve_te_low.keys()[0]
-comp1.add_curve(curve_te_low[curveName])
-comp1.curves[curveName].flip()
+        # Load components
+        comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
+        comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
 
-# Translate the wing
-comp1.translate(0.0, 0.0, 0.0001)
+        name1 = comp1.name
+        name2 = comp2.name
 
-# Create manager object and add the geometry objects to it
-manager0 = pysurf.Manager()
-manager0.add_geometry(comp1)
-manager0.add_geometry(comp2)
+        #comp1.rename(name1)
+        #comp2.rename(name2)
 
-distTol = 1e-7
+        # Load TE curves and append them to the wing component
+        curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
+        curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt_')
+        curveName = curve_te_upp.keys()[0]
+        comp1.add_curve(curve_te_upp[curveName])
+        curveName = curve_te_low.keys()[0]
+        comp1.add_curve(curve_te_low[curveName])
+        comp1.curves[curveName].flip()
 
-#======================================================
-# FORWARD PASS
+        # Translate the wing
+        comp1.translate(0.0, 0.0, 0.0001)
 
-def forward_pass(manager):
+        # Create manager object and add the geometry objects to it
+        manager0 = pysurf.Manager()
+        manager0.add_geometry(comp1)
+        manager0.add_geometry(comp2)
 
-    '''
-    This function will apply all geometry operations to the given manager.
-    '''
+        distTol = 1e-7
 
-    # INTERSECT
+        #======================================================
+        # FORWARD PASS
 
-    # Call intersection function
-    intCurveNames = manager.intersect(distTol=distTol)
-    intCurveName = intCurveNames[0]
+        def forward_pass(manager):
 
-    # SPLIT
+            '''
+            This function will apply all geometry operations to the given manager.
+            '''
 
-    # Split curves based on TE and LE curves
-    optionsDict = {'splittingCurves' : [comp1.curves['curve_le'],
-                                        comp1.curves['curve_te_upp'],
-                                        comp1.curves['curve_te_low']]}
+            # INTERSECT
 
-    splitCurveNames = manager.split_intCurve(intCurveName,
-                                             optionsDict,
-                                             criteria='curve')
+            # Call intersection function
+            intCurveNames = manager.intersect(distTol=distTol)
+            intCurveName = intCurveNames[0]
 
-    # REMESH
+            # SPLIT
 
-    # Find the highest z-coordinate of the entire intersection (vertical position)
-    maxZ = -99999
-    for curve in splitCurveNames:
-        curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
-        maxZ = max(maxZ, curr_maxZ)
+            # Split curves based on TE and LE curves
+            optionsDict = {'splittingCurves' : [comp1.curves['curve_le'],
+                                                comp1.curves['curve_te_upp'],
+                                                comp1.curves['curve_te_low']]}
 
-    # Now we can identify and remesh each curve properly
-    for curveName in splitCurveNames:
+            splitCurveNames = manager.split_intCurve(intCurveName,
+                                                     optionsDict,
+                                                     criteria='curve')
 
-        # Get pointer to the curve object
-        curve = manager.intCurves[curveName]
+            # REMESH
 
-        # The trailing edge curve will have less nodes than the other ones
-        if curve.numNodes < 20:
+            # Find the highest z-coordinate of the entire intersection (vertical position)
+            maxZ = -99999
+            for curve in splitCurveNames:
+                curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+                maxZ = max(maxZ, curr_maxZ)
 
-            # This is the trailing edge curve.
-            # Just apply an uniform spacing
-            optionsDict = {'nNewNodes':9}
-            TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
+            # Now we can identify and remesh each curve properly
+            for curveName in splitCurveNames:
 
-        else:
+                # Get pointer to the curve object
+                curve = manager.intCurves[curveName]
 
-            # We have an upper or lower skin curve.
-            # First let's identify if the curve is defined from
-            # LE to TE or vice-versa
-            curveCoor = curve.get_points()
-            deltaX = curveCoor[0,-1] - curveCoor[0,0]
+                # The trailing edge curve will have less nodes than the other ones
+                if curve.numNodes < 20:
 
-            if deltaX > 0:
-                LE_to_TE = True
-            else:
-                LE_to_TE = False
-
-            # Compute the highest vertical coordinate of the curve
-            curr_maxZ = np.max(curve.coor[2,:])
-
-            # Now we can determine if we have upper or lower skin
-            if curr_maxZ < maxZ:
-
-                # We are at the lower skin
-
-                if LE_to_TE:
-
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':TE_spacing,
-                                   'finalSpacing':LE_spacing}
-
-                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+                    # This is the trailing edge curve.
+                    # Just apply an uniform spacing
+                    optionsDict = {'nNewNodes':9}
+                    TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
 
                 else:
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':LE_spacing,
-                                   'finalSpacing':TE_spacing}
+                    # We have an upper or lower skin curve.
+                    # First let's identify if the curve is defined from
+                    # LE to TE or vice-versa
+                    curveCoor = curve.get_points()
+                    deltaX = curveCoor[0,-1] - curveCoor[0,0]
 
-                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+                    if deltaX > 0:
+                        LE_to_TE = True
+                    else:
+                        LE_to_TE = False
 
-            else:
+                    # Compute the highest vertical coordinate of the curve
+                    curr_maxZ = np.max(curve.coor[2,:])
 
-                # We are at the upper skin
+                    # Now we can determine if we have upper or lower skin
+                    if curr_maxZ < maxZ:
 
-                if LE_to_TE:
+                        # We are at the lower skin
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':TE_spacing,
-                                   'finalSpacing':LE_spacing}
+                        if LE_to_TE:
 
-                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+                            optionsDict = {'nNewNodes':numSkinNodes,
+                                           'spacing':'hypTan',
+                                           'initialSpacing':TE_spacing,
+                                           'finalSpacing':LE_spacing}
 
-                else:
+                            LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':LE_spacing,
-                                   'finalSpacing':TE_spacing}
+                        else:
 
-                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+                            optionsDict = {'nNewNodes':numSkinNodes,
+                                           'spacing':'hypTan',
+                                           'initialSpacing':LE_spacing,
+                                           'finalSpacing':TE_spacing}
 
-    # MERGE
-    curveNames = [TE_curveName, LS_curveName, US_curveName]
-    mergedCurveName = 'intersection'
-    manager.merge_intCurves(curveNames, mergedCurveName)
+                            LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
-    # REORDER
-    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+                    else:
 
-    # Export final curve
-    manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
+                        # We are at the upper skin
 
-    # Flip the curve for marching if necessary
-    mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
-    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+                        if LE_to_TE:
 
-    if deltaZ > 0:
-        manager.intCurves[mergedCurveName].flip()
+                            optionsDict = {'nNewNodes':numSkinNodes,
+                                           'spacing':'hypTan',
+                                           'initialSpacing':TE_spacing,
+                                           'finalSpacing':LE_spacing}
 
-    # MARCH SURFACE MESHES
-    meshName = 'mesh'
-    
-    options_body = {
-    
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.01,
-        'numLayers' : 49,
-        'extension' : 1.3,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 5.0,
-        'ratioGuess' : 10.0,
-        
-    }
+                            US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
-    options_wing = {
-    
-        'bc1' : 'curve:curve_te_upp',
-        'bc2' : 'curve:curve_te_upp',
-        'dStart' : 0.01,
-        'numLayers' : 49,
-        'extension' : 1.4,
-        'epsE0' : 12.5,
-        'theta' : -0.8,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 4,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 0,
-        'sigmaSplay' : 0.3,
-        'cMax' : 10.0,
-        'ratioGuess' : 10.0,
-        'guideCurves' : ['curve_te_low'],
-        'remesh' : True
-        
-    }
+                        else:
 
-    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
+                            optionsDict = {'nNewNodes':numSkinNodes,
+                                           'spacing':'hypTan',
+                                           'initialSpacing':LE_spacing,
+                                           'finalSpacing':TE_spacing}
 
-    for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'.xyz')
+                            US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
-    return mergedCurveName
+            # MERGE
+            curveNames = [TE_curveName, LS_curveName, US_curveName]
+            mergedCurveName = 'intersection'
+            manager.merge_intCurves(curveNames, mergedCurveName)
 
-# END OF forward_pass
-#======================================================
+            # REORDER
+            manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
 
-# Call the forward pass function to the original manager
-mergedCurveName = forward_pass(manager0)
+            # Export final curve
+            manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
 
-# DERIVATIVE SEEDS
+            # Flip the curve for marching if necessary
+            mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
+            deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
 
-# Generate random seeds
-coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
-coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+            if deltaZ > 0:
+                manager.intCurves[mergedCurveName].flip()
 
-meshb = []
-for mesh in manager0.meshes.itervalues():
-    meshb.append(mesh.set_randomADSeeds(mode='reverse'))
+            # MARCH SURFACE MESHES
+            meshName = 'mesh'
 
-# FORWARD AD
+            options_body = {
 
-# Call AD code
-manager0.forwardAD()
+                'bc1' : 'continuous',
+                'bc2' : 'continuous',
+                'dStart' : 0.01,
+                'numLayers' : 49,
+                'extension' : 1.3,
+                'epsE0' : 4.5,
+                'theta' : -0.5,
+                'alphaP0' : 0.25,
+                'numSmoothingPasses' : 0,
+                'nuArea' : 0.16,
+                'numAreaPasses' : 20,
+                'sigmaSplay' : 0.3,
+                'cMax' : 5.0,
+                'ratioGuess' : 10.0,
 
-# Get relevant seeds
-meshd = []
-for mesh in manager0.meshes.itervalues():
-    meshd.append(mesh.get_forwardADSeeds())
+            }
 
-# REVERSE AD
+            options_wing = {
 
-# Call AD code
-manager0.reverseAD()
-    
-# Get relevant seeds
-coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
-coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
+                'bc1' : 'curve:curve_te_upp',
+                'bc2' : 'curve:curve_te_upp',
+                'dStart' : 0.01,
+                'numLayers' : 49,
+                'extension' : 1.4,
+                'epsE0' : 12.5,
+                'theta' : -0.8,
+                'alphaP0' : 0.25,
+                'numSmoothingPasses' : 4,
+                'nuArea' : 0.16,
+                'numAreaPasses' : 0,
+                'sigmaSplay' : 0.3,
+                'cMax' : 10.0,
+                'ratioGuess' : 10.0,
+                'guideCurves' : ['curve_te_low'],
+                'remesh' : True
 
-# Dot product test
-dotProd = 0.0
+            }
 
-for ii in range(len(meshd)):
-    dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
+            meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
 
-dotProd = dotProd - np.sum(coor1b*coor1d)
+            for meshName in meshNames:
+                manager.meshes[meshName].exportPlot3d(meshName+'.xyz')
 
-for curveName in curveCoor1d:
-    dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
+            return mergedCurveName
 
-dotProd = dotProd - np.sum(coor2b*coor2d)
+        # END OF forward_pass
+        #======================================================
 
-for curveName in curveCoor2d:
-    dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+        # Call the forward pass function to the original manager
+        mergedCurveName = forward_pass(manager0)
 
-print 'dotProd test (this will be repeated at the end as well)'
-print dotProd
+        # DERIVATIVE SEEDS
 
-# FINITE DIFFERENCE
-stepSize = 1e-7
+        # Generate random seeds
+        coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
+        coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
 
-# Apply perturbations to the geometries
-comp1.update(comp1.coor + stepSize*coor1d)
+        meshb = []
+        for mesh in manager0.meshes.itervalues():
+            meshb.append(mesh.set_randomADSeeds(mode='reverse'))
 
-for curveName in comp1.curves:
-    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
+        # FORWARD AD
 
-comp2.update(comp2.coor + stepSize*coor2d)
+        # Call AD code
+        manager0.forwardAD()
 
-for curveName in comp2.curves:
-    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
+        # Get relevant seeds
+        meshd = []
+        for mesh in manager0.meshes.itervalues():
+            meshd.append(mesh.get_forwardADSeeds())
 
-# Create new manager with perturbed components
-manager1 = pysurf.Manager()
-manager1.add_geometry(comp1)
-manager1.add_geometry(comp2)
+        # REVERSE AD
 
-# Do the forward pass to the perturbed case
-mergedCurveName = forward_pass(manager1)
+        # Call AD code
+        manager0.reverseAD()
 
-# Get coordinates of the meshes in both cases to compute FD derivatives
-meshd_FD = []
-for meshName in manager0.meshes:
-    meshCoor0 = manager0.meshes[meshName].mesh[:,:,:]
-    meshCoor1 = manager1.meshes[meshName].mesh[:,:,:]
+        # Get relevant seeds
+        coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
+        coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()
 
-    # Compute derivatives with FD
-    meshCoord_FD = (meshCoor1 - meshCoor0)/stepSize
+        # Dot product test
+        dotProd = 0.0
 
-    # Append to the dictionary
-    meshd_FD.append(meshCoord_FD)
+        for ii in range(len(meshd)):
+            dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
 
-def view_mat(mat):
-    """ Helper function used to visually examine matrices. """
-    import matplotlib.pyplot as plt
-    if len(mat.shape) > 2:
-        mat = np.sum(mat, axis=2)
-    # print "Cond #:", np.linalg.cond(mat)
-    im = plt.imshow(mat, interpolation='none')
-    plt.colorbar(im, orientation='horizontal')
-    plt.show()
+        dotProd = dotProd - np.sum(coor1b*coor1d)
 
-# Find the largest difference in derivatives
-FD_error = 0.0
-for ii in range(len(manager0.meshes)):
-    curr_error = np.max(np.abs(meshd[ii] - meshd_FD[ii]))
-    view_mat(np.abs(meshd[ii][0,:,:] - meshd_FD[ii][0,:,:]))
-    view_mat(np.abs(meshd[ii][1,:,:] - meshd_FD[ii][1,:,:]))
-    view_mat(np.abs(meshd[ii][2,:,:] - meshd_FD[ii][2,:,:]))
-    FD_error = max(FD_error, curr_error)
+        for curveName in curveCoor1d:
+            dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
 
-# Print results
-print 'dotProd test'
-print dotProd
-print 'FD test'
-print FD_error
+        dotProd = dotProd - np.sum(coor2b*coor2d)
+
+        for curveName in curveCoor2d:
+            dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+
+        print 'dotProd test (this will be repeated at the end as well)'
+        print dotProd
+        np.testing.assert_almost_equal(dotProd, 0., decimal=13)
+
+        # FINITE DIFFERENCE
+        stepSize = 1e-7
+
+        # Apply perturbations to the geometries
+        comp1.update(comp1.coor + stepSize*coor1d)
+
+        for curveName in comp1.curves:
+            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
+
+        comp2.update(comp2.coor + stepSize*coor2d)
+
+        for curveName in comp2.curves:
+            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
+
+        # Create new manager with perturbed components
+        manager1 = pysurf.Manager()
+        manager1.add_geometry(comp1)
+        manager1.add_geometry(comp2)
+
+        # Do the forward pass to the perturbed case
+        mergedCurveName = forward_pass(manager1)
+
+        # Get coordinates of the meshes in both cases to compute FD derivatives
+        meshd_FD = []
+        for meshName in manager0.meshes:
+            meshCoor0 = manager0.meshes[meshName].mesh[:,:,:]
+            meshCoor1 = manager1.meshes[meshName].mesh[:,:,:]
+
+            # Compute derivatives with FD
+            meshCoord_FD = (meshCoor1 - meshCoor0)/stepSize
+
+            # Append to the dictionary
+            meshd_FD.append(meshCoord_FD)
+
+        def view_mat(mat):
+            """ Helper function used to visually examine matrices. """
+            import matplotlib.pyplot as plt
+            if len(mat.shape) > 2:
+                mat = np.sum(mat, axis=2)
+            # print "Cond #:", np.linalg.cond(mat)
+            im = plt.imshow(mat, interpolation='none')
+            plt.colorbar(im, orientation='horizontal')
+            plt.show()
+
+        # Find the largest difference in derivatives
+        FD_error = 0.0
+        for ii in range(len(manager0.meshes)):
+            curr_error = np.max(np.abs(meshd[ii] - meshd_FD[ii]))
+            # view_mat(np.abs(meshd[ii][0,:,:] - meshd_FD[ii][0,:,:]))
+            # view_mat(np.abs(meshd[ii][1,:,:] - meshd_FD[ii][1,:,:]))
+            # view_mat(np.abs(meshd[ii][2,:,:] - meshd_FD[ii][2,:,:]))
+            FD_error = max(FD_error, curr_error)
+
+        # Print results
+        print 'dotProd test'
+        print dotProd
+        np.testing.assert_almost_equal(dotProd, 0., decimal=13)
+        print 'FD test'
+        print FD_error
+        np.testing.assert_almost_equal(dotProd, 0., decimal=13)
+
+if __name__ == "__main__":
+    unittest.main()
