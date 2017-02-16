@@ -93,7 +93,7 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn, barsConn, &
      if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
      if (nbases .gt. 1) then
-        print *, ' ** Warning: pyWarpUstruct only reads the first base in a cgns file'
+        print *, ' ** Warning: pySurf only reads the first base in a cgns file'
      end if
 
      ! We will only read the first base
