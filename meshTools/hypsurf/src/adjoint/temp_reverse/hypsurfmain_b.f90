@@ -1773,147 +1773,68 @@ CONTAINS
     REAL(kind=realtype) :: rb(3*numnodes)
     REAL(kind=realtype) :: radius
     REAL(kind=realtype) :: radiusb
-    REAL(kind=realtype) :: x, y, z
-    REAL(kind=realtype) :: xb, yb, zb
-    REAL(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    REAL(kind=realtype) :: minxb, maxxb, minyb, maxyb, minzb, maxzb
-    INTEGER(kind=inttype) :: i
-    INTEGER :: branch
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-! Split coordinates and find max and min values
-    DO i=1,numnodes
-      x = r(3*(i-1)+1)
-      IF (x .GT. maxx) THEN
-        maxx = x
-        CALL PUSHCONTROL1B(0)
-      ELSE
-        CALL PUSHCONTROL1B(1)
-      END IF
-      IF (x .LT. minx) THEN
-        minx = x
-        CALL PUSHCONTROL1B(0)
-      ELSE
-        CALL PUSHCONTROL1B(1)
-      END IF
-      y = r(3*(i-1)+2)
-      IF (y .GT. maxy) THEN
-        maxy = y
-        CALL PUSHCONTROL1B(0)
-      ELSE
-        CALL PUSHCONTROL1B(1)
-      END IF
-      IF (y .LT. miny) THEN
-        miny = y
-        CALL PUSHCONTROL1B(0)
-      ELSE
-        CALL PUSHCONTROL1B(1)
-      END IF
-      z = r(3*(i-1)+3)
-      IF (z .GT. maxz) THEN
-        maxz = z
-        CALL PUSHCONTROL1B(0)
-      ELSE
-        CALL PUSHCONTROL1B(1)
-      END IF
-      IF (z .LT. minz) THEN
-        minz = z
-        CALL PUSHCONTROL1B(1)
-      ELSE
-        CALL PUSHCONTROL1B(0)
-      END IF
+    REAL(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
+    REAL(kind=realtype) :: r_nodeb(3), r_centroidb(3), distvecb(3)
+    REAL(kind=realtype) :: dist, sumexp, rho, b
+    REAL(kind=realtype) :: distb, sumexpb
+    INTEGER(kind=inttype) :: ii
+    INTRINSIC SUM
+    INTRINSIC SQRT
+    INTRINSIC EXP
+    INTRINSIC LOG
+! Find the average of all nodes
+! We know that this is not the proper centroid, but it is ok since
+! the radius is already an approximation
+    r_centroid = 0.0
+    DO ii=1,numnodes
+      r_node = r(3*ii-2:3*ii)
+      r_centroid = r_centroid + r_node
     END DO
-! Find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    IF (maxx - minx .GT. radius) THEN
-      radius = maxx - minx
-      CALL PUSHCONTROL1B(0)
-    ELSE
-      CALL PUSHCONTROL1B(1)
-    END IF
-    IF (maxy - miny .GT. radius) THEN
-      radius = maxy - miny
-      CALL PUSHCONTROL1B(0)
-    ELSE
-      CALL PUSHCONTROL1B(1)
-    END IF
-    IF (maxz - minz .GT. radius) THEN
-      CALL PUSHCONTROL1B(0)
-    ELSE
-      CALL PUSHCONTROL1B(1)
-    END IF
-    radiusb = radiusb/2.
-    CALL POPCONTROL1B(branch)
-    IF (branch .EQ. 0) THEN
-      maxzb = radiusb
-      minzb = -radiusb
-      radiusb = 0.0_8
-    ELSE
-      minzb = 0.0_8
-      maxzb = 0.0_8
-    END IF
-    CALL POPCONTROL1B(branch)
-    IF (branch .EQ. 0) THEN
-      maxyb = radiusb
-      minyb = -radiusb
-      radiusb = 0.0_8
-    ELSE
-      minyb = 0.0_8
-      maxyb = 0.0_8
-    END IF
-    CALL POPCONTROL1B(branch)
-    IF (branch .EQ. 0) THEN
-      maxxb = radiusb
-      minxb = -radiusb
-    ELSE
-      minxb = 0.0_8
-      maxxb = 0.0_8
-    END IF
+    r_centroid = r_centroid/numnodes
+! Now we need a way to estimate the maximum distance to this centroid.
+! We will use a KS-function approach to estimate the maximum radius
+! Remember that KS = (1/rho)*log(sum(exp(rho*g_i)))
+! In our case, g_i are the distances of each node to the centroid.
+! According to the KS function property: KS >= max(g_i) for rho > 0,
+! So it can give an estimate of maximum radius
+! Define KS-function constant (if you change rho, remember to run Makefile_tapenade)
+    rho = 60.0
+! Compute the sum of exponentials of the distances
+    sumexp = 0.0
+    DO ii=1,numnodes
+! Get coordinates of the current node
+      r_node = r(3*ii-2:3*ii)
+! Compute distance
+      distvec = r_node - r_centroid
+      CALL PUSHREAL8ARRAY(dist, realtype/8)
+      dist = SQRT(SUM(distvec**2))
+! Add contribution to the sum
+      sumexp = sumexp + EXP(rho*dist)
+    END DO
+    sumexpb = radiusb/(rho*sumexp)
     rb = 0.0_8
-    DO i=numnodes,1,-1
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        zb = 0.0_8
+    r_centroidb = 0.0_8
+    DO ii=numnodes,1,-1
+      distb = EXP(rho*dist)*rho*sumexpb
+      r_node = r(3*ii-2:3*ii)
+      distvec = r_node - r_centroid
+      distvecb = 0.0_8
+      CALL POPREAL8ARRAY(dist, realtype/8)
+      IF (SUM(distvec**2) .EQ. 0.0_8) THEN
+        distvecb = 0.0
       ELSE
-        zb = minzb
-        minzb = 0.0_8
+        distvecb = 2*distvec*distb/(2.0*SQRT(SUM(distvec**2)))
       END IF
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        zb = zb + maxzb
-        maxzb = 0.0_8
-      END IF
-      rb(3*(i-1)+3) = rb(3*(i-1)+3) + zb
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        yb = minyb
-        minyb = 0.0_8
-      ELSE
-        yb = 0.0_8
-      END IF
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        yb = yb + maxyb
-        maxyb = 0.0_8
-      END IF
-      rb(3*(i-1)+2) = rb(3*(i-1)+2) + yb
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        xb = minxb
-        minxb = 0.0_8
-      ELSE
-        xb = 0.0_8
-      END IF
-      CALL POPCONTROL1B(branch)
-      IF (branch .EQ. 0) THEN
-        xb = xb + maxxb
-        maxxb = 0.0_8
-      END IF
-      rb(3*(i-1)+1) = rb(3*(i-1)+1) + xb
+      r_nodeb = 0.0_8
+      r_nodeb = distvecb
+      r_centroidb = r_centroidb - distvecb
+      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
+    END DO
+    r_centroidb = r_centroidb/numnodes
+    DO ii=numnodes,1,-1
+      r_nodeb = 0.0_8
+      r_nodeb = r_centroidb
+      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
     END DO
     radiusb = 0.0_8
   END SUBROUTINE FINDRADIUS_B
@@ -1922,33 +1843,43 @@ CONTAINS
     INTEGER(kind=inttype), INTENT(IN) :: numnodes
     REAL(kind=realtype), INTENT(IN) :: r(3*numnodes)
     REAL(kind=realtype), INTENT(OUT) :: radius
-    REAL(kind=realtype) :: x, y, z
-    REAL(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    INTEGER(kind=inttype) :: i
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-! Split coordinates and find max and min values
-    DO i=1,numnodes
-      x = r(3*(i-1)+1)
-      IF (x .GT. maxx) maxx = x
-      IF (x .LT. minx) minx = x
-      y = r(3*(i-1)+2)
-      IF (y .GT. maxy) maxy = y
-      IF (y .LT. miny) miny = y
-      z = r(3*(i-1)+3)
-      IF (z .GT. maxz) maxz = z
-      IF (z .LT. minz) minz = z
+    REAL(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
+    REAL(kind=realtype) :: dist, sumexp, rho, b
+    INTEGER(kind=inttype) :: ii
+    INTRINSIC SUM
+    INTRINSIC SQRT
+    INTRINSIC EXP
+    INTRINSIC LOG
+! Find the average of all nodes
+! We know that this is not the proper centroid, but it is ok since
+! the radius is already an approximation
+    r_centroid = 0.0
+    DO ii=1,numnodes
+      r_node = r(3*ii-2:3*ii)
+      r_centroid = r_centroid + r_node
     END DO
-! Find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    IF (maxx - minx .GT. radius) radius = maxx - minx
-    IF (maxy - miny .GT. radius) radius = maxy - miny
-    IF (maxz - minz .GT. radius) radius = maxz - minz
-    radius = radius/2.
+    r_centroid = r_centroid/numnodes
+! Now we need a way to estimate the maximum distance to this centroid.
+! We will use a KS-function approach to estimate the maximum radius
+! Remember that KS = (1/rho)*log(sum(exp(rho*g_i)))
+! In our case, g_i are the distances of each node to the centroid.
+! According to the KS function property: KS >= max(g_i) for rho > 0,
+! So it can give an estimate of maximum radius
+! Define KS-function constant (if you change rho, remember to run Makefile_tapenade)
+    rho = 60.0
+! Compute the sum of exponentials of the distances
+    sumexp = 0.0
+    DO ii=1,numnodes
+! Get coordinates of the current node
+      r_node = r(3*ii-2:3*ii)
+! Compute distance
+      distvec = r_node - r_centroid
+      dist = SQRT(SUM(distvec**2))
+! Add contribution to the sum
+      sumexp = sumexp + EXP(rho*dist)
+    END DO
+! Use the KS function to estimate maximum radius
+    radius = LOG(sumexp)/rho
   END SUBROUTINE FINDRADIUS
 !  Differentiation of findratio in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: q
@@ -2445,13 +2376,14 @@ CONTAINS
     REAL(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     REAL(kind=realtype) :: normdr1b, normdr2b
     INTRINSIC MIN
-    INTRINSIC ACOS
+    INTRINSIC DACOS
+    INTRINSIC ABS
     INTEGER :: branch
     REAL(kind=realtype) :: min1
     REAL(kind=realtype) :: tempb0
     REAL(kind=realtype) :: min1b
     REAL(kind=realtype) :: tempb
-!pi = 3.14159265358979
+    REAL(kind=realtype) :: abs0
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2463,6 +2395,14 @@ CONTAINS
     CALL NORM(dr1, normdr1)
     CALL NORM(dr2, normdr2)
     arccos_inside = dr1dotdr2/normdr1/normdr2
+! Need to check if value will cause nan upon dacos() evaluation.
+! dacos() not defined for values < -1
+    IF (arccos_inside .LT. -1.) THEN
+      arccos_inside = -1.
+      CALL PUSHCONTROL1B(1)
+    ELSE
+      CALL PUSHCONTROL1B(0)
+    END IF
     IF (arccos_inside .GT. one) THEN
       min1 = one
       CALL PUSHCONTROL1B(0)
@@ -2473,11 +2413,20 @@ CONTAINS
 ! If the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     CALL DOT(dr1crossdr2, n1, dr1crossdr2dotn1)
-    IF (dr1crossdr2dotn1 .LE. 0.) angleb = -angleb
+    IF (dr1crossdr2dotn1 .GE. 0.) THEN
+      abs0 = dr1crossdr2dotn1
+    ELSE
+      abs0 = -dr1crossdr2dotn1
+    END IF
+    IF (abs0 .LT. 1.e-10) THEN
+      angleb = 0.0_8
+    ELSE IF (dr1crossdr2dotn1 .LE. 0.) THEN
+      angleb = -angleb
+    END IF
     IF (min1 .EQ. 1.0 .OR. min1 .EQ. (-1.0)) THEN
       min1b = 0.0
     ELSE
-      min1b = -(angleb/SQRT(1.0-min1**2))
+      min1b = -(angleb/SQRT(1.D0-min1**2))
     END IF
     CALL POPCONTROL1B(branch)
     IF (branch .EQ. 0) THEN
@@ -2485,6 +2434,8 @@ CONTAINS
     ELSE
       arccos_insideb = min1b
     END IF
+    CALL POPCONTROL1B(branch)
+    IF (branch .NE. 0) arccos_insideb = 0.0_8
     tempb = arccos_insideb/(normdr1*normdr2)
     tempb0 = -(dr1dotdr2*tempb/(normdr1*normdr2))
     dr1dotdr2b = tempb
@@ -2506,10 +2457,11 @@ CONTAINS
     REAL(kind=realtype) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
     REAL(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     INTRINSIC MIN
-    INTRINSIC ACOS
+    INTRINSIC DACOS
+    INTRINSIC ABS
     REAL(kind=realtype) :: min1
+    REAL(kind=realtype) :: abs0
     pi = 3.14159265358979323846264338
-!pi = 3.14159265358979
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2521,16 +2473,26 @@ CONTAINS
     CALL NORM(dr1, normdr1)
     CALL NORM(dr2, normdr2)
     arccos_inside = dr1dotdr2/normdr1/normdr2
+! Need to check if value will cause nan upon dacos() evaluation.
+! dacos() not defined for values < -1
+    IF (arccos_inside .LT. -1.) arccos_inside = -1.
     IF (arccos_inside .GT. one) THEN
       min1 = one
     ELSE
       min1 = arccos_inside
     END IF
-    angle = ACOS(min1)
+    angle = DACOS(min1)
 ! If the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     CALL DOT(dr1crossdr2, n1, dr1crossdr2dotn1)
-    IF (dr1crossdr2dotn1 .GT. 0.) THEN
+    IF (dr1crossdr2dotn1 .GE. 0.) THEN
+      abs0 = dr1crossdr2dotn1
+    ELSE
+      abs0 = -dr1crossdr2dotn1
+    END IF
+    IF (abs0 .LT. 1.e-10) THEN
+      angle = pi
+    ELSE IF (dr1crossdr2dotn1 .GT. 0.) THEN
       angle = pi + angle
     ELSE
       angle = pi - angle

@@ -228,6 +228,9 @@ def forward_pass(manager):
 # Call the forward pass function to the original manager
 mergedCurveName = forward_pass(manager0)
 
+# Export surface meshes of manager0
+manager0.export_meshes('./surf_mesh_output')
+
 # DERIVATIVE SEEDS
 
 # Generate random seeds
@@ -323,8 +326,8 @@ def view_mat(mat):
 # Find the largest difference in derivatives
 FD_error = 0.0
 for ii in range(len(manager0.meshGenerators)):
-    numLayers = manager0.meshGenerators[manager0.meshGenerators.keys()[ii]].numLayers
-    curr_error = np.abs(meshd[ii] - meshd_FD[ii]).reshape((numLayers,-1,3),order='F')
+    numNodes = manager0.meshGenerators[manager0.meshGenerators.keys()[ii]].numNodes
+    curr_error = np.abs(meshd[ii] - meshd_FD[ii]).reshape((numNodes,-1,3),order='F')
 
     view_mat(np.abs(curr_error[:,:,0]))
     view_mat(np.abs(curr_error[:,:,1]))

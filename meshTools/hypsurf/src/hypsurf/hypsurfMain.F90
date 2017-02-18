@@ -789,56 +789,51 @@
 
         real(kind=realType), intent(out) :: radius
 
-        real(kind=realType) :: x, y, z
-        real(kind=realType) :: minX, maxX, minY, maxY, minZ, maxZ
-        integer(kind=intType) :: i
+        real(kind=realType) :: r_node(3), r_centroid(3), distVec(3)
+        real(kind=realType) :: dist, sumExp, rho, b
+        integer(kind=intType) :: ii
 
-        minX = 1.e20
-        minY = 1.e20
-        minZ = 1.e20
-        maxX = -1.e20
-        maxY = -1.e20
-        maxZ = -1.e20
+        ! Find the average of all nodes
+        ! We know that this is not the proper centroid, but it is ok since
+        ! the radius is already an approximation
+        r_centroid = 0.0
 
-        ! Split coordinates and find max and min values
-        do i=1,numNodes
-          x = r(3*(i-1)+1)
-          if (x .gt. maxX) then
-            maxX = x
-          end if
-          if (x .lt. minX) then
-            minX = x
-          end if
-
-          y = r(3*(i-1)+2)
-          if (y .gt. maxY) then
-            maxY = y
-          end if
-          if (y .lt. minY) then
-            minY = y
-          end if
-
-          z = r(3*(i-1)+3)
-          if (z .gt. maxZ) then
-            maxZ = z
-          end if
-          if (z .lt. minZ) then
-            minZ = z
-          end if
+        do ii=1,numNodes
+           r_node = r(3*ii-2:3*ii)
+           r_centroid = r_centroid + r_node
         end do
 
-        ! Find largest radius (we give only half of the largest side to be considered as radius)
-        radius = -1.e20
-        if (maxX-minX .gt. radius) then
-          radius = maxX-minX
-        end if
-        if (maxY-minY .gt. radius) then
-          radius = maxY-minY
-        end if
-        if (maxZ-minZ .gt. radius) then
-          radius = maxZ-minZ
-        end if
-        radius = radius / 2.
+        r_centroid = r_centroid/numNodes
+
+        ! Now we need a way to estimate the maximum distance to this centroid.
+        ! We will use a KS-function approach to estimate the maximum radius
+        ! Remember that KS = (1/rho)*log(sum(exp(rho*g_i)))
+        ! In our case, g_i are the distances of each node to the centroid.
+        ! According to the KS function property: KS >= max(g_i) for rho > 0,
+        ! So it can give an estimate of maximum radius
+
+        ! Define KS-function constant (if you change rho, remember to run Makefile_tapenade)
+        rho = 60.0
+
+        ! Compute the sum of exponentials of the distances
+        sumExp = 0.0
+
+        do ii=1,numNodes
+           
+           ! Get coordinates of the current node
+           r_node = r(3*ii-2:3*ii)
+
+           ! Compute distance
+           distVec = r_node - r_centroid
+           dist = sqrt(sum(distVec**2))
+
+           ! Add contribution to the sum
+           sumExp = sumExp + exp(rho*dist)
+
+        end do
+
+        ! Use the KS function to estimate maximum radius
+        radius = log(sumExp)/rho
 
         end subroutine findRadius
 

@@ -163,11 +163,11 @@ class TSurfGeometry(Geometry):
         for curve in self.curves.itervalues():
             curve.scale(factor)
 
-    def rotate(self, angle, axis):
-        tst.rotate(self, angle, axis)
+    def rotate(self, angle, axis, point=None):
+        tst.rotate(self, angle, axis, point)
         tst.update_surface(self)
         for curve in self.curves.itervalues():
-            curve.rotate(angle, axis)
+            curve.rotate(angle, axis, point)
 
     #===========================================================#
     # SURFACE PROJECTION METHODS
@@ -1162,12 +1162,9 @@ class TSurfCurve(Curve):
         nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
 
         # Save the mapping
-        self.extra_data = {}
         self.extra_data['linkOld2New'] = linkOld2New-1 #-1 due to the Python indexing
         self.extra_data['usedPtsMask'] = usedPtsMask-1
-        self.extra_data['parentGeoms'] = []
         self.extra_data['parentTria'] = []
-        self.extra_data['childMeshes'] = []
 
         # Take bar connectivity and reorder it
         sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
@@ -1236,8 +1233,8 @@ class TSurfCurve(Curve):
     def scale(self, factor):
         tst.scale(self, factor)
 
-    def rotate(self, angle, axis):
-        tst.rotate(self, angle, axis)
+    def rotate(self, angle, axis, point=None):
+        tst.rotate(self, angle, axis, point)
 
     def update(self, coor):
         self.coor = np.array(coor,order='F')
@@ -2238,11 +2235,12 @@ class TSurfCurve(Curve):
             # Compute the squared distances between the selected startPoint
             # the coordinates of the curve.
             deltas = coor.T - startPoint
-            dist_2 = np.einsum('ij,ij->i', deltas, deltas)
+            dist_2 = np.sum(deltas**2,axis=1)
 
             # Set the start node as the curve coordinate point closest to the
             # selected startPoint
-            startNodeID = np.where(np.min(dist_2) == dist_2)[0][0]
+            # The +1 is to make it consistent with Fortran ordering.
+            startNodeID = np.argmin(dist_2) + 1
 
         # Now we look for an element that starts at the reference node
         startElemID = np.where(barsConn[0,:] == startNodeID)[0][0]

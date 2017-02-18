@@ -314,7 +314,7 @@ class Geometry(object):
     #===========================================================#
     # MESH METHODS
 
-    def assign_structured_surface_mesh(self, fileName):
+    def assign_structured_surface_mesh(self, fileName, extrusionOptions={}):
 
         '''
         This method reads a CGNS or Plot3D file that contains just a structured
@@ -338,7 +338,7 @@ class Geometry(object):
         # Initialize mesh object
         print 'Assigning surface mesh to ',self.name
         print 'mesh file:',fileName
-        self.meshObj = pysurf.SurfaceMesh('mesh', fileName)
+        self.meshObj = pysurf.SurfaceMesh('mesh', fileName, extrusionOptions)
 
         # Print statements
         print 'Done'
@@ -392,7 +392,14 @@ class Curve(object):
         Call the initialization method defined in each
         child class
         '''
+        # Initialize dictionary to hold extra information
+        self.extra_data = {}
+
         self._initialize(*arg)
+
+        # Initialize important extra data fields
+        self.extra_data['parentGeoms'] = None # This will be used by the manager to indentify intersections meshes
+        self.extra_data['childMeshes'] = None # This will be used by the manager to indentify collar meshes
 
     def get_points(self):
         '''

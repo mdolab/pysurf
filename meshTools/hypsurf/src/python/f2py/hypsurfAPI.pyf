@@ -295,6 +295,28 @@ python module hypsurfAPI ! in
                 real(kind=realtype) dimension(n),intent(in),depend(n) :: sb
                 real(kind=realtype) intent(in) :: maxstretch
             end subroutine areafactor_test_b
+            subroutine findradius_test(numnodes,r0,radius) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain, only: findradius
+                integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
+                real(kind=realtype) intent(out) :: radius
+            end subroutine findradius_test
+            subroutine findradius_test_d(numnodes,r0,r0d,radius,radiusd) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_d, only: findradius_d
+                integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
+                real(kind=realtype) dimension(3 * numnodes),intent(in),depend(numnodes) :: r0d
+                real(kind=realtype) intent(out) :: radius
+                real(kind=realtype) intent(out) :: radiusd
+            end subroutine findradius_test_d
+            subroutine findradius_test_b(numnodes,r0,r0b,radius,radiusb) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
+                use hypsurfmain_d, only: findradius_d
+                integer(kind=inttype), optional,intent(in),check((len(r0))/(3)>=numnodes),depend(r0) :: numnodes=(len(r0))/(3)
+                real(kind=realtype) dimension(3 * numnodes),intent(in) :: r0
+                real(kind=realtype) dimension(3 * numnodes),intent(out),depend(numnodes) :: r0b
+                real(kind=realtype) intent(in) :: radius
+                real(kind=realtype) intent(in) :: radiusb
+            end subroutine findradius_test_b
             subroutine dissipationcoefficients_test(layerindex,r0_xi,r0_eta,dsensor,angle,numlayers,epse0,epse,epsi) ! in :hypsurfAPI:hypsurfAPI.F90:hypsurfapi
                 integer(kind=inttype) intent(in) :: layerindex
                 real(kind=realtype) dimension(3),intent(in) :: r0_xi

@@ -1013,24 +1013,44 @@ def findRadius(r):
     to calculate the maching distance
     '''
 
-    # IMPORTS
-    from numpy import max, min
+    numNodes = int(len(r)/3)
 
-    # Split coordinates
-    x = r[::3]
-    y = r[1::3]
-    z = r[2::3]
+    # Find the average of all nodes
+    # We know that this is not the proper centroid, but it is ok since
+    # the radius is already an approximation
+    r_centroid = np.zeros(3)
 
-    # Find bounds
-    minX = np.min(x)
-    maxX = np.max(x)
-    minY = np.min(y)
-    maxY = np.max(y)
-    minZ = np.min(z)
-    maxZ = np.max(z)
+    r_centroid[0] = np.sum(r[::3])/numNodes
+    r_centroid[1] = np.sum(r[1::3])/numNodes
+    r_centroid[2] = np.sum(r[2::3])/numNodes
 
-    # Find longest radius (we give only half of the largest side to be considered as radius)
-    radius = np.max([maxX-minX, maxY-minY, maxZ-minZ])/2
+    # Now we need a way to estimate the maximum distance to this centroid.
+    # We will use a KS-function approach to estimate the maximum radius
+    # Remember that KS = (1/rho)*log(sum(exp(rho*g_i)))
+    # In our case, g_i are the distances of each node to the centroid.
+    # According to the KS function property: KS >= max(g_i) for rho > 0,
+    # So it can give an estimate of maximum radius
+
+    # Define KS-function constant (if you change rho, remember to run Makefile_tapenade)
+    rho = 60.0
+
+    # Compute the sum of exponentials of the distances
+    sumExp = 0.0
+
+    for ii in range(numNodes):
+           
+        # Get coordinates of the current node
+        r_node = r[3*ii:3*ii+3]
+
+        # Compute distance
+        distVec = r_node - r_centroid
+        dist = np.sqrt(np.sum(distVec**2))
+
+        # Add contribution to the sum
+        sumExp = sumExp + np.exp(rho*dist)
+
+    # Use the KS function to estimate maximum radius
+    radius = np.log(sumExp)/rho
 
     # RETURNS
     return radius
