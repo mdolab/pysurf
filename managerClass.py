@@ -22,16 +22,10 @@ class Manager(object):
         self.geoms = OrderedDict()
 
         # Define dictionary to hold intersection curves
-        self.intCurves = {}
+        self.intCurves = OrderedDict()
 
         # Define dictionary to hold mesh generators
         self.meshGenerators = {}
-
-        # Define dictionary to hold surface meshes
-        self.collarMeshes = OrderedDict()
-
-        # Define dictionary to hold merged meshes
-        self.mergedMeshes = {}
 
         # Define a task list.
         # This list will store all tasks done during the forward pass so
@@ -132,14 +126,7 @@ class Manager(object):
 
         del self.collarMeshes[meshName]
 
-
-    def add_merged_mesh(self, mergedMesh):
-
-        '''
-        This method adds a Mesh object to the current Manager's dictionary.
-        '''
-
-        self.mergedMeshes[mergedMesh.name] = mergedMesh
+    #---------
 
     def clear_all(self):
 
@@ -151,8 +138,6 @@ class Manager(object):
 
         self.intCurves = {}
         self.meshGenerators = {}
-        self.collarMeshes = OrderedDict()
-        self.mergedMeshes = {}
         self.tasks = []
 
     #=====================================================
@@ -231,15 +216,6 @@ class Manager(object):
                 # Run the AD code
                 self._march_intCurve_surfaceMesh_d(curveName)
 
-            if taskName == 'merge_meshes':
-
-                # Get arguments
-                meshNames = taskArg[0]
-                flips = taskArg[1]
-
-                # Run the AD code
-                self._merge_meshes_d(meshNames, flips)
-
         print ''
         print 'Finished forward AD pass'
         print '================================================='
@@ -317,15 +293,6 @@ class Manager(object):
 
                 # Run the AD code
                 self._march_intCurve_surfaceMesh_b(curveName)
-
-            if taskName == 'merge_meshes':
-
-                # Get arguments
-                meshNames = taskArg[0]
-                flips = taskArg[1]
-
-                # Run the AD code
-                self._merge_meshes_b(meshNames, flips)
 
         print ''
         print 'Finished reverse AD pass'
@@ -709,7 +676,7 @@ class Manager(object):
     #=====================================================
     # SURFACE MESHING METHODS
 
-    def march_intCurve_surfaceMesh(self, curveName, options0={}, options1={}, meshName=None):
+    def march_intCurve_surfaceMesh(self, curveName, options0={}, options1={}, meshName=None, extrusionOptions={}):
 
         '''
         This method will generate the surface mesh on both sides of the
@@ -726,7 +693,7 @@ class Manager(object):
         # Get geometry objects to march the mesh on
         parentGeoms = curve.extra_data['parentGeoms']
 
-        if not parentGeoms:
+        if parentGeoms is None:
             raise NameError('The curve does not have parent geometries. Cannot march meshes. Try using manager.set_intCurve_parentGeoms')
 
         # Create hypsurf objects for the two sides of the mesh
@@ -736,7 +703,14 @@ class Manager(object):
                                               self.geoms[parentGeoms[0]],
                                               options0,
                                               meshName+'_0')
+
+        #meshGen0.test_all()
+        #quit()
+
         meshGen0.createMesh()
+
+        # Save the extrusion options into the first mesh object
+        meshGen0.meshObj.extrusionOptions = extrusionOptions
 
         # Flip the curve
         curve.flip()
@@ -772,17 +746,17 @@ class Manager(object):
 
         # Get pointers to the curve and meshes
         curve = self.intCurves[curveName]
-        mesh0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
-        mesh1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
+        meshGen0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
+        meshGen1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
 
         # Run AD code for the first mesh
-        mesh0.compute_forwardAD()
+        meshGen0.compute_forwardAD()
 
         # Flip the curve
         curve.flip()
 
         # Run AD code for the second mesh
-        mesh1.compute_forwardAD()
+        meshGen1.compute_forwardAD()
 
         # Unflip the curve
         curve.flip()
@@ -791,20 +765,189 @@ class Manager(object):
 
         # Get pointers to the curve and meshes
         curve = self.intCurves[curveName]
-        mesh0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
-        mesh1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
+        meshGen0 = self.meshGenerators[curve.extra_data['childMeshes'][0]]
+        meshGen1 = self.meshGenerators[curve.extra_data['childMeshes'][1]]
 
         # Run AD code for the first mesh
-        mesh0.compute_reverseAD()
+        meshGen0.compute_reverseAD()
 
         # Flip the curve()
         curve.flip()
 
         # Run AD code for the second mesh
-        mesh1.compute_reverseAD()
+        meshGen1.compute_reverseAD()
 
         # Unflip the curve
         curve.flip()
+
+    #=====================================================
+    # MESH EXPORTATION METHODS
+
+    def export_meshes(self, directory):
+
+        '''
+        This function will export all structured surface meshes into
+        plot3d files. The files will be separated by primary geometries and
+        also by collar meshes.
+
+        INPUTS:
+
+        directory: string -> Directory where will place all mesh files.
+        '''
+
+        # Print log
+        print ''
+        print 'Exporting surface meshes'
+
+        # Add a slash if the directory does not have it
+        if directory[-1] != '/':
+            directory = directory + '/'
+
+        # Initialize counters
+        primaryID = 0
+        collarID = 0
+
+        # First we will export the primary geometry meshes
+        for geom in self.geoms.itervalues():
+            
+            # Check if the component has an associated surface mesh
+            if geom.meshObj is not None:
+
+                # Generate file name
+                fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID)
+
+                # Export mesh
+                geom.meshObj.export_plot3d(fileName)
+
+                # Increment counter
+                primaryID = primaryID + 1
+
+                # Print log
+                print 'Exported primary mesh for',geom.name
+
+        # Now we will export the collar meshes
+        for curve in self.intCurves.itervalues():
+            
+            # Verify if this curve was used to generate collar meshes
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Generate file name
+                fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID)
+
+                # Merge different meshes that make up a single collar
+                meshList = []
+                for meshName in curve.extra_data['childMeshes']:
+
+                    # Get reference to a mesh object with part of the collar
+                    meshObj = self.meshGenerators[meshName].meshObj
+                    meshList.append(meshObj)
+
+                mergedMesh = pysurf.mesh_tools.merge_meshes('mergedMesh', meshList)
+
+                # Export mesh
+                mergedMesh.export_plot3d(fileName)
+
+                # Increment counter
+                collarID = collarID + 1
+
+                # Print log
+                print 'Exported collar mesh for',curve.name
+
+        # Print log
+        print 'Exported all meshes!'
+        print ''
+
+    def extrude_meshes(self, directory):
+
+        '''
+        This function will use pyHyp to extrude all surface meshes into
+        volume meshes.
+
+        INPUTS:
+
+        directory: string -> Directory where will place all mesh files.
+        '''
+
+        # Import pyHyp
+        from pyhyp import pyHyp
+
+        # Export the surface meshes once again just to make sure we have
+        # the correct files available
+        self.export_meshes(directory)
+
+        # Print log
+        print ''
+        print 'Extruding surface meshes'
+
+        # Add a slash if the directory does not have it
+        if directory[-1] != '/':
+            directory = directory + '/'
+
+        # Initialize counters
+        primaryID = 0
+        collarID = 0
+
+        # First we will export the primary geometry meshes
+        for geom in self.geoms.itervalues():
+            
+            # Check if the component has an associated surface mesh
+            if geom.meshObj is not None:
+
+                # Generate file names
+                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID)
+                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, primaryID)
+
+                # Get extrusion options
+                extrusionOptions = geom.meshObj.extrusionOptions
+                
+                # Give correct file name
+                extrusionOptions['inputFile'] = surfFileName
+                extrusionOptions['fileType'] = 'plot3d'
+
+                # Extrude mesh
+                hyp = pyHyp(options=extrusionOptions)
+                hyp.run()
+                hyp.writeCGNS(volFileName)
+
+                # Increment counter
+                primaryID = primaryID + 1
+
+                # Print log
+                print 'Extruded primary mesh for',geom.name
+
+        # Now we will export the collar meshes
+        for curve in self.intCurves.itervalues():
+            
+            # Verify if this curve was used to generate collar meshes
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Generate file name
+                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID)
+                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, collarID)
+
+                # Get extrusion options from the first mesh object
+                meshName = curve.extra_data['childMeshes'][0]
+                meshObj = self.meshGenerators[meshName].meshObj
+                extrusionOptions = meshObj.extrusionOptions
+
+                # Give correct file name
+                extrusionOptions['inputFile'] = surfFileName
+                extrusionOptions['fileType'] = 'plot3d'
+
+                # Extrude mesh
+                hyp = pyHyp(options=extrusionOptions)
+                hyp.run()
+                hyp.writeCGNS(volFileName)
+
+                # Increment counter
+                collarID = collarID + 1
+
+                # Print log
+                print 'Extruded collar mesh for',curve.name
+
+        # Print log
+        print 'Exported all meshes!'
+        print ''        
 
     #=====================================================
     # MACH INTERFACE METHODS
@@ -822,3 +965,48 @@ class Manager(object):
 
         Ney Secco 2017-02
         '''
+
+#=================================================
+# AUXILIARY FUNCTIONS
+
+def generate_primary_surface_mesh_filename(directory, geomName, primaryID):
+
+    '''
+    This just generates a filename for the surface mesh
+    '''
+
+    fileName = directory + 'primary_%03d'%primaryID + '.xyz'
+
+    return fileName
+
+def generate_primary_volume_mesh_filename(directory, geomName, primaryID):
+
+    '''
+    This just generates a filename for the surface mesh
+    '''
+
+    fileName = directory + 'primary_vol_%03d'%primaryID + '.cgns'
+
+    return fileName
+
+def generate_collar_surface_mesh_filename(directory, curveName, collarID):
+
+    '''
+    This just generates a filename for the surface mesh
+    '''
+    
+    # Generate file name
+    fileName = directory + 'collar_%03d'%collarID + '.xyz'
+
+    return fileName
+
+def generate_collar_volume_mesh_filename(directory, curveName, collarID):
+
+    '''
+    This just generates a filename for the surface mesh
+    '''
+    
+    # Generate file name
+    fileName = directory + 'collar_vol_%03d'%collarID + '.cgns'
+
+    return fileName

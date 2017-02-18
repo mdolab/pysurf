@@ -17,3 +17,6 @@ from utilities.CGNSinterface.python import structCGNSreader
 
 # Import the surface mesh object
 from meshTools.meshClass import SurfaceMesh
+
+# Import surface mesh tools
+from meshTools import mesh_tools

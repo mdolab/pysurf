@@ -63,6 +63,8 @@ for f in os.listdir(DIR_ORI):
         # Set logicals for if we're within a certain subroutine
         computematrices_main_b_flag = False
         areafactor_b_flag = False
+        findradius_b_flag = False
+        redistribute_nodes_by_arc_length_b_flag = False
 
         for line in file_object_ori:
             # Just deal with lower case string
@@ -72,6 +74,21 @@ for f in os.listdir(DIR_ORI):
                 computematrices_main_b_flag = True
             if 'computematrices_main_b' in line and 'end' in line:
                 computematrices_main_b_flag = False
+
+            if 'findradius_b(' in line:
+                findradius_b_flag = True
+            if 'findradius_b' in line and 'end' in line:
+                findradius_b_flag = False
+
+            if 'areafactor_b(' in line:
+                areafactor_b_flag = True
+            if 'areafactor_b' in line and 'end' in line:
+                areafactor_b_flag = False
+
+            if 'redistribute_nodes_by_arc_length_b(' in line:
+                redistribute_nodes_by_arc_length_b_flag = True
+            if 'redistribute_nodes_by_arc_length_b' in line and 'end' in line:
+                redistribute_nodes_by_arc_length_b_flag = False
 
             # Keep the differentiated routine for the solve_b command
             if 'subroutine' in line and 'end' not in line:
@@ -113,14 +130,16 @@ for f in os.listdir(DIR_ORI):
                     line = ''
 
             # areafactor_b checks and replacements
-            if 'db = 0.0_8' in line:
-                line = ''
-            if 'r0b = 0.0_8' in line:
-                line = ''
+            if areafactor_b_flag:
+                if 'db = 0.0_8' in line:
+                    line = ''
+                if 'r0b = 0.0_8' in line:
+                    line = ''
 
             # findradius_b replacement
-            if ' rb = 0.0_8' in line:
-                line = ''
+            if (findradius_b_flag or redistribute_nodes_by_arc_length_b_flag):
+                if ' rb = 0.0_8' in line:
+                    line = ''
 
             if 'external solve' not in line:
                 # write the modified line to new file

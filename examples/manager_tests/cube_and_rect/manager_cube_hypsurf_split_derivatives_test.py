@@ -24,12 +24,6 @@ comp2 = pysurf.TSurfGeometry('../../inputs/rect_uns.cgns',['geom'])
 name1 = comp1.name
 name2 = comp2.name
 
-#name1 = 'wing'
-#name2 = 'body'
-
-#comp1.rename(name1)
-#comp2.rename(name2)
-
 # ADDING GUIDE CURVES
 # Create curve dictionary based on imported curves
 # !!! Make sure to call `extract_curves.py` before running this script
@@ -185,10 +179,6 @@ def forward_pass(manager):
 
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
 
-    # EXPORT
-    for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
-
     return meshNames
 
 # END OF forward_pass
@@ -198,14 +188,17 @@ def forward_pass(manager):
 meshNames = forward_pass(manager0)
 mesh_pass = mesh_pass + 1
 
+manager0.export_meshes('.')
+
 # DERIVATIVE SEEDS
 
 # Generate random seeds
 coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
 coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+
 meshb = []
-for mesh in manager0.meshes.itervalues():
-    meshb.append(mesh.set_randomADSeeds(mode='reverse'))
+for meshGen in manager0.meshGenerators.itervalues():
+    meshb.append(meshGen.meshObj.set_randomADSeeds(mode='reverse'))
 
 # FORWARD AD
 
@@ -214,8 +207,8 @@ manager0.forwardAD()
 
 # Get relevant seeds
 meshd = []
-for mesh in manager0.meshes.itervalues():
-    meshd.append(mesh.get_forwardADSeeds())
+for meshGen in manager0.meshGenerators.itervalues():
+    meshd.append(meshGen.meshObj.get_forwardADSeeds())
 
 # REVERSE AD
 
@@ -266,9 +259,9 @@ mesh_pass = mesh_pass + 1
 
 # Get coordinates of the meshes in both cases to compute FD derivatives
 meshd_FD = []
-for meshName in manager0.meshes:
-    meshCoor0 = manager0.meshes[meshName].mesh[:,:,:]
-    meshCoor1 = manager1.meshes[meshName].mesh[:,:,:]
+for meshName in manager0.meshGenerators:
+    meshCoor0 = manager0.meshGenerators[meshName].meshObj.get_points()
+    meshCoor1 = manager1.meshGenerators[meshName].meshObj.get_points()
 
     # Compute derivatives with FD
     meshCoord_FD = (meshCoor1 - meshCoor0)/stepSize
@@ -288,20 +281,15 @@ def view_mat(mat):
 
 # Find the largest difference in derivatives
 FD_error = 0.0
-for ii in range(len(manager0.meshes)):
-    print meshNames[ii]
-    curr_error = np.max(np.abs(meshd[ii] - meshd_FD[ii]))
+for ii in range(len(manager0.meshGenerators)):
+    numNodes = manager0.meshGenerators[manager0.meshGenerators.keys()[ii]].numNodes
+    curr_error = np.abs(meshd[ii] - meshd_FD[ii]).reshape((numNodes,-1,3),order='F')
 
-    view_mat(np.abs(meshd[ii][0,:,:] - meshd_FD[ii][0,:,:]))
-    view_mat(np.abs(meshd[ii][1,:,:] - meshd_FD[ii][1,:,:]))
-    view_mat(np.abs(meshd[ii][2,:,:] - meshd_FD[ii][2,:,:]))
+    view_mat(np.abs(curr_error[:,:,0]))
+    view_mat(np.abs(curr_error[:,:,1]))
+    view_mat(np.abs(curr_error[:,:,2]))
 
-    '''
-    view_mat(meshd_FD[ii][0,:,:])
-    view_mat(meshd_FD[ii][1,:,:])
-    view_mat(meshd_FD[ii][2,:,:])
-    '''
-    FD_error = max(FD_error, curr_error)
+    FD_error = max(FD_error, np.max(curr_error))
 
 # Print results
 print 'dotProd test'

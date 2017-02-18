@@ -243,6 +243,7 @@ contains
 ! leading dimension of f (should be = n unless we work with submatrices)
 ! solve the linear system k*delta_r = f
 ! note that this f is rnext when outputted from computematrices_main
+    r0b = 0.0_8
     delta_rb = 0.0_8
     r0b = rnewb
     delta_rb = rnewb
@@ -1570,6 +1571,7 @@ contains
       end do
       routb = routb + r_smoothb
     end do
+    rb = 0.0_8
     rb = routb
     routb = 0.0_8
   end subroutine smoothing_main_b
@@ -1762,146 +1764,67 @@ contains
     real(kind=realtype) :: rb(3*numnodes)
     real(kind=realtype) :: radius
     real(kind=realtype) :: radiusb
-    real(kind=realtype) :: x, y, z
-    real(kind=realtype) :: xb, yb, zb
-    real(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    real(kind=realtype) :: minxb, maxxb, minyb, maxyb, minzb, maxzb
-    integer(kind=inttype) :: i
-    integer :: branch
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-! split coordinates and find max and min values
-    do i=1,numnodes
-      x = r(3*(i-1)+1)
-      if (x .gt. maxx) then
-        maxx = x
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (x .lt. minx) then
-        minx = x
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      y = r(3*(i-1)+2)
-      if (y .gt. maxy) then
-        maxy = y
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (y .lt. miny) then
-        miny = y
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      z = r(3*(i-1)+3)
-      if (z .gt. maxz) then
-        maxz = z
-        call pushcontrol1b(0)
-      else
-        call pushcontrol1b(1)
-      end if
-      if (z .lt. minz) then
-        minz = z
-        call pushcontrol1b(1)
-      else
-        call pushcontrol1b(0)
-      end if
+    real(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
+    real(kind=realtype) :: r_nodeb(3), r_centroidb(3), distvecb(3)
+    real(kind=realtype) :: dist, sumexp, rho, b
+    real(kind=realtype) :: distb, sumexpb
+    integer(kind=inttype) :: ii
+    intrinsic sum
+    intrinsic sqrt
+    intrinsic exp
+    intrinsic log
+! find the average of all nodes
+! we know that this is not the proper centroid, but it is ok since
+! the radius is already an approximation
+    r_centroid = 0.0
+    do ii=1,numnodes
+      r_node = r(3*ii-2:3*ii)
+      r_centroid = r_centroid + r_node
     end do
-! find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    if (maxx - minx .gt. radius) then
-      radius = maxx - minx
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    if (maxy - miny .gt. radius) then
-      radius = maxy - miny
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    if (maxz - minz .gt. radius) then
-      call pushcontrol1b(0)
-    else
-      call pushcontrol1b(1)
-    end if
-    radiusb = radiusb/2.
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxzb = radiusb
-      minzb = -radiusb
-      radiusb = 0.0_8
-    else
-      minzb = 0.0_8
-      maxzb = 0.0_8
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxyb = radiusb
-      minyb = -radiusb
-      radiusb = 0.0_8
-    else
-      minyb = 0.0_8
-      maxyb = 0.0_8
-    end if
-    call popcontrol1b(branch)
-    if (branch .eq. 0) then
-      maxxb = radiusb
-      minxb = -radiusb
-    else
-      minxb = 0.0_8
-      maxxb = 0.0_8
-    end if
-    do i=numnodes,1,-1
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        zb = 0.0_8
+    r_centroid = r_centroid/numnodes
+! now we need a way to estimate the maximum distance to this centroid.
+! we will use a ks-function approach to estimate the maximum radius
+! remember that ks = (1/rho)*log(sum(exp(rho*g_i)))
+! in our case, g_i are the distances of each node to the centroid.
+! according to the ks function property: ks >= max(g_i) for rho > 0,
+! so it can give an estimate of maximum radius
+! define ks-function constant (if you change rho, remember to run makefile_tapenade)
+    rho = 60.0
+! compute the sum of exponentials of the distances
+    sumexp = 0.0
+    do ii=1,numnodes
+! get coordinates of the current node
+      r_node = r(3*ii-2:3*ii)
+! compute distance
+      distvec = r_node - r_centroid
+      call pushreal8array(dist, realtype/8)
+      dist = sqrt(sum(distvec**2))
+! add contribution to the sum
+      sumexp = sumexp + exp(rho*dist)
+    end do
+    sumexpb = radiusb/(rho*sumexp)
+    r_centroidb = 0.0_8
+    do ii=numnodes,1,-1
+      distb = exp(rho*dist)*rho*sumexpb
+      r_node = r(3*ii-2:3*ii)
+      distvec = r_node - r_centroid
+      distvecb = 0.0_8
+      call popreal8array(dist, realtype/8)
+      if (sum(distvec**2) .eq. 0.0_8) then
+        distvecb = 0.0
       else
-        zb = minzb
-        minzb = 0.0_8
+        distvecb = 2*distvec*distb/(2.0*sqrt(sum(distvec**2)))
       end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        zb = zb + maxzb
-        maxzb = 0.0_8
-      end if
-      rb(3*(i-1)+3) = rb(3*(i-1)+3) + zb
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        yb = minyb
-        minyb = 0.0_8
-      else
-        yb = 0.0_8
-      end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        yb = yb + maxyb
-        maxyb = 0.0_8
-      end if
-      rb(3*(i-1)+2) = rb(3*(i-1)+2) + yb
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        xb = minxb
-        minxb = 0.0_8
-      else
-        xb = 0.0_8
-      end if
-      call popcontrol1b(branch)
-      if (branch .eq. 0) then
-        xb = xb + maxxb
-        maxxb = 0.0_8
-      end if
-      rb(3*(i-1)+1) = rb(3*(i-1)+1) + xb
+      r_nodeb = 0.0_8
+      r_nodeb = distvecb
+      r_centroidb = r_centroidb - distvecb
+      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
+    end do
+    r_centroidb = r_centroidb/numnodes
+    do ii=numnodes,1,-1
+      r_nodeb = 0.0_8
+      r_nodeb = r_centroidb
+      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
     end do
     radiusb = 0.0_8
   end subroutine findradius_b
@@ -1910,33 +1833,43 @@ contains
     integer(kind=inttype), intent(in) :: numnodes
     real(kind=realtype), intent(in) :: r(3*numnodes)
     real(kind=realtype), intent(out) :: radius
-    real(kind=realtype) :: x, y, z
-    real(kind=realtype) :: minx, maxx, miny, maxy, minz, maxz
-    integer(kind=inttype) :: i
-    minx = 1.e20
-    miny = 1.e20
-    minz = 1.e20
-    maxx = -1.e20
-    maxy = -1.e20
-    maxz = -1.e20
-! split coordinates and find max and min values
-    do i=1,numnodes
-      x = r(3*(i-1)+1)
-      if (x .gt. maxx) maxx = x
-      if (x .lt. minx) minx = x
-      y = r(3*(i-1)+2)
-      if (y .gt. maxy) maxy = y
-      if (y .lt. miny) miny = y
-      z = r(3*(i-1)+3)
-      if (z .gt. maxz) maxz = z
-      if (z .lt. minz) minz = z
+    real(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
+    real(kind=realtype) :: dist, sumexp, rho, b
+    integer(kind=inttype) :: ii
+    intrinsic sum
+    intrinsic sqrt
+    intrinsic exp
+    intrinsic log
+! find the average of all nodes
+! we know that this is not the proper centroid, but it is ok since
+! the radius is already an approximation
+    r_centroid = 0.0
+    do ii=1,numnodes
+      r_node = r(3*ii-2:3*ii)
+      r_centroid = r_centroid + r_node
     end do
-! find largest radius (we give only half of the largest side to be considered as radius)
-    radius = -1.e20
-    if (maxx - minx .gt. radius) radius = maxx - minx
-    if (maxy - miny .gt. radius) radius = maxy - miny
-    if (maxz - minz .gt. radius) radius = maxz - minz
-    radius = radius/2.
+    r_centroid = r_centroid/numnodes
+! now we need a way to estimate the maximum distance to this centroid.
+! we will use a ks-function approach to estimate the maximum radius
+! remember that ks = (1/rho)*log(sum(exp(rho*g_i)))
+! in our case, g_i are the distances of each node to the centroid.
+! according to the ks function property: ks >= max(g_i) for rho > 0,
+! so it can give an estimate of maximum radius
+! define ks-function constant (if you change rho, remember to run makefile_tapenade)
+    rho = 60.0
+! compute the sum of exponentials of the distances
+    sumexp = 0.0
+    do ii=1,numnodes
+! get coordinates of the current node
+      r_node = r(3*ii-2:3*ii)
+! compute distance
+      distvec = r_node - r_centroid
+      dist = sqrt(sum(distvec**2))
+! add contribution to the sum
+      sumexp = sumexp + exp(rho*dist)
+    end do
+! use the ks function to estimate maximum radius
+    radius = log(sumexp)/rho
   end subroutine findradius
 !  differentiation of findratio in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: q
@@ -2432,13 +2365,14 @@ contains
     real(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     real(kind=realtype) :: normdr1b, normdr2b
     intrinsic min
-    intrinsic acos
+    intrinsic dacos
+    intrinsic abs
     integer :: branch
     real(kind=realtype) :: min1
     real(kind=realtype) :: tempb0
     real(kind=realtype) :: min1b
     real(kind=realtype) :: tempb
-!pi = 3.14159265358979
+    real(kind=realtype) :: abs0
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2450,6 +2384,14 @@ contains
     call norm(dr1, normdr1)
     call norm(dr2, normdr2)
     arccos_inside = dr1dotdr2/normdr1/normdr2
+! need to check if value will cause nan upon dacos() evaluation.
+! dacos() not defined for values < -1
+    if (arccos_inside .lt. -1.) then
+      arccos_inside = -1.
+      call pushcontrol1b(1)
+    else
+      call pushcontrol1b(0)
+    end if
     if (arccos_inside .gt. one) then
       min1 = one
       call pushcontrol1b(0)
@@ -2460,11 +2402,20 @@ contains
 ! if the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     call dot(dr1crossdr2, n1, dr1crossdr2dotn1)
-    if (dr1crossdr2dotn1 .le. 0.) angleb = -angleb
+    if (dr1crossdr2dotn1 .ge. 0.) then
+      abs0 = dr1crossdr2dotn1
+    else
+      abs0 = -dr1crossdr2dotn1
+    end if
+    if (abs0 .lt. 1.e-10) then
+      angleb = 0.0_8
+    else if (dr1crossdr2dotn1 .le. 0.) then
+      angleb = -angleb
+    end if
     if (min1 .eq. 1.0 .or. min1 .eq. (-1.0)) then
       min1b = 0.0
     else
-      min1b = -(angleb/sqrt(1.0-min1**2))
+      min1b = -(angleb/sqrt(1.d0-min1**2))
     end if
     call popcontrol1b(branch)
     if (branch .eq. 0) then
@@ -2472,6 +2423,8 @@ contains
     else
       arccos_insideb = min1b
     end if
+    call popcontrol1b(branch)
+    if (branch .ne. 0) arccos_insideb = 0.0_8
     tempb = arccos_insideb/(normdr1*normdr2)
     tempb0 = -(dr1dotdr2*tempb/(normdr1*normdr2))
     dr1dotdr2b = tempb
@@ -2493,10 +2446,11 @@ contains
     real(kind=realtype) :: dr1dotdr2, arccos_inside, pi, one, angle, tmp
     real(kind=realtype) :: normdr1, normdr2, dr1crossdr2dotn1
     intrinsic min
-    intrinsic acos
+    intrinsic dacos
+    intrinsic abs
     real(kind=realtype) :: min1
+    real(kind=realtype) :: abs0
     pi = 3.14159265358979323846264338
-!pi = 3.14159265358979
     one = 1.0
     dr1 = r1 - r0
     dr2 = r2 - r1
@@ -2508,16 +2462,26 @@ contains
     call norm(dr1, normdr1)
     call norm(dr2, normdr2)
     arccos_inside = dr1dotdr2/normdr1/normdr2
+! need to check if value will cause nan upon dacos() evaluation.
+! dacos() not defined for values < -1
+    if (arccos_inside .lt. -1.) arccos_inside = -1.
     if (arccos_inside .gt. one) then
       min1 = one
     else
       min1 = arccos_inside
     end if
-    angle = acos(min1)
+    angle = dacos(min1)
 ! if the cross product points in the same direction of the surface
 ! normal, we have an acute corner
     call dot(dr1crossdr2, n1, dr1crossdr2dotn1)
-    if (dr1crossdr2dotn1 .gt. 0.) then
+    if (dr1crossdr2dotn1 .ge. 0.) then
+      abs0 = dr1crossdr2dotn1
+    else
+      abs0 = -dr1crossdr2dotn1
+    end if
+    if (abs0 .lt. 1.e-10) then
+      angle = pi
+    else if (dr1crossdr2dotn1 .gt. 0.) then
       angle = pi + angle
     else
       angle = pi - angle

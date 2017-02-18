@@ -769,7 +769,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
             currTan = currTan/np.linalg.norm(currTan)
 
             # Compute change in direction between consecutive tangents
-            angle = np.arccos(prevTan.dot(currTan))
+            angle = np.arccos(np.min([np.max([prevTan.dot(currTan),-1.0]),1.0]))
 
             # Check if the angle is beyond a certain threshold
             if angle > sharpAngle:
@@ -793,7 +793,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         currTan = currTan/np.linalg.norm(currTan)
 
         # Compute change in direction between consecutive tangents
-        angle = np.arccos(prevTan.dot(currTan))
+        angle = np.arccos(np.min([np.max([prevTan.dot(currTan),-1.0]),1.0]))
 
         # Check if the angle is beyond a certain threshold
         if angle > sharpAngle:
@@ -1900,7 +1900,7 @@ def rotate(Geometry, angle, axis, point=None):
 
 
     coor = Geometry.coor
-    if not point:
+    if point is None:
         point = [0.0, 0.0, 0.0]
     angle = angle * np.pi / 180.
     rotationMat = np.zeros((3, 3),order='F')

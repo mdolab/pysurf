@@ -1088,11 +1088,11 @@
 
                 r0b = rm1b
 
-                s0b = sm1b! NEY
+                s0b = sm1b
 
-                n0b = 0.0 ! NEY I Think this should be restarted on every loop
-                sm1b = 0.0 ! NEY I Think this should be restarted on every loop
-                rm1b = 0.0 ! NEY I Think this should be restarted on every loop
+                n0b = 0.0 ! I Think this should be restarted on every loop
+                sm1b = 0.0 ! I Think this should be restarted on every loop
+                rm1b = 0.0 ! I Think this should be restarted on every loop
 
                 !CALL POPCONTROL1B(branch)
                 !IF (branch .EQ. 0) THEN
@@ -1100,15 +1100,15 @@
                 IF (retainSpacing) THEN
 
                    !CALL POPREAL4ARRAY(rremeshed, realtype*3*numnodes/4)
-                   rRemeshed = R_remeshed_in(minorIndex, :) ! NEY
+                   rRemeshed = R_remeshed_in(minorIndex, :)
 
                    !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
                    rNext = R_final_in(minorIndex,:)
 
                    !CALL POPREAL4ARRAY(nnext, realtype*3*numnodes/4)
-                   NNext = N_final_in(minorIndex, :,:) ! NEY
+                   NNext = N_final_in(minorIndex, :,:)
 
-                   rRemeshedb = 0.0 ! NEY
+                   rRemeshedb = 0.0
 
                    CALL PY_PROJECTION_B(rremeshed, rremeshedb, rnext, rnextb, &
                         &               nnext, nnextb, projID, numnodes)
@@ -1117,8 +1117,8 @@
                    rnext2b = 0.0
 
                    ! Retrieve data
-                   rNext2 = R_projected_in(minorIndex,:) ! NEY
-                   rRemeshed = R_remeshed_in(minorIndex,:) ! NEY
+                   rNext2 = R_projected_in(minorIndex,:)
+                   rRemeshed = R_remeshed_in(minorIndex,:)
                    normArcLength_dummy = normArcLength
 
                    DO intervalid=numguides+1,1,-1
@@ -1156,15 +1156,15 @@
                 END IF
 
                 !CALL POPREAL4ARRAY(rsmoothed, realtype*3*numnodes/4)
-                rSmoothed = R_smoothed_in(minorIndex,:) ! NEY
+                rSmoothed = R_smoothed_in(minorIndex,:)
 
                 !CALL POPREAL4ARRAY(rnext2, realtype*3*numnodes/4)
                 rNext2 = R_projected_in(minorIndex,:)
 
                 !CALL POPREAL4ARRAY(nnext, realtype*3*numnodes/4)
-                NNext2 = N_projected_in(minorIndex,:,:) ! NEY
+                NNext2 = N_projected_in(minorIndex,:,:)
 
-                rsmoothedb_dummy = 0.0 ! NEY C
+                rsmoothedb_dummy = 0.0
                 CALL PY_PROJECTION_B(rsmoothed, rsmoothedb_dummy, rnext2, rnext2b, &
                      &               nnext2, nnext2b, projID, numnodes)
                 rsmoothedb = rsmoothedb_dummy !I believe this should not be accumulated
@@ -1173,17 +1173,16 @@
                 eta = layerindex + 2
 
                 !CALL POPREAL4ARRAY(rnext, realtype*3*numnodes/4)
-                rNext1 = R_initial_march_in(minorIndex,:) ! NEY
+                rNext1 = R_initial_march_in(minorIndex,:)
 
                 !CALL POPREAL4ARRAY(rsmoothed, realtype*3*numnodes/4)
-                rSmoothed = R_smoothed_in(minorIndex,:)  ! NEY
+                rSmoothed = R_smoothed_in(minorIndex,:)
 
-                !rNext1b = 0.0 ! NEY
-                rNext1b_dummy = 0.0 ! NEY
+                rNext1b_dummy = 0.0
                 CALL SMOOTHING_MAIN_B(rnext1, rnext1b_dummy, eta, alphap0, &
                      &                numsmoothingpasses, numlayers, numnodes, &
                      &                rsmoothed, rsmoothedb)
-                rNext1b = rNext1b_dummy ! NEY I believe this should not be accumulated
+                rNext1b = rNext1b_dummy ! I believe this should not be accumulated
 
                 arg10 = layerindex - 1
 
@@ -1191,37 +1190,37 @@
                 rNext1 = R_initial_march_in(minorIndex,:)
 
                 !CALL POPREAL4ARRAY(n0, realtype*3*numnodes/4)
-                N0 = N_final_in(minorIndex-1,:,:) ! NEY: These three were at the beggining of the do loop
+                N0 = N_final_in(minorIndex-1,:,:) ! These three were at the beggining of the do loop
                 !CALL POPREAL4ARRAY(r0, realtype*3*numnodes/4)
                 r0 = R_final_in(minorIndex-1,:)
                 !CALL POPREAL4ARRAY(rm1, realtype*3*numnodes/4)
                 rm1 = R_final_in(m1Index,:)
 
                 !CALL POPREAL4ARRAY(s0, realtype*numnodes/4)
-                S0 = S0_hist_in(minorIndex-1,:) ! NEY
-                Sm1 = Sm1_hist_in(minorIndex-1,:) ! NEY
+                S0 = S0_hist_in(minorIndex-1,:)
+                Sm1 = Sm1_hist_in(minorIndex-1,:)
 
-                r0b_dummy = 0.0 ! NEY
-                n0b_dummy = 0.0 ! NEY
-                s0b_dummy = 0.0 ! NEY
-                rm1b_dummy = 0.0 ! NEY
-                sm1b_dummy = 0.0 ! NEY
+                r0b_dummy = 0.0
+                n0b_dummy = 0.0
+                s0b_dummy = 0.0
+                rm1b_dummy = 0.0
+                sm1b_dummy = 0.0
                 CALL COMPUTEMATRICES_MAIN_B(r0, r0b_dummy, n0, n0b_dummy, &
                      &                      s0, s0b_dummy, rm1, rm1b_dummy, sm1, &
                      &                      sm1b_dummy, arg10, theta, sigmasplay, bc1, bc2, &
                      &                      numlayers, epse0, guideindices, &
                      &                      retainspacing, rnext1, rnext1b, numnodes, &
                      &                      numguides)
-                r0b = r0b + r0b_dummy ! NEY
-                n0b = n0b + n0b_dummy ! NEY
-                s0b = s0b + s0b_dummy ! NEY
-                rm1b = rm1b + rm1b_dummy ! NEY
-                sm1b = sm1b + sm1b_dummy ! NEY
+                r0b = r0b + r0b_dummy
+                n0b = n0b + n0b_dummy
+                s0b = s0b + s0b_dummy
+                rm1b = rm1b + rm1b_dummy
+                sm1b = sm1b + sm1b_dummy
 
                 !CALL POPREAL4ARRAY(s0, realtype*numnodes/4)
                 S0 = S0_hist_in(minorIndex-1,:)
                 !CALL POPREAL4ARRAY(r0, realtype*3*numnodes/4)
-                r0 = R_final_in(minorIndex-1,:) ! NEY
+                r0 = R_final_in(minorIndex-1,:)
 
                 r0b_dummy = 0.0
                 dpseudob_dummy = 0.0
@@ -1533,7 +1532,54 @@
              &   bc2, guideindices, numguides, n, s, sb, maxstretch)
 
         end subroutine areafactor_test_b
+
+        !=================================================================
+
+        subroutine findradius_test(numNodes, r0, radius)
+
+        use hypsurfmain, only: findRadius
+        implicit none
+        integer(kind=inttype), intent(in) :: numNodes
+        real(kind=realtype), intent(in) :: r0(3*numNodes)
+        real(kind=realtype), intent(out) :: radius
+
+        call findRadius(r0, numNodes, radius)
+
+        end subroutine
         
+        !=================================================================
+
+        subroutine findradius_test_d(numNodes, r0, r0d, radius, radiusd)
+
+        use hypsurfmain_d, only: findRadius_d
+        implicit none
+        integer(kind=inttype), intent(in) :: numNodes
+        real(kind=realtype), intent(in) :: r0(3*numNodes)
+        real(kind=realtype), intent(in) :: r0d(3*numNodes)
+        real(kind=realtype), intent(out) :: radius
+        real(kind=realtype), intent(out) :: radiusd
+
+        call findRadius_d(r0, r0d, numNodes, radius, radiusd)
+
+        end subroutine
+
+        !=================================================================
+
+        subroutine findradius_test_b(numNodes, r0, r0b, radius, radiusb)
+
+        use hypsurfmain_b, only: findRadius_b
+        implicit none
+        integer(kind=inttype), intent(in) :: numNodes
+        real(kind=realtype), intent(in) :: r0(3*numNodes)
+        real(kind=realtype), intent(out) :: r0b(3*numNodes)
+        real(kind=realtype), intent(in) :: radius
+        real(kind=realtype), intent(in) :: radiusb
+
+        r0b = 0.0
+        call findRadius_b(r0, r0b, numNodes, radius, radiusb)
+
+        end subroutine
+
         !=================================================================
 
         subroutine dissipationcoefficients_test(layerindex, r0_xi, r0_eta, dsensor, &
