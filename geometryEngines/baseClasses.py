@@ -309,6 +309,10 @@ class Geometry(object):
 
         dvDict = self.manipulator.getValues()
 
+        # Make sure all entries are real (sometimes DVGeo returns complex values)
+        for key in dvDict:
+            dvDict[key] = np.real(dvDict[key])
+
         return dvDict
 
     #===========================================================#
