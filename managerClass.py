@@ -1381,9 +1381,6 @@ class Manager(object):
         # Initialize dictionary of design variables
         dvDict = {}
 
-        # Initialize DV counter
-        NDV = 0
-
         # Loop over the primary geometries to find design variables
         for geom in self.geoms.itervalues():
 
@@ -1398,9 +1395,6 @@ class Manager(object):
 
                     # Add new entries to the dictionary
                     dvDict[key] = curr_dvDict[key]
-
-                    # Increment the DV counter
-                    NDV = NDV + 1
 
         # Return DV dictionary
         return dvDict
@@ -1627,18 +1621,13 @@ class Manager(object):
         for geom in self.geoms.itervalues():
             geom.manipulator_reverseAD(xDvBar, clean)
 
-        # Sometimes DVGeo assigns complex values to the seeds. So we will make another pass
-        # just to make sure they are real.
-        for key in xDvBar:
-            xDvBar[key] = np.real(xDvBar[key])
-
         # Return design variable seeds
         return xDvBar
 
     #=====================================================
     # DEBUG TOOLS
 
-    def give_randomADSeeds_MACHinterface(self):
+    def give_randomADSeeds_MACHinterface(self, fixedSeed=True):
 
         '''
         This method generates a set of random AD seeds to test the MACH interface functions above.
@@ -1646,6 +1635,10 @@ class Manager(object):
         and a set of reverse AD seeds for the surface mesh points.
         This function only works after the manager object is initialized or reinitialized.
         '''
+
+        # See if we should use a fixed seed for the RNG
+        if fixedSeed:
+            np.random.seed(123)
 
         #======================
         # GENERATE FORWARD AD SEEDS FOR DESIGN VARIABLES
