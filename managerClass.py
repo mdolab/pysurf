@@ -913,7 +913,7 @@ class Manager(object):
             if geom.meshObj is not None:
 
                 # Generate file name
-                fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID)
+                fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
 
                 # Export mesh
                 geom.meshObj.export_plot3d(fileName)
@@ -931,7 +931,7 @@ class Manager(object):
             if curve.extra_data['childMeshes'] is not None:
 
                 # Generate file name
-                fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID)
+                fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
 
                 # Merge different meshes that make up a single collar
                 meshList = []
@@ -956,7 +956,7 @@ class Manager(object):
         print 'Exported all meshes!'
         print ''
 
-    def extrude_meshes(self, directory, backgroundMeshInfo=None):
+    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=''):
 
         '''
         This function will use pyHyp to extrude all surface meshes into
@@ -979,6 +979,8 @@ class Manager(object):
            mgcycle     Minimum MG cycle to enforce
         If the user provides None, then nothing will be added to the combined CGNS file.
 
+        fileNameTag: string -> Optional tag to append to the file names.
+
         OUTPUTS:
 
         combinedFileName: string -> Filename of the CGNS file that contains all blocks
@@ -986,6 +988,12 @@ class Manager(object):
         The blocks in the CGNS file always follow the ordering:
         primary meshes, collar meshes, background meshes.
         This order is important to match the coordinates between ADflow and pySurf.
+
+        volFileList: list of strings -> List with names of CGNS files that contains the
+        volume mesh of each geometry component and collar mesh. These files should be given
+        to pyWarpMulti to initialize multiple instances corresponding to each mesh group.
+
+        Ney Seco 2017-02
         '''
 
         # Import pyHyp
@@ -993,7 +1001,7 @@ class Manager(object):
 
         # Export the surface meshes once again just to make sure we have
         # the correct files available
-        self.export_meshes(directory)
+        self.export_meshes(directory, fileNameTag)
 
         # Print log
         print ''
@@ -1017,8 +1025,8 @@ class Manager(object):
             if geom.meshObj is not None:
 
                 # Generate file names
-                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID)
-                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, primaryID)
+                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
+                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, primaryID, fileNameTag)
 
                 # Get extrusion options
                 extrusionOptions = geom.meshObj.extrusionOptions
@@ -1048,8 +1056,8 @@ class Manager(object):
             if curve.extra_data['childMeshes'] is not None:
 
                 # Generate file name
-                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID)
-                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, collarID)
+                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
+                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, collarID, fileNameTag)
 
                 # Get extrusion options from the first mesh object
                 meshName = curve.extra_data['childMeshes'][0]
@@ -1151,7 +1159,7 @@ class Manager(object):
         print ''
 
         # Return the name of the combined file
-        return combinedFileName
+        return combinedFileName, volFileList
 
     #=====================================================
     # GENERAL INTERFACE METHODS
@@ -1198,6 +1206,100 @@ class Manager(object):
         # Return the set of points
         return pts
 
+    def getSurfaceForwardADSeeds(self):
+
+        '''
+        This function returns the forward AD seeds of all meshes contained
+        in the manager object (including both primary and collar meshes).
+        We try to follow the same CGNS ordering seen by ADflow.
+        '''
+
+        # Initialize list of points with a single entry ([0, 0, 0])
+        # We will remove this point at the end
+        ptsd = np.zeros((1,3))
+
+        # Loop over all primary meshes to gather their coordinates
+        for geom in self.geoms.itervalues():
+
+            # Get points of the current mesh
+            currPtsd = geom.meshObj.get_forwardADSeeds()
+
+            # Append them to the list
+            ptsd = np.vstack([ptsd, currPtsd])
+
+        # Loop over all collar meshes to gather their coordinates
+        for curve in self.intCurves.itervalues():
+            
+            # Verify if this curve was used to generate collar meshes
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Loop over every block of the collar mesh
+                for meshName in curve.extra_data['childMeshes']:
+
+                    # Get points of the current mesh
+                    currPtsd = self.meshGenerators[meshName].meshObj.get_forwardADSeeds()
+
+                    # Append them to the list
+                    ptsd = np.vstack([ptsd, currPtsd])
+
+        # Remove the initial dummy point
+        ptsd = ptsd[1:,:]
+
+        # Return the set of points
+        return ptsd
+
+    def setSurfaceReverseADSeeds(self, ptsb):
+
+        '''
+        This function sets the reverse AD seeds of all meshes contained
+        in the manager object (including both primary and collar meshes).
+        We try to follow the same CGNS ordering seen by ADflow.
+
+        INPUTS:
+
+        ptsb: float[nPts,3] -> Reverse derivative seeds of all surface points,
+        following the CGNS ordering.
+        '''
+
+        # Initialize offset variable to help us slice ptsb
+        offset = 0
+
+        # Loop over all primary meshes to set their seeds
+        for geom in self.geoms.itervalues():
+
+            # Get number of points in the current mesh
+            numPts = geom.meshObj.numPts
+
+            # Slice the global derivative seed vector
+            curr_ptsb = ptsb[offset:offset+numPts]
+
+            # Assign the derivative seeds
+            geom.meshObj.set_reverseADSeeds(curr_ptsb)
+
+            # Update the offset variable
+            offset = offset + numPts
+
+        # Loop over all collar meshes to set their seeds
+        for curve in self.intCurves.itervalues():
+            
+            # Verify if this curve was used to generate collar meshes
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Loop over every block of the collar mesh
+                for meshName in curve.extra_data['childMeshes']:
+
+                    # Get number of points in the current mesh
+                    numPts = self.meshGenerators[meshName].meshObj.numPts
+                    
+                    # Slice the global derivative seed vector
+                    curr_ptsb = ptsb[offset:offset+numPts]
+                    
+                    # Assign the derivative seeds
+                    self.meshGenerators[meshName].meshObj.set_reverseADSeeds(curr_ptsb)
+                    
+                    # Update the offset variable
+                    offset = offset + numPts
+
     #=====================================================
     # MACH INTERFACE METHODS
 
@@ -1224,6 +1326,10 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
+        # Print log
+        print ''
+        print 'Adding point set',ptSetName,'to the manager.'
+
         ##### First we verify if the nodes given by ADflow follow the same order expected by the manager
         
         # Get surface coordinates from the manager object
@@ -1238,6 +1344,9 @@ class Manager(object):
         
         if maxError > 1e-10:
             raise ValueError('The surface points given by ADflow do not match the surface mesh assigned to the pySurf manager.')
+        
+        # Print log
+        print 'Coordinates match!'
 
         ##### We finished all necessary checks, so we can assign the new values
 
@@ -1251,6 +1360,10 @@ class Manager(object):
 
             # Flag that they are up to date
             self.updated[ptSetName] = True
+
+        # Print log
+        print 'Done'
+        print ''
 
     def getValues(self):
 
@@ -1308,6 +1421,10 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
+        # Print log
+        print ''
+        print 'Setting new values for design variables to the manager.'
+
         # Loop over the primary geometries to find design variables
         for geom in self.geoms.itervalues():
 
@@ -1328,6 +1445,10 @@ class Manager(object):
         # Flag all point sets as outdated
         for ptSetName in self.points:
             self.updated[ptSetName] = False
+
+        # Print log
+        print 'Done'
+        print ''
 
     def getNDV(self):
 
@@ -1380,6 +1501,10 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
+        # Print log
+        print ''
+        print 'Updating manager surface meshes.'
+
         # Loop over all primary geometry objects to update their manipulators
         for geom in self.geoms.itervalues():
 
@@ -1401,50 +1526,197 @@ class Manager(object):
             self.points[ptSetName] = pts
             self.updated[ptSetName] = True
 
+        # Print log
+        print 'Done'
+        print ''
+
         # Return the new set of points
         return pts
+
+    def totalSensitivityProd(self,xDvDot, ptSetName):
+
+        '''
+        This method executes the forward AD to compute the derivatives of the
+        surface mesh with respect to the design variables.
+
+        INPUTS:
+
+        xDvDot: dictionary -> Dictionary containing derivative seeds of the design variables.
+        It should follow the same structure as dvDict. You can use self.getValues to get
+        a baseline dictionary and them change seeds.
+
+        ptSetName: string -> Name of the point set that should be used to propagate derivatives
+
+        OUTPUTS:
+
+        xsDot: float[nPts,3] -> Derivative seeds of the surface mesh points. NOTE: This function
+        will also update all derivative seeds stored throughout the manager.
+
+        Ney Secco 2017-02
+        '''
+
+        # Check if the current point set is updated
+        if not self.updated[ptSetName]:
+            raise NameError('The point set',ptSetName,'is outdated. Cannot propagate derivatives.')
+
+        # First update the geometry manipulators. This will propagate derivative seeds from
+        # design variables to all triangulated surface nodes, discrete curves, and primary structured
+        # surface meshes associated with the geometry manipulators.
+        # Note that all this derivative passing will be done directly to their corresponding objects.
+        for geom in self.geoms.itervalues():
+            geom.manipulator_forwardAD(xDvDot)
+
+        # Now we can propagate derivatives throughout the geometry operations done by the manager.
+        # This will update derivative seeds of the surface collar meshes.
+        self.forwardAD()
+
+        # Now we need to gather the derivative seeds of all surface meshes.
+        xsDot = self.getSurfaceForwardADSeeds()
+
+        # Return derivative seeds
+        return xsDot
+
+    def totalSensitivity(self,xsBar, ptSetName, comm=None, config=None, clean=True):
+
+        '''
+        This method executes the reverse AD to compute the derivatives of the
+        surface mesh with respect to the design variables.
+
+        ATTENTION:
+        This code will change the values in xsBar. So make sure you make a copy if you
+        need the original values later on!
+
+        INPUTS:
+
+        xsBar: float[nPts,3] -> Dictionary containing derivative seeds of the design variables.
+        It should follow the same structure as dvDict. You can use self.getValues to get
+        a baseline dictionary and them change seeds.
+
+        ptSetName: string -> Name of the point set that should be used to propagate derivatives
+
+        OUTPUTS:
+
+        xDvBar: dictionary -> Dictionary containing derivative seeds of the design variables.
+        It will follow the same structure as dvDict.
+
+        Ney Secco 2017-02
+        '''
+
+        # Initialize reverse seeds for design variables.
+        # We will do this by getting a baseline dictionary with self.getValues and then
+        # replacing all values with zeros.
+        xDvBar = self.getValues()
+        for key in xDvBar:
+            xDvBar[key] = xDvBar[key]*0.0 # We do this to keep same array structure
+
+        # Check if the current point set is updated
+        if not self.updated[ptSetName]:
+            raise NameError('The point set',ptSetName,'is outdated. Cannot propagate derivatives.')
+
+        # Assign the derivative seeds to the surface meshes
+        self.setSurfaceReverseADSeeds(xsBar)
+
+        # Now we can propagate derivatives throughout the geometry operations done by the manager.
+        # This will update derivative seeds of the triangulated surface meshes and discrete curves.
+        self.reverseAD()
+
+        # Then update the geometry manipulators. This will propagate derivative seeds from
+        # all triangulated surface nodes, discrete curves, and primary structured
+        # surface meshes to the design varibles associated with the geometry manipulators.
+        # Note that all this derivative passing will be done directly to their corresponding objects.
+        for geom in self.geoms.itervalues():
+            geom.manipulator_reverseAD(xDvBar, clean)
+
+        # Sometimes DVGeo assigns complex values to the seeds. So we will make another pass
+        # just to make sure they are real.
+        for key in xDvBar:
+            xDvBar[key] = np.real(xDvBar[key])
+
+        # Return design variable seeds
+        return xDvBar
+
+    #=====================================================
+    # DEBUG TOOLS
+
+    def give_randomADSeeds_MACHinterface(self):
+
+        '''
+        This method generates a set of random AD seeds to test the MACH interface functions above.
+        This basically consists of a normalized set of forward AD seeds for the design variables,
+        and a set of reverse AD seeds for the surface mesh points.
+        This function only works after the manager object is initialized or reinitialized.
+        '''
+
+        #======================
+        # GENERATE FORWARD AD SEEDS FOR DESIGN VARIABLES
+
+        # Copy DV dictionary to use as baseline
+        xDvDot = self.getValues()
+
+        # Assign normalized seeds to every entry
+        for key in xDvDot:
+
+            if isinstance(xDvDot[key],np.ndarray):
+                xDvDot[key] = np.random.random_sample(xDvDot[key].shape)
+                xDvDot[key] = xDvDot[key]/np.sqrt(np.sum(xDvDot[key]**2))
+            else:
+                xDvDot[key] = 1.0
+
+        #======================
+        # GENERATE REVERSE AD SEEDS FOR SURFACE MESH POINTS
+        
+        # Copy coordinate array as a baseline
+        xsBar = self.getSurfacePoints()
+
+        # Generate random seeds
+        xsBar = np.random.random_sample(xsBar.shape)
+        xsBar = xsBar/np.sqrt(np.sum(xsBar**2))
+
+        #======================
+        # RETURNS
+        return xDvDot, xsBar
 
 #=================================================
 # AUXILIARY FUNCTIONS
 
-def generate_primary_surface_mesh_filename(directory, geomName, primaryID):
+def generate_primary_surface_mesh_filename(directory, geomName, primaryID, fileNameTag=''):
 
     '''
     This just generates a filename for the surface mesh
     '''
 
-    fileName = directory + 'primary_%03d'%primaryID + '.xyz'
+    fileName = directory + 'primary_%03d'%primaryID + '_' + fileNameTag + '.xyz'
 
     return fileName
 
-def generate_primary_volume_mesh_filename(directory, geomName, primaryID):
+def generate_primary_volume_mesh_filename(directory, geomName, primaryID, fileNameTag=''):
 
     '''
     This just generates a filename for the surface mesh
     '''
 
-    fileName = directory + 'primary_vol_%03d'%primaryID + '.cgns'
+    fileName = directory + 'primary_vol_%03d'%primaryID + '_' + fileNameTag + '.cgns'
 
     return fileName
 
-def generate_collar_surface_mesh_filename(directory, curveName, collarID):
+def generate_collar_surface_mesh_filename(directory, curveName, collarID, fileNameTag=''):
 
     '''
     This just generates a filename for the surface mesh
     '''
     
     # Generate file name
-    fileName = directory + 'collar_%03d'%collarID + '.xyz'
+    fileName = directory + 'collar_%03d'%collarID + '_' + fileNameTag + '.xyz'
 
     return fileName
 
-def generate_collar_volume_mesh_filename(directory, curveName, collarID):
+def generate_collar_volume_mesh_filename(directory, curveName, collarID, fileNameTag=''):
 
     '''
     This just generates a filename for the surface mesh
     '''
     
     # Generate file name
-    fileName = directory + 'collar_vol_%03d'%collarID + '.cgns'
+    fileName = directory + 'collar_vol_%03d'%collarID + '_' + fileNameTag + '.cgns'
 
     return fileName
