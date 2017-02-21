@@ -3,6 +3,7 @@ import numpy as np
 from mpi4py import MPI
 import pysurf
 from collections import OrderedDict
+import os
 
 class Manager(object):
 
@@ -136,9 +137,105 @@ class Manager(object):
         The geometry objects will remain.
         '''
 
-        self.intCurves = {}
+        self.intCurves = OrderedDict()
         self.meshGenerators = {}
         self.tasks = []
+
+    #=====================================================
+    # OPERATION METHODS
+
+    def assign_baseFunction(self, baseFunction):
+
+        '''
+        This method assigns an user-defined operation function to the current manager.
+        The user should define a function of the form:
+        baseFunction(manager)
+        This function should receive a manager object and then conduct all necessary
+        operations to generate the collar surface meshes using this object. This includes all
+        itersection, split, merge, and mesh marching calls.
+        ATTENTION: The user should NOT call any mesh extrusion operation (volume mesh generation)
+        within baseFunction. We only need the surface nodes of the collar meshes.
+
+        This function will be used throughout the optimization to update the nodal
+        coordinates of the collar meshes.
+
+        INPUTS:
+
+        baseFunction : function handle -> Handle to the function that performs the geometry operations.
+
+        Ney Secco 2017-02
+        '''
+
+        # Assign function handle to the manager object
+        self.baseFunction = baseFunction
+
+    def run_baseFunction(self):
+
+        '''
+        This method will execute the base function to update the collar mesh coordiantes.
+
+        ASSUMPTIONS:
+        - We assume that the triangulated surfaces are up to date with respect to the design variables.
+        This is usually guaranteed since this method is called from self.update.
+        '''
+
+        # Clean previous data
+        self.clear_all()
+
+        # Call base function to operate on the manager itself
+        self.baseFunction(self)
+
+    def initialize(self, directory, backgroundMeshInfo=None):
+
+        '''
+        This method will do the initialization step. This includes:
+
+        - run base function to generate surface collar meshes
+        - extrude all meshes with pyHyp
+        - generate CGNS files with isolated meshes for pyWarp inputs
+        - generate combined CGNS file with all meshes for ADflow
+
+        Remember to use this outside of optimization scripts. This is useful to
+        generate inputs that will be used to initialize other MACH modules during the
+        actual optimization.
+
+        INPUTS/OUTPUTS:
+        
+        Please refer to self.extrude_meshes to verify the inputs/outputs description.
+
+        Ney Secco 2017-02
+        '''
+
+        # Run base function to generate surface meshes
+        self.run_baseFunction()
+
+        # Extrude meshes
+        combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo)
+
+        # Return combined file name to use in ADflow
+        return combinedFileName
+
+    def reinitialize(self):
+
+        '''
+        This method will do the pre-optimization step. This includes:
+
+        - run base function to generate surface collar meshes
+        - extrude all meshes with pyHyp
+        - generate CGNS files with isolated meshes for pyWarp inputs
+        - generate combined CGNS file with all meshes for ADflow
+
+        Remember to use this at the beginning of an optimization script.
+
+        INPUTS/OUTPUTS:
+        
+        Please refer to self.extrude_meshes to verify the inputs/outputs description.
+
+        Ney Secco 2017-02
+        '''
+
+        # Run base function to generate surface meshes
+        self.run_baseFunction()
 
     #=====================================================
     # AD METHODS
@@ -783,7 +880,7 @@ class Manager(object):
     #=====================================================
     # MESH EXPORTATION METHODS
 
-    def export_meshes(self, directory):
+    def export_meshes(self, directory, fileNameTag=''):
 
         '''
         This function will export all structured surface meshes into
@@ -793,6 +890,8 @@ class Manager(object):
         INPUTS:
 
         directory: string -> Directory where will place all mesh files.
+
+        fileNameTag: string -> Optional tag to append to the file names.
         '''
 
         # Print log
@@ -857,15 +956,36 @@ class Manager(object):
         print 'Exported all meshes!'
         print ''
 
-    def extrude_meshes(self, directory):
+    def extrude_meshes(self, directory, backgroundMeshInfo=None):
 
         '''
         This function will use pyHyp to extrude all surface meshes into
         volume meshes.
+        It will also use cgns_utils to generate the background mesh (if the user
+        provided None) and then merge all blocks in a single CGNS file.
 
         INPUTS:
 
         directory: string -> Directory where will place all mesh files.
+
+        backgroundMeshInfo: list or dict -> List containing filenames of the background
+        meshes that should be appended to the combined CGNS file. The user could also
+        provide a dictionary of options to use cgns_utils simpleOCart to generate a new
+        background mesh. THe dictionary fields should be:
+           dh          Uniform cartesian spacing size
+           hExtra      Extension in "O" dimension
+           nExtra      Number of nodes to use for extension
+           sym         Normal for possible sym plane
+           mgcycle     Minimum MG cycle to enforce
+        If the user provides None, then nothing will be added to the combined CGNS file.
+
+        OUTPUTS:
+
+        combinedFileName: string -> Filename of the CGNS file that contains all blocks
+        (including the background mesh). This file should be used as input to ADflow.
+        The blocks in the CGNS file always follow the ordering:
+        primary meshes, collar meshes, background meshes.
+        This order is important to match the coordinates between ADflow and pySurf.
         '''
 
         # Import pyHyp
@@ -886,6 +1006,9 @@ class Manager(object):
         # Initialize counters
         primaryID = 0
         collarID = 0
+
+        # Initialize list of volume meshes
+        volFileList = []
 
         # First we will export the primary geometry meshes
         for geom in self.geoms.itervalues():
@@ -912,6 +1035,9 @@ class Manager(object):
                 # Increment counter
                 primaryID = primaryID + 1
 
+                # Append filename to the list
+                volFileList.append(volFileName)
+
                 # Print log
                 print 'Extruded primary mesh for',geom.name
 
@@ -930,7 +1056,8 @@ class Manager(object):
                 meshObj = self.meshGenerators[meshName].meshObj
                 extrusionOptions = meshObj.extrusionOptions
 
-                # Give correct file name
+                # Give correct file name (this one already contains all blocks of the collar mesh
+                # since they were joined in the export_plot3d function).
                 extrusionOptions['inputFile'] = surfFileName
                 extrusionOptions['fileType'] = 'plot3d'
 
@@ -942,17 +1069,139 @@ class Manager(object):
                 # Increment counter
                 collarID = collarID + 1
 
+                # Append filename to the list
+                volFileList.append(volFileName)
+
                 # Print log
                 print 'Extruded collar mesh for',curve.name
 
         # Print log
-        print 'Exported all meshes!'
-        print ''        
+        print 'Extruded all meshes!'
+        print ''
+
+        ### ADDING BACKGROUND MESHES
+
+        # First let's combine the near-field meshes in a single file
+        nearFieldFileName = directory + 'near_field_meshes.cgns'
+        os.system('cgns_utils combine ' + ' '.join(volFileList) + ' ' + nearFieldFileName)
+
+        # Check for background meshes
+        if backgroundMeshInfo is None:
+
+            # The user did not provide any background mesh
+            bgMeshNames = ''
+
+        elif isinstance(backgroundMeshInfo, dict):
+
+            # Print log
+            print ''
+            print 'Generating background mesh with cgns_utils'
+
+            # The user provided a set of options to run cgns_utils simpleOCart
+            # to generate a new background mesh
+
+            # Assign the background mesh filename for the next operations
+            bgMeshNames = directory + 'auto_background.cgns'
+
+            # Define default set of options
+            bg_options = {
+                'dh':0.1,
+                'hExtra':5.0,
+                'nExtra':9,
+                'sym':'z',
+                'mgcycle':3,
+            }
+
+            # Replace default options by the user-provided ones
+            for key in backgroundMeshInfo:
+                if key not in bg_options.keys():
+                    raise NameError('key',key,'not recognized by the background mesh generator.')
+                else:
+                    bg_options[key] = backgroundMeshInfo[key]
+
+            # Now run cgns_utils simpleOCart to generate the background mesh
+            os.system('cgns_utils simpleOCart ' + directory + 'near_field_meshes.cgns ' + \
+                      str(bg_options['dh']) + ' ' + str(bg_options['hExtra']) + ' ' + str(bg_options['nExtra']) + \
+                      ' ' + bg_options['sym'] + ' ' + str(bg_options['mgcycle']) + ' ' + bgMeshNames)
+
+            # Print log
+            print 'Background mesh generated and saved as:'
+            print bgMeshNames
+            print ''
+
+        else:
+
+            # The user probably provided a list of background mesh files.
+            # All we need to do is create a single string with all these names so that we can
+            # combine them later on.
+
+            bgMeshNames = ' '.join(backgroundMeshInfo)
+
+        # Now we can run the cgns_utils command to join all blocks in a single file
+        combinedFileName = directory + 'aeroInput.cgns'
+        os.system('cgns_utils combine ' + nearFieldFileName + ' ' + bgMeshNames + ' ' + combinedFileName)
+
+        # Check block-to-block connectivities
+        os.system('cgns_utils connect ' + combinedFileName)
+
+        # Print log
+        print 'Combined all meshes! The combined CGNS file is:'
+        print combinedFileName
+        print 'This one should be used as input to ADflow.'
+        print ''
+
+        # Return the name of the combined file
+        return combinedFileName
+
+    #=====================================================
+    # GENERAL INTERFACE METHODS
+        
+    def getSurfacePoints(self):
+
+        '''
+        This function returns the surface mesh points of all meshes contained
+        in the manager object (including both primary and collar meshes).
+        We try to follow the same CGNS ordering seen by ADflow.
+        '''
+
+        # Initialize list of points with a single entry ([0, 0, 0])
+        # We will remove this point at the end
+        pts = np.zeros((1,3))
+
+        # Loop over all primary meshes to gather their coordinates
+        for geom in self.geoms.itervalues():
+
+            # Get points of the current mesh
+            currPts = geom.meshObj.get_points()
+
+            # Append them to the list
+            pts = np.vstack([pts, currPts])
+
+        # Loop over all collar meshes to gather their coordinates
+        for curve in self.intCurves.itervalues():
+            
+            # Verify if this curve was used to generate collar meshes
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Loop over every block of the collar mesh
+                for meshName in curve.extra_data['childMeshes']:
+
+                    # Get points of the current mesh
+                    currPts = self.meshGenerators[meshName].meshObj.get_points()
+
+                    # Append them to the list
+                    pts = np.vstack([pts, currPts])
+
+        # Remove the initial dummy point
+        pts = pts[1:,:]
+
+        # Return the set of points
+        return pts
 
     #=====================================================
     # MACH INTERFACE METHODS
 
-    def addPointsSet(coor, ptSetName, origConfig=True, **kwargs):
+    def addPointSet(self, coor, ptSetName, origConfig=True, **kwargs):
 
         '''
         This function will receive an array of coordinates, and then assign
@@ -963,8 +1212,197 @@ class Manager(object):
         corresponding FFD. For instance, the surface mesh points of the wing should
         be assigned to the wing object FFD.
 
+        In this function we have the following assumptions:
+
+        - coor is a Nx3 array containing all relevant surface nodes (walls of all
+        primary geometries). We assume that the nodes in coor follows the same CGNS ordering
+        used to generate the combined file in self.extrude_meshes. That is, we have all primary meshes,
+        collar meshes, and then background meshes. If you use a file generated by self.extrude_meshes
+        as an input to ADflow, then you should be fine. This function will just verify if the nodes in
+        coor have the expected ordering compared to the manager's objects.
+
         Ney Secco 2017-02
         '''
+
+        ##### First we verify if the nodes given by ADflow follow the same order expected by the manager
+        
+        # Get surface coordinates from the manager object
+        managerCoor = self.getSurfacePoints()
+
+        # Check if we have the same number of nodes
+        if coor.shape[0] != managerCoor.shape[0]:
+            raise ValueError('The number of nodes given by ADflow is different than the one expected by the manager.')
+
+        # Compare the two sets of coordinates
+        maxError = np.max(np.abs(managerCoor - coor))
+        
+        if maxError > 1e-10:
+            raise ValueError('The surface points given by ADflow do not match the surface mesh assigned to the pySurf manager.')
+
+        ##### We finished all necessary checks, so we can assign the new values
+
+        # Store the coordinates given by ADflow in a separate dictionary
+        if ptSetName in self.points.keys():
+            raise NameError('The point set',ptSetName,'is already defined under this manager.')
+        else:
+
+            # Save the coordinates (they are basically the same ones assigned to the FFDs)
+            self.points[ptSetName] = coor.copy()
+
+            # Flag that they are up to date
+            self.updated[ptSetName] = True
+
+    def getValues(self):
+
+        '''
+        This function returns a dictionary with the current design variable (DV) values.
+        This can be used to get a baseline dictionary to assign new DV values with
+        self.setDesignVars later on.
+
+        ASSUMPTIONS:
+        - We assume that different component do NOT have DVs with the same name.
+
+        Ney Secco 2017-02
+        '''
+
+        # Initialize dictionary of design variables
+        dvDict = {}
+
+        # Initialize DV counter
+        NDV = 0
+
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
+
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
+
+                # Get design variables from the manipulator
+                curr_dvDict = geom.manipulator_getDVs()
+
+                # Loop over every entry of the new DV dictionary
+                for key in curr_dvDict:
+
+                    # Add new entries to the dictionary
+                    dvDict[key] = curr_dvDict[key]
+
+                    # Increment the DV counter
+                    NDV = NDV + 1
+
+        # Return DV dictionary
+        return dvDict
+
+    def setDesignVars(self, dvDict):
+
+        '''
+        This function will set new values to the design variables.
+        IT WILL NOT UPDATE THE SURFACE COORDINATES. However, it will flag
+        all point set as outdated. The user should call self.update(ptSetName)
+        to get the updated set of points.
+
+        Any additional keys in the DV dictionary are simply ignored.
+
+        Note: you can use self.getValues to get a baseline dictionary with the correct
+        structure, so you can change the desired DVs.
+
+        Ney Secco 2017-02
+        '''
+
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
+
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
+
+                # Get design variables from the manipulator
+                curr_dvDict = geom.manipulator_getDVs()
+
+                # Loop over every entry of the new DV dictionary
+                for key in dvDict:
+
+                    # Assign new DVs to the manipulator. Remember that we assume that
+                    # the manipulator will ignore keys in dvDict that are not defined
+                    # as design variables.
+                    geom.manipulator.setDesignVars(dvDict)
+
+        # Flag all point sets as outdated
+        for ptSetName in self.points:
+            self.updated[ptSetName] = False
+
+    def getNDV(self):
+
+        '''
+        This function given the total number of design variables under the current manager.
+
+        Ney Secco 2017-02
+        '''
+
+        # Initialize dictionary of design variables
+        dvDict = {}
+
+        # Initialize DV counter
+        NDV = 0
+
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
+
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
+
+                # Get design variables from the manipulator
+                curr_dvDict = geom.manipulator_getDVs()
+
+                # Increment the DV counter
+                NDV = NDV + len(curr_dvDict)
+
+        # Return number of DVs
+        return NDV
+
+    def pointSetUpToDate(self, ptSetName):
+
+        '''
+        This function just returns the state of the given point set.
+        If False, it means that the nodal coordinates were not updated
+        after the DV change. Thus the user should call self.update(ptSetName)
+        
+        Ney Secco 2017-02
+        '''
+
+        return self.updated[ptSetName]
+
+    def update(self, ptSetName=None, childDelta=True, config=None):
+
+        '''
+        This function will update all surface coordinates under ptSetName based on
+        the current values of design variables. The user should call self.setDesignVars
+        before calling this function.
+
+        Ney Secco 2017-02
+        '''
+
+        # Loop over all primary geometry objects to update their manipulators
+        for geom in self.geoms.itervalues():
+
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
+
+                # Update the manipulator. Remember that this will update the associated
+                # surface mesh and triangulated mesh
+                geom.manipulator_update()
+
+        # Now we need to repeat the tasks associated with the collar mesh generation
+        self.run_baseFunction()
+
+        # Gather the updated coordinates
+        pts = self.getSurfacePoints().copy()
+
+        # Update corresponding dictionary entry if requested
+        if ptSetName is not None:
+            self.points[ptSetName] = pts
+            self.updated[ptSetName] = True
+
+        # Return the new set of points
+        return pts
 
 #=================================================
 # AUXILIARY FUNCTIONS
