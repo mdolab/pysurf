@@ -29,7 +29,7 @@ comp2 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
 comp1.coor = np.array([[-0.1, 0.0, 0.0],
                        [3.0, 0.0, 0.0],
                        [0.0, 1.0, 0.0],
-                       [3.0, 1.0, 0.0]],order='F').T
+                       [3.0, 1.0, 0.0]],order='F')
 comp1.triaConn = np.array([[1,2,3],
                            [2,4,3]],order='F').T
 comp1.quadsConn = np.zeros((4,0),order='F')
@@ -41,7 +41,7 @@ comp1.update()
 comp2.coor = np.array([[0.0, 0.2, -0.2],
                        [3.0, 0.2, -0.2],
                        [0.0, 0.2, 0.2],
-                       [3.0, 0.2, 0.2]],order='F').T
+                       [3.0, 0.2, 0.2]],order='F')
 comp2.triaConn = np.array([[1,2,3],
                            [2,4,3]],order='F').T
 comp2.quadsConn = np.zeros((4,0),order='F')
@@ -116,6 +116,7 @@ intCoord_FD = (intCoor - intCoor0)/stepSize
 
 # Compute the maximum difference between derivatives
 maxError = np.max(np.abs(intCoord - intCoord_FD))
+print intCoord - intCoord_FD
 
 print ''
 print 'FD test (this should be around',stepSize,'):'
@@ -179,7 +180,7 @@ for ii in range(nNodes1):
 
         # Compute derivatives in forward mode
         comp1.intersect_d(comp2, distTol)
-        
+
         # Get derivative seeds of the intersected curve
         intCoord = comp1.curves[intNames[0]].get_forwardADSeeds()
 
@@ -198,7 +199,7 @@ for ii in range(nNodes2):
 
         # Compute derivatives in forward mode
         comp1.intersect_d(comp2, distTol)
-        
+
         # Get derivative seeds of the intersected curve
         intCoord = comp1.curves[intNames[0]].get_forwardADSeeds()
 
