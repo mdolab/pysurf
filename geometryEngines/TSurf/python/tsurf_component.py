@@ -1629,10 +1629,10 @@ class TSurfCurve(Curve):
 
         # Check if the baseline curve is periodic. If this is the case, we artificially repeat
         # the last point so that we could use the same code of the non-periodic case
-        if barsConn[0,0] == barsConn[-1, 1]:
+        if barsConn[0, 0] == barsConn[-1, 1]:
             periodic = True
-            coor = np.array(np.hstack([coor, coor[barsConn[0,0]-1, :].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
-            coord = np.array(np.hstack([coord, coord[barsConn[0,0]-1, :].reshape((3,1))]),dtype=type(coord[0,0]),order='F')
+            coor = np.array(np.vstack([coor, coor[barsConn[0,0]-1, :].reshape((1, 3))]),dtype=type(self.coor[0,0]),order='F')
+            coord = np.array(np.vstack([coord, coord[barsConn[0,0]-1, :].reshape((1, 3))]),dtype=type(coord[0,0]),order='F')
             barsConn[-1,-1] = nNodes
         else:
             periodic = False
