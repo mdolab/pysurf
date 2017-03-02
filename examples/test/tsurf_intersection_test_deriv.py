@@ -124,19 +124,19 @@ def curve_intersection_internal(deltaZ,ii):
             # Find the upper skin trailing edge point
             pt0 = newIntCurve.barsConn[0,0]
             pt1 = newIntCurve.barsConn[-1,-1]
-            Z0 = newIntCurve.coor[2,pt0-1]
-            Z1 = newIntCurve.coor[2,pt1-1]
+            Z0 = newIntCurve.coor[pt0-1, 2]
+            Z1 = newIntCurve.coor[pt1-1, 2]
             if Z0 > Z1:
                 pointID = pt0
             else:
                 pointID = pt1
 
             # Now compute the derivative for the Y coordinate of the first point of the intersection
-            X = newIntCurve.coor[0,pointID-1]
-            Y = newIntCurve.coor[1,pointID-1]
-            Z = newIntCurve.coor[2,pointID-1]
+            X = newIntCurve.coor[pointID-1, 0]
+            Y = newIntCurve.coor[pointID-1, 1]
+            Z = newIntCurve.coor[pointID-1, 2]
             newCoorIntb[:,:] = 0.0
-            newCoorIntb[1,pointID-1] = 1.0
+            newCoorIntb[pointID-1, 1] = 1.0
 
             # Get nodes of the parent triangles
             parentTriaA = newIntCurve
@@ -149,7 +149,7 @@ def curve_intersection_internal(deltaZ,ii):
                                                                              intCurve,
                                                                              coorIntb,
                                                                              distTol)
-            dYdZ = np.sum(coorAb[2,:])
+            dYdZ = np.sum(coorAb[:, 2])
 
     # Remove translation
     comp1.translate(0.0,+100.0,-deltaZ)
@@ -215,6 +215,8 @@ def curve_intersection(deltaZ,ii):
     dotProd = 0.0
     dotProd = dotProd + np.sum(newCoorIntb*newCoorIntd)
     print dotProd
+    print coor1b.shape
+    print coor1d.shape
     dotProd = dotProd - np.sum(coor1b*coor1d)
     print dotProd
     dotProd = dotProd - np.sum(coor2b*coor2d)
