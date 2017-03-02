@@ -27,10 +27,10 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Retrieve data from the CGNS file.
     # We need to do actual copies, otherwise data will be overwritten if we read another
     # CGNS file.
-    coor = np.array(cgnsAPI.cgnsapi.coor,order='F')
+    coor = np.array(cgnsAPI.cgnsapi.coor,order='F').T
     triaConn = np.array(cgnsAPI.cgnsapi.triaconn,order='F')
     quadsConn = np.array(cgnsAPI.cgnsapi.quadsconn,order='F')
-    barsConn = np.array(cgnsAPI.cgnsapi.barsconn,order='F')
+    barsConn = np.array(cgnsAPI.cgnsapi.barsconn,order='F').T
     surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr,order='F')
     surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr,order='F')
     curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr,order='F')
@@ -81,7 +81,7 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
         iBarsEnd = curveBarsPtr[iCurve+1]-1
 
         # Slice barsConn to get current curve elements
-        slicedConn = barsConn[:,iBarsStart:iBarsEnd]
+        slicedConn = barsConn[iBarsStart:iBarsEnd, :]
 
         # Initialize curve dictionary
         currCurve = {'barsConn':slicedConn}
@@ -166,12 +166,12 @@ def update_surface(TSurfGeometry):
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    TSurfGeometry.nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(TSurfGeometry.coor,
+    TSurfGeometry.nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(TSurfGeometry.coor.T,
                                                                        TSurfGeometry.triaConn,
                                                                        TSurfGeometry.quadsConn)
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(TSurfGeometry.coor,
+    adtAPI.adtapi.adtbuildsurfaceadt(TSurfGeometry.coor.T,
                                      TSurfGeometry.triaConn, TSurfGeometry.quadsConn,
                                      BBox, useBBox,
                                      TSurfGeometry.comm.py2f(),
@@ -480,7 +480,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         curveName = 'extracted_' + feature + '_%03d'%curveID
 
         # Create new curve object
-        newCurve = tsurf_component.TSurfCurve(coor, currCurveConn, curveName)
+        newCurve = tsurf_component.TSurfCurve(coor, currCurveConn.T, curveName)
 
         # Initialize curve object and append it to the list
         TSurfGeometry.add_curve(newCurve)
@@ -580,28 +580,28 @@ def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
     '''
 
     # Check if we have 3D data
-    if coor.shape[0] != 3:
+    if coor.shape[1] != 3:
         raise ValueError('coor should be of shape [3,numNodes]')
 
     # Determine the number of nodes
-    numNodes = coor.shape[1]
+    numNodes = coor.shape[0]
 
     # Create bar element connectivity
-    barsConn = np.zeros((2,numNodes-1))
-    barsConn[0,:] = range(numNodes-1)
-    barsConn[1,:] = barsConn[0,:] + 1
+    barsConn = np.zeros((numNodes-1, 2))
+    barsConn[:, 0] = range(numNodes-1)
+    barsConn[:, 1] = barsConn[:, 0] + 1
 
     # Add an extra element if the curve is periodic
     if periodic:
-        newBar = np.array([[barsConn[-1,-1],1]]).T
-        np.hstack([barsConn, newBar])
+        newBar = np.array([[barsConn[-1,-1],1]])
+        np.vstack([barsConn, newBar])
 
     # Add 1 to everything due to Fortran indexing
     barsConn = barsConn + 1
 
     # Create curve object
     curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol)
-    
+
     # Return curve object
     return curve
 
@@ -740,7 +740,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
     barsConn = curve.barsConn
 
     # Get the number of elements
-    nElem = barsConn.shape[1]
+    nElem = barsConn.shape[0]
 
     isPeriodic = False
 
@@ -758,14 +758,14 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         # as the change in tangential direction) is beyond a given threshold.
 
         # Get the tangent direction of the first bar element
-        prevTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
+        prevTan = coor[barsConn[0, 1]-1, :] - coor[barsConn[0, 0]-1, :]
         prevTan = prevTan/np.linalg.norm(prevTan)
 
         # Loop over the remaining bars to find sharp kinks
         for elemID in range(1,nElem):
 
             # Compute tangent direction of the current element
-            currTan = coor[:,barsConn[1,elemID]-1] - coor[:,barsConn[0,elemID]-1]
+            currTan = coor[barsConn[elemID, 1]-1, :] - coor[barsConn[elemID, 0]-1, :]
             currTan = currTan/np.linalg.norm(currTan)
 
             # Compute change in direction between consecutive tangents
@@ -782,14 +782,14 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
             prevTan = currTan.copy()
 
     # If the curve is periodic, we need to check for breaks between the first and last elements.
-    if barsConn[0,0] == barsConn[1,-1]:
+    if barsConn[0,0] == barsConn[-1, 1]:
 
         # Compute tangent direction of the current element
-        prevTan = coor[:,barsConn[1,-1]-1] - coor[:,barsConn[0,-1]-1]
+        prevTan = coor[barsConn[-1, 1]-1, :] - coor[barsConn[-1, 0]-1, :]
         prevTan = prevTan/np.linalg.norm(prevTan)
 
         # Get the tangent direction of the first bar element
-        currTan = coor[:,barsConn[1,0]-1] - coor[:,barsConn[0,0]-1]
+        currTan = coor[barsConn[0, 1]-1, :] - coor[barsConn[0, 0]-1, :]
         currTan = currTan/np.linalg.norm(currTan)
 
         # Compute change in direction between consecutive tangents
@@ -811,9 +811,9 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
                 breakList.append(node)
         else:
             for guideCurve in optionsDict['splittingCurves']:
-                split_index = closest_node(guideCurve, coor.T)
+                split_index = closest_node(guideCurve, coor)
 
-                elemID = np.where(barsConn[0, :] == split_index+1)[0]
+                elemID = np.where(barsConn[:, 0] == split_index+1)[0]
 
                 # Store the current element as a break position
                 breakList.append(elemID[0])
@@ -876,7 +876,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # Slice the original connectivity matrix
-        splitBarsConn = barsConn[:,breakList[splitID]:breakList[splitID+1]]
+        splitBarsConn = barsConn[breakList[splitID]:breakList[splitID+1], :]
 
         # Generate a name for this new curve
         splitCurveName = curveName + '_' + '%02d'%(splitID+1)
@@ -901,8 +901,8 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = np.hstack([barsConn[:,breakList[-1]:],
-                                   barsConn[:,:breakList[0]]])
+        splitBarsConn = np.hstack([barsConn[breakList[-1]:, :],
+                                   barsConn[:breakList[0], :]])
 
         # Generate a name for this new curve
         splitCurveName = curveName + '_' + '%02d'%0
@@ -924,7 +924,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = barsConn[:,:breakList[0]]
+        splitBarsConn = barsConn[:breakList[0], :]
 
         # Generate a name for this new curve
         splitCurveName = curveName + '_' + '%02d'%0
@@ -936,7 +936,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [0,breakList[0]]
+        curve.extra_data['splitCurves'][splitCurveName] = [0, breakList[0]]
 
         # CURVE 1 : after the first break point
 
@@ -944,7 +944,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = barsConn[:,breakList[-1]:]
+        splitBarsConn = barsConn[breakList[-1]:, :]
 
         # Generate a name for this new curve
         splitCurveName = curveName + '_' + '%02d'%(nInnercurves+1)
@@ -956,7 +956,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1],barsConn.shape[1]]
+        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1], barsConn.shape[0]]
 
     # Return the dictionary of new curves and the list of breaking elements
     return splitcurvesDict
@@ -1019,18 +1019,19 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
     '''
 
     # Call Fortran code to find intersections
-    intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor,
+
+    intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
                                                         TSurfGeometryA.triaConn,
                                                         TSurfGeometryA.quadsConn,
-                                                        TSurfGeometryB.coor,
+                                                        TSurfGeometryB.coor.T,
                                                         TSurfGeometryB.triaConn,
                                                         TSurfGeometryB.quadsConn,
                                                         distTol,
                                                         comm.py2f())
 
     # Retrieve results from Fortran
-    coor = np.array(intersectionAPI.intersectionapi.coor)
-    barsConn = np.array(intersectionAPI.intersectionapi.barsconn)
+    coor = np.array(intersectionAPI.intersectionapi.coor).T
+    barsConn = np.array(intersectionAPI.intersectionapi.barsconn).T
     parentTria = np.array(intersectionAPI.intersectionapi.parenttria)
 
     # Release memory used by Fortran so we can run another intersection in the future
@@ -1043,7 +1044,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
 
         # Sort FE data. After this step, barsConn may become a list if we
         # have two disconnect intersection curves.
-        barsConn, newMap = FEsort(barsConn.T.tolist())
+        barsConn, newMap = FEsort(barsConn.tolist())
 
         # Now barsConn is a list of curves. Each element of the list brings
         # FE data for a continuous curve. If the intersection generates
@@ -1069,6 +1070,8 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI
 
             # Slice the parent triangles array using the sorted mapping
             currParents = parentTria[:,currMap]
+
+            currConn = currConn.T
 
             # Create new curve object
             newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
@@ -1114,21 +1117,21 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     '''
 
     # Call Fortran code to find derivatives
-    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(np.array(TSurfGeometryA.coor,order='F'),
-                                                                     np.array(coorAd,order='F'),
+    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(np.array(TSurfGeometryA.coor.T),
+                                                                     np.array(coorAd.T),
                                                                      np.array(TSurfGeometryA.triaConn,order='F'),
                                                                      np.array(TSurfGeometryA.quadsConn,order='F'),
-                                                                     np.array(TSurfGeometryB.coor,order='F'),
-                                                                     np.array(coorBd,order='F'),
+                                                                     np.array(TSurfGeometryB.coor.T),
+                                                                     np.array(coorBd.T),
                                                                      np.array(TSurfGeometryB.triaConn,order='F'),
                                                                      np.array(TSurfGeometryB.quadsConn,order='F'),
-                                                                     np.array(intCurve.coor,order='F'),
-                                                                     np.array(intCurve.barsConn,order='F'),
+                                                                     np.array(intCurve.coor.T),
+                                                                     np.array(intCurve.barsConn.T),
                                                                      np.array(intCurve.extra_data['parentTria'],order='F'),
                                                                      distTol)
 
     # Return derivatives
-    return coorIntd
+    return coorIntd.T
 
 #=================================================================
 
@@ -1161,20 +1164,20 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     '''
 
     # Call Fortran code to find derivatives
-    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(np.array(TSurfGeometryA.coor,order='F'),
+    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(np.array(TSurfGeometryA.coor.T),
                                                                            np.array(TSurfGeometryA.triaConn,order='F'),
                                                                            np.array(TSurfGeometryA.quadsConn,order='F'),
-                                                                           np.array(TSurfGeometryB.coor,order='F'),
+                                                                           np.array(TSurfGeometryB.coor.T),
                                                                            np.array(TSurfGeometryB.triaConn,order='F'),
                                                                            np.array(TSurfGeometryB.quadsConn,order='F'),
-                                                                           np.array(intCurve.coor,order='F'),
-                                                                           np.array(coorIntb,order='F'),
-                                                                           np.array(intCurve.barsConn,order='F'),
+                                                                           np.array(intCurve.coor.T),
+                                                                           np.array(coorIntb.T),
+                                                                           np.array(intCurve.barsConn.T),
                                                                            np.array(intCurve.extra_data['parentTria'],order='F'),
                                                                            distTol)
 
     # Return derivatives
-    return coorAb, coorBb
+    return coorAb.T, coorBb.T
 #=================================================================
 
 #===================================
@@ -1456,10 +1459,10 @@ def remove_unused_points(coor,
     '''
 
     # Get total number of points and elements
-    nPoints = coor.shape[1]
+    nPoints = coor.shape[0]
     nTria = triaConn.shape[1]
     nQuads = quadsConn.shape[1]
-    nBars = barsConn.shape[1]
+    nBars = barsConn.shape[0]
 
     # Initialize mask to identify used points
     usedPtsMask = np.zeros(nPoints, dtype=int)
@@ -1480,14 +1483,14 @@ def remove_unused_points(coor,
 
     for barID in range(nBars):
         # Flag used points
-        usedPtsMask[barsConn[0,barID]-1] = 1
-        usedPtsMask[barsConn[1,barID]-1] = 1
+        usedPtsMask[barsConn[barID, 0]-1] = 1
+        usedPtsMask[barsConn[barID, 1]-1] = 1
 
     # Now we can compute the number of points actually used
     nUsedPts = np.sum(usedPtsMask)
 
     # Initialize new coordinate array
-    cropCoor = np.zeros((3,nUsedPts),order='F')
+    cropCoor = np.zeros((nUsedPts, 3),order='F')
 
     # Initialize counter to fill cropCoor
     cropPointID = -1
@@ -1502,7 +1505,7 @@ def remove_unused_points(coor,
             cropPointID = cropPointID + 1
 
             # Add point to the cropped array
-            cropCoor[:,cropPointID] = coor[:,pointID]
+            cropCoor[cropPointID, :] = coor[pointID, :]
 
             # Now we replace the value in the mask array so that we
             # can use it as a pointer from coor to cropCoor when we
@@ -1527,8 +1530,8 @@ def remove_unused_points(coor,
 
     for barID in range(nBars):
         # Use pointer to update connectivity
-        barsConn[0,barID] = usedPtsMask[barsConn[0,barID]-1]
-        barsConn[1,barID] = usedPtsMask[barsConn[1,barID]-1]
+        barsConn[barID, 0] = usedPtsMask[barsConn[barID, 0]-1]
+        barsConn[barID, 1] = usedPtsMask[barsConn[barID, 1]-1]
 
     # Return the new set of nodes and the mask used to map nodes
     return cropCoor, usedPtsMask
@@ -1596,9 +1599,9 @@ def detect_feature(node1, node2, element1, element2,
         elif element2 > 0: # We have a tria
 
             # Get element nodes (The -1 is due 1-based indexing in Fortran)
-            node1Coor = coor[:,triaConn[0,element2-1]-1]
-            node2Coor = coor[:,triaConn[1,element2-1]-1]
-            node3Coor = coor[:,triaConn[2,element2-1]-1]
+            node1Coor = coor[triaConn[0,element2-1]-1, :]
+            node2Coor = coor[triaConn[1,element2-1]-1, :]
+            node3Coor = coor[triaConn[2,element2-1]-1, :]
 
             # Get inplane vectors so that the normal points outside
             v12 = node2Coor - node1Coor
@@ -1607,10 +1610,10 @@ def detect_feature(node1, node2, element1, element2,
         elif element2 < 0: # We have a quad
 
             # Get element nodes (The -1 is due 1-based indexing in Fortran)
-            node1Coor = coor[:,quadsConn[0,-element2-1]-1]
-            node2Coor = coor[:,quadsConn[1,-element2-1]-1]
-            node3Coor = coor[:,quadsConn[2,-element2-1]-1]
-            node4Coor = coor[:,quadsConn[3,-element2-1]-1]
+            node1Coor = coor[quadsConn[0,-element2-1]-1, :]
+            node2Coor = coor[quadsConn[1,-element2-1]-1, :]
+            node3Coor = coor[quadsConn[2,-element2-1]-1, :]
+            node4Coor = coor[quadsConn[3,-element2-1]-1, :]
 
             # Get inplane vectors so that the normal points outside
             v12 = node3Coor - node1Coor
@@ -1620,9 +1623,9 @@ def detect_feature(node1, node2, element1, element2,
         if element1 > 0: # We have a tria
 
             # Get element nodes (The -1 is due 1-based indexing in Fortran)
-            node1Coor = coor[:,triaConn[0,element1-1]-1]
-            node2Coor = coor[:,triaConn[1,element1-1]-1]
-            node3Coor = coor[:,triaConn[2,element1-1]-1]
+            node1Coor = coor[triaConn[0,element1-1]-1, :]
+            node2Coor = coor[triaConn[1,element1-1]-1, :]
+            node3Coor = coor[triaConn[2,element1-1]-1, :]
 
             # Get inplane vectors so that the normal points outside
             v11 = node2Coor - node1Coor
@@ -1631,10 +1634,10 @@ def detect_feature(node1, node2, element1, element2,
         elif element1 < 0: # We have a quad
 
             # Get element nodes (The -1 is due 1-based indexing in Fortran)
-            node1Coor = coor[:,quadsConn[0,-element1-1]-1]
-            node2Coor = coor[:,quadsConn[1,-element1-1]-1]
-            node3Coor = coor[:,quadsConn[2,-element1-1]-1]
-            node4Coor = coor[:,quadsConn[3,-element1-1]-1]
+            node1Coor = coor[quadsConn[0,-element1-1]-1, :]
+            node2Coor = coor[quadsConn[1,-element1-1]-1, :]
+            node3Coor = coor[quadsConn[2,-element1-1]-1, :]
+            node4Coor = coor[quadsConn[3,-element1-1]-1, :]
 
             # Get inplane vectors so that the normal points outside
             v11 = node3Coor - node1Coor
@@ -1651,7 +1654,7 @@ def detect_feature(node1, node2, element1, element2,
         # Use dot product to find the angle between the normals
         angle = np.arccos(n1.dot(n2))
 
-        # We have a "sharp" edge if this angle is beyond a certaing threshold
+        # We have a "sharp" edge if this angle is beyond a certain threshold
         if angle > 60*np.pi/180:
             featureIsDetected = True
             return featureIsDetected
@@ -1763,7 +1766,10 @@ def tanDist(Sp1,Sp2,N):
 
     # IMPORTS
     from numpy import tan, arange, pi
-    from scipy.optimize import minimize
+    try:
+        from scipy.optimize import minimize
+    except:
+        print 'ERROR: Scipy not available'
 
     # Convert number of nodes to number of cells
     N = N-1
@@ -1870,7 +1876,7 @@ def translate(Geometry, x, y, z):
     John Jasa 2016-08
     '''
 
-    Geometry.coor = Geometry.coor[:, :] + np.atleast_2d(np.array([x, y, z])).T
+    Geometry.coor = Geometry.coor[:, :] + np.atleast_2d(np.array([x, y, z]))
 
 def scale(Geometry, factor, point=None):
     '''
@@ -1878,19 +1884,27 @@ def scale(Geometry, factor, point=None):
     John Jasa 2016-08
     '''
 
+    # Get the points
     coor = Geometry.coor
+
+    # Set the central point as the origin if no point provided
     if not point:
         point = [0.0, 0.0, 0.0]
 
-    relCoor = coor
-    relCoor[0,:] = relCoor[0,:] - point[0]
-    relCoor[1,:] = relCoor[1,:] - point[1]
-    relCoor[2,:] = relCoor[2,:] - point[2]
+    # Get the relative coordinates to the central point
+    relCoor = coor.copy()
+    relCoor[:, 0] = relCoor[:, 0] - point[0]
+    relCoor[:, 1] = relCoor[:, 1] - point[1]
+    relCoor[:, 2] = relCoor[:, 2] - point[2]
+
+    # Scale the relative coordinates and add them back to the central point
+    # to obtain the new coor
     relCoor *= factor
-    relCoor[0,:] = relCoor[0,:] + point[0]
-    relCoor[1,:] = relCoor[1,:] + point[1]
-    relCoor[2,:] = relCoor[2,:] + point[2]
-    Geometry.coor = np.array(relCoor,order='F')
+    coor[:, 0] = relCoor[:, 0] + point[0]
+    coor[:, 1] = relCoor[:, 1] + point[1]
+    coor[:, 2] = relCoor[:, 2] + point[2]
+
+    Geometry.coor = np.array(coor, order='F')
 
 def rotate(Geometry, angle, axis, point=None):
     '''
@@ -1898,40 +1912,50 @@ def rotate(Geometry, angle, axis, point=None):
     John Jasa 2016-08
     '''
 
+    # Get the points
+    coor = Geometry.coor
 
     coor = Geometry.coor
     if point is None:
         point = [0.0, 0.0, 0.0]
+
+    # Define the rotation angle in radians
     angle = angle * np.pi / 180.
     rotationMat = np.zeros((3, 3),order='F')
 
-    if axis==0:
+    # Depending on the axis selected, define the indices of the matrix
+    # where we will have the correct rotation functions.
+    if axis == 0:
         ind1 = 1
         ind2 = 2
-    elif axis==1:
+    elif axis == 1:
         ind1 = 2
         ind2 = 0
     else:
         ind1 = 0
         ind2 = 1
 
+    # Set up the rotation matrix based on the axis selected
     rotationMat[ind1, ind1] = np.cos(angle)
     rotationMat[ind1, ind2] = -np.sin(angle)
     rotationMat[axis, axis] = 1
     rotationMat[ind2, ind1] = np.sin(angle)
     rotationMat[ind2, ind2] = np.cos(angle)
 
+    # Obtain the relative coordinates to the central point
     relCoor = coor
-    relCoor[0,:] = relCoor[0,:] - point[0]
-    relCoor[1,:] = relCoor[1,:] - point[1]
-    relCoor[2,:] = relCoor[2,:] - point[2]
+    relCoor[:, 0] = relCoor[:, 0] - point[0]
+    relCoor[:, 1] = relCoor[:, 1] - point[1]
+    relCoor[:, 2] = relCoor[:, 2] - point[2]
 
-    relCoor = np.einsum('ij, jk -> ik', rotationMat, relCoor)
+    # Compute the rotation around the selected axis of the relative coordinates
+    relCoor = np.einsum('ji, jk -> ik', rotationMat, relCoor)
 
-    relCoor[0,:] = relCoor[0,:] + point[0]
-    relCoor[1,:] = relCoor[1,:] + point[1]
-    relCoor[2,:] = relCoor[2,:] + point[2]
-    Geometry.coor = np.array(relCoor,order='F')
+    # Obtain and output the rotated coordinates
+    coor[:, 0] = relCoor[:, 0] + point[0]
+    coor[:, 1] = relCoor[:, 1] + point[1]
+    coor[:, 2] = relCoor[:, 2] + point[2]
+    Geometry.coor = np.array(coor, order='F')
 
 #============================================================
 #============================================================
