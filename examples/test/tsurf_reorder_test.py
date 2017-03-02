@@ -15,24 +15,24 @@ class TestReorder(unittest.TestCase):
         nNodes = 5
 
         # Initialize coor array
-        coor = np.zeros((nNodes, 3), order='F')
+        coor = np.zeros((3,nNodes), order='F')
 
         # Initialize angles
         theta = np.linspace(0, 2.0*np.pi, nNodes)
 
         # Compute coordinates
         for ii in range(nNodes):
-            coor[ii, 0] = np.cos(theta[ii])
-            coor[ii, 1] = np.sin(theta[ii])
+            coor[0,ii] = np.cos(theta[ii])
+            coor[1,ii] = np.sin(theta[ii])
 
         # Generate connectivity
-        nNodes = coor.shape[0]
-        barsConn = np.zeros((nNodes-1, 2))
-        barsConn[:, 0] = range(1,nNodes)
-        barsConn[:, 1] = range(2,nNodes+1)
+        nNodes = coor.shape[1]
+        barsConn = np.zeros((2,nNodes-1))
+        barsConn[0,:] = range(1,nNodes)
+        barsConn[1,:] = range(2,nNodes+1)
 
         # Make it periodic
-        barsConn[-1, 1] = barsConn[0,0]
+        barsConn[1,-1] = barsConn[0,0]
 
         # Create curve object
         curve = pysurf.TSurfCurve(coor, barsConn, 'test')
@@ -44,7 +44,7 @@ class TestReorder(unittest.TestCase):
         print curve.barsConn
 
         np.testing.assert_almost_equal(curve.barsConn, np.array([[2, 3, 4, 1],
-                                                             [3, 4, 1, 2]]).T)
+                                                             [3, 4, 1, 2]]))
 
 
 if __name__ == "__main__":

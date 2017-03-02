@@ -16,8 +16,8 @@ class TestCurveExtraction(unittest.TestCase):
 
         os.system('rm curve*')
 
-        # cube = pysurf.TSurfGeometry('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD)
-        cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
+        cube = pysurf.TSurfGeometry('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD)
+        #cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
         #cube = pysurf.TSurfGeometry('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
 
         cube.extract_curves()
@@ -33,7 +33,7 @@ class TestCurveExtraction(unittest.TestCase):
 
             # master_dict.update({curveID : curve.coor})
             coor_master = master_dict[curveID]
-            np.testing.assert_almost_equal(coor_master.T, curve.coor)
+            np.testing.assert_almost_equal(coor_master, curve.coor)
 
         # Save the extracted curves for comparison
         # with open('extraction_dict.pickle', 'w') as f:
