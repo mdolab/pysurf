@@ -11,7 +11,7 @@ coor = np.array([[0.0, 0.0, 0.0],
                  [0.5, 0.0, 0.0],
                  [1.0, 0.0, 0.0],
                  [1.0, 0.5, 0.0],
-                 [1.0, 1.0, 0.0]],order='F')
+                 [1.0, 1.0, 0.0]],order='F').T
 
 # Create curve object
 curve = pysurf.tsurf_tools.create_curve_from_points(coor, 'test', periodic=False)
@@ -32,8 +32,8 @@ coord = curve.set_randomADSeeds(mode='forward')
 remeshedCoorb = remeshedCurve.set_randomADSeeds(mode='reverse')
 
 # Adjust seeds
-coord[:, :] = 0.0
-coord[1, 2] = -1.0
+coord[:,:] = 0.0
+coord[1,2] = -1.0
 curve.set_forwardADSeeds(coord)
 
 # Forward AD

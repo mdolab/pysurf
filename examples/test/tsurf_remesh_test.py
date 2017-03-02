@@ -21,13 +21,13 @@ class TestRemesh(unittest.TestCase):
                          [0.1, 0.3, 0.7],
                          [0.5, 0.6, 0.5],
                          [0.8, 0.7, 0.4],
-                         [1.0, 0.9, 0.2]],order='F')
+                         [1.0, 0.9, 0.2]],order='F').T
 
         # Generate connectivity
-        nNodes = coor.shape[0]
-        barsConn = np.zeros((nNodes-1, 2))
-        barsConn[:, 0] = range(1,nNodes)
-        barsConn[:, 1] = range(2,nNodes+1)
+        nNodes = coor.shape[1]
+        barsConn = np.zeros((2,nNodes-1))
+        barsConn[0,:] = range(1,nNodes)
+        barsConn[1,:] = range(2,nNodes+1)
 
         # Create curve object
         self.curve = pysurf.TSurfCurve(coor, barsConn, 'test')
@@ -37,14 +37,13 @@ class TestRemesh(unittest.TestCase):
                          [0.5, 0.5, 0.5],
                          [0.5, 1.0, 0.5],
                          [0.8, 0.7, 0.4],
-                         [0.0, 0.0, 0.0]],order='F')
+                         [0.0, 0.0, 0.0]],order='F').T
 
         # Generate connectivity
-        nNodes = coor.shape[0]
-        barsConn = np.zeros((nNodes-1, 2))
-        barsConn[:, 0] = range(1,nNodes)
-        barsConn[:, 1] = range(2,nNodes+1)
-        barsConn[-1, 1] = barsConn[0,0]
+        nNodes = coor.shape[1]
+        barsConn = np.zeros((2,nNodes-1))
+        barsConn[0,:] = range(1,nNodes)
+        barsConn[1,:] = range(2,nNodes+1)
 
         # Create curve object
         self.periodic_curve = pysurf.TSurfCurve(coor, barsConn, 'test')
@@ -55,7 +54,7 @@ class TestRemesh(unittest.TestCase):
         curve = self.curve.remesh()
         master_curve = np.array([[ 0.       ,  0.1894573,  0.4608581,  0.782837 ,  1.       ],
                                  [ 0.2      ,  0.367093 ,  0.5706436,  0.694279 ,  0.9      ],
-                                 [ 0.9      ,  0.6552714,  0.519571 ,  0.405721 ,  0.2      ]]).T
+                                 [ 0.9      ,  0.6552714,  0.519571 ,  0.405721 ,  0.2      ]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
     def test_linear_remesh_newNodes(self):
@@ -63,7 +62,7 @@ class TestRemesh(unittest.TestCase):
         curve = self.curve.remesh(nNewNodes=3)
         master_curve = np.array([[ 0.       ,  0.4608581,  1.       ],
                                  [ 0.2      ,  0.5706436,  0.9      ],
-                                 [ 0.9      ,  0.519571 ,  0.2      ]]).T
+                                 [ 0.9      ,  0.519571 ,  0.2      ]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
     def test_cosine_remesh(self):
@@ -71,7 +70,7 @@ class TestRemesh(unittest.TestCase):
         curve = self.curve.remesh(spacing='cosine')
         master_curve = np.array([[ 0.       ,  0.0873804,  0.4608581,  0.8764255,  1.       ],
                                  [ 0.2      ,  0.2873804,  0.5706436,  0.7764255,  0.9      ],
-                                 [ 0.9      ,  0.7252393,  0.519571 ,  0.3235745,  0.2      ]]).T
+                                 [ 0.9      ,  0.7252393,  0.519571 ,  0.3235745,  0.2      ]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
     def test_hypTan_remesh(self):
@@ -79,7 +78,7 @@ class TestRemesh(unittest.TestCase):
         curve = self.curve.remesh(spacing='hypTan')
         master_curve = np.array([[ 0.       ,  0.0852627,  0.4608581,  0.8794204,  1.       ],
                                  [ 0.2      ,  0.2852627,  0.5706436,  0.7794204,  0.9      ],
-                                 [ 0.9      ,  0.7294747,  0.519571 ,  0.3205796,  0.2      ]]).T
+                                 [ 0.9      ,  0.7294747,  0.519571 ,  0.3205796,  0.2      ]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
     # def test_tangent_remesh(self):
@@ -95,7 +94,7 @@ class TestRemesh(unittest.TestCase):
         curve = self.periodic_curve.remesh()
         master_curve = np.array([[ 0.       ,  0.42402  ,  0.5707677,  0.5172996],
                                  [ 0.       ,  0.42402  ,  0.9292323,  0.4526371],
-                                 [ 0.       ,  0.42402  ,  0.4764108,  0.2586498]]).T
+                                 [ 0.       ,  0.42402  ,  0.4764108,  0.2586498]])
         np.testing.assert_almost_equal(master_curve, curve.coor)
 
     # These functions have changed but remesh is checked by manager_tests
