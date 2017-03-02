@@ -11,8 +11,6 @@ import pysurf
 from mpi4py import MPI
 import numpy as np
 
-np.random.seed(456)
-
 # Load geometry
 cube = pysurf.TSurfGeometry('../inputs/cube.cgns', MPI.COMM_WORLD)
 
@@ -25,7 +23,7 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 
     # Call projection algorithm
     xyzProj, normProj, projDict = cube.project_on_surface(xyz)
-
+    
     # Set derivative seeds
     cube.set_forwardADSeeds(coord=coord)
 
@@ -59,7 +57,7 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
 
     # Set derivative seeds
     cube.set_forwardADSeeds(curveCoord=allCoord)
-
+    
     # Call derivatives code in forward mode
     xyzProjd, tanProjd = cube.project_on_curve_d(xyz, xyzd, xyzProj, tanProj, curveProjDict)
 

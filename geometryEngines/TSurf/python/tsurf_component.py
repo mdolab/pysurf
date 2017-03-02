@@ -146,7 +146,7 @@ class TSurfGeometry(Geometry):
                 print ''
 
             # Update coordinates
-            self.coor = np.array(coor, order='F')
+            self.coor = np.array(coor,order='F')
 
         # Update surface definition
         tst.update_surface(self)
@@ -213,13 +213,13 @@ class TSurfGeometry(Geometry):
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
         dist2 = np.ones(numPts)*1e10
-        xyzProj = np.zeros((numPts, 3))
-        normProjNotNorm = np.zeros((numPts, 3))
+        xyzProj = np.zeros((numPts,3))
+        normProjNotNorm = np.zeros((numPts,3))
 
         # Call projection function
         procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(xyz.T, self.name,
-                                           dist2, xyzProj.T,
-                                           self.nodal_normals, normProjNotNorm.T)
+                                                                                 dist2, xyzProj.T,
+                                                                                 self.nodal_normals, normProjNotNorm.T)
 
         # Store additional outputs in a dictionary to make outputs cleaner
         projDict = {'procID':procID,
@@ -281,15 +281,15 @@ class TSurfGeometry(Geometry):
         normProjNotNorm = projDict['normProjNotNorm']
 
         # Compute derivatives of the normal vectors
-        nodal_normals, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(self.coor.T, self.coord.T,
-                                               self.triaConn, self.quadsConn)
+        nodal_normals, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(self.coor, self.coord,
+                                                                               self.triaConn, self.quadsConn)
 
         # Call projection function
         # ATTENTION: The variable "xyz" here in Python corresponds to the variable "coor" in the Fortran code.
         # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
         # I could not change this because the original ADT code already used "coor" to denote nodes that should be
         # projected.
-        xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(xyz.T, xyzd.T, self.name, self.coord.T,
+        xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(xyz.T, xyzd.T, self.name, self.coord,
                                                                           procID, elementType,
                                                                           elementID, uvw,
                                                                           dist2, xyzProj.T, self.nodal_normals,
@@ -298,6 +298,7 @@ class TSurfGeometry(Geometry):
         # Transpose results to make them consistent
         xyzProjd = xyzProjd.T
         normProjNotNormd = normProjNotNormd.T
+
 
         # Now we need to compute derivatives of the normalization process
         normProj, normProjd = tst.normalize_d(normProjNotNorm, normProjNotNormd)
@@ -369,11 +370,11 @@ class TSurfGeometry(Geometry):
         xyzb = xyzb.T
 
         # Compute derivatives of the normal vectors
-        coorb = coorb + adtAPI.adtapi.adtcomputenodalnormals_b(self.coor.T,
+        coorb = coorb + adtAPI.adtapi.adtcomputenodalnormals_b(self.coor,
                                                                self.triaConn, self.quadsConn,
                                                                self.nodal_normals, nodal_normalsb)
 
-        self.accumulate_reverseADSeeds(coorb.T, curveCoorb=None)
+        self.accumulate_reverseADSeeds(coorb, curveCoorb=None)
 
         # Return projection derivatives
         return xyzb
@@ -496,8 +497,8 @@ class TSurfGeometry(Geometry):
         numPts = xyz.shape[0]
 
         # Initialize derivatives
-        xyzProjd = np.zeros((numPts, 3))
-        tanProjd = np.zeros((numPts, 3))
+        xyzProjd = np.zeros((numPts,3))
+        tanProjd = np.zeros((numPts,3))
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
@@ -703,10 +704,10 @@ class TSurfGeometry(Geometry):
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
 
-        coord: float[numSurfNodes, 3] -> Derivative seeds of the nodal coordinates of the reference
+        coord: float[3,numSurfNodes] -> Derivative seeds of the nodal coordinates of the reference
                                         surface. It should have the same shape as self.coor.
 
-        curveCoord : [curveName]{float[numCurveNodes, 3]} -> Dictionary containing derivative seeds
+        curveCoord : [curveName]{float[3,numCurveNodes]} -> Dictionary containing derivative seeds
                                                             of the nodal coordinates of each curve
                                                             present in the current object. The dictionary keys
                                                             are the names of the curves.
@@ -723,7 +724,7 @@ class TSurfGeometry(Geometry):
 
         if meshCoord is not None:
             self.meshObj.set_forwardADSeeds(meshCoord)
-
+            
 
     def get_forwardADSeeds(self):
         '''
@@ -766,7 +767,7 @@ class TSurfGeometry(Geometry):
                         self.curves[curveName].set_reverseADSeeds(curveCoorb[curveName])
 
         if meshCoorb is not None:
-            self.meshObj.set_reverseADSeeds(meshCoorb)
+            self.meshObj.set_reverseADSeeds(meshCoorb)        
 
     def get_reverseADSeeds(self,clean=True):
         '''
@@ -782,7 +783,7 @@ class TSurfGeometry(Geometry):
 
         # Check if we need to clean the derivative seeds
         if clean:
-            self.coorb[:, :] = 0.0
+            self.coorb[:,:] = 0.0
 
         # Get curve derivatives
         curveCoorb = {}
@@ -814,7 +815,7 @@ class TSurfGeometry(Geometry):
                     self.curves[curveName].coorb = self.accumulate_reverseADSeeds(curveCoorb[curveName])
 
         if meshCoorb is not None:
-            self.meshObj.accumulate_reverseADSeeds(meshCoorb)
+            self.meshObj.accumulate_reverseADSeeds(meshCoorb) 
 
     def clean_reverseADSeeds(self):
         '''
@@ -825,10 +826,10 @@ class TSurfGeometry(Geometry):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
-        self.coorb[:, :] = 0.0
+        self.coorb[:,:] = 0.0
 
         for curveName in self.curves:
-            self.curves[curveName].coorb[:, :] = 0.0
+            self.curves[curveName].coorb[:,:] = 0.0
 
         if self.meshObj is not None:
             self.meshObj.clean_reverseADSeeds()
@@ -850,9 +851,9 @@ class TSurfGeometry(Geometry):
         # Set forward AD seeds
         if mode=='forward' or mode=='both':
 
-            coord = np.array(np.random.random_sample(self.coor.shape), order='F')
-            coord = coord / np.sqrt(np.sum(coord**2))
-            self.coord = np.array(coord, order='F')
+            coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
+            coord = coord/np.sqrt(np.sum(coord**2))
+            self.coord = np.array(coord,order='F')
 
             curveCoord = {}
             for curveName in self.curves:
@@ -865,8 +866,8 @@ class TSurfGeometry(Geometry):
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
-            coorb = np.array(np.random.random_sample(self.coor.shape), order='F')
-            coorb = coorb / np.sqrt(np.sum(coorb**2))
+            coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
+            coorb = coorb/np.sqrt(np.sum(coorb**2))
             self.coorb = np.array(coorb,order='F')
 
             curveCoorb = {}
@@ -901,7 +902,7 @@ class TSurfGeometry(Geometry):
 
             elif mode == 'both':
                 return coord, curveCoord, coorb, curveCoorb
-
+                
     #===========================================================#
     # VISUALIZATION METHODS
 
@@ -911,13 +912,13 @@ class TSurfGeometry(Geometry):
         This method will export the triangulated surface data into a tecplot format.
         The will write all elements as quad data. The triangle elements will be exported
         as degenerated quads (quads with a repeated node).
-
+        
         Ney Secco 2017-02
         '''
 
         # Call the function that export FE data
         tecplot_interface.writeTecplotSurfaceFEData(self.coor, self.triaConn, self.quadsConn, self.name, fileName)
-
+        
 
     #===========================================================#
     # MANIPULATOR INTERFACE METHODS
@@ -938,7 +939,7 @@ class TSurfGeometry(Geometry):
 
         # Assing the triangulated surface nodes to the geometry manipulator
         print 'Assigning triangulated surface nodes from ',self.name,' to the manipulator'
-        coor = self.get_points()
+        coor = self.get_points().T
         self.manipulator.addPointSet(coor, ptSetName)
         print 'Done'
 
@@ -953,7 +954,7 @@ class TSurfGeometry(Geometry):
 
             # Assign curve nodes to the geometry manipulator
             print 'Assigning nodes from curve ',curveName,' to the manipulator'
-            coor = self.curves[curveName].get_points()
+            coor = self.curves[curveName].get_points().T
             self.manipulator.addPointSet(coor, ptSetName)
             print 'Done'
 
@@ -963,7 +964,7 @@ class TSurfGeometry(Geometry):
         # Assign surface mesh node if we already have one
         if self.meshFileName is not None:
             self.embed_mesh_points()
-
+            
     def manipulator_update(self):
 
         '''
@@ -983,7 +984,7 @@ class TSurfGeometry(Geometry):
         # Update triangulated surface nodes
         print 'Updating triangulated surface nodes from ',self.name
         coor = self.manipulator.update(self.ptSetName)
-        self.set_points(coor)
+        self.set_points(coor.T)
         print 'Done'
 
         # Now we need to update every curve as well
@@ -992,14 +993,14 @@ class TSurfGeometry(Geometry):
             # Update curve nodes
             print 'Updating nodes from curve ',curveName
             coor = self.manipulator.update(self.curves[curveName].ptSetName)
-            self.curves[curveName].set_points(coor)
-            print 'Done'
+            self.curves[curveName].set_points(coor.T)
+            print 'Done' 
 
         # Finally update the structured surface mesh, if we have one
         if self.meshPtSetName is not None:
             print 'Updating surface mesh from ',self.name
             self.meshObj.set_points(self.manipulator.update(self.meshPtSetName))
-            print 'Done'
+            print 'Done' 
 
     def manipulator_forwardAD(self, xDVd):
 
@@ -1018,7 +1019,7 @@ class TSurfGeometry(Geometry):
         # Update triangulated surface nodes
         print 'Updating triangulated surface nodes from ',self.name
         coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
-        self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
+        self.set_forwardADSeeds(coord=coord.reshape((-1,3)).T)
         print 'Done'
 
         # Now we need to update every curve as well
@@ -1027,15 +1028,15 @@ class TSurfGeometry(Geometry):
             # Update curve nodes
             print 'Updating nodes from curve ',curveName
             coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
-            self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
-            print 'Done'
+            self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)).T)
+            print 'Done' 
 
         # Finally update the structured surface mesh, if we have one
         if self.meshPtSetName is not None:
             print 'Updating surface mesh from ',self.name
             coor = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
             self.meshObj.set_forwardADSeeds(coor.reshape((-1,3)))
-            print 'Done'
+            print 'Done' 
 
     def manipulator_reverseAD(self, xDVb, clean=True):
 
@@ -1071,14 +1072,14 @@ class TSurfGeometry(Geometry):
             print 'Updating nodes from curve ',curveName
             xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName].T, self.curves[curveName].ptSetName)
             accumulate_dict(xDVb, xDVb_curr)
-            print 'Done'
+            print 'Done' 
 
         # Finally update the structured surface mesh, if we have one
         if self.meshPtSetName is not None:
             print 'Updating surface mesh from ',self.name
             xDVb_curr = self.manipulator.totalSensitivity(meshCoorb, self.meshPtSetName)
             accumulate_dict(xDVb, xDVb_curr)
-            print 'Done'
+            print 'Done' 
 
 #=============================================================
 #=============================================================
@@ -1128,8 +1129,7 @@ class TSurfCurve(Curve):
                 # bar connectivities
 
                 # Get dimension of the current array
-                dim = currArg.shape[1]
-                print currArg.shape
+                dim = currArg.shape[0]
 
                 if dim == 3:
                     # We have nodal coordinates. We need to make sure they
@@ -1143,8 +1143,8 @@ class TSurfCurve(Curve):
 
                 else:
                     print ' ERROR: Could not recognize array inputs when initializing TSurfCurve.'
-                    print ' Please provide an [n x 3] array with nodal coordinates and an'
-                    print ' [m x 2] array for bar connectivities.'
+                    print ' Please provide an [3 x n] array with nodal coordinates and an'
+                    print ' [2 x m] array for bar connectivities.'
                     quit()
 
             elif type(currArg) == float:
@@ -1159,24 +1159,21 @@ class TSurfCurve(Curve):
         coor, usedPtsMask = tst.remove_unused_points(coor, barsConn=barsConn)
 
         # Call a Fortran code to merge close nodes (This will update coor and barsConn)
-        nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor.reshape(3, -1, order='F'), barsConn.reshape(2, -1, order='F'))
+        nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor, barsConn)
 
         # Save the mapping
-        self.extra_data = {}
         self.extra_data['linkOld2New'] = linkOld2New-1 #-1 due to the Python indexing
         self.extra_data['usedPtsMask'] = usedPtsMask-1
-        self.extra_data['parentGeoms'] = []
         self.extra_data['parentTria'] = []
-        self.extra_data['childMeshes'] = []
 
         # Take bar connectivity and reorder it
-        sortedConn, dummy_map = tst.FEsort(barsConn.tolist())
+        sortedConn, dummy_map = tst.FEsort(barsConn.T.tolist())
 
         # Check for failures
         if len(sortedConn)==1:
             # The sorting works just fine and it found a single curve!
             # So we just store this single curve (sortedConn[0]).
-            sortedConn = np.array(sortedConn[0], dtype=type(barsConn[0,0]), order='F').T
+            sortedConn = np.array(sortedConn[0], dtype=type(barsConn[0,0]), order='F')
         else:
             # Just use the original connectivity
             sortedConn = barsConn
@@ -1186,10 +1183,10 @@ class TSurfCurve(Curve):
             print ''
 
         # Assing coor and barsConn. Remember to crop coor to get unique nodes only
-        self.coor = np.array(coor[:nUniqueNodes, :], order='F')
+        self.coor = np.array(coor[:,:nUniqueNodes], order='F')
         self.barsConn = np.array(sortedConn, dtype='int32', order='F')
         self.name = name
-        self.numNodes = self.coor.shape[0]
+        self.numNodes = self.coor.shape[1]
 
         # Create arrays to store derivatives of the nodes
         self.coord = np.zeros(self.coor.shape, order='F')
@@ -1289,7 +1286,7 @@ class TSurfCurve(Curve):
 
         # Call fortran code
         # This will modify xyzProj, tanProj, dist2, and elemIDs if we find better projections than dist2.
-        curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(xyz.T, self.coor.T, self.barsConn.T,
+        curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(xyz.T, self.coor, self.barsConn,
                                                                    xyzProj.T, tanProj.T, dist2, elemIDs)
 
 
@@ -1335,8 +1332,8 @@ class TSurfCurve(Curve):
 
         # Call fortran code
         curveSearchAPI.curvesearchapi.mindistancecurve_d(xyz.T, xyzd.T,
-                                                         self.coor.T, self.coord.T,
-                                                         self.barsConn.T,
+                                                         self.coor, self.coord,
+                                                         self.barsConn,
                                                          xyzProj.T, xyzProjd.T,
                                                          tanProj.T, tanProjd.T,
                                                          elemIDs, curveMask)
@@ -1381,15 +1378,15 @@ class TSurfCurve(Curve):
 
         # Call fortran code (This will accumulate seeds in xyzb and self.coorb)
         xyzb_new, coorb_new = curveSearchAPI.curvesearchapi.mindistancecurve_b(xyz.T,
-                                                                               self.coor.T,
-                                                                               self.barsConn.T,
+                                                                               self.coor,
+                                                                               self.barsConn,
                                                                                xyzProj.T, xyzProjb.T,
                                                                                tanProj.T, tanProjb.T,
                                                                                elemIDs, curveMask)
 
         # Accumulate derivatives
         xyzb[:,:] = xyzb + xyzb_new.T
-        self.coorb = self.coorb + coorb_new.T
+        self.coorb = self.coorb + coorb_new
 
     #=================================================================
     # REMESHING FUNCTIONS
@@ -1441,14 +1438,14 @@ class TSurfCurve(Curve):
         barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
 
         # Get the number of elements in the curve
-        nElem = barsConn.shape[0]
+        nElem = barsConn.shape[1]
         nNodes = nElem+1
 
         # Check if the baseline curve is periodic. If this is the case, we artificially repeat
         # the last point so that we could use the same code of the non-periodic case
-        if barsConn[0, 0] == barsConn[-1, 1]:
+        if barsConn[0,0] == barsConn[1,-1]:
             periodic = True
-            coor = np.array(np.vstack([coor, coor[barsConn[0,0]-1, :].reshape((1, 3))]),dtype=type(self.coor[0,0]),order='F')
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
             barsConn[-1,-1] = nNodes
         else:
             periodic = False
@@ -1458,20 +1455,18 @@ class TSurfCurve(Curve):
             nNewNodes = nNodes
 
         if fortran_flag:
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor.T, barsConn.T, method, spacing, initialSpacing, finalSpacing)
-            newCoor = newCoor.T
-            newBarsConn = newBarsConn.T
+            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, initialSpacing, finalSpacing)
 
         else:
 
             # CHECKING INPUTS
 
             # First we check if the FE data is ordered
-            for elemID in range(2, nElem):
+            for elemID in range(2,nElem):
 
                 # Get node indices
-                prevNodeID = barsConn[elemID-1, 1]
-                currNodeID = barsConn[elemID, 0]
+                prevNodeID = barsConn[1,elemID-1]
+                currNodeID = barsConn[0,elemID]
 
                 # Check if the FE data is ordered
                 if prevNodeID != currNodeID:
@@ -1491,19 +1486,18 @@ class TSurfCurve(Curve):
             arcLength = np.zeros(nNodes)
 
             # Also initialize an array to store nodal coordinates in the curve order
-            nodeCoor = np.zeros((nNodes, 3))
-
+            nodeCoor = np.zeros((3,nNodes))
 
             # Store position of the first node (the other nodes will be covered in the loop)
             # (the -1 is due Fortran indexing)
-            nodeCoor[0, :] = coor[barsConn[0,0]-1, :]
+            nodeCoor[:,0] = coor[:,barsConn[0,0]-1]
 
             # Loop over each element to increment arcLength
             for elemID in range(nElem):
 
                 # Get node positions (the -1 is due Fortran indexing)
-                node1 = coor[barsConn[elemID, 0]-1, :]
-                node2 = coor[barsConn[elemID, 1]-1, :]
+                node1 = coor[:,barsConn[0,elemID]-1]
+                node2 = coor[:,barsConn[1,elemID]-1]
 
                 # Compute distance between nodes
                 dist = np.linalg.norm(node1 - node2)
@@ -1512,7 +1506,7 @@ class TSurfCurve(Curve):
                 arcLength[elemID+1] = arcLength[elemID] + dist
 
                 # Store coordinates of the next node
-                nodeCoor[elemID+1, :] = node2
+                nodeCoor[:,elemID+1] = node2
 
             # SAMPLING POSITION FOR NEW NODES
 
@@ -1520,8 +1514,7 @@ class TSurfCurve(Curve):
             # The arcLength will be used as our parametric coordinate to sample the new nodes.
 
             # First we will initialize arrays for the new coordinates and arclengths
-            # newNodeCoor = np.zeros((3, nNewNodes), order='F') #3change here
-            newNodeCoor = np.zeros((nNewNodes, 3), order='F')
+            newNodeCoor = np.zeros((3,nNewNodes), order='F')
             newArcLength = np.zeros(nNewNodes, order='F')
 
             # Now that we know the initial and final arcLength, we can redistribute the
@@ -1551,14 +1544,14 @@ class TSurfCurve(Curve):
             from scipy.interpolate import interp1d
 
             # Create interpolants for x, y, and z
-            fX = interp1d(arcLength, nodeCoor[:, 0], kind=method)
-            fY = interp1d(arcLength, nodeCoor[:, 1], kind=method)
-            fZ = interp1d(arcLength, nodeCoor[:, 2], kind=method)
+            fX = interp1d(arcLength, nodeCoor[0,:], kind=method)
+            fY = interp1d(arcLength, nodeCoor[1,:], kind=method)
+            fZ = interp1d(arcLength, nodeCoor[2,:], kind=method)
 
             # Sample new points using the interpolation functions
-            newNodeCoor[:, 0] = fX(newArcLength)
-            newNodeCoor[:, 1] = fY(newArcLength)
-            newNodeCoor[:, 2] = fZ(newArcLength)
+            newNodeCoor[0,:] = fX(newArcLength)
+            newNodeCoor[1,:] = fY(newArcLength)
+            newNodeCoor[2,:] = fZ(newArcLength)
 
             '''
             # The next commands are to snap a point to guide curves. Since this was not differentiated
@@ -1586,16 +1579,16 @@ class TSurfCurve(Curve):
 
             # Generate new connectivity (the nodes are already in order so we just
             # need to assign an ordered set to barsConn).
-            barsConn = np.zeros((nNewNodes-1, 2), order='F', dtype=int)
-            barsConn[:, 0] = range(1,nNewNodes)
-            barsConn[:, 1] = range(2,nNewNodes+1)
+            barsConn = np.zeros((2,nNewNodes-1), order='F', dtype=int)
+            barsConn[0,:] = range(1,nNewNodes)
+            barsConn[1,:] = range(2,nNewNodes+1)
 
             newBarsConn = barsConn
 
         # Adjust connectivities if curve is periodic
         if periodic:
             newBarsConn[-1,-1] = newBarsConn[0,0]
-            newCoor = newCoor[:-1, :]
+            newCoor = newCoor[:,:-1]
 
         # Generate name for the new curve
         newCurveName = self.name + '_remeshed'
@@ -1629,10 +1622,10 @@ class TSurfCurve(Curve):
 
         # Check if the baseline curve is periodic. If this is the case, we artificially repeat
         # the last point so that we could use the same code of the non-periodic case
-        if barsConn[0, 0] == barsConn[-1, 1]:
+        if barsConn[0,0] == barsConn[1,-1]:
             periodic = True
-            coor = np.array(np.vstack([coor, coor[barsConn[0,0]-1, :].reshape((1, 3))]),dtype=type(self.coor[0,0]),order='F')
-            coord = np.array(np.vstack([coord, coord[barsConn[0,0]-1, :].reshape((1, 3))]),dtype=type(coord[0,0]),order='F')
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
+            coord = np.array(np.hstack([coord, coord[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(coord[0,0]),order='F')
             barsConn[-1,-1] = nNodes
         else:
             periodic = False
@@ -1643,23 +1636,14 @@ class TSurfCurve(Curve):
 
         nNewElems = nNewNodes - 1
 
-        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor.T, coord.T, barsConn.T, method, spacing, initialSpacing, finalSpacing)
-
-        # Transpose results coming out of Fortran
-        newCoor = newCoor.T
-        newCoord = newCoord.T
-        newBarsConn = newBarsConn.T
+        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(nNewNodes, nNewElems, coor, coord, barsConn, method, spacing, initialSpacing, finalSpacing)
 
         # DO A LOCAL FD TEST
         stepSize = 1e-7
         coord = coord/np.sqrt(np.sum(coor**2))
         coor = coor + coord*stepSize
 
-        newCoorf, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor.T, barsConn.T, method, spacing, initialSpacing, finalSpacing)
-
-        # Transpose results coming out of Fortran
-        newCoorf = newCoorf.T
-        newBarsConn = newBarsConn.T
+        newCoorf, newBarsConn = utilitiesAPI.utilitiesapi.remesh(nNewNodes, coor, barsConn, method, spacing, initialSpacing, finalSpacing)
 
         newCoord_FD = (newCoorf - newCoor)/stepSize
         print 'FD test @ remesh_d'
@@ -1668,8 +1652,8 @@ class TSurfCurve(Curve):
 
         # Adjust seeds if curve is periodic
         if periodic:
-            newCoord[:, 0] = 0.5*(newCoord[0, :] + newCoord[-1, :])
-            newCoord = newCoord[:-1, :]
+            newCoord[:, 0] = 0.5*(newCoord[:, 0] + newCoord[:, -1])
+            newCoord = newCoord[:, :-1]
 
         # Store propagated seeds
         newCurve._set_forwardADSeeds(newCoord)
@@ -1693,18 +1677,18 @@ class TSurfCurve(Curve):
         barsConn = np.array(self.barsConn,dtype=type(self.barsConn[0,0]),order='F')
 
         # Get the number of elements in the curve
-        nElem = barsConn.shape[0]
+        nElem = barsConn.shape[1]
         nNodes = nElem+1
 
         # Check if the baseline curve is periodic. If this is the case, we artificially repeat
         # the last point so that we could use the same code of the non-periodic case
-        if barsConn[0, 0] == barsConn[-1, 1]:
+        if barsConn[0,0] == barsConn[1,-1]:
             periodic = True
-            coor = np.array(np.hstack([coor, coor[barsConn[0,0]-1, :].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
-            newCoorb = np.array(np.hstack([newCoorb, newCoorb[0, :].reshape((3,1))]),dtype=type(newCoorb[0,0]),order='F')
-            newCoorb[0, :] = 0.5*newCoorb[0, :]
-            newCoorb[-1, :] = 0.5*newCoorb[-1, :]
-            barsConn[-1, -1] = nNodes
+            coor = np.array(np.hstack([coor, coor[:,barsConn[0,0]-1].reshape((3,1))]),dtype=type(self.coor[0,0]),order='F')
+            newCoorb = np.array(np.hstack([newCoorb, newCoorb[:,0].reshape((3,1))]),dtype=type(newCoorb[0,0]),order='F')
+            newCoorb[:,0] = 0.5*newCoorb[:,0]
+            newCoorb[:,-1] = 0.5*newCoorb[:,-1]
+            barsConn[-1,-1] = nNodes
 
         else:
             periodic = False
@@ -1715,14 +1699,12 @@ class TSurfCurve(Curve):
 
         nNewElems = nNewNodes - 1
 
-        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor.T, newCoorb.T, barsConn.T, method, spacing, initialSpacing, finalSpacing)
-
-        coorb = coorb.T
+        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(nNewElems, coor, newCoorb, barsConn, method, spacing, initialSpacing, finalSpacing)
 
         # Adjust seeds if curve is periodic
         if periodic:
-            coorb[barsConn[0, 0]-1, :] += coorb[-1, :]
-            coorb = coorb[:-1, :]
+            coorb[:, barsConn[0,0]-1] += coorb[:, -1]
+            coorb = coorb[:,:-1]
 
         # Store propagated seeds
         if accumulateSeeds:
@@ -1779,7 +1761,7 @@ class TSurfCurve(Curve):
 
                 # Update derivatives only if the parent node is present in the child curve
                 if childNodeID >= 0:
-                    childCurve.coord[childNodeID, :] = self.coord[parentNodeID, :]
+                    childCurve.coord[:,childNodeID] = self.coord[:,parentNodeID]
 
     def split_b(self, childCurve):
         '''
@@ -1804,8 +1786,8 @@ class TSurfCurve(Curve):
 
                 # Update derivatives only if the parent node is present in the child curve
                 if childNodeID >= 0:
-                    self.coorb[parentNodeID, :] = self.coorb[parentNodeID, :] + \
-                                                 childCurve.coorb[childNodeID, :]
+                    self.coorb[:,parentNodeID] = self.coorb[:,parentNodeID] + \
+                                                 childCurve.coorb[:,childNodeID]
 
     #=================================================================
     # MERGING METHODS
@@ -1859,7 +1841,7 @@ class TSurfCurve(Curve):
 
         # Initialize list that states how many nodes where merged to generate a single node
         # of the merged curve.
-        numMergedNodes = np.zeros(self.coor.shape[0],dtype='int')
+        numMergedNodes = np.zeros(self.coor.shape[1],dtype='int')
 
         # Loop over every curve we want to merge
         for curveName in self.extra_data['parentCurves']:
@@ -1871,24 +1853,24 @@ class TSurfCurve(Curve):
                 coord = curveDict[curveName]._get_forwardADSeeds()
 
                 # Loop over the parent curve nodes to propagate seeds
-                for parentNodeID in range(coord.shape[0]):
+                for parentNodeID in range(coord.shape[1]):
 
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
                     # Acumulate derivative seed into the child node
                     # (we will take the average later on)
-                    self.coord[childNodeID, :] = self.coord[childNodeID, :] + curveDict[curveName].coord[parentNodeID, :]
+                    self.coord[:,childNodeID] = self.coord[:,childNodeID] + curveDict[curveName].coord[:,parentNodeID]
 
                     # Increment number of parent nodes added to this child node
                     numMergedNodes[childNodeID] = numMergedNodes[childNodeID] + 1
 
                 # Update offset for next curve
-                indexOffset = indexOffset + curveDict[curveName].coor.shape[0]
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
 
         # Compute averages
-        for childNodeID in range(self.coor.shape[0]):
-            self.coord[childNodeID, :] = self.coord[childNodeID, :]/numMergedNodes[childNodeID]
+        for childNodeID in range(self.coor.shape[1]):
+            self.coord[:,childNodeID] = self.coord[:,childNodeID]/numMergedNodes[childNodeID]
 
     def merge_b(self, curveDict):
         '''
@@ -1908,7 +1890,7 @@ class TSurfCurve(Curve):
 
         # Initialize list that states how many nodes where merged to generate a single node
         # of the merged curve.
-        numMergedNodes = np.zeros(self.coor.shape[0],dtype='int')
+        numMergedNodes = np.zeros(self.coor.shape[1],dtype='int')
 
         # We need one loop just to identify how many nodes will be seeded by a merged curve node
 
@@ -1928,11 +1910,11 @@ class TSurfCurve(Curve):
                     numMergedNodes[childNodeID] = numMergedNodes[childNodeID] + 1
 
                 # Update offset for next curve
-                indexOffset = indexOffset + curveDict[curveName].coor.shape[0]
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
 
         # Compute averages
         for childNodeID in range(self.coor.shape[1]):
-            self.coorb[childNodeID, :] = self.coorb[childNodeID, :]/numMergedNodes[childNodeID]
+            self.coorb[:,childNodeID] = self.coorb[:,childNodeID]/numMergedNodes[childNodeID]
 
         # Now we have another loop to distribute derivative seeds
 
@@ -1947,18 +1929,18 @@ class TSurfCurve(Curve):
             if curveName in curveDict:
 
                 # Loop over the parent curve nodes to propagate seeds
-                for parentNodeID in range(curveDict[curveName].coor.shape[0]):
+                for parentNodeID in range(curveDict[curveName].coor.shape[1]):
 
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
                     # Accumulate derivative seed into the parent node
                     # (we will take the average later on)
-                    curveDict[curveName].coorb[parentNodeID, :] = curveDict[curveName].coorb[parentNodeID, :] + \
-                                                                 self.coorb[childNodeID, :]
+                    curveDict[curveName].coorb[:,parentNodeID] = curveDict[curveName].coorb[:,parentNodeID] + \
+                                                                 self.coorb[:,childNodeID]
 
                 # Update offset for next curve
-                indexOffset = indexOffset + curveDict[curveName].coor.shape[0]
+                indexOffset = indexOffset + curveDict[curveName].coor.shape[1]
 
     #=================================================================
 
@@ -1972,7 +1954,7 @@ class TSurfCurve(Curve):
         '''
 
         # First we try to sort the curve to find how many disconnect FE sets define it
-        sortedConn, dummy_map = tst.FEsort(self.barsConn.tolist())
+        sortedConn, dummy_map = tst.FEsort(self.barsConn.T.tolist())
 
         # Get number of disconnect curves
         numCurves = len(sortedConn)
@@ -2101,7 +2083,7 @@ class TSurfCurve(Curve):
             # closer to one of the ends.
 
             # Make a list out of all coordinates so we can pop nodes
-            coorList = self.coor.tolist()
+            coorList = self.coor.T.tolist()
 
             # Start chain of new coordinates with an arbitrary node
             newCoor = [coorList.pop(guessNode)]
@@ -2160,8 +2142,8 @@ class TSurfCurve(Curve):
             newBarsConn[:,1] = np.arange(numNodes-1)+2
 
             # Replace information of the current curve
-            self.coor = newCoor
-            self.barsConn = newBarsConn
+            self.coor = newCoor.T
+            self.barsConn = newBarsConn.T
 
     def shift_end_nodes(self, criteria='maxX', startPoint=np.zeros((3))):
 
@@ -2199,8 +2181,8 @@ class TSurfCurve(Curve):
         for elemID in range(2,nElem):
 
             # Get node indices
-            prevNodeID = barsConn[elemID-1, 1]
-            currNodeID = barsConn[elemID, 0]
+            prevNodeID = barsConn[1,elemID-1]
+            currNodeID = barsConn[0,elemID]
 
             # Check if the FE data is ordered
             if prevNodeID != currNodeID:
@@ -2211,7 +2193,7 @@ class TSurfCurve(Curve):
                 return
 
         # The first and last nodes should be the same to have a periodic curve.
-        if barsConn[0,0] != barsConn[-1, 1]:
+        if barsConn[0,0] != barsConn[1,-1]:
 
             # Print warning
             print 'WARNING: Could not shift curve because it is not periodic.'
@@ -2233,7 +2215,7 @@ class TSurfCurve(Curve):
 
             # Get maximum value of the desired coordinate.
             # The +1 is to make it consistent with Fortran ordering.
-            startNodeID = np.argmax(coor[:, coorID]) + 1
+            startNodeID = np.argmax(coor[coorID,:]) + 1
 
         elif criteria in ['minX','minY','minZ']:
 
@@ -2246,7 +2228,7 @@ class TSurfCurve(Curve):
 
             # Get maximum value of the desired coordinate.
             # The +1 is to make it consistent with Fortran ordering.
-            startNodeID = np.argmin(coor[:, coorID]) + 1
+            startNodeID = np.argmin(coor[coorID,:]) + 1
 
         elif criteria == 'startPoint':
 
@@ -2261,16 +2243,16 @@ class TSurfCurve(Curve):
             startNodeID = np.argmin(dist_2) + 1
 
         # Now we look for an element that starts at the reference node
-        startElemID = np.where(barsConn[:, 0] == startNodeID)[0][0]
+        startElemID = np.where(barsConn[0,:] == startNodeID)[0][0]
 
         # Then we shift the connectivity list so that startElemID becomes the first element
-        self.barsConn[:, :] = np.vstack([barsConn[startElemID:, :],
-                                        barsConn[:startElemID, :]])
+        self.barsConn[:,:] = np.hstack([barsConn[:,startElemID:],
+                                        barsConn[:,:startElemID]])
 
         # Do the same to the list of parent triangles if necessary
         if np.array(self.extra_data['parentTria']).any():
-            self.extra_data['parentTria'] = np.hstack([self.extra_data['parentTria'][startElemID:, :],
-                                                       self.extra_data['parentTria'][:startElemID, :]])
+            self.extra_data['parentTria'] = np.hstack([self.extra_data['parentTria'][:,startElemID:],
+                                                       self.extra_data['parentTria'][:,:startElemID]])
 
     def export_tecplot(self,outputName='curve'):
 
@@ -2298,17 +2280,17 @@ class TSurfCurve(Curve):
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Initialize coordinates matrix
-        pts = np.zeros((numElems+1, 3))
+        pts = np.zeros((3,numElems+1))
 
         # Get the last point
-        pts[-1, :] = self.coor[self.barsConn[-1,-1]-1, :]
+        pts[:,-1] = self.coor[:, self.barsConn[-1,-1]-1]
 
         # Get coordinates
         for ii in range(numElems):
-            pts[ii, :] = self.coor[self.barsConn[ii, 0]-1, :]
+            pts[:,ii] = self.coor[:, self.barsConn[0,ii]-1]
 
         # Return coordinates
         return pts
@@ -2321,48 +2303,48 @@ class TSurfCurve(Curve):
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Set the last point
-        self.coor[self.barsConn[-1,-1]-1, :] = pts[-1, :]
+        self.coor[:, self.barsConn[-1,-1]-1] = pts[:,-1]
 
         # Set other points
         for ii in range(numElems):
-            self.coor[self.barsConn[ii, 0]-1, :] = pts[ii, :]
+            self.coor[:, self.barsConn[0,ii]-1] = pts[:,ii]
 
     def set_forwardADSeeds(self, coord):
         '''
         This will apply derivative seeds to the curve nodes.
 
-        coord: array[numNodes, 3] -> Array with derivative seeds. They
+        coord: array[3xnumNodes] -> Array with derivative seeds. They
         should follow the order of the curve nodes, which is not necessarily
         the self.coor ordering.
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Get the last point
-        self.coord[self.barsConn[-1,-1]-1, :] = coord[-1, :]
+        self.coord[:, self.barsConn[-1,-1]-1] = coord[:,-1]
 
         # Get coordinates
         for ii in range(numElems):
-            self.coord[self.barsConn[ii, 0]-1, :] = coord[ii, :]
+            self.coord[:, self.barsConn[0,ii]-1] = coord[:,ii]
 
     def get_forwardADSeeds(self):
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Initialize seed matrix
-        coord = np.zeros((numElems+1, 3),dtype='float',order='F')
+        coord = np.zeros((3,numElems+1),dtype='float',order='F')
 
         # Get the last point
-        coord[-1, :] = self.coord[self.barsConn[-1,-1]-1, :]
+        coord[:,-1] = self.coord[:, self.barsConn[-1,-1]-1]
 
         # Get coordinates
         for ii in range(numElems):
-            coord[ii, :] = self.coord[self.barsConn[ii, 0]-1, :]
+            coord[:,ii] = self.coord[:, self.barsConn[0,ii]-1]
 
         # Return derivatives
         return coord
@@ -2377,17 +2359,17 @@ class TSurfCurve(Curve):
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Reinitialize all seeds
-        self.coorb[:, :] = 0.0
+        self.coorb[:,:] = 0.0
 
         # Get coordinates
         for ii in range(numElems):
-            self.coorb[self.barsConn[ii, 0]-1, :] = coorb[ii, :]
+            self.coorb[:, self.barsConn[0,ii]-1] = coorb[:,ii]
 
         # Add the last point
-        self.coorb[self.barsConn[-1,-1]-1, :] = self.coorb[self.barsConn[-1,-1]-1, :] + coorb[-1, :]
+        self.coorb[:, self.barsConn[-1,-1]-1] = self.coorb[:, self.barsConn[-1,-1]-1] + coorb[:,-1]
 
     def get_reverseADSeeds(self,clean=True):
         '''
@@ -2399,27 +2381,27 @@ class TSurfCurve(Curve):
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Initialize seed matrix
-        coorb = np.zeros((numElems+1, 3),dtype='float',order='F')
+        coorb = np.zeros((3,numElems+1),dtype='float',order='F')
 
         # Get coordinates
         for ii in range(numElems):
-            coorb[ii, :] = self.coorb[self.barsConn[ii, 0]-1, :]
+            coorb[:,ii] = self.coorb[:, self.barsConn[0,ii]-1]
 
         # Add the last point
-        coorb[-1, :] = self.coorb[self.barsConn[-1,-1]-1, :]
+        coorb[:,-1] = self.coorb[:, self.barsConn[-1,-1]-1]
 
         # Adjust seeds for periodic curves
         if self.isPeriodic:
-            coorb[0, :] = coorb[0, :] / 2.0
-            coorb[-1, :] = coorb[-1, :] / 2.0
+            coorb[:,0] = coorb[:,0]/2.0
+            coorb[:,-1] = coorb[:,-1]/2.0
 
 
         # Clean derivatives if necessary
         if clean:
-            self.coorb[:, :] = 0.0
+            self.coorb[:,:] = 0.0
 
         # Return derivatives
         return coorb
@@ -2434,14 +2416,14 @@ class TSurfCurve(Curve):
         '''
 
         # Get the number of elements
-        numElems = self.barsConn.shape[0]
+        numElems = self.barsConn.shape[1]
 
         # Get coordinates
         for ii in range(numElems):
-            self.coorb[self.barsConn[ii, 0]-1, :] = self.coorb[self.barsConn[0,ii]-1, :] + coorb[ii, :]
+            self.coorb[:, self.barsConn[0,ii]-1] = self.coorb[:, self.barsConn[0,ii]-1] + coorb[:,ii]
 
         # Add the last point (if the curve is periodic, this will accumulate the last point into the first one)
-        self.coorb[self.barsConn[-1,-1]-1, :] = self.coorb[self.barsConn[-1,-1]-1, :] + coorb[-1, :]
+        self.coorb[:, self.barsConn[-1,-1]-1] = self.coorb[:, self.barsConn[-1,-1]-1] + coorb[:,-1]
 
     def clean_reverseADSeeds(self):
         '''
@@ -2452,7 +2434,7 @@ class TSurfCurve(Curve):
         are derivative seeds to be applied on the control points of each curve.
         '''
 
-        self.coorb[:, :] = 0.0
+        self.coorb[:,:] = 0.0
 
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
@@ -2471,14 +2453,14 @@ class TSurfCurve(Curve):
         # Set forward AD seeds
         if mode=='forward' or mode=='both':
 
-            coord = np.array(np.random.random_sample(self.coor.shape), order='F')
+            coord = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             coord = coord/np.sqrt(np.sum(coord**2))
             self.coord = coord
 
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
-            coorb = np.array(np.random.random_sample(self.coor.shape), order='F')
+            coorb = np.array(np.random.rand(self.coor.shape[0],self.coor.shape[1]),order='F')
             coorb = coorb/np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
 
