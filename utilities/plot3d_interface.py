@@ -393,8 +393,8 @@ def read_tecplot_curves(fileName):
     for secID in range(len(sectionName)):
 
         # Gather data
-        coor = np.array(sectionData[secID],order='F')
-        barsConn = np.array(sectionConn[secID],order='F',dtype='int32')
+        coor = np.array(sectionData[secID],order='F').T
+        barsConn = np.array(sectionConn[secID],order='F',dtype='int32').T
         curveName = sectionName[secID]
 
         # Create curve object
