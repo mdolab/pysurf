@@ -174,9 +174,9 @@ def forward_pass(manager):
 
     # MARCH SURFACE MESHES
     meshName = 'mesh'
-    
+
     options_body = {
-    
+
         'bc1' : 'continuous',
         'bc2' : 'continuous',
         'dStart' : 0.01,
@@ -191,11 +191,11 @@ def forward_pass(manager):
         'sigmaSplay' : 0.3,
         'cMax' : 5.0,
         'ratioGuess' : 10.0,
-        
+
     }
 
     options_wing = {
-    
+
         'bc1' : 'curve:curve_te_upp',
         'bc2' : 'curve:curve_te_upp',
         'dStart' : 0.01,
@@ -212,7 +212,7 @@ def forward_pass(manager):
         'ratioGuess' : 10.0,
         'guideCurves' : ['curve_te_low'],
         'remesh' : True
-        
+
     }
 
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
@@ -255,7 +255,7 @@ for meshGen in manager0.meshGenerators.itervalues():
 
 # Call AD code
 manager0.reverseAD()
-    
+
 # Get relevant seeds
 coor1b, curveCoor1b = manager0.geoms[name1].get_reverseADSeeds()
 coor2b, curveCoor2b = manager0.geoms[name2].get_reverseADSeeds()

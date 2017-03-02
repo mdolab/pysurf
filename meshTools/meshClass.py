@@ -52,9 +52,9 @@ class SurfaceMesh(object):
 
         self.numPts : integer -> Total number of points in this mesh
         '''
-        
 
-        # Assing name
+
+        # Assign name
         self.name = meshName
 
         # Figure out what we need to do based on the argument type
@@ -81,7 +81,7 @@ class SurfaceMesh(object):
 
             # The user probably specified a file name. Let's detect if it
             # is a CGNS file, otherwise we will treat it as a Plot3D file
-            extension = os.path.splitext(fileName)[1]            
+            extension = os.path.splitext(fileName)[1]
 
             if extension == '.cgns':
 
@@ -96,7 +96,7 @@ class SurfaceMesh(object):
 
                 # Get the blocks from the plot3d file
                 grid = pysurf.plot3d_interface.read_plot3d(fileName,3)
-            
+
                 # Initialize block dictionary
                 self.coor = OrderedDict()
 
@@ -115,10 +115,10 @@ class SurfaceMesh(object):
                     blockCoor[:,:,0] = grid.blocks[blockID].X[:,:,0]
                     blockCoor[:,:,1] = grid.blocks[blockID].Y[:,:,0]
                     blockCoor[:,:,2] = grid.blocks[blockID].Z[:,:,0]
-                    
+
                     # Add dictionary entry
                     self.coor[blockName] = blockCoor
-        
+
         # Now we need to initialize arrays to hold derivative seeds.
         # Use the same loop to get the total number of points in this mesh
         self.coord = {}
