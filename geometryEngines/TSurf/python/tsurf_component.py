@@ -1130,6 +1130,7 @@ class TSurfCurve(Curve):
                 # Get dimension of the current array
                 dim = currArg.shape[1]
                 print currArg.shape
+                print
 
                 if dim == 3:
                     # We have nodal coordinates. We need to make sure they
