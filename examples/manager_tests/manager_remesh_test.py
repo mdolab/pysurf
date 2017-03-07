@@ -56,7 +56,6 @@ class MergeTest(unittest.TestCase):
         initCurveName = initCurveDict.keys()[0]
         initCurve = initCurveDict[initCurveName]
 
-
         # Create a manager and add the test curve to it
         manager = pysurf.Manager()
         manager.add_curve(initCurve)
@@ -110,7 +109,7 @@ class MergeTest(unittest.TestCase):
 
         print 'dotProd test'
         print dotProd
-        np.testing.assert_almost_equal(dotProd, 0., decimal=15)
+        np.testing.assert_almost_equal(dotProd, 0., decimal=14)
 
         # FINITE DIFFERENCE TEST
 

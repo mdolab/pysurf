@@ -56,7 +56,7 @@ class HypSurfMesh(object):
         self.curve = curve
 
         # Extract curve coordinates
-        rStart = curve.get_points().T
+        rStart = curve.get_points()
 
         # Detect nodes that should follow guide curves
         guideIndices = []
@@ -163,7 +163,7 @@ class HypSurfMesh(object):
         nuArea = float(self.optionsDict['nuArea'])
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
@@ -208,26 +208,13 @@ class HypSurfMesh(object):
         if self.optionsDict['plotQuality']:
             fail, ratios = self.qualityCheck(R)
             view_mat(ratios)
-
-        '''
-        MESHHHHHHHHHHHHHHHH
-        # Convert to X, Y and Z
-        X = R[:,::3]
-        Y = R[:,1::3]
-        Z = R[:,2::3]
-
-        self.mesh = np.zeros((3, int(self.numNodes), int(X.T.shape[1])))
-        self.mesh[0, :, :] = X.T
-        self.mesh[1, :, :] = Y.T
-        self.mesh[2, :, :] = Z.T
-        '''
-
+        
         # Create dictionary to store mesh
         coor = {}
-        coor['block'] = np.zeros((self.numLayers,self.numNodes,3))
-        coor['block'][:,:,0] = R[:,0::3]
-        coor['block'][:,:,1] = R[:,1::3]
-        coor['block'][:,:,2] = R[:,2::3]
+        coor['block'] = np.zeros((self.numNodes,self.numLayers,3))
+        coor['block'][:,:,0] = R[:,0::3].T
+        coor['block'][:,:,1] = R[:,1::3].T
+        coor['block'][:,:,2] = R[:,2::3].T
 
         # Create mesh object
         self.meshObj = pysurf.SurfaceMesh(self.name,coor)
@@ -253,31 +240,6 @@ class HypSurfMesh(object):
     #================================================================
     # FORWARD AD METHODS
 
-    # The methods are defined in the order that they should be used.
-    '''
-    def set_forwardADSeeds(self, meshd):
-
-        '\''
-        This function will just overwrite the derivative seeds
-        used by the forward mode AD.
-
-        ATTENTION: The user should set derivatives of the underlying triangulated surface
-        by using its own methods, such as self.ref_geom.set_forwardADSeeds(), or
-        self.ref_geom.set_randomADSeeds().
-
-        INPUTS:
-
-        meshd: float[numPoints,3] -> Forward AD seeds of the surface mesh. It should give
-        the seeds per j-column order. That is, the nodal ordering is:
-        (1,1),(2,1),(3,1),...,(il,1),(1,2),(2,2),(3,2),...
-        '\''
-
-        # Verify shape
-        if self.meshd.shape != meshd.shape:
-            raise ValueError('The shape of derivatives array in not consistent.')
-
-        self.meshd = np.array(meshd, order='F')
-    '''
     def compute_forwardAD(self,updateSeeds=True):
 
         '''
@@ -308,12 +270,12 @@ class HypSurfMesh(object):
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
         # Get derivative seeds from the starting curve
-        rStartd = self.curve.get_forwardADSeeds().T
+        rStartd = self.curve.get_forwardADSeeds()
         rStartd = rStartd.flatten().astype(float)
         rStartd = np.array(rStartd,order='F')
 
@@ -342,65 +304,21 @@ class HypSurfMesh(object):
                                                             self.optionsDict['numSmoothingPasses'],
                                                             self.optionsDict['numAreaPasses'],
                                                             self.optionsDict['numLayers'])
-        '''
-        MESSHHHHHHHHHHHHHHH
-        # Convert to Xd, Yd and Zd
-        Xd = Rd[:,::3]
-        Yd = Rd[:,1::3]
-        Zd = Rd[:,2::3]
-
-        # Set the forward AD output seeds
-        meshd = np.zeros((3, self.numNodes, Xd.T.shape[1]))
-        meshd[0, :, :] = Xd.T
-        meshd[1, :, :] = Yd.T
-        meshd[2, :, :] = Zd.T
-
-        self.set_forwardADSeeds(meshd)
-        '''
+        
         # Create dictionary to store mesh seeds
         coord = {}
-        coord['block'] = np.zeros((self.numLayers,self.numNodes,3))
-        coord['block'][:,:,0] = Rd[:,0::3]
-        coord['block'][:,:,1] = Rd[:,1::3]
-        coord['block'][:,:,2] = Rd[:,2::3]
+        coord['block'] = np.zeros((self.numNodes,self.numLayers,3))
+        coord['block'][:,:,0] = Rd[:,0::3].T
+        coord['block'][:,:,1] = Rd[:,1::3].T
+        coord['block'][:,:,2] = Rd[:,2::3].T
 
         # Create mesh object
         self.meshObj.coord = coord
-    '''
-    def get_forwardADSeeds(self):
-
-        # The only output are the derivatives of the surface mesh coordinates
-        return self.meshd[:,:,:]
-    '''
 
     #================================================================
     #================================================================
     # REVERSE AD METHODS
 
-    # The methods are defined in the order that they should be used.
-    '''
-    def set_reverseADSeeds(self, meshb):
-
-        '/''
-        This function will just overwrite the surface mesh seeds used by
-        the reverse mode AD to propagate derivatives.
-
-        This method updates self.meshb. Then user can use self.get_reversedADSeeds
-        to retrieve this result.
-
-        INPUTS:
-
-        meshb -> float[3, numNodes, numLayers] : Reverse derivative seeds
-        of the surface mesh coordinates.
-        '/''
-
-        # Verify shape
-        if self.meshb.shape != meshb.shape:
-            raise ValueError('The shape of derivatives array in not consistent.')
-
-        # Set values
-        self.meshb = np.array(meshb,order='F')
-    '''
     def compute_reverseAD(self):
 
         '''
@@ -427,50 +345,24 @@ class HypSurfMesh(object):
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
         # Get total number of projection steps
         numProjs = len(self.projDict)
-        '''
-        MESHHHHHHHHHHHHHHHHHHH
-        # Transform the set of 3D coordinates into a 2D array
-        X = self.mesh[0, :, :].T
-        Y = self.mesh[1, :, :].T
-        Z = self.mesh[2, :, :].T
-
-        R = np.zeros((self.optionsDict['numLayers'], 3*self.numNodes), order='F')
-        R[:,::3] = X
-        R[:,1::3] = Y
-        R[:,2::3] = Z
-
-        del X, Y, Z
-
-        # Transform the set of 3D derivative seeds into a 2D array
-        Xb = self.meshb[0, :, :].T
-        Yb = self.meshb[1, :, :].T
-        Zb = self.meshb[2, :, :].T
-
-        Rb = np.zeros((self.optionsDict['numLayers'], 3*self.numNodes), order='F')
-        Rb[:,::3] = Xb
-        Rb[:,1::3] = Yb
-        Rb[:,2::3] = Zb
-
-        del Xb, Yb, Zb
-        '''
-
+        
         # Transform the set of 3D coordinates into a 2D array
         R = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R[:,0::3] = self.meshObj.coor['block'][:,:,0]
-        R[:,1::3] = self.meshObj.coor['block'][:,:,1]
-        R[:,2::3] = self.meshObj.coor['block'][:,:,2]
+        R[:,0::3] = self.meshObj.coor['block'][:,:,0].T
+        R[:,1::3] = self.meshObj.coor['block'][:,:,1].T
+        R[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
         # Transform the set of 3D derivative seeds into a 2D array
         Rb = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        Rb[:,0::3] = self.meshObj.coorb['block'][:,:,0]
-        Rb[:,1::3] = self.meshObj.coorb['block'][:,:,1]
-        Rb[:,2::3] = self.meshObj.coorb['block'][:,:,2]
+        Rb[:,0::3] = self.meshObj.coorb['block'][:,:,0].T
+        Rb[:,1::3] = self.meshObj.coorb['block'][:,:,1].T
+        Rb[:,2::3] = self.meshObj.coorb['block'][:,:,2].T
 
         # Call the Fortran function that computes derivatives
         rStartb = hypsurfAPI.hypsurfapi.march_b(self.projection_b,
@@ -505,65 +397,11 @@ class HypSurfMesh(object):
                                                 Rb)
 
         # Reshape rStartb to a 3xnNodes shape
-        rStartb = rStartb.reshape((-1,3)).T
+        rStartb = rStartb.reshape((-1,3))
 
         # Accumulate seeds back to the curve object
         self.curve.accumulate_reverseADSeeds(rStartb)
 
-    '''
-    def get_reverseADSeeds(self, clean=True):
-
-        '\''
-        This will return the reverse AD seeds associated with the surface mesh
-        '\''
-
-        meshb = self.meshb[:,:,:]
-
-        if clean:
-            self.meshb[:,:,:] = 0.0
-
-        return meshb
-
-    def set_randomADSeeds(self, mode='both', fixedSeed=True):
-
-        '\''
-        This will set random normalized seeds to all variables.
-        This can be used for testing purposes.
-
-        mode: ['both','forward','reverse'] -> Which mode should have
-        its derivatives replaced.
-        '\''
-
-        # See if we should use a fixed seed for the RNG
-        if fixedSeed:
-            np.random.seed(123)
-
-        # Set forward AD seeds
-        if mode=='forward' or mode=='both':
-
-            meshd = np.array(np.random.random_sample(self.mesh.shape),order='F')
-            meshd = meshd/np.sqrt(np.sum(meshd**2))
-            self.meshd = meshd
-
-        # Set reverse AD seeds
-        if mode=='reverse' or mode=='both':
-
-            # Set reverse AD seeds
-            meshb = np.array(np.random.random_sample(self.mesh.shape),order='F')
-            meshb = meshb/np.sqrt(np.sum(meshb**2))
-            self.meshb = meshb
-
-        # Return generated seeds
-
-        if mode == 'forward':
-            return meshd
-
-        elif mode == 'reverse':
-            return meshb
-
-        elif mode == 'both':
-            return meshd, meshb
-    '''
     #================================================================
     #================================================================
     # PROJECTION METHODS
@@ -588,6 +426,9 @@ class HypSurfMesh(object):
 
         # Project onto surface and compute surface normals
         rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((numNodes, 3)))
+        #print 'AQUIIIIIIIIIIIIIIIIIIII'
+        #print r
+        #print r.reshape((numNodes, 3))
         rNext = rNext.flatten()
         NNext = NNext.T
 
@@ -917,9 +758,9 @@ class HypSurfMesh(object):
 
         # Copy some coordiantes of the baseline mesh
         R = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R[:,0::3] = self.meshObj.coor['block'][:,:,0]
-        R[:,1::3] = self.meshObj.coor['block'][:,:,1]
-        R[:,2::3] = self.meshObj.coor['block'][:,:,2]
+        R[:,0::3] = self.meshObj.coor['block'][:,:,0].T
+        R[:,1::3] = self.meshObj.coor['block'][:,:,1].T
+        R[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
         ### DOT PRODUCT TEST FOR SMOOTHING
         coor = R[3,:]#geom.curves[curve].coor.reshape(-1, order='F')
@@ -1412,9 +1253,9 @@ class HypSurfMesh(object):
         self.export_plot3d('output_fortran.xyz')
 
         R_fortran = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R_fortran[:,0::3] = self.meshObj.coor['block'][:,:,0]
-        R_fortran[:,1::3] = self.meshObj.coor['block'][:,:,1]
-        R_fortran[:,2::3] = self.meshObj.coor['block'][:,:,2]
+        R_fortran[:,0::3] = self.meshObj.coor['block'][:,:,0].T
+        R_fortran[:,1::3] = self.meshObj.coor['block'][:,:,1].T
+        R_fortran[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
         print 'Fortran version took: ',time() - st, 'secs'
 
@@ -1424,9 +1265,9 @@ class HypSurfMesh(object):
         self.export_plot3d('output_python.xyz')
 
         R_python = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R_python[:,0::3] = self.meshObj.coor['block'][:,:,0]
-        R_python[:,1::3] = self.meshObj.coor['block'][:,:,1]
-        R_python[:,2::3] = self.meshObj.coor['block'][:,:,2]
+        R_python[:,0::3] = self.meshObj.coor['block'][:,:,0].T
+        R_python[:,1::3] = self.meshObj.coor['block'][:,:,1].T
+        R_python[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
         print 'Python version took: ',time() - st, 'secs'
 
@@ -1720,7 +1561,7 @@ def view_mat(mat):
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
-    curve = np.asarray(curve.get_points()).T
+    curve = np.asarray(curve.get_points())
 
     # Get number of points in the seed curve
     nPoints = curve.shape[0]

@@ -5,23 +5,25 @@ import pickle
 import matplotlib.pyplot as plt
 
 # Give nodal positions
-i_node = 190
-j_list = [0, 10, 20, 30, 40, 48]
+numNodes = 11
 
-def load_data(i_node,j_node):
+# WING POSITIONS
+deltaZ = np.linspace(0.000001, 3.0, 11)
+
+def load_data(nodeID):
 
     # Load file with results
-    with open('results_%03d_%03d.pickle'%(i_node,j_node),'r') as fid:
+    with open('results_%03d.pickle'%(nodeID),'r') as fid:
         results = pickle.load(fid)
 
     # Split data
-    Z = results[0,:]
-    Y = results[1,:]
-    dYdZ = results[2,:]
+    Y = results[1][0,:]
+    dYdZ = results[1][1,:]
+    Z = np.ones(len(Y))*results[0]
 
     # Compute arrow coordinates
-    dZ = Z[1]-Z[0]
-    Xarrow = np.ones(len(Z))*dZ
+    dZ = deltaZ[1]-deltaZ[0]
+    Xarrow = np.ones(len(Y))*dZ
     Yarrow = dYdZ[:]*dZ
 
     return Y, Z, Xarrow, Yarrow
@@ -35,10 +37,10 @@ Xarrow_tot = []
 Yarrow_tot = []
 
 # Loop for every nodal position
-for j_node in j_list:
+for nodeID in range(numNodes):
 
     # Load data from pickle file
-    Y, Z, Xarrow, Yarrow = load_data(i_node,j_node)
+    Y, Z, Xarrow, Yarrow = load_data(nodeID)
 
     # Store information to the lists
     Y_tot.append(Y)
@@ -66,14 +68,14 @@ def arrow(self, x, y, dx, dy, **kwargs):
 # PLOT
 fig = plt.figure()
 
-for jj in range(len(j_list)):
+for nodeID in range(numNodes):
 
-    Y = Y_tot[jj]
-    Z = Z_tot[jj]
-    Xarrow = Xarrow_tot[jj]
-    Yarrow = Yarrow_tot[jj]
+    Y = Y_tot[nodeID]
+    Z = Z_tot[nodeID]
+    Xarrow = Xarrow_tot[nodeID]
+    Yarrow = Yarrow_tot[nodeID]
 
-    plt.plot(Y,Z,'o-',label='j=%02d'%(j_list[jj]+1))
+    plt.plot(Y,Z,'o',label='j=%02d'%(nodeID))
     ax = plt.axes()
     for ii in range(len(Z)):
         arrow(ax, Y[ii], Z[ii], Yarrow[ii], Xarrow[ii], fc='r', ec='r')
@@ -82,7 +84,7 @@ for jj in range(len(j_list)):
 plt.axis('equal')
 plt.xlabel('Y')
 plt.ylabel('Z')
-plt.legend(loc='best')
+#plt.legend(loc='best')
 
 plt.show()
 

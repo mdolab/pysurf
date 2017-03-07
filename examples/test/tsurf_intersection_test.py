@@ -40,7 +40,10 @@ class TestCurveIntersection(unittest.TestCase):
         comp2 = pysurf.TSurfGeometry('../inputs/cylinder.cgns', comm)
 
         # Call intersection function
-        comp1.intersect(comp2)
+        Intersection = comp1.intersect(comp2, distTol = 1e-7)
+
+        for curve in Intersection:
+            curve.export_tecplot(curve.name)
 
         # Split intersections
         pysurf.tsurf_tools.split_curves(comp2.curves)

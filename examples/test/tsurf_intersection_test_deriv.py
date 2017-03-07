@@ -214,11 +214,7 @@ def curve_intersection(deltaZ,ii):
     # Dot product test
     dotProd = 0.0
     dotProd = dotProd + np.sum(newCoorIntb*newCoorIntd)
-    print dotProd
-    print coor1b.shape
-    print coor1d.shape
     dotProd = dotProd - np.sum(coor1b*coor1d)
-    print dotProd
     dotProd = dotProd - np.sum(coor2b*coor2d)
 
     '''

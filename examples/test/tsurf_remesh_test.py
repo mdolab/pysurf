@@ -21,33 +21,20 @@ class TestRemesh(unittest.TestCase):
                          [0.1, 0.3, 0.7],
                          [0.5, 0.6, 0.5],
                          [0.8, 0.7, 0.4],
-                         [1.0, 0.9, 0.2]],order='F')
-
-        # Generate connectivity
-        nNodes = coor.shape[0]
-        barsConn = np.zeros((nNodes-1, 2))
-        barsConn[:, 0] = range(1,nNodes)
-        barsConn[:, 1] = range(2,nNodes+1)
+                         [1.0, 0.9, 0.2]])
 
         # Create curve object
-        self.curve = pysurf.TSurfCurve(coor, barsConn, 'test')
+        self.curve = pysurf.tsurf_tools.create_curve_from_points(coor,'test',periodic=False)
 
         # Create simple curve and store within the class
         coor = np.array([[0.0, 0.0, 0.0],
                          [0.5, 0.5, 0.5],
                          [0.5, 1.0, 0.5],
                          [0.8, 0.7, 0.4],
-                         [0.0, 0.0, 0.0]],order='F')
-
-        # Generate connectivity
-        nNodes = coor.shape[0]
-        barsConn = np.zeros((nNodes-1, 2))
-        barsConn[:, 0] = range(1,nNodes)
-        barsConn[:, 1] = range(2,nNodes+1)
-        barsConn[-1, 1] = barsConn[0,0]
+                         [0.0, 0.0, 0.0]])
 
         # Create curve object
-        self.periodic_curve = pysurf.TSurfCurve(coor, barsConn, 'test')
+        self.periodic_curve = pysurf.tsurf_tools.create_curve_from_points(coor,'test',periodic=True)
 
 
     def test_linear_remesh_(self):
