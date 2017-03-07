@@ -76,7 +76,7 @@ def forward_pass(manager):
     # Find the highest z-coordinate of the entire intersection (vertical position)
     maxZ = -99999
     for curve in splitCurveNames:
-        curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+        curr_maxZ = np.max(manager.intCurves[curve].coor[:,2])
         maxZ = max(maxZ, curr_maxZ)
 
     # Now we can identify and remesh each curve properly
@@ -99,7 +99,7 @@ def forward_pass(manager):
             # First let's identify if the curve is defined from
             # LE to TE or vice-versa
             curveCoor = curve.get_points()
-            deltaX = curveCoor[0,-1] - curveCoor[0,0]
+            deltaX = curveCoor[-1,0] - curveCoor[0,0]
 
             if deltaX > 0:
                 LE_to_TE = True
@@ -107,7 +107,7 @@ def forward_pass(manager):
                 LE_to_TE = False
 
             # Compute the highest vertical coordinate of the curve
-            curr_maxZ = np.max(curve.coor[2,:])
+            curr_maxZ = np.max(curve.coor[:,2])
 
             # Now we can determine if we have upper or lower skin
             if curr_maxZ < maxZ:
@@ -167,7 +167,7 @@ def forward_pass(manager):
 
     # Flip the curve for marching if necessary
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
-    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+    deltaZ = mergedCurveCoor[1,2] - mergedCurveCoor[0,2]
 
     if deltaZ > 0:
         manager.intCurves[mergedCurveName].flip()

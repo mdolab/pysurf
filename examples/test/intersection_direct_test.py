@@ -9,8 +9,6 @@ import pysurf
 from mpi4py import MPI
 
 # USER-DEFINED VARIABLES
-pertNode = 1 # Node from component A to be perturbed
-pertCoor = 2 # Coordinate to be perturbed [0,1,2]
 stepSize = 1e-7
 
 # EXECUTION
@@ -21,7 +19,7 @@ comm = MPI.COMM_WORLD
 # Define distance tolerance
 distTol = 1e-7
 
-# Load dummy components. Its data will be replaced later
+# Load dummy components. Its data will be replaced later on
 comp1 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
 comp2 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
 
@@ -29,22 +27,22 @@ comp2 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
 comp1.coor = np.array([[-0.1, 0.0, 0.0],
                        [3.0, 0.0, 0.0],
                        [0.0, 1.0, 0.0],
-                       [3.0, 1.0, 0.0]],order='F')
-comp1.triaConn = np.array([[1,2,3],
-                           [2,4,3]],order='F').T
-comp1.quadsConn = np.zeros((4,0),order='F')
+                       [3.0, 1.0, 0.0]])
+comp1.triaConnF = np.array([[1,2,3],
+                            [2,4,3]])
+comp1.quadsConnF = np.zeros((0,4))
 
 # Update ADT
 comp1.update()
 
 # Define component B
 comp2.coor = np.array([[0.0, 0.2, -0.2],
-                       [3.0, 0.2, -0.2],
+                       [3.5, 0.2, -0.2],
                        [0.0, 0.2, 0.2],
-                       [3.0, 0.2, 0.2]],order='F')
-comp2.triaConn = np.array([[1,2,3],
-                           [2,4,3]],order='F').T
-comp2.quadsConn = np.zeros((4,0),order='F')
+                       [3.5, 0.2, 0.2]])
+comp2.triaConnF = np.array([[1,2,3],
+                            [2,4,3]])
+comp2.quadsConnF = np.zeros((0,4))
 
 # Update ADT
 comp2.update()
@@ -113,6 +111,8 @@ intCoor = intCurve.get_points()
 intCoord_FD = (intCoor - intCoor0)/stepSize
 
 # FINITE DIFFERENCE TEST
+
+print intCoord
 
 # Compute the maximum difference between derivatives
 maxError = np.max(np.abs(intCoord - intCoord_FD))

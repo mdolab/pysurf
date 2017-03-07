@@ -70,7 +70,7 @@ def forward_pass(manager, geom):
     meshNames = manager.march_intCurve_surfaceMesh(curveName, options1, options2, meshName)
 
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'.xyz')
+        manager.meshGenerators[meshName].export_plot3d(meshName+'.xyz')
 
     return curveName, meshNames
 
@@ -88,6 +88,10 @@ class HypsurfTest(unittest.TestCase):
 
         # Load components
         geom = pysurf.TSurfGeometry('../inputs/cylinder.cgns')
+
+        # We need to translate to avoid indetermination in derivative due to an projection exactly on the edge
+        geom.curves['bc1'].translate(-0.00001,0,0)
+
         name1 = geom.name
 
         # Flip BC curve
@@ -111,7 +115,7 @@ class HypsurfTest(unittest.TestCase):
 
         meshb = []
         for meshName in meshNames:
-            meshb.append(manager0.meshes[meshName].set_randomADSeeds(mode='reverse'))
+            meshb.append(manager0.meshGenerators[meshName].meshObj.set_randomADSeeds(mode='reverse'))
 
         # FORWARD AD
 
@@ -121,7 +125,7 @@ class HypsurfTest(unittest.TestCase):
         # Get relevant seeds
         meshd = []
         for meshName in meshNames:
-            meshd.append(manager0.meshes[meshName].get_forwardADSeeds())
+            meshd.append(manager0.meshGenerators[meshName].meshObj.get_forwardADSeeds())
 
         # REVERSE AD
 
@@ -167,8 +171,8 @@ class HypsurfTest(unittest.TestCase):
         # Get coordinates of the mesh nodes
         meshd_FD = []
         for meshName in meshNames:
-            mesh0 = manager0.meshes[meshName].mesh
-            mesh = manager2.meshes[meshName].mesh
+            mesh0 = manager0.meshGenerators[meshName].meshObj.get_points()
+            mesh = manager2.meshGenerators[meshName].meshObj.get_points()
             curr_meshd = (mesh - mesh0)/stepSize
             meshd_FD.append(curr_meshd)
 
