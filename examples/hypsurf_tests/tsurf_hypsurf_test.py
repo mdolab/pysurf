@@ -13,8 +13,8 @@ import pickle
 
 #example = 'kink_on_plate'
 #example = 'line_on_cylinder'
-example = 'line_on_cylinder_with_guides'
-#example = 'crm_wing'
+#example = 'line_on_cylinder_with_guides'
+example = 'crm_wing'
 
 if example == 'kink_on_plate':
 
@@ -31,10 +31,10 @@ if example == 'kink_on_plate':
                       [5,0,0]])
     '''
     numNodes = 70
-    coor = np.zeros((3,numNodes))
-    coor[0,:] = 1.0
-    coor[1,:] = np.linspace(0.6, 0.1, numNodes)*5
-    coor[2,:] = np.linspace(0.1, 0.6, numNodes)*5
+    coor = np.zeros((numNodes,3))
+    coor[:,0] = 1.0
+    coor[:,1] = np.linspace(0.6, 0.1, numNodes)*5
+    coor[:,2] = np.linspace(0.1, 0.6, numNodes)*5
     
     # Create curve object
     curve = tsurf_tools.create_curve_from_points(coor, 'source')
@@ -67,7 +67,8 @@ elif example == 'line_on_cylinder':
 
     # Read inputs from CGNS file
     geom = TSurfGeometry('../inputs/cylinder.cgns')
-    
+    geom.curves['bc1'].translate(-0.00001,0,0)    
+
     # Set initial curve
     curve = geom.curves['source']
     curve.flip()
@@ -101,10 +102,10 @@ elif example == 'line_on_cylinder_with_guides':
     
     # Set initial curve
     numNodes = 50
-    coor = np.zeros((3,numNodes))
-    coor[0,:] = 1.03
-    coor[1,:] = np.linspace(0.6, 0.0, numNodes)
-    coor[2,:] = np.linspace(0.0, 0.6, numNodes)
+    coor = np.zeros((numNodes,3))
+    coor[:,0] = 1.03
+    coor[:,1] = np.linspace(0.6, 0.0, numNodes)
+    coor[:,2] = np.linspace(0.0, 0.6, numNodes)
     curve = tsurf_tools.create_curve_from_points(coor, 'seed')
 
     # Set problem

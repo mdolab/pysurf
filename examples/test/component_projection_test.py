@@ -37,7 +37,7 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 
     # Print results
     print
-    print 'Original cube projection:'
+    print 'Cube projection:'
     print xyzProj
     print normProj
     print
@@ -70,7 +70,7 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
 
     # Print results
     print
-    print 'Original cube edge projection:'
+    print 'Cube edge projection:'
     print xyzProj
     print tanProj
     print
@@ -82,30 +82,29 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
 
 # Define points
 xyz = np.array([[.7, .55, 0.1],
-                [.7, .55, 0.9]], order='F')
+                [.7, .55, 0.9]])
 
 # Define derivatives and normalize them to a given step size
 stepSize = 1e-7
 
-xyzd = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
-xyzd = xyzd/np.array([np.linalg.norm(xyzd,axis=1)]).T
-coord = np.array(np.random.rand(cube.coor.shape[0],cube.coor.shape[1]),order='F')
-coord = coord/np.array([np.linalg.norm(coord,axis=1)]).T
+xyzd = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]))
+xyzd = xyzd/np.sqrt(np.sum(xyzd**2))
+
+coord = np.array(np.random.rand(cube.coor.shape[0],cube.coor.shape[1]))
+coord = coord/np.sqrt(np.sum(coord**2))
 
 allCoord = {}
 for curveName in cube.curves:
     # Get curve coordinate size
     coor = cube.curves[curveName].get_points()
-    curveCoord = np.array(np.random.rand(coor.shape[0],coor.shape[1]),order='F')
-    allCoord[curveName] = curveCoord/np.array([np.linalg.norm(curveCoord,axis=1)]).T
+    curveCoord = np.array(np.random.rand(coor.shape[0],coor.shape[1]))
+    allCoord[curveName] = curveCoord/np.sqrt(np.sum(curveCoord**2))
 
-xyzProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
-xyzProjb = xyzProjb/np.array([np.linalg.norm(xyzProjb,axis=1)]).T
-normProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
-normProjb = normProjb/np.array([np.linalg.norm(normProjb,axis=1)]).T
+xyzProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]))
 
-tanProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]),order='F')
-tanProjb = tanProjb/np.array([np.linalg.norm(tanProjb,axis=1)]).T
+normProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]))
+
+tanProjb = np.array(np.random.rand(xyz.shape[0],xyz.shape[1]))
 
 #############################
 # SURFACE PROJECTION
@@ -145,9 +144,21 @@ print normProjd_AD
 print 'normProjd_FD'
 print normProjd_FD
 
-# Dot product test
+# Get finite difference error
+FD_error_projection = np.max(np.abs(xyzProjd_AD - xyzProjd_FD))
+FD_error_normal = np.max(np.abs(normProjd_AD - normProjd_FD))
+
+# Print results
+print ''
+print '#=================================================================#'
+print 'Finite difference error for projection (should be around 1e-7)'
+print FD_error_projection
+print 'Finite difference error for normals (should be around 1e-7)'
+print FD_error_normal
 print 'dot product (should be 0.0)'
 print dotProd
+print '#=================================================================#'
+print ''
 
 #############################
 # CURVE PROJECTION
@@ -155,8 +166,8 @@ print dotProd
 
 # Call projection function at the original point
 xyzProj0, xyzProjd_AD, tanProj0, tanProjd_AD, xyzb_AD, allCoorb_AD = computeCurveProjections(xyz,
-                                                                                            xyzd, allCoord,
-                                                                                            xyzProjb, tanProjb)
+                                                                                             xyzd, allCoord,
+                                                                                             xyzProjb, tanProjb)
 
 # Create coordinates of perturbed points
 allCoor = {}
@@ -190,10 +201,22 @@ print xyzProjd_AD
 print 'xyzProjd_FD'
 print xyzProjd_FD
 print 'tanProjd_AD'
-print xyzProjd_AD
+print tanProjd_AD
 print 'tanProjd_FD'
-print xyzProjd_FD
+print tanProjd_FD
 
-# Dot product test
+# Get finite difference error
+FD_error_projection = np.max(np.abs(xyzProjd_AD - xyzProjd_FD))
+FD_error_tangent = np.max(np.abs(tanProjd_AD - tanProjd_FD))
+
+# Print results
+print ''
+print '#=================================================================#'
+print 'Finite difference error for projection (should be around 1e-7)'
+print FD_error_projection
+print 'Finite difference error for normals (should be around 1e-7)'
+print FD_error_tangent
 print 'dot product (should be 0.0)'
 print dotProd
+print '#=================================================================#'
+print ''

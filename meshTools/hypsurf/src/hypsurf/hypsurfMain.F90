@@ -521,75 +521,75 @@
         subroutine areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2,&
         guideIndices, numGuides, n, S, maxStretch)
 
-        implicit none
+          implicit none
+          
+          integer(kind=intType), intent(in) :: n
+          real(kind=realType), intent(in) :: r0(3*n), d, nuArea
+          integer(kind=intType), intent(in) :: numAreaPasses
+          character*32, intent(in) :: bc1, bc2
+          integer(kind=intType), intent(in) :: numGuides
+          integer(kind=intType), intent(in) :: guideIndices(numGuides)
+          real(kind=realType), intent(out) :: S(n), maxStretch
 
-        integer(kind=intType), intent(in) :: n
-        real(kind=realType), intent(in) :: r0(3*n), d, nuArea
-        integer(kind=intType), intent(in) :: numAreaPasses
-        character*32, intent(in) :: bc1, bc2
-        integer(kind=intType), intent(in) :: numGuides
-        integer(kind=intType), intent(in) :: guideIndices(numGuides)
-        real(kind=realType), intent(out) :: S(n), maxStretch
+          real(kind=realType) :: r0_extrap(3*(2+n))
+          real(kind=realType) :: neighborDist(n), norm_1(n), norm_2(n)
+          real(kind=realType) :: Sminus, Splus, stretchRatio(n)
 
-        real(kind=realType) :: r0_extrap(3*(2+n))
-        real(kind=realType) :: neighborDist(n), norm_1(n), norm_2(n)
-        real(kind=realType) :: Sminus, Splus, stretchRatio(n)
+          integer(kind=intType) :: index, i
 
-        integer(kind=intType) :: index, i
+          ! Extrapolate the end points and copy starting curve
+          r0_extrap(:3) = 2*r0(:3) - r0(4:6)
+          r0_extrap(4:3*(n+1)) = r0
+          r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
 
-        ! Extrapolate the end points and copy starting curve
-        r0_extrap(:3) = 2*r0(:3) - r0(4:6)
-        r0_extrap(4:3*(n+1)) = r0
-        r0_extrap(3*(n+1)+1:) = 2*r0(3*(n-1)+1:) - r0(3*(n-2)+1:3*(n-1))
-
-        ! Compute the distance of each node to its neighbors
-        do index=1,n
-          call norm(r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*index), norm_1(index))
-          call norm(r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*index+3), norm_2(index))
-        end do
-        neighborDist = 0.5 * (norm_1 + norm_2)
-
-        ! Multiply distances by the step size to get the areas
-        S = d * neighborDist
-
-        ! Divide the marching distance and the neighbor distance to get the stretch ratios
-        stretchRatio = d / neighborDist
-
-        ! Get the maximum stretch ratio
-        maxStretch = -1.e20
-        do index=1, n
-          if (stretchRatio(index) .gt. maxStretch) then
-            maxStretch = stretchRatio(index)
-          end if
-        end do
-
-        ! Do the requested number of averagings
-        do index=1,numAreaPasses
-          ! Store previous values
-          Splus = S(2)
-          Sminus = S(n-1)
-          ! Do the averaging for the central nodes
-          S(2:n-1) = (1-nuArea)*S(2:n-1) + nuArea/2*(S(:n-2) + S(3:))
-          ! Average for the extremum nodes
-          S(1) = (1-nuArea)*S(1) + nuArea*Splus
-          S(n) = (1-nuArea)*S(n) + nuArea*Sminus
-        end do
-
-        ! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
-        if (bc1(:5) .eq. 'curve') then
-          S(1) = d
-        end if
-        if (bc2(:5) .eq. 'curve') then
-          S(n) = d
-        end if
-
-        if (numGuides > 0) then
-          ! Set guideCurve marching distances
-          do i=1,numGuides
-            index = guideIndices(i)
-            S(index) = d
+          ! Compute the distance of each node to its neighbors
+          do index=1,n
+             call norm(r0_extrap(3*index+1:3*index+3) - r0_extrap(3*index-2:3*index), norm_1(index))
+             call norm(r0_extrap(3*index+4:3*index+6) - r0_extrap(3*index+1:3*index+3), norm_2(index))
           end do
-        end if
+          neighborDist = 0.5 * (norm_1 + norm_2)
+
+          ! Multiply distances by the step size to get the areas
+          S = d * neighborDist
+
+          ! Divide the marching distance and the neighbor distance to get the stretch ratios
+          stretchRatio = d / neighborDist
+
+          ! Get the maximum stretch ratio
+          maxStretch = -1.e20
+          do index=1, n
+             if (stretchRatio(index) .gt. maxStretch) then
+                maxStretch = stretchRatio(index)
+             end if
+          end do
+
+          ! Do the requested number of averagings
+          do index=1,numAreaPasses
+             ! Store previous values
+             Splus = S(2)
+             Sminus = S(n-1)
+             ! Do the averaging for the central nodes
+             S(2:n-1) = (1-nuArea)*S(2:n-1) + nuArea/2*(S(:n-2) + S(3:))
+             ! Average for the extremum nodes
+             S(1) = (1-nuArea)*S(1) + nuArea*Splus
+             S(n) = (1-nuArea)*S(n) + nuArea*Sminus
+          end do
+
+          ! If we use curve boundary conditions, we need just the marching distance, and not area, for the end nodes
+          if (bc1(:5) .eq. 'curve') then
+             S(1) = d
+          end if
+          if (bc2(:5) .eq. 'curve') then
+             S(n) = d
+          end if
+
+          if (numGuides > 0) then
+             ! Set guideCurve marching distances
+             do i=1,numGuides
+                index = guideIndices(i)
+                S(index) = d
+             end do
+          end if
 
         end subroutine areaFactor
 

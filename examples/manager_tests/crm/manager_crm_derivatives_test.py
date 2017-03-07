@@ -90,7 +90,7 @@ class CRMDerivTest(unittest.TestCase):
             # Find the highest z-coordinate of the entire intersection (vertical position)
             maxZ = -99999
             for curve in splitCurveNames:
-                curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+                curr_maxZ = np.max(manager.intCurves[curve].coor[:,2])
                 maxZ = max(maxZ, curr_maxZ)
 
             # Now we can identify and remesh each curve properly
@@ -113,7 +113,7 @@ class CRMDerivTest(unittest.TestCase):
                     # First let's identify if the curve is defined from
                     # LE to TE or vice-versa
 
-                    deltaX = curve.coor[0,curve.barsConn[0,0]] - curve.coor[0,curve.barsConn[-1,-1]]
+                    deltaX = curve.coor[curve.barsConn[0,0],0] - curve.coor[curve.barsConn[-1,-1],0]
 
                     if deltaX > 0:
                         LE_to_TE = True
@@ -121,7 +121,7 @@ class CRMDerivTest(unittest.TestCase):
                         LE_to_TE = False
 
                     # Compute the highest vertical coordinate of the curve
-                    curr_maxZ = np.max(curve.coor[2,:])
+                    curr_maxZ = np.max(curve.coor[:,2])
 
                     # Now we can determine if we have upper or lower skin
                     if curr_maxZ < maxZ:
