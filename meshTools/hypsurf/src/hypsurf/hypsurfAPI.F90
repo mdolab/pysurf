@@ -255,7 +255,6 @@
           ! Compute the factor between the current stretching ratio and the allowed one.
           ! If the current stretching ratio is smaller than cMax, the cFactor will be 1.0, and
           ! The pseudo-step will be the same as the desired step.
-
           cFactor = ceiling(maxStretch/cMax)
 
           ! Constrain the marching distance if the stretching ratio is too high

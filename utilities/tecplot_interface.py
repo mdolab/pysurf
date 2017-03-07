@@ -135,8 +135,8 @@ def writeTecplotFEdata(coor,barsConn,curveName,fileName):
     fileID.write('\n')
     
     # Gather number of nodes and finite elements
-    nNodes = coor.shape[1]
-    nBars = barsConn.shape[1]
+    nNodes = coor.shape[0]
+    nBars = barsConn.shape[0]
 
     # Write curve data
     fileID.write('Zone T= \"'+curveName+'\"\n')
@@ -144,10 +144,10 @@ def writeTecplotFEdata(coor,barsConn,curveName,fileName):
     fileID.write('DATAPACKING=POINT\n')
     
     # Write nodal coordinates
-    np.savetxt(fileID, coor.T)
+    np.savetxt(fileID, coor)
 
     # Write connectivities
-    np.savetxt(fileID, barsConn.T, fmt='%i')
+    np.savetxt(fileID, barsConn+1, fmt='%i')
 
     # Close output file
     fileID.close()

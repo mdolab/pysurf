@@ -29,10 +29,10 @@ class MergeTest(unittest.TestCase):
                          [1.0, 0.3, 0.0],
                          [1.0, 0.7, 0.0],
                          [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]],order='F').T
+                         [0.5, 0.5, 0.0]])
         barsConn = np.array([[1,2],
                              [2,3],
-                             [3,4]],dtype='int32',order='F').T
+                             [3,4]],dtype='int32')-1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)
@@ -45,10 +45,10 @@ class MergeTest(unittest.TestCase):
                          [1.0, 0.3, 0.0],
                          [1.0, 0.7, 0.0],
                          [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]],order='F').T
+                         [0.5, 0.5, 0.0]])
         barsConn = np.array([[4,5],
                              [5,6],
-                             [6,7]],dtype='int32',order='F').T
+                             [6,7]],dtype='int32')-1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)
@@ -61,9 +61,9 @@ class MergeTest(unittest.TestCase):
                          [1.0, 0.3, 0.0],
                          [1.0, 0.7, 0.0],
                          [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]],order='F').T
+                         [0.5, 0.5, 0.0]])
         barsConn = np.array([[7,8],
-                             [8,1]],dtype='int32',order='F').T
+                             [8,1]],dtype='int32')-1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)

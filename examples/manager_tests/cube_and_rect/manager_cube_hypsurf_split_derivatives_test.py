@@ -53,7 +53,7 @@ for ext_curve in curves:
 
         # Extract the curve points and compute the length
         pts = split_curve[name].get_points()
-        length = pts[2, 0] - pts[2, -1]
+        length = pts[0, 2] - pts[-1, 2]
 
         # Hardcoded logic here based on the length of edges
         if np.abs(length) > 1:
@@ -135,9 +135,31 @@ def forward_pass(manager):
 
     manager.intCurves[mergedCurveName].export_tecplot('intersection_'+str(mesh_pass))
 
+    for curve in manager.geoms[name2].curves.itervalues():
+        curve.export_tecplot(curve.name)
+
     # MARCH SURFACE MESHES
     meshName = 'mesh'
     
+    options_cube = {
+    
+        'bc1' : 'continuous',
+        'bc2' : 'continuous',
+        'dStart' : 0.02,
+        'numLayers' : 17,
+        'extension' : 2.5,
+        'epsE0' : 4.5,
+        'theta' : -0.5,
+        'alphaP0' : 0.25,
+        'numSmoothingPasses' : 0,
+        'nuArea' : 0.16,
+        'numAreaPasses' : 20,
+        'sigmaSplay' : 0.3,
+        'cMax' : 10000.0,
+        'ratioGuess' : 1.5,
+        
+    }
+
     options_rect = {
     
         'bc1' : 'curve:int_011',
@@ -155,25 +177,6 @@ def forward_pass(manager):
         'cMax' : 10000.0,
         'ratioGuess' : 1.5,
         'guideCurves':guideCurves,
-        
-    }
-
-    options_cube = {
-    
-        'bc1' : 'continuous',
-        'bc2' : 'continuous',
-        'dStart' : 0.02,
-        'numLayers' : 17,
-        'extension' : 2.5,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 10000.0,
-        'ratioGuess' : 1.5,
         
     }
 

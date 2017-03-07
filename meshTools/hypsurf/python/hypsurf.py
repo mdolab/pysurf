@@ -56,7 +56,7 @@ class HypSurfMesh(object):
         self.curve = curve
 
         # Extract curve coordinates
-        rStart = curve.get_points().T
+        rStart = curve.get_points()
 
         # Detect nodes that should follow guide curves
         guideIndices = []
@@ -163,7 +163,7 @@ class HypSurfMesh(object):
         nuArea = float(self.optionsDict['nuArea'])
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
@@ -270,12 +270,12 @@ class HypSurfMesh(object):
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
         # Get derivative seeds from the starting curve
-        rStartd = self.curve.get_forwardADSeeds().T
+        rStartd = self.curve.get_forwardADSeeds()
         rStartd = rStartd.flatten().astype(float)
         rStartd = np.array(rStartd,order='F')
 
@@ -345,7 +345,7 @@ class HypSurfMesh(object):
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
-        rStart = self.curve.get_points().T
+        rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
         rStart = np.array(rStart,order='F')
 
@@ -397,7 +397,7 @@ class HypSurfMesh(object):
                                                 Rb)
 
         # Reshape rStartb to a 3xnNodes shape
-        rStartb = rStartb.reshape((-1,3)).T
+        rStartb = rStartb.reshape((-1,3))
 
         # Accumulate seeds back to the curve object
         self.curve.accumulate_reverseADSeeds(rStartb)
@@ -426,6 +426,9 @@ class HypSurfMesh(object):
 
         # Project onto surface and compute surface normals
         rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((numNodes, 3)))
+        #print 'AQUIIIIIIIIIIIIIIIIIIII'
+        #print r
+        #print r.reshape((numNodes, 3))
         rNext = rNext.flatten()
         NNext = NNext.T
 
@@ -1558,7 +1561,7 @@ def view_mat(mat):
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
-    curve = np.asarray(curve.get_points()).T
+    curve = np.asarray(curve.get_points())
 
     # Get number of points in the seed curve
     nPoints = curve.shape[0]

@@ -18,17 +18,11 @@ class TestCurveProjection(unittest.TestCase):
                          [-1, -1, -1],
                          [1.0, 0.0, 0.0],
                          [2.0, 0.0, 0.0],
-                         [1.0, 1.0, 0.0]]).T
+                         [1.0, 1.0, 0.0]])
 
-        barsConn = np.array([[1,4],
-                             [6,5],
-                             [4,5]]).T
+        self.curve = pysurf.tsurf_tools.create_curve_from_points(coor, 'test_curve')
 
-        name = 'test_curve'
-
-        self.curve = pysurf.TSurfCurve(coor, barsConn, name)
-
-    def test_orig_cube_projection(self):
+    def test_orig_curve_projection(self):
         pts = np.array([[3.0, 0.0, 0.0],
                         [2.0, 1.0, 0.5]])
         projPts = pts.copy()

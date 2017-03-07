@@ -13,12 +13,16 @@ LE_spacing = 0.001
 TE_spacing = 0.01
 
 # WING POSITIONS
-deltaZ = np.linspace(0.000001, 0.05, 11)
+deltaZ = np.linspace(0.000001, 3.0, 11)
 
 # TRACKING POINT
-# Give i coordinate that we will use to create the tracking slice
-i_node = 190
-j_list = [0, 10, 20, 30, 40, 48]
+# Give i and j coordinates that we will use to create the tracking slice
+ij_list = [[190,  0],
+           [190, 10],
+           [190, 20],
+           [190, 30],
+           [190, 40],
+           [190, 48]]
 
 # TESTING FUNCTION
 
@@ -56,7 +60,7 @@ distTol = 1e-7
 
 #======================================================
 
-def compute_position(wing_deltaZ, i_node, j_node):
+def compute_position(wing_deltaZ):
 
     '''
     This function will apply all geometry operations to compute the
@@ -91,7 +95,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
     # Find the highest z-coordinate of the entire intersection (vertical position)
     maxZ = -99999
     for curve in splitCurveNames:
-        curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+        curr_maxZ = np.max(manager.intCurves[curve].coor[:,2])
         maxZ = max(maxZ, curr_maxZ)
 
     # Now we can identify and remesh each curve properly
@@ -115,7 +119,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
             # LE to TE or vice-versa
 
             curveCoor = curve.get_points()
-            deltaX = curveCoor[0,-1] - curveCoor[0,0]
+            deltaX = curveCoor[-1,0] - curveCoor[0,0]
 
             if deltaX > 0:
                 LE_to_TE = True
@@ -123,7 +127,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
                 LE_to_TE = False
 
             # Compute the highest vertical coordinate of the curve
-            curr_maxZ = np.max(curve.coor[2,:])
+            curr_maxZ = np.max(curve.coor[:,2])
 
             # Now we can determine if we have upper or lower skin
             if curr_maxZ < maxZ:
@@ -180,7 +184,7 @@ def compute_position(wing_deltaZ, i_node, j_node):
 
     # Flip the curve for marching if necessary
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
-    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+    deltaZ = mergedCurveCoor[1,2] - mergedCurveCoor[0,2]
 
     if deltaZ > 0:
         manager.intCurves[mergedCurveName].flip()
@@ -234,35 +238,52 @@ def compute_position(wing_deltaZ, i_node, j_node):
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
 
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'.xyz')
+        manager.meshGenerators[meshName].export_plot3d(meshName+'.xyz')
 
     # DERIVATIVE SEEDS
 
-    # Get spanwise position of the tracked node
-    Y = manager.meshes[meshNames[0]].mesh[1, i_node, j_node]
+    # Initialize arrays to hold results
+    Y = np.zeros(len(ij_list))
+    dYdZ = np.zeros(len(ij_list))
 
-    # Set up derivative seeds so we can compute the derivative of the spanwise position
-    # of the tracked node of the intersection
-    meshb = np.zeros(manager.meshes[meshNames[0]].mesh.shape)
-    meshb[1, i_node, j_node] = 1.0
+    # We will run one node position at a time
+    for nodeID,ij in enumerate(ij_list):
 
-    # Set derivatives to the mesh
-    manager.meshes[meshNames[0]].set_reverseADSeeds(meshb)
+        # Get coordinates
+        i_node = ij[0]
+        j_node = ij[1]
 
-    # REVERSE AD
+        # Compute node position in the flattened array
+        nodePos = (2*numSkinNodes + 9 - 2)*j_node + i_node
 
-    # Call AD code
-    manager.reverseAD()
+        # Get spanwise position of the tracked node
+        Y[nodeID] = manager.meshGenerators[meshNames[0]].meshObj.get_points()[nodePos,1]
 
-    # Get relevant seeds
-    coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
-    coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
+        # Set up derivative seeds so we can compute the derivative of the spanwise position
+        # of the tracked node of the intersection
+        meshb = np.zeros(manager.meshGenerators[meshNames[0]].meshObj.get_points().shape)
+        meshb[nodePos, 1] = 1.0
 
-    # Condense derivatives to take into acount the translation
-    dYdZ = 0.0
-    dYdZ = np.sum(coor1b[2,:])
-    for curveName in curveCoor1b:
-        dYdZ = dYdZ + np.sum(curveCoor1b[curveName][2,:])
+        # Set derivatives to the mesh
+        manager.meshGenerators[meshNames[0]].meshObj.set_reverseADSeeds(meshb)
+
+        # REVERSE AD
+        
+        # Call AD code
+        manager.reverseAD()
+        
+        # Get relevant seeds 
+        coor1b, curveCoor1b = manager.geoms[name1].get_reverseADSeeds()
+        coor2b, curveCoor2b = manager.geoms[name2].get_reverseADSeeds()
+        
+        # Condense derivatives to take into acount the translation
+        dYdZ[nodeID] = 0.0
+        dYdZ[nodeID] = dYdZ[nodeID] + np.sum(coor1b[:,2])
+        for curveName in curveCoor1b:
+            dYdZ[nodeID] = dYdZ[nodeID] + np.sum(curveCoor1b[curveName][:,2])
+
+        # Clean derivatives for a new pass
+        manager.clean_reverseADSeeds()
 
     # Move the wing back to its original position
     manager.geoms[name1].translate(0.0, 0.0, -wing_deltaZ)
@@ -273,33 +294,19 @@ def compute_position(wing_deltaZ, i_node, j_node):
 # END OF compute_position
 #======================================================
 
-# Loop for every j position
-for j_node in j_list:
+# Now we will execute the function for every wing position
+for ii in range(len(deltaZ)):
+    print ''
+    print 'translation'
+    print deltaZ[ii]
+    print ''
+    Y, dYdZ = compute_position(deltaZ[ii])
+    print ''
+    print 'results'
+    print Y
+    print dYdZ
+    print ''
 
-    # Now we will execute the function for every wing position
-
-    # Initialize arrays to hold results
-    numPos = len(deltaZ)
-    Y = np.zeros(numPos)
-    dYdZ = np.zeros(numPos)
-
-    # Compute intersection for every wing position
-    for ii in range(numPos):
-        print ''
-        print 'translation'
-        print deltaZ[ii]
-        print 'i_node'
-        print i_node
-        print 'j_node'
-        print j_node
-        print ''
-        Y[ii], dYdZ[ii] = compute_position(deltaZ[ii], i_node, j_node)
-        print ''
-        print 'results'
-        print Y[ii]
-        print dYdZ[ii]
-        print ''
-
-    results = np.vstack([deltaZ,Y,dYdZ])
-    with open('results_%03d_%03d.pickle'%(i_node,j_node),'w') as fid:
+    results = [deltaZ[ii], np.vstack([Y,dYdZ])]
+    with open('results_%03d.pickle'%(ii),'w') as fid:
         pickle.dump(results,fid)
