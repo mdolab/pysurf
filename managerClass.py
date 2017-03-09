@@ -1146,7 +1146,7 @@ class Manager(object):
             # to generate a new background mesh
 
             # Assign the background mesh filename for the next operations
-            bgMeshNames = directory + 'auto_background.cgns'
+            bgMeshNames = directory + 'Auto_background.cgns'
 
             # Define default set of options
             bg_options = {
@@ -1165,6 +1165,12 @@ class Manager(object):
                     bg_options[key] = backgroundMeshInfo[key]
 
             # Now run cgns_utils simpleOCart to generate the background mesh
+            command = 'cgns_utils simpleOCart ' + directory + 'near_field_meshes.cgns ' + \
+                      str(bg_options['dh']) + ' ' + str(bg_options['hExtra']) + ' ' + str(bg_options['nExtra']) + \
+                      ' ' + bg_options['sym'] + ' ' + str(bg_options['mgcycle']) + ' ' + bgMeshNames
+
+            print command
+
             os.system('cgns_utils simpleOCart ' + directory + 'near_field_meshes.cgns ' + \
                       str(bg_options['dh']) + ' ' + str(bg_options['hExtra']) + ' ' + str(bg_options['nExtra']) + \
                       ' ' + bg_options['sym'] + ' ' + str(bg_options['mgcycle']) + ' ' + bgMeshNames)
@@ -1184,7 +1190,7 @@ class Manager(object):
 
         # Now we can run the cgns_utils command to join all blocks in a single file
         combinedFileName = directory + 'aeroInput.cgns'
-        os.system('cgns_utils combine ' + nearFieldFileName + ' ' + bgMeshNames + ' ' + combinedFileName)
+        os.system('cgns_utils combine '+ ' '.join(volFileList) + ' ' + bgMeshNames + ' ' + combinedFileName)
 
         # Check block-to-block connectivities
         os.system('cgns_utils connect ' + combinedFileName)
