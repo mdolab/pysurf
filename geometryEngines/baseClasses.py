@@ -249,8 +249,36 @@ class Geometry(object):
         # Store the geometry manipulator object
         self.manipulator = GMObj
 
-        # Call method to do specialized assignments according to the derived object.
-        self._assign_manipulator()
+        # Generate name for the surface point set
+        ptSetName = self.name + ':surfNodes'
+
+        # Assing the triangulated surface nodes to the geometry manipulator
+        print 'Assigning surface nodes from ',self.name,' to the manipulator'
+        coor = self.get_points()
+        self.manipulator.addPointSet(coor, ptSetName)
+        print 'Done'
+
+        # Store the set name for future uses
+        self.ptSetName = ptSetName
+
+        # Now we need to assign every curve to the manipulator as well
+        for curveName in self.curves:
+
+            # Generate name for the curve point set
+            ptSetName = self.name + ':curveNodes:' + curveName
+
+            # Assign curve nodes to the geometry manipulator
+            print 'Assigning nodes from curve ',curveName,' to the manipulator'
+            coor = self.curves[curveName].get_points()
+            self.manipulator.addPointSet(coor, ptSetName)
+            print 'Done'
+
+            # Store the set name for future uses
+            self.curves[curveName].ptSetName = ptSetName
+
+        # Assign surface mesh node if we already have one
+        if self.meshFileName is not None:
+            self.embed_mesh_points()
 
 
 
@@ -271,35 +299,108 @@ class Geometry(object):
         Ney Secco 2017-02
         '''
 
-        pass
+        # Update surface nodes
+        print 'Updating surface nodes from ',self.name
+        coor = self.manipulator.update(self.ptSetName)
+        self.set_points(coor)
+        print 'Done'
 
-    def manipulator_forwardAD(self, xDVd, ptSetName):
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',curveName
+            coor = self.manipulator.update(self.curves[curveName].ptSetName)
+            self.curves[curveName].set_points(coor)
+            print 'Done'
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            self.meshObj.set_points(self.manipulator.update(self.meshPtSetName))
+            print 'Done'
+
+    def manipulator_forwardAD(self, xDVd, ptSetName=None):
 
         '''
-        This function will use forward AD to propagate derivative seeds from
-        the manipulator design variables to the triangulated surface (and associated
-        curves) nodes.
+        This method uses forward AD to propagate derivative seeds from the design
+        variables to the surface mesh coordinates.
 
-        Ney Secco 2017-02
+        xDVd : dictionary whose keys are the design variable names, and whose
+               values are the derivative seeds of the corresponding design variable.
         '''
 
-        pass
+        # Print log
+        print ''
+        print 'Forward AD call to manipulator of ',self.name,' object'
 
-        #xSd = self.manipulator.totalSensitivityProd(xDVd, ptSetName)
+        # Update triangulated surface nodes
+        print 'Updating surface nodes from ',self.name
+        coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
+        #self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
+        self.set_forwardADSeeds(coord=coord)
+        print 'Done'
 
-    def manipulator_reverseAD(self, xDVb, ptSetName):
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',curveName
+            coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
+            #self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
+            self.curves[curveName].set_forwardADSeeds(coord)
+            print 'Done'
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            coord = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
+            #self.meshObj.set_forwardADSeeds(coord.reshape((-1,3)))
+            self.meshObj.set_forwardADSeeds(coord)
+            print 'Done'
+
+    def manipulator_reverseAD(self, xDVb, ptSetName=None, clean=True):
 
         '''
-        This function will use reverse AD to propagate derivative seeds from
-        the triangulated surface (and associated
-        curves) nodes to the manipulator design variables.
+        This method uses reverse AD to propagate derivative seeds from the surface mesh
+        coordinates to the design variables.
 
-        Ney Secco 2017-02
+        xDVb : dictionary whose keys are the design variable names, and whose
+               values are the derivative seeds of the corresponding design variable.
+               This function will acuumulate the derivative seeds contained in xDVb.
         '''
 
-        pass
+        # Print log
+        print ''
+        print 'Reverse AD call to manipulator of ',self.name,' object'
 
-        #xDVb = self.manipulator.totalSensitivity(ptSetName)
+        # Get derivative seeds
+        if self.meshPtSetName is not None:
+            coorb, curveCoorb, meshCoorb = self.get_reverseADSeeds(clean=clean)
+        else:
+            coorb, curveCoorb = self.get_reverseADSeeds(clean=clean)
+
+        # Update triangulated surface nodes
+        print 'Updating triangulated surface nodes from ',self.name
+        xDVb_curr = self.manipulator.totalSensitivity(coorb, self.ptSetName)
+        accumulate_dict(xDVb, xDVb_curr)
+        print 'Done'
+
+        # Now we need to update every curve as well
+        for curveName in self.curves:
+
+            # Update curve nodes
+            print 'Updating nodes from curve ',curveName
+            xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName], self.curves[curveName].ptSetName)
+            accumulate_dict(xDVb, xDVb_curr)
+            print 'Done'
+
+        # Finally update the structured surface mesh, if we have one
+        if self.meshPtSetName is not None:
+            print 'Updating surface mesh from ',self.name
+            xDVb_curr = self.manipulator.totalSensitivity(meshCoorb, self.meshPtSetName)
+            accumulate_dict(xDVb, xDVb_curr)
+            print 'Done'
 
     def manipulator_getDVs(self):
 
@@ -457,3 +558,17 @@ class Curve(object):
     def project(self,xyz):
         pass
 
+#==================================================
+# AUXILIARY FUNCTIONS
+
+def accumulate_dict(majorDict, minorDict):
+
+    '''
+    This function will loop over all keys of minorDict. If majorDict
+    shares the same key, then we will accumulate (add) the values into
+    majorDict.
+    '''
+
+    for key in minorDict:
+        if key in majorDict.keys():
+            majorDict[key] = majorDict[key] + minorDict[key]

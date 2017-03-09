@@ -62,72 +62,91 @@ class TSurfGeometry(Geometry):
                 # Get filename
                 filename = optarg
 
-        # Check if the user provided no input file
-        if filename == None:
-            print ' ERROR: Cannot initialize TSurf Geometry as no input file'
-            print ' was specified.'
-            quit()
+        # Assign proc ID
+        self.myID = self.comm.Get_rank()
 
-        # Read CGNS file
-        self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
-        self.name = os.path.splitext(os.path.basename(filename))[0]
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Select all section names in case the user provided none
-        if selectedSections is None:
-            selectedSections = sectionDict.keys()
-        else:
-            self.name = self.name + "__" + "_".join(selectedSections)
+            # Check if the user provided no input file
+            if filename == None:
+                print ' ERROR: Cannot initialize TSurf Geometry as no input file'
+                print ' was specified.'
+                quit()
 
-        # Now we call an auxiliary function to merge selected surface sections in a single
-        # connectivity array
-        self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
+            # Read CGNS file
+            self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
+            self.name = os.path.splitext(os.path.basename(filename))[0]
 
-        # Initialize curves
-        tst.initialize_curves(self, sectionDict, selectedSections)
+            # Select all section names in case the user provided none
+            if selectedSections is None:
+                selectedSections = sectionDict.keys()
+            else:
+                self.name = self.name + "__" + "_".join(selectedSections)
 
-        # Now we remove unused points
-        self.coor, usedPtsMask = tst.remove_unused_points(self.coor, triaConnF=self.triaConnF, quadsConnF=self.quadsConnF)
+            # Now we call an auxiliary function to merge selected surface sections in a single
+            # connectivity array
+            self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
 
-        # Create arrays to store derivative seeds
-        self.coord = np.zeros(self.coor.shape)
-        self.coorb = np.zeros(self.coor.shape)
+            # Initialize curves
+            tst.initialize_curves(self, sectionDict, selectedSections)
 
-        # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
-        tst.initialize_surface(self)
+            # Now we remove unused points
+            self.coor, usedPtsMask = tst.remove_unused_points(self.coor, triaConnF=self.triaConnF, quadsConnF=self.quadsConnF)
+
+            # Create arrays to store derivative seeds
+            self.coord = np.zeros(self.coor.shape)
+            self.coorb = np.zeros(self.coor.shape)
+
+            # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
+            tst.initialize_surface(self)
 
     def rename(self, name):
         '''
         Renames the current surface object.
         '''
-        # Deallocate previous tree
-        adtAPI.adtapi.adtdeallocateadts(self.name)
 
-        # Update name
-        self.name = name
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Reinitialize ADT with new name
-        tst.update_surface(self)
+            # Deallocate previous tree
+            adtAPI.adtapi.adtdeallocateadts(self.name)
+
+            # Update name
+            self.name = name
+
+            # Reinitialize ADT with new name
+            tst.update_surface(self)
 
     def add_curve(self, curve):
         '''
         Adds a given curve instance to the self.curves dictionary.
         '''
 
-        self.curves[curve.name] = copy.deepcopy(curve)
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            self.curves[curve.name] = copy.deepcopy(curve)
 
     def remove_curve(self, name):
         '''
         Removes a given curve instance from the self.curves dictionary.
         '''
 
-        self.curves.pop(name)
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            self.curves.pop(name)
 
     def rename_curve(self, oldName, newName):
         '''
         Renames a given curve instance to the self.curves dictionary.
         '''
 
-        self.curves[newName] = self.curves.pop(oldName)
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            self.curves[newName] = self.curves.pop(oldName)
 
     def update(self, coor=None):
 
@@ -135,39 +154,54 @@ class TSurfGeometry(Geometry):
         This function updates the nodal coordinates used by the surface object.
         '''
 
-        if coor is not None:
+        # Only the root proc will work here
+        if self.myID == 0:
 
-            # First check if we have the same number of new coordinates
-            if not self.coor.shape == coor.shape:
-                print ''
-                print 'WARNING: self.update in TSurfGeometry class'
-                print '         The new set of coordinates does not have the'
-                print '         same number of points as the original set.'
-                print ''
+            if coor is not None:
 
-            # Update coordinates
-            self.coor = coor.copy()
+                # First check if we have the same number of new coordinates
+                if not self.coor.shape == coor.shape:
+                    print ''
+                    print 'WARNING: self.update in TSurfGeometry class'
+                    print '         The new set of coordinates does not have the'
+                    print '         same number of points as the original set.'
+                    print ''
 
-        # Update surface definition
-        tst.update_surface(self)
+                # Update coordinates
+                self.coor = coor.copy()
+
+            # Update surface definition
+            tst.update_surface(self)
 
     def translate(self, x, y, z):
-        tst.translate(self, x, y, z)
-        tst.update_surface(self)
-        for curve in self.curves.itervalues():
-            curve.translate(x, y, z)
+
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            tst.translate(self, x, y, z)
+            tst.update_surface(self)
+            for curve in self.curves.itervalues():
+                curve.translate(x, y, z)
 
     def scale(self, factor):
-        tst.scale(self, factor)
-        tst.update_surface(self)
-        for curve in self.curves.itervalues():
-            curve.scale(factor)
+
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            tst.scale(self, factor)
+            tst.update_surface(self)
+            for curve in self.curves.itervalues():
+                curve.scale(factor)
 
     def rotate(self, angle, axis, point=None):
-        tst.rotate(self, angle, axis, point)
-        tst.update_surface(self)
-        for curve in self.curves.itervalues():
-            curve.rotate(angle, axis, point)
+
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            tst.rotate(self, angle, axis, point)
+            tst.update_surface(self)
+            for curve in self.curves.itervalues():
+                curve.rotate(angle, axis, point)
 
     #===========================================================#
     # SURFACE PROJECTION METHODS
@@ -935,175 +969,13 @@ class TSurfGeometry(Geometry):
         Ney Secco 2017-02
         '''
 
-        # Call the function that export FE data
-        # we add -1 here to convert from Fortran to Python ordering
-        # THe Tecplot function shouldn't assume we have Fortran ordered data.
-        tecplot_interface.writeTecplotSurfaceFEData(self.coor, self.triaConnF - 1, self.quadsConnF - 1, self.name, fileName)
+        # Only the root proc will work here
+        if self.myID == 0:
 
-
-    #===========================================================#
-    # MANIPULATOR INTERFACE METHODS
-
-    def _assign_manipulator(self):
-
-        '''
-        This is a method that should be implemented in the derived classes in order to
-        do the specialized assignment of points to the geometry manipulator object.
-
-        At this step, we already know that self.manipulator is already set.
-
-        Ney Secco 2017-02
-        '''
-
-        # Generate name for the triangulated surface point set
-        ptSetName = self.name + ':surfNodes'
-
-        # Assing the triangulated surface nodes to the geometry manipulator
-        print 'Assigning surface nodes from ',self.name,' to the manipulator'
-        coor = self.get_points()
-        self.manipulator.addPointSet(coor, ptSetName)
-        print 'Done'
-
-        # Store the set name for future uses
-        self.ptSetName = ptSetName
-
-        # Now we need to assign every curve to the manipulator as well
-        for curveName in self.curves:
-
-            # Generate name for the curve point set
-            ptSetName = self.name + ':curveNodes:' + curveName
-
-            # Assign curve nodes to the geometry manipulator
-            print 'Assigning nodes from curve ',curveName,' to the manipulator'
-            coor = self.curves[curveName].get_points()
-            self.manipulator.addPointSet(coor, ptSetName)
-            print 'Done'
-
-            # Store the set name for future uses
-            self.curves[curveName].ptSetName = ptSetName
-
-        # Assign surface mesh node if we already have one
-        if self.meshFileName is not None:
-            self.embed_mesh_points()
-
-    def manipulator_update(self):
-
-        '''
-        This method will call the update functions from the manipulator object accordingly
-        to update the geometry based on the new set of design variables.
-
-        Some geometry manipulators (such as DVGeo) do not have a general update function to
-        update all embedded points at once. So we need this separate class to call the update
-        function as many times as needed, based on the internal structured of the derived
-        geometry class.
-
-        Ney Secco 2017-02
-
-        I NEED TO FIX ALL COOR.T SO THAT WE CAN BRING THIS TO THE BASECLASS DEFINITION
-        '''
-
-        # Update triangulated surface nodes
-        print 'Updating surface nodes from ',self.name
-        coor = self.manipulator.update(self.ptSetName)
-        self.set_points(coor)
-        print 'Done'
-
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            coor = self.manipulator.update(self.curves[curveName].ptSetName)
-            self.curves[curveName].set_points(coor)
-            print 'Done'
-
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            self.meshObj.set_points(self.manipulator.update(self.meshPtSetName))
-            print 'Done'
-
-    def manipulator_forwardAD(self, xDVd):
-
-        '''
-        This method uses forward AD to propagate derivative seeds from the design
-        variables to the surface mesh coordinates.
-
-        xDVd : dictionary whose keys are the design variable names, and whose
-               values are the derivative seeds of the corresponding design variable.
-        '''
-
-        # Print log
-        print ''
-        print 'Forward AD call to manipulator of ',self.name,' object'
-
-        # Update triangulated surface nodes
-        print 'Updating surface nodes from ',self.name
-        coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
-        #self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
-        self.set_forwardADSeeds(coord=coord)
-        print 'Done'
-
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
-            #self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
-            self.curves[curveName].set_forwardADSeeds(coord)
-            print 'Done'
-
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            coord = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
-            #self.meshObj.set_forwardADSeeds(coord.reshape((-1,3)))
-            self.meshObj.set_forwardADSeeds(coord)
-            print 'Done'
-
-    def manipulator_reverseAD(self, xDVb, clean=True):
-
-        '''
-        This method uses reverse AD to propagate derivative seeds from the surface mesh
-        coordinates to the design variables.
-
-        xDVb : dictionary whose keys are the design variable names, and whose
-               values are the derivative seeds of the corresponding design variable.
-               This function will acuumulate the derivative seeds contained in xDVb.
-        '''
-
-        # Print log
-        print ''
-        print 'Reverse AD call to manipulator of ',self.name,' object'
-
-        # Get derivative seeds
-        if self.meshPtSetName is not None:
-            coorb, curveCoorb, meshCoorb = self.get_reverseADSeeds(clean=clean)
-        else:
-            coorb, curveCoorb = self.get_reverseADSeeds(clean=clean)
-
-        # Update triangulated surface nodes
-        print 'Updating triangulated surface nodes from ',self.name
-        xDVb_curr = self.manipulator.totalSensitivity(coorb, self.ptSetName)
-        accumulate_dict(xDVb, xDVb_curr)
-        print 'Done'
-
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName], self.curves[curveName].ptSetName)
-            accumulate_dict(xDVb, xDVb_curr)
-            print 'Done'
-
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            xDVb_curr = self.manipulator.totalSensitivity(meshCoorb, self.meshPtSetName)
-            accumulate_dict(xDVb, xDVb_curr)
-            print 'Done'
+            # Call the function that export FE data
+            # we add -1 here to convert from Fortran to Python ordering
+            # The Tecplot function shouldn't assume we have Fortran ordered data.
+            tecplot_interface.writeTecplotSurfaceFEData(self.coor, self.triaConnF - 1, self.quadsConnF - 1, self.name, fileName)
 
 #=============================================================
 #=============================================================
@@ -2546,15 +2418,3 @@ def closest_node(guideCurve, curve):
             minDist = np.min(dist_2)
             ind = np.argmin(dist_2)
     return ind
-
-def accumulate_dict(majorDict, minorDict):
-
-    '''
-    This function will loop over all keys of minorDict. If majorDict
-    shares the same key, then we will accumulate (add) the values into
-    majorDict.
-    '''
-
-    for key in minorDict:
-        if key in majorDict.keys():
-            majorDict[key] = majorDict[key] + minorDict[key]
