@@ -65,6 +65,31 @@ class TSurfGeometry(Geometry):
         # Assign proc ID
         self.myID = self.comm.Get_rank()
 
+        # SERIALIZATION
+        # Here we create a new communicator just for the root proc because TSurf currently runs in
+        # a single proc.
+        comm = MPI.COMM_WORLD
+
+        # Create colors so that only the root proc is the worker
+        if comm.Get_rank() == 0:
+            color = 0
+        else:
+            color = MPI.UNDEFINED
+
+        newComm = comm.Split(color)
+        
+        self.comm = newComm
+
+        # Assign component name based on its CGNS file
+        self.name = os.path.splitext(os.path.basename(filename))[0]
+
+        # Select all section names in case the user provided none
+        if selectedSections is None:
+            selectedSections = sectionDict.keys()
+        else:
+            # We create a custom name if the user selected a subgroup of sections
+            self.name = self.name + "__" + "_".join(selectedSections)
+
         # Only the root proc will work here
         if self.myID == 0:
 
@@ -76,13 +101,6 @@ class TSurfGeometry(Geometry):
 
             # Read CGNS file
             self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
-            self.name = os.path.splitext(os.path.basename(filename))[0]
-
-            # Select all section names in case the user provided none
-            if selectedSections is None:
-                selectedSections = sectionDict.keys()
-            else:
-                self.name = self.name + "__" + "_".join(selectedSections)
 
             # Now we call an auxiliary function to merge selected surface sections in a single
             # connectivity array

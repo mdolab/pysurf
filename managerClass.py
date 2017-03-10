@@ -4,6 +4,7 @@ from mpi4py import MPI
 import pysurf
 from collections import OrderedDict
 import os
+from cgnsutilities import cgns_utils as cs
 
 class Manager(object):
 
@@ -28,6 +29,21 @@ class Manager(object):
 
         # Save ID of the current proc
         self.myID = self.comm.Get_rank()
+
+        # SERIALIZATION
+        # Here we create a new communicator just for the root proc because TSurf currently runs in
+        # a single proc.
+        comm = MPI.COMM_WORLD
+
+        # Create colors so that only the root proc is the worker
+        if comm.Get_rank() == 0:
+            color = 0
+        else:
+            color = MPI.UNDEFINED
+
+        newComm = comm.Split(color)
+        
+        self.commSingle = newComm
 
         # Define dictionary that will hold all geometries
         self.geoms = OrderedDict()
@@ -142,7 +158,7 @@ class Manager(object):
 
     #---------
 
-    def clear_all(self):
+    def clean_all(self):
 
         '''
         This method will clear all intersections, meshes, and tasks of the current manager,
@@ -192,11 +208,15 @@ class Manager(object):
         This is usually guaranteed since this method is called from self.update.
         '''
 
-        # Clean previous data
-        self.clear_all()
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Call base function to operate on the manager itself
-        self.baseFunction(self)
+            # Clean previous data
+            self.clean_all()
+            self.clean_reverseADSeeds()
+
+            # Call base function to operate on the manager itself
+            self.baseFunction(self)
 
     def initialize(self, directory, backgroundMeshInfo=None):
 
@@ -219,8 +239,11 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
-        # Run base function to generate surface meshes
-        self.run_baseFunction()
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            # Run base function to generate surface meshes
+            self.run_baseFunction()
 
         # Extrude meshes
         combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo)
@@ -258,156 +281,162 @@ class Manager(object):
         This step will execute forward AD for all steps stored in self.tasks.
         '''
 
-        print ''
-        print '================================================='
-        print 'Starting forward AD pass'
-        print ''
-
-        # Get the number of tasks
-        numTasks = int(len(self.tasks))
-
-        # Execute forward AD for every task
-        for taskID in range(numTasks):
-
-            # Get the name and the arguments of the task
-            task = self.tasks[taskID]
-            taskName = task[0]
-            taskArg = task[1:]
+        # Only the root proc will work here
+        if self.myID == 0:
 
             print ''
-            print 'forwardAD task'
-            print taskName
-            print taskArg
+            print '================================================='
+            print 'Starting forward AD pass'
             print ''
 
-            # Run the corresponding AD code
-            if taskName == 'intersect':
+            # Get the number of tasks
+            numTasks = int(len(self.tasks))
 
-                # Get arguments
-                distTol = taskArg[0]
-                intCurveNames = taskArg[1]
+            # Execute forward AD for every task
+            for taskID in range(numTasks):
 
-                # Run the AD code
-                self._intersect_d(distTol, intCurveNames)
+                # Get the name and the arguments of the task
+                task = self.tasks[taskID]
+                taskName = task[0]
+                taskArg = task[1:]
 
-            if taskName == 'remesh_intCurve':
+                print ''
+                print 'forwardAD task'
+                print taskName
+                print taskArg
+                print ''
 
-                # Get arguments
-                newCurveName = taskArg[0]
-                curveName = taskArg[1]
-                optionsDict = taskArg[2]
+                # Run the corresponding AD code
+                if taskName == 'intersect':
 
-                # Run the AD code
-                self._remesh_intCurve_d(newCurveName, curveName, optionsDict)
+                    # Get arguments
+                    distTol = taskArg[0]
+                    intCurveNames = taskArg[1]
 
-            if taskName == 'split_intCurve':
+                    # Run the AD code
+                    self._intersect_d(distTol, intCurveNames)
 
-                # Get arguments
-                curveName = taskArg[0]
-                childrenName = taskArg[1]
+                if taskName == 'remesh_intCurve':
 
-                # Run the AD code
-                self._split_intCurve_d(curveName, childrenName)
+                    # Get arguments
+                    newCurveName = taskArg[0]
+                    curveName = taskArg[1]
+                    optionsDict = taskArg[2]
 
-            if taskName == 'merge_intCurves':
+                    # Run the AD code
+                    self._remesh_intCurve_d(newCurveName, curveName, optionsDict)
 
-                # Get arguments
-                curveNames = taskArg[0]
-                mergedCurveName = taskArg[1]
+                if taskName == 'split_intCurve':
 
-                # Run the AD code
-                self._merge_intCurves_d(curveNames, mergedCurveName)
+                    # Get arguments
+                    curveName = taskArg[0]
+                    childrenName = taskArg[1]
 
-            if taskName == 'march_intCurve_surfaceMesh':
+                    # Run the AD code
+                    self._split_intCurve_d(curveName, childrenName)
 
-                # Get arguments
-                curveName = taskArg[0]
+                if taskName == 'merge_intCurves':
 
-                # Run the AD code
-                self._march_intCurve_surfaceMesh_d(curveName)
+                    # Get arguments
+                    curveNames = taskArg[0]
+                    mergedCurveName = taskArg[1]
 
-        print ''
-        print 'Finished forward AD pass'
-        print '================================================='
-        print ''
+                    # Run the AD code
+                    self._merge_intCurves_d(curveNames, mergedCurveName)
+
+                if taskName == 'march_intCurve_surfaceMesh':
+
+                    # Get arguments
+                    curveName = taskArg[0]
+
+                    # Run the AD code
+                    self._march_intCurve_surfaceMesh_d(curveName)
+
+            print ''
+            print 'Finished forward AD pass'
+            print '================================================='
+            print ''
 
     def reverseAD(self):
         '''
         This step will execute reverse AD for all steps stored in self.tasks.
         '''
 
-        print ''
-        print '================================================='
-        print 'Starting reverse AD pass'
-        print ''
-
-        # Get the number of tasks
-        numTasks = int(len(self.tasks))
-
-        # Execute reverse AD for every task (in reverse order)
-        for taskID in reversed(range(numTasks)):
-
-            # Get the name and the arguments of the task
-            task = self.tasks[taskID]
-            taskName = task[0]
-            taskArg = task[1:]
+        # Only the root proc will work here
+        if self.myID == 0:
 
             print ''
-            print 'reverseAD task'
-            print taskName
-            print taskArg
+            print '================================================='
+            print 'Starting reverse AD pass'
             print ''
 
-            # Run the corresponding AD code
-            if taskName == 'intersect':
+            # Get the number of tasks
+            numTasks = int(len(self.tasks))
 
-                # Get arguments
-                distTol = taskArg[0]
-                intCurveNames = taskArg[1]
+            # Execute reverse AD for every task (in reverse order)
+            for taskID in reversed(range(numTasks)):
 
-                # Run the AD code
-                self._intersect_b(distTol, intCurveNames)
+                # Get the name and the arguments of the task
+                task = self.tasks[taskID]
+                taskName = task[0]
+                taskArg = task[1:]
 
-            if taskName == 'remesh_intCurve':
+                print ''
+                print 'reverseAD task'
+                print taskName
+                print taskArg
+                print ''
 
-                # Get arguments
-                newCurveName = taskArg[0]
-                curveName = taskArg[1]
-                optionsDict = taskArg[2]
+                # Run the corresponding AD code
+                if taskName == 'intersect':
 
-                # Run the AD code
-                self._remesh_intCurve_b(newCurveName, curveName, optionsDict)
+                    # Get arguments
+                    distTol = taskArg[0]
+                    intCurveNames = taskArg[1]
 
-            if taskName == 'split_intCurve':
+                    # Run the AD code
+                    self._intersect_b(distTol, intCurveNames)
 
-                # Get arguments
-                curveName = taskArg[0]
-                childrenName = taskArg[1]
+                if taskName == 'remesh_intCurve':
 
-                # Run the AD code
-                self._split_intCurve_b(curveName, childrenName)
+                    # Get arguments
+                    newCurveName = taskArg[0]
+                    curveName = taskArg[1]
+                    optionsDict = taskArg[2]
 
-            if taskName == 'merge_intCurves':
+                    # Run the AD code
+                    self._remesh_intCurve_b(newCurveName, curveName, optionsDict)
 
-                # Get arguments
-                curveNames = taskArg[0]
-                mergedCurveName = taskArg[1]
+                if taskName == 'split_intCurve':
 
-                # Run the AD code
-                self._merge_intCurves_b(curveNames, mergedCurveName)
+                    # Get arguments
+                    curveName = taskArg[0]
+                    childrenName = taskArg[1]
 
-            if taskName == 'march_intCurve_surfaceMesh':
+                    # Run the AD code
+                    self._split_intCurve_b(curveName, childrenName)
 
-                # Get arguments
-                curveName = taskArg[0]
+                if taskName == 'merge_intCurves':
 
-                # Run the AD code
-                self._march_intCurve_surfaceMesh_b(curveName)
+                    # Get arguments
+                    curveNames = taskArg[0]
+                    mergedCurveName = taskArg[1]
 
-        print ''
-        print 'Finished reverse AD pass'
-        print '================================================='
-        print ''
+                    # Run the AD code
+                    self._merge_intCurves_b(curveNames, mergedCurveName)
+
+                if taskName == 'march_intCurve_surfaceMesh':
+
+                    # Get arguments
+                    curveName = taskArg[0]
+
+                    # Run the AD code
+                    self._march_intCurve_surfaceMesh_b(curveName)
+
+            print ''
+            print 'Finished reverse AD pass'
+            print '================================================='
+            print ''
 
     def clean_reverseADSeeds(self):
 
@@ -440,69 +469,72 @@ class Manager(object):
         generating the intersection finite element data.
         '''
 
-        # Generate list of geometry names if user provided None
-        if geomList == None:
-            geomList = self.geoms.keys()
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Make list of geometry objects
-        geomObjList = []
+            # Generate list of geometry names if user provided None
+            if geomList == None:
+                geomList = self.geoms.keys()
 
-        for geomName in self.geoms:
-            
-            # Detect if the user want to use the current geometry
-            if geomName in geomList:
+            # Make list of geometry objects
+            geomObjList = []
 
-                # Add the corresponding geometry object to the list
-                geomObjList.append(self.geoms[geomName])
+            for geomName in self.geoms:
 
-        # Get number of components
-        numGeometries = len(geomObjList)
+                # Detect if the user want to use the current geometry
+                if geomName in geomList:
 
-        # Stop if user gives only one component
-        if numGeometries < 2:
-            print 'ERROR: Cannot compute intersections with just one component'
-            quit()
+                    # Add the corresponding geometry object to the list
+                    geomObjList.append(self.geoms[geomName])
 
-        # Initialize number of curves computed so far
-        numCurves = 0
+            # Get number of components
+            numGeometries = len(geomObjList)
 
-        # Initialize list of intersection curve names
-        intCurveNames = []
+            # Stop if user gives only one component
+            if numGeometries < 2:
+                print 'ERROR: Cannot compute intersections with just one component'
+                quit()
 
-        # Call intersection function for each pair
-        for ii in range(numGeometries):
-            for jj in range(ii+1,numGeometries):
+            # Initialize number of curves computed so far
+            numCurves = 0
 
-                # Gather names of parent components
-                name1 = geomObjList[ii].name
-                name2 = geomObjList[jj].name
+            # Initialize list of intersection curve names
+            intCurveNames = []
 
-                # Compute new intersections for the current pair
-                newIntersections = geomObjList[ii].intersect(geomObjList[jj],distTol=distTol)
+            # Call intersection function for each pair
+            for ii in range(numGeometries):
+                for jj in range(ii+1,numGeometries):
 
-                # Append new curve objects to the dictionary
-                for curve in newIntersections:
+                    # Gather names of parent components
+                    name1 = geomObjList[ii].name
+                    name2 = geomObjList[jj].name
 
-                    # Increment curve counter
-                    numCurves = numCurves+1
+                    # Compute new intersections for the current pair
+                    newIntersections = geomObjList[ii].intersect(geomObjList[jj],distTol=distTol)
 
-                    # Add curve name to the list
-                    intCurveNames.append(curve.name)
+                    # Append new curve objects to the dictionary
+                    for curve in newIntersections:
 
-                    # Store name of parent components
-                    curve.extra_data['parentGeoms'] = [name1, name2]
+                        # Increment curve counter
+                        numCurves = numCurves+1
 
-                    # Add curve to the manager object
-                    self.add_curve(curve)
+                        # Add curve name to the list
+                        intCurveNames.append(curve.name)
 
-        # Print log
-        print 'Computed',numCurves,'intersection curves.'
+                        # Store name of parent components
+                        curve.extra_data['parentGeoms'] = [name1, name2]
 
-        # Save the current task and its argument
-        self.tasks.append(['intersect', distTol, intCurveNames])
+                        # Add curve to the manager object
+                        self.add_curve(curve)
 
-        # Return the names of the intersection curves
-        return intCurveNames
+            # Print log
+            print 'Computed',numCurves,'intersection curves.'
+
+            # Save the current task and its argument
+            self.tasks.append(['intersect', distTol, intCurveNames])
+
+            # Return the names of the intersection curves
+            return intCurveNames
 
     def _intersect_d(self, distTol, intCurveNames):
 
@@ -561,36 +593,39 @@ class Manager(object):
         the surface meshes for intersections.
         '''
 
-        if curveName in self.intCurves.keys():
+        # Only the root proc will work here
+        if self.myID == 0:
 
-            newCurve = self.intCurves[curveName].remesh(**optionsDict)
+            if curveName in self.intCurves.keys():
 
-            # Store information regarding the parent curve (the one that was remeshed to get the new curve)
-            newCurve.extra_data['parentCurve'] = self.intCurves[curveName].name
+                newCurve = self.intCurves[curveName].remesh(**optionsDict)
 
-            # Rename the new curve
-            newCurveName = newCurve.name
+                # Store information regarding the parent curve (the one that was remeshed to get the new curve)
+                newCurve.extra_data['parentCurve'] = self.intCurves[curveName].name
 
-            # Assign intersection history
-            if inheritParentGeoms:
-                if self.intCurves[curveName].extra_data['parentGeoms'] is not None:
-                    newCurve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
+                # Rename the new curve
+                newCurveName = newCurve.name
+
+                # Assign intersection history
+                if inheritParentGeoms:
+                    if self.intCurves[curveName].extra_data['parentGeoms'] is not None:
+                        newCurve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
+                    else:
+                        newCurve.extra_data['parentGeoms'] = None
                 else:
-                    newCurve.extra_data['parentGeoms'] = None
+                    newCurve.extra_data['parentGeoms'] = []
+
+                # Add the new curve to the intersection list
+                self.add_curve(newCurve)
+
+                # Save task information
+                self.tasks.append(['remesh_intCurve',newCurveName,curveName,optionsDict])
+
             else:
-                newCurve.extra_data['parentGeoms'] = []
+                raise NameError('Cannot remesh curve '+curveName+'. Curve not defined.')
 
-            # Add the new curve to the intersection list
-            self.add_curve(newCurve)
-
-            # Save task information
-            self.tasks.append(['remesh_intCurve',newCurveName,curveName,optionsDict])
-
-        else:
-            raise NameError('Cannot remesh curve '+curveName+'. Curve not defined.')
-
-        # Return the name of the new curve
-        return newCurveName
+            # Return the name of the new curve
+            return newCurveName
 
     def _remesh_intCurve_d(self, newCurveName, curveName, optionsDict):
         '''
@@ -671,31 +706,34 @@ class Manager(object):
         the surface meshes for intersections.
         '''
         
-        if curveName in self.intCurves.keys():
+        # Only the root proc will work here
+        if self.myID == 0:
 
-            # Call split function
-            splitCurvesDict = self.intCurves[curveName].split(optionsDict, criteria)
+            if curveName in self.intCurves.keys():
 
-            # Add new curves to the manager's dictionary
-            for curve in splitCurvesDict.itervalues():
+                # Call split function
+                splitCurvesDict = self.intCurves[curveName].split(optionsDict, criteria)
 
-                # Assign parents if necessary
-                if inheritParentGeoms:
-                    if self.intCurves[curveName].extra_data['parentGeoms'] is not None:
-                        curve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
-                    else:
-                        curve.extra_data['parentGeoms'] = None                        
+                # Add new curves to the manager's dictionary
+                for curve in splitCurvesDict.itervalues():
 
-                self.add_curve(curve)
+                    # Assign parents if necessary
+                    if inheritParentGeoms:
+                        if self.intCurves[curveName].extra_data['parentGeoms'] is not None:
+                            curve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
+                        else:
+                            curve.extra_data['parentGeoms'] = None                        
 
-            # Save this task
-            self.tasks.append(['split_intCurve',curveName,splitCurvesDict.keys()])
+                    self.add_curve(curve)
 
-        else:
-            raise NameError('Cannot split curve '+curveName+'. Curve not defined.')
+                # Save this task
+                self.tasks.append(['split_intCurve',curveName,splitCurvesDict.keys()])
 
-        # Return the names of the new curves
-        return splitCurvesDict.keys()
+            else:
+                raise NameError('Cannot split curve '+curveName+'. Curve not defined.')
+
+            # Return the names of the new curves
+            return splitCurvesDict.keys()
 
     def _split_intCurve_d(self, curveName, childrenNames):
         '''
@@ -753,25 +791,28 @@ class Manager(object):
         curve that was merged
         '''
 
-        # Get the name of the first curve
-        mainCurveName = curveNames[0]
-        mainCurve = self.intCurves[mainCurveName]
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Call the mesh function from the main curve
-        mergedCurve = mainCurve.merge(self.intCurves, mergedCurveName, curveNames[1:])
+            # Get the name of the first curve
+            mainCurveName = curveNames[0]
+            mainCurve = self.intCurves[mainCurveName]
 
-        # Check if we need to inherit parent geometry surfaces
-        if inheritParentGeoms:
-            if mainCurve.extra_data['parentGeoms'] is not None:
-                mergedCurve.extra_data['parentGeoms'] = mainCurve.extra_data['parentGeoms'][:]
-            else:
-                mergedCurve.extra_data['parentGeoms'] = None
+            # Call the mesh function from the main curve
+            mergedCurve = mainCurve.merge(self.intCurves, mergedCurveName, curveNames[1:])
 
-        # Add the new curve to the manager's list
-        self.add_curve(mergedCurve)
+            # Check if we need to inherit parent geometry surfaces
+            if inheritParentGeoms:
+                if mainCurve.extra_data['parentGeoms'] is not None:
+                    mergedCurve.extra_data['parentGeoms'] = mainCurve.extra_data['parentGeoms'][:]
+                else:
+                    mergedCurve.extra_data['parentGeoms'] = None
 
-        # Save current task
-        self.tasks.append(['merge_intCurves',curveNames,mergedCurveName])
+            # Add the new curve to the manager's list
+            self.add_curve(mergedCurve)
+
+            # Save current task
+            self.tasks.append(['merge_intCurves',curveNames,mergedCurveName])
 
     def _merge_intCurves_d(self, curveNames, mergedCurveName):
 
@@ -817,64 +858,67 @@ class Manager(object):
         intersection curve.
         '''
 
-        # Create a mesh name if the user provided none
-        if meshName is None:
-            meshName = 'mesh_'+curveName
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Get pointer to the seed curve
-        curve = self.intCurves[curveName]
+            # Create a mesh name if the user provided none
+            if meshName is None:
+                meshName = 'mesh_'+curveName
 
-        # Get geometry objects to march the mesh on
-        parentGeoms = curve.extra_data['parentGeoms']
+            # Get pointer to the seed curve
+            curve = self.intCurves[curveName]
 
-        if parentGeoms is None:
-            raise NameError('The curve does not have parent geometries. Cannot march meshes. Try using manager.set_intCurve_parentGeoms')
+            # Get geometry objects to march the mesh on
+            parentGeoms = curve.extra_data['parentGeoms']
 
-        # Create hypsurf objects for the two sides of the mesh
+            if parentGeoms is None:
+                raise NameError('The curve does not have parent geometries. Cannot march meshes. Try using manager.set_intCurve_parentGeoms')
 
-        # Create first mesh
-        meshGen0 = pysurf.hypsurf.HypSurfMesh(curve,
-                                              self.geoms[parentGeoms[0]],
-                                              options0,
-                                              meshName+'_0')
+            # Create hypsurf objects for the two sides of the mesh
 
-        #meshGen0.test_all()
-        #quit()
+            # Create first mesh
+            meshGen0 = pysurf.hypsurf.HypSurfMesh(curve,
+                                                  self.geoms[parentGeoms[0]],
+                                                  options0,
+                                                  meshName+'_0')
 
-        meshGen0.createMesh()
+            #meshGen0.test_all()
+            #quit()
 
-        # Save the extrusion options into the first mesh object
-        meshGen0.meshObj.extrusionOptions = extrusionOptions
+            meshGen0.createMesh()
 
-        # Flip the curve
-        curve.flip()
+            # Save the extrusion options into the first mesh object
+            meshGen0.meshObj.extrusionOptions = extrusionOptions
 
-        # March the second mesh
-        meshGen1 = pysurf.hypsurf.HypSurfMesh(curve,
-                                              self.geoms[parentGeoms[1]],
-                                              options1,
-                                              meshName+'_1')
+            # Flip the curve
+            curve.flip()
 
-        meshGen1.createMesh()
+            # March the second mesh
+            meshGen1 = pysurf.hypsurf.HypSurfMesh(curve,
+                                                  self.geoms[parentGeoms[1]],
+                                                  options1,
+                                                  meshName+'_1')
 
-        # Unflip the curve
-        curve.flip()
+            meshGen1.createMesh()
 
-        # Store meshes under the manager
-        self.add_meshGenerator(meshGen0)
-        self.add_meshGenerator(meshGen1)
+            # Unflip the curve
+            curve.flip()
 
-        # Get names of the new meshes
-        meshNames = [meshGen0.name, meshGen1.name]
+            # Store meshes under the manager
+            self.add_meshGenerator(meshGen0)
+            self.add_meshGenerator(meshGen1)
 
-        # Store these names into the curve object
-        curve.extra_data['childMeshes'] = meshNames
+            # Get names of the new meshes
+            meshNames = [meshGen0.name, meshGen1.name]
 
-        # Store this task info
-        self.tasks.append(['march_intCurve_surfaceMesh',curveName])
+            # Store these names into the curve object
+            curve.extra_data['childMeshes'] = meshNames
 
-        # Return names of the new meshes
-        return meshNames
+            # Store this task info
+            self.tasks.append(['march_intCurve_surfaceMesh',curveName])
+
+            # Return names of the new meshes
+            return meshNames
 
     def _march_intCurve_surfaceMesh_d(self, curveName):
 
@@ -931,67 +975,70 @@ class Manager(object):
         fileNameTag: string -> Optional tag to append to the file names.
         '''
 
-        # Print log
-        print ''
-        print 'Exporting surface meshes'
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Add a slash if the directory does not have it
-        if directory[-1] != '/':
-            directory = directory + '/'
+            # Print log
+            print ''
+            print 'Exporting surface meshes'
 
-        # Initialize counters
-        primaryID = 0
-        collarID = 0
+            # Add a slash if the directory does not have it
+            if directory[-1] != '/':
+                directory = directory + '/'
 
-        # First we will export the primary geometry meshes
-        for geom in self.geoms.itervalues():
-            
-            # Check if the component has an associated surface mesh
-            if geom.meshObj is not None:
+            # Initialize counters
+            primaryID = 0
+            collarID = 0
 
-                # Generate file name
-                fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
+            # First we will export the primary geometry meshes
+            for geom in self.geoms.itervalues():
 
-                # Export mesh
-                geom.meshObj.export_plot3d(fileName)
+                # Check if the component has an associated surface mesh
+                if geom.meshObj is not None:
 
-                # Increment counter
-                primaryID = primaryID + 1
+                    # Generate file name
+                    fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
 
-                # Print log
-                print 'Exported primary mesh for',geom.name
+                    # Export mesh
+                    geom.meshObj.export_plot3d(fileName)
 
-        # Now we will export the collar meshes
-        for curve in self.intCurves.itervalues():
-            
-            # Verify if this curve was used to generate collar meshes
-            if curve.extra_data['childMeshes'] is not None:
+                    # Increment counter
+                    primaryID = primaryID + 1
 
-                # Generate file name
-                fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
+                    # Print log
+                    print 'Exported primary mesh for',geom.name
 
-                # Merge different meshes that make up a single collar
-                meshList = []
-                for meshName in curve.extra_data['childMeshes']:
+            # Now we will export the collar meshes
+            for curve in self.intCurves.itervalues():
 
-                    # Get reference to a mesh object with part of the collar
-                    meshObj = self.meshGenerators[meshName].meshObj
-                    meshList.append(meshObj)
+                # Verify if this curve was used to generate collar meshes
+                if curve.extra_data['childMeshes'] is not None:
 
-                mergedMesh = pysurf.mesh_tools.merge_meshes('mergedMesh', meshList)
+                    # Generate file name
+                    fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
 
-                # Export mesh
-                mergedMesh.export_plot3d(fileName)
+                    # Merge different meshes that make up a single collar
+                    meshList = []
+                    for meshName in curve.extra_data['childMeshes']:
 
-                # Increment counter
-                collarID = collarID + 1
+                        # Get reference to a mesh object with part of the collar
+                        meshObj = self.meshGenerators[meshName].meshObj
+                        meshList.append(meshObj)
 
-                # Print log
-                print 'Exported collar mesh for',curve.name
+                    mergedMesh = pysurf.mesh_tools.merge_meshes('mergedMesh', meshList)
 
-        # Print log
-        print 'Exported all meshes!'
-        print ''
+                    # Export mesh
+                    mergedMesh.export_plot3d(fileName)
+
+                    # Increment counter
+                    collarID = collarID + 1
+
+                    # Print log
+                    print 'Exported collar mesh for',curve.name
+
+            # Print log
+            print 'Exported all meshes!'
+            print ''
 
     def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=''):
 
@@ -1008,7 +1055,7 @@ class Manager(object):
         backgroundMeshInfo: list or dict -> List containing filenames of the background
         meshes that should be appended to the combined CGNS file. The user could also
         provide a dictionary of options to use cgns_utils simpleOCart to generate a new
-        background mesh. THe dictionary fields should be:
+        background mesh. The dictionary fields should be:
            dh          Uniform cartesian spacing size
            hExtra      Extension in "O" dimension
            nExtra      Number of nodes to use for extension
@@ -1073,7 +1120,7 @@ class Manager(object):
                 extrusionOptions['fileType'] = 'plot3d'
 
                 # Extrude mesh
-                hyp = pyHyp(options=extrusionOptions)
+                hyp = pyHyp(options=extrusionOptions, comm=self.commSingle)
                 hyp.run()
                 hyp.writeCGNS(volFileName)
 
@@ -1107,7 +1154,7 @@ class Manager(object):
                 extrusionOptions['fileType'] = 'plot3d'
 
                 # Extrude mesh
-                hyp = pyHyp(options=extrusionOptions)
+                hyp = pyHyp(options=extrusionOptions, comm=self.commSingle)
                 hyp.run()
                 hyp.writeCGNS(volFileName)
 
@@ -1126,9 +1173,24 @@ class Manager(object):
 
         ### ADDING BACKGROUND MESHES
 
-        # First let's combine the near-field meshes in a single file
-        nearFieldFileName = directory + 'near_field_meshes.cgns'
-        os.system('cgns_utils combine ' + ' '.join(volFileList) + ' ' + nearFieldFileName)
+        # Only the root proc will work here
+        if self.myID == 0:
+
+            ### First let's combine the near-field meshes in a single file
+
+            # Initialize list of nearfield meshes
+            nearfieldMeshes = []
+            
+            # Load files with CGNS utils
+            for fileName in volFileList:
+                nearfieldMeshes.append(cs.readGrid(fileName))
+
+            # Combine grids in a single one
+            nearfieldCombo = cs.combineGrids(nearfieldMeshes)
+
+            # Save it in a single file
+            nearfieldFilename = directory + 'near_field_meshes.cgns'
+            nearfieldCombo.writeToCGNS(nearfieldFilename)
 
         # Check for background meshes
         if backgroundMeshInfo is None:
@@ -1164,45 +1226,67 @@ class Manager(object):
                 else:
                     bg_options[key] = backgroundMeshInfo[key]
 
-            # Now run cgns_utils simpleOCart to generate the background mesh
-            command = 'cgns_utils simpleOCart ' + directory + 'near_field_meshes.cgns ' + \
-                      str(bg_options['dh']) + ' ' + str(bg_options['hExtra']) + ' ' + str(bg_options['nExtra']) + \
-                      ' ' + bg_options['sym'] + ' ' + str(bg_options['mgcycle']) + ' ' + bgMeshNames
-
-            print command
-
-            os.system('cgns_utils simpleOCart ' + directory + 'near_field_meshes.cgns ' + \
-                      str(bg_options['dh']) + ' ' + str(bg_options['hExtra']) + ' ' + str(bg_options['nExtra']) + \
-                      ' ' + bg_options['sym'] + ' ' + str(bg_options['mgcycle']) + ' ' + bgMeshNames)
+            # Run cartesian mesh generator from cgns_utils
+            nearfieldFilename = directory + 'near_field_meshes.cgns'
+            nearfieldGrid = cs.readGrid(nearfieldFilename)
+            nearfieldGrid.simpleOCart(bg_options['dh'],
+                                      bg_options['hExtra'],
+                                      bg_options['nExtra'],
+                                      bg_options['sym'],
+                                      bg_options['mgcycle'],
+                                      bgMeshNames,
+                                      comm=self.comm)
 
             # Print log
             print 'Background mesh generated and saved as:'
             print bgMeshNames
             print ''
 
-        else:
-
-            # The user probably provided a list of background mesh files.
-            # All we need to do is create a single string with all these names so that we can
-            # combine them later on.
-
-            bgMeshNames = ' '.join(backgroundMeshInfo)
+            # Transform file name to list so we could combine all meshes later on
+            bgMeshNames = [bgMeshNames]
 
         # Now we can run the cgns_utils command to join all blocks in a single file
+
+        # First we generate the name of the combined file in all procs
         combinedFileName = directory + 'aeroInput.cgns'
-        os.system('cgns_utils combine '+ ' '.join(volFileList) + ' ' + bgMeshNames + ' ' + combinedFileName)
 
-        # Check block-to-block connectivities
-        os.system('cgns_utils connect ' + combinedFileName)
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Print log
-        print 'Combined all meshes! The combined CGNS file is:'
-        print combinedFileName
-        print 'This one should be used as input to ADflow.'
-        print ''
+            ### First let's combine the near-field meshes in a single file
+
+            # Initialize list of all meshes
+            allMeshes = []
+            
+            # We can already use all nearfield meshes
+            allMeshes = allMeshes + nearfieldMeshes
+
+            # Add background meshes 
+            for fileName in bgMeshNames:
+                allMeshes.append(cs.readGrid(fileName))
+
+            # Combine grids in a single one
+            allMeshCombo = cs.combineGrids(allMeshes)
+
+            # Save it in a single file
+            allMeshCombo.writeToCGNS(combinedFileName)
+
+            '''
+            combinedFileName = directory + 'aeroInput.cgns'
+            os.system('cgns_utils combine '+ ' '.join(volFileList) + ' ' + bgMeshNames + ' ' + combinedFileName)
+            '''
+
+            # Check block-to-block connectivities
+            os.system('cgns_utils connect ' + combinedFileName)
+
+            # Print log
+            print 'Combined all meshes! The combined CGNS file is:'
+            print combinedFileName
+            print 'This one should be used as input to ADflow.'
+            print ''
 
         # Return the name of the combined file
-        return combinedFileName, volFileList
+        return combinedFileName
 
     #=====================================================
     # GENERAL INTERFACE METHODS
@@ -1222,7 +1306,7 @@ class Manager(object):
         Otherwise, they will be in manager ordering.
         '''
 
-        # Only the root processor wil get the points
+        # Only the root processor will get the points
         if self.myID == 0:
 
             # Initialize list of points with a single entry ([0, 0, 0])
@@ -1280,7 +1364,7 @@ class Manager(object):
         pts = self._convertManagerToSolver(pts)
         '''
 
-        # Only the root processor wil get the seeds
+        # Only the root processor will get the seeds
         if self.myID == 0:
 
             # Initialize list of points with a single entry ([0, 0, 0])
@@ -1715,7 +1799,7 @@ class Manager(object):
         # Assign the derivative seeds to the surface meshes, assuming they are in solver ordering
         self.setSurfaceReverseADSeeds(xsBar)
 
-        # Only the root proc will do the next steps
+        # Only the root proc will do the next seed propagation for its design variables
         if self.myID == 0:
 
             # Now we can propagate derivatives throughout the geometry operations done by the manager.
@@ -1731,11 +1815,8 @@ class Manager(object):
 
         else:
 
-            # Assign a dummy variable to receive data later on
-            xDvBar = None
-
-        # Get the derivatives from the root proc
-        xDvBar = self.comm.bcast(xDvBar, root=0)
+            # Since nothing happens with the DVs in the other procs, they should remain with zeroes as seeds.
+            pass
 
         # Return design variable seeds
         return xDvBar
@@ -1777,11 +1858,8 @@ class Manager(object):
         #======================
         # GENERATE REVERSE AD SEEDS FOR SURFACE MESH POINTS
         
-        # Copy coordinate array as a baseline
+        # Copy coordinate array, in solver ordering, as a baseline
         xsBar = self.getSurfacePoints()
-
-        # Convert it to solver ordering
-        xsBar = self._convertManagerToSolver(xsBar)
 
         # Generate random seeds
         xsBar = np.random.random_sample(xsBar.shape)
@@ -1837,15 +1915,18 @@ class Manager(object):
         self.endSolverIndex = self.startSolverIndex + numSolverPts
 
         # Send all coordinates to the root processor
-        solverPts = np.vstack(self.comm.gather(solverPts.copy(), root=0))
+        solverPts = self.comm.gather(solverPts.copy(), root=0)
 
         # Now only the root processor will do the mapping
         if self.myID == 0:
 
+            # Concatenate all coordinates, since the gather operation brings a list of arrays
+            solverPts = np.vstack(solverPts)
+
             # We can skip this if we already have a mapping
             if self.indexSolverPts is None:
 
-                # Get manager coordinates
+                # Get manager coordinates (only the root proc has pySurf coordinates, so this is fine)
                 managerPts = self.getSurfacePoints(solverOrder=False)
 
                 # Get number of manager surface nodes
@@ -2000,7 +2081,7 @@ class Manager(object):
             if self.indexSolverPts is None:
                 raise NameError('There is no mapping between pySurf and the Solver. Run manager.addPointsSet first')
 
-            # Define an array to store to coordinates in the solver ordering
+            # Define an array to store coordinates in the solver ordering
             solverPts = np.zeros((self.numSolverPts,3))
 
             # Loop over every solver node to get its contribution from the manager nodes.
@@ -2042,10 +2123,13 @@ class Manager(object):
         '''
 
         # Send all coordinates to the root processor
-        solverPts = np.vstack(self.comm.gather(solverPts.copy(), root=0))
+        solverPts = self.comm.gather(solverPts.copy(), root=0)
 
         # Now only the root processor will do the conversion
         if self.myID == 0:
+
+            # Concatenate all coordinates, since the gather operation brings a list of arrays
+            solverPts = np.vstack(solverPts)
 
             # Define an array to store to coordinates in the manager ordering
             managerPts = np.zeros((self.numManagerPts,3))
@@ -2083,11 +2167,14 @@ class Manager(object):
         Ney Secco 2017-03
         '''
 
-        # Send all coordinates to the root processor
-        solverPtsb = np.vstack(self.comm.gather(solverPtsb.copy(), root=0))
+        # Send all coordinate seeds to the root processor
+        solverPtsb = self.comm.gather(solverPtsb.copy(), root=0)
 
-        # Now only the root processor will do the conversion
+        # Now only the root processor will do the mapping
         if self.myID == 0:
+
+            # Concatenate all coordinates, since the gather operation brings a list of arrays
+            solverPtsb = np.vstack(solverPtsb)
 
             # Define an array to store to coordinates in the manager ordering
             managerPtsb = np.zeros((self.numManagerPts,3))
@@ -2108,13 +2195,6 @@ class Manager(object):
         else:
 
             return None
-
-        '''
-        # Assign the new surface points to all point sets.
-        # We do this because ADflow may create multiple sets, but they will all have the same data...
-        for ptSetName in self.points:
-            self.points[ptSetName] = solverPts
-        '''
 
 #=================================================
 # AUXILIARY FUNCTIONS
