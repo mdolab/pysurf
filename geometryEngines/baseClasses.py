@@ -243,47 +243,50 @@ class Geometry(object):
         Ney Secco 2017-02
         '''
 
-        print ''
-        print 'Assigning ',self.name,' to manipulator object'
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Store the geometry manipulator object
-        self.manipulator = GMObj
+            print ''
+            print 'Assigning ',self.name,' to manipulator object'
 
-        # Generate name for the surface point set
-        ptSetName = self.name + ':surfNodes'
+            # Store the geometry manipulator object
+            self.manipulator = GMObj
 
-        # Assing the triangulated surface nodes to the geometry manipulator
-        print 'Assigning surface nodes from ',self.name,' to the manipulator'
-        coor = self.get_points()
-        self.manipulator.addPointSet(coor, ptSetName)
-        print 'Done'
+            # Generate name for the surface point set
+            ptSetName = self.name + ':surfNodes'
 
-        # Store the set name for future uses
-        self.ptSetName = ptSetName
-
-        # Now we need to assign every curve to the manipulator as well
-        for curveName in self.curves:
-
-            # Generate name for the curve point set
-            ptSetName = self.name + ':curveNodes:' + curveName
-
-            # Assign curve nodes to the geometry manipulator
-            print 'Assigning nodes from curve ',curveName,' to the manipulator'
-            coor = self.curves[curveName].get_points()
+            # Assing the triangulated surface nodes to the geometry manipulator
+            print 'Assigning surface nodes from ',self.name,' to the manipulator'
+            coor = self.get_points()
             self.manipulator.addPointSet(coor, ptSetName)
             print 'Done'
 
             # Store the set name for future uses
-            self.curves[curveName].ptSetName = ptSetName
+            self.ptSetName = ptSetName
 
-        # Assign surface mesh node if we already have one
-        if self.meshFileName is not None:
-            self.embed_mesh_points()
+            # Now we need to assign every curve to the manipulator as well
+            for curveName in self.curves:
+
+                # Generate name for the curve point set
+                ptSetName = self.name + ':curveNodes:' + curveName
+
+                # Assign curve nodes to the geometry manipulator
+                print 'Assigning nodes from curve ',curveName,' to the manipulator'
+                coor = self.curves[curveName].get_points()
+                self.manipulator.addPointSet(coor, ptSetName)
+                print 'Done'
+
+                # Store the set name for future uses
+                self.curves[curveName].ptSetName = ptSetName
+
+            # Assign surface mesh node if we already have one
+            if self.meshFileName is not None:
+                self.embed_mesh_points()
 
 
 
-        print 'Manipulator assignment finished'
-        print ''
+            print 'Manipulator assignment finished'
+            print ''
 
     def manipulator_update(self):
 
@@ -334,7 +337,7 @@ class Geometry(object):
         print ''
         print 'Forward AD call to manipulator of ',self.name,' object'
 
-        # Update triangulated surface nodes
+        # Update surface nodes
         print 'Updating surface nodes from ',self.name
         coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
         #self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
@@ -380,7 +383,7 @@ class Geometry(object):
         else:
             coorb, curveCoorb = self.get_reverseADSeeds(clean=clean)
 
-        # Update triangulated surface nodes
+        # Update surface nodes
         print 'Updating triangulated surface nodes from ',self.name
         xDVb_curr = self.manipulator.totalSensitivity(coorb, self.ptSetName)
         accumulate_dict(xDVb, xDVb_curr)
@@ -434,20 +437,23 @@ class Geometry(object):
         Ney Secco 2017-02
         '''
 
-        # Add spaces for printing statements
-        print ''
+        # Only the root proc will work here
+        if self.myID == 0:
 
-        # Save filename
-        self.meshFileName = fileName
+            # Add spaces for printing statements
+            print ''
 
-        # Initialize mesh object
-        print 'Assigning surface mesh to ',self.name
-        print 'mesh file:',fileName
-        self.meshObj = pysurf.SurfaceMesh('mesh', fileName, extrusionOptions)
+            # Save filename
+            self.meshFileName = fileName
 
-        # Print statements
-        print 'Done'
-        print ''
+            # Initialize mesh object
+            print 'Assigning surface mesh to ',self.name
+            print 'mesh file:',fileName
+            self.meshObj = pysurf.SurfaceMesh('mesh', fileName, extrusionOptions)
+
+            # Print statements
+            print 'Done'
+            print ''
 
     def embed_mesh_points(self):
 

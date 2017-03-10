@@ -1011,12 +1011,15 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
 #=================================================================
 
-def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol, comm=MPI.COMM_WORLD):
+def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
     '''
     This function finds intersection curves between components A and B
     and returns a list of curve objects corresponding to these intersections.
     '''
+
+    # Get communicator from the first object
+    comm = TSurfGeometryA.comm
 
     # Call Fortran code to find intersections
 
