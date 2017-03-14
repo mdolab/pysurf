@@ -239,6 +239,10 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
+        # Add a slash if the directory does not have it
+        if directory[-1] != '/':
+            directory = directory + '/'
+
         # Only the root proc will work here
         if self.myID == 0:
 
@@ -251,7 +255,7 @@ class Manager(object):
         # Return combined file name to use in ADflow
         return combinedFileName
 
-    def reinitialize(self):
+    def reinitialize(self, directory):
 
         '''
         This method will do the pre-optimization step. This includes:
@@ -270,8 +274,18 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
+        # Add a slash if the directory does not have it
+        if directory[-1] != '/':
+            directory = directory + '/'
+
         # Run base function to generate surface meshes
         self.run_baseFunction()
+
+        # Regenerate filename that has combined meshes
+        combinedFileName = generate_combined_filename(directory)
+
+        # Return combined file name to use in ADflow
+        return combinedFileName
 
     #=====================================================
     # AD METHODS
@@ -1073,10 +1087,6 @@ class Manager(object):
         primary meshes, collar meshes, background meshes.
         This order is important to match the coordinates between ADflow and pySurf.
 
-        volFileList: list of strings -> List with names of CGNS files that contains the
-        volume mesh of each geometry component and collar mesh. These files should be given
-        to pyWarpMulti to initialize multiple instances corresponding to each mesh group.
-
         Ney Secco 2017-02
         '''
 
@@ -1192,6 +1202,8 @@ class Manager(object):
             nearfieldFilename = directory + 'near_field_meshes.cgns'
             nearfieldCombo.writeToCGNS(nearfieldFilename)
 
+        self.comm.Barrier()
+
         # Check for background meshes
         if backgroundMeshInfo is None:
 
@@ -1248,7 +1260,7 @@ class Manager(object):
         # Now we can run the cgns_utils command to join all blocks in a single file
 
         # First we generate the name of the combined file in all procs
-        combinedFileName = directory + 'aeroInput.cgns'
+        combinedFileName = generate_combined_filename(directory)
 
         # Only the root proc will work here
         if self.myID == 0:
@@ -1271,11 +1283,6 @@ class Manager(object):
             # Save it in a single file
             allMeshCombo.writeToCGNS(combinedFileName)
 
-            '''
-            combinedFileName = directory + 'aeroInput.cgns'
-            os.system('cgns_utils combine '+ ' '.join(volFileList) + ' ' + bgMeshNames + ' ' + combinedFileName)
-            '''
-
             # Check block-to-block connectivities
             os.system('cgns_utils connect ' + combinedFileName)
 
@@ -1287,6 +1294,65 @@ class Manager(object):
 
         # Return the name of the combined file
         return combinedFileName
+
+    def generate_default_pyWarpMulti_options(self, directory):
+
+        '''
+        This method will give a dictionary with default set of options that can be used
+        to initialize a pyWarpMulti instance for the current manager.
+        '''
+
+        # Add a slash if the directory does not have it
+        if directory[-1] != '/':
+            directory = directory + '/'
+
+        # First we gather names of primary components and intersection curves that have meshes
+
+        # Initialize list
+        zoneNames = []
+
+        # Loop over all primary meshes to gather their names
+        for geom in self.geoms.itervalues():
+
+            # Check if the current object has an associated mesh
+            if geom.meshObj is not None:
+
+                # Append name to the list
+                zoneNames.append(geom.name)
+
+        # Loop over all collar meshes to gather their coordinates
+        for curve in self.intCurves.itervalues():
+
+            # Check if the current object has an associated mesh
+            if curve.extra_data['childMeshes'] is not None:
+
+                # Append name to the list
+                zoneNames.append(curve.name)
+
+        # Create default options for every name
+        optionsDict = {}
+        for zoneName in zoneNames:
+
+            optionsDict[zoneName] = {
+                'warpType':'unstructured',
+                'aExp': 3.0,
+                'bExp': 5.0,
+                'LdefFact':100.0,
+                'alpha':0.25,
+                'errTol':0.0001,
+                'evalMode':'fast',
+                'symmTol':1e-6,
+                'useRotations':True,
+                'bucketSize':8,
+            }
+
+        # The root processor will send its dictionary to everybody else
+        optionsDict = self.comm.bcast(optionsDict, root=0)
+
+        # Regenerate combined filename
+        combinedFileName = generate_combined_filename(directory)
+
+        return combinedFileName, optionsDict
 
     #=====================================================
     # GENERAL INTERFACE METHODS
@@ -1574,7 +1640,8 @@ class Manager(object):
         This function will set new values to the design variables.
         IT WILL NOT UPDATE THE SURFACE COORDINATES. However, it will flag
         all point set as outdated. The user should call self.update(ptSetName)
-        to get the updated set of points.
+        to get the updated set of points. Note that this is also done by the
+        CFD solver when you call it.
 
         Any additional keys in the DV dictionary are simply ignored.
 
@@ -1608,11 +1675,12 @@ class Manager(object):
                         # as design variables.
                         geom.manipulator.setDesignVars(dvDict)
 
-            # Flag all point sets as outdated
-            for ptSetName in self.points:
-                self.updated[ptSetName] = False
+        # All procs should flag all point sets as outdated
+        for ptSetName in self.points:
+            self.updated[ptSetName] = False
 
-            # Print log
+        # Print log
+        if self.myID == 0:
             print 'Done'
             print ''
 
@@ -2205,7 +2273,8 @@ def generate_primary_surface_mesh_filename(directory, geomName, primaryID, fileN
     This just generates a filename for the surface mesh
     '''
 
-    fileName = directory + fileNameTag + 'Primary_%03d'%primaryID + '.xyz'
+    #fileName = directory + fileNameTag + 'Primary_%03d'%primaryID + '.xyz'
+    fileName = directory + geomName + '.xyz'
 
     return fileName
 
@@ -2215,7 +2284,9 @@ def generate_primary_volume_mesh_filename(directory, geomName, primaryID, fileNa
     This just generates a filename for the surface mesh
     '''
 
-    fileName = directory + fileNameTag + 'Primary_vol_%03d'%primaryID + '.cgns'
+    #fileName = directory + fileNameTag + 'Primary_vol_%03d'%primaryID + '.cgns'
+
+    fileName = directory + geomName + '.cgns'
 
     return fileName
 
@@ -2226,7 +2297,9 @@ def generate_collar_surface_mesh_filename(directory, curveName, collarID, fileNa
     '''
     
     # Generate file name
-    fileName = directory + fileNameTag + 'Collar_%03d'%collarID + '.xyz'
+    #fileName = directory + fileNameTag + 'Collar_%03d'%collarID + '.xyz'
+
+    fileName = directory + curveName + '.xyz'
 
     return fileName
 
@@ -2237,6 +2310,15 @@ def generate_collar_volume_mesh_filename(directory, curveName, collarID, fileNam
     '''
     
     # Generate file name
-    fileName = directory + fileNameTag + 'Collar_vol_%03d'%collarID + '.cgns'
+    #fileName = directory + fileNameTag + 'Collar_vol_%03d'%collarID + '.cgns'
+
+    fileName = directory + curveName + '.cgns'
 
     return fileName
+
+def generate_combined_filename(directory):
+
+    # First we generate the name of the combined file in all procs
+    combinedFileName = directory + 'aeroInput.cgns'
+
+    return combinedFileName

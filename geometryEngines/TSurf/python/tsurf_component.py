@@ -21,7 +21,7 @@ class TSurfGeometry(Geometry):
         class defined in classes.py.
 
         The expected arguments for the initialization function are:
-        TSurfGeometry(fileName, sectionsList, comm)
+        TSurfGeometry(fileName, sectionsList, comm, name=name)
 
         REQUIRED INPUTS:
         fileName: string -> Name of the CGNS file that contains the
@@ -90,6 +90,10 @@ class TSurfGeometry(Geometry):
             # We create a custom name if the user selected a subgroup of sections
             self.name = self.name + "__" + "_".join(selectedSections)
 
+        # Rename everything if the user gives a name
+        if 'name' in kwargs:
+            self.name = kwargs['name']
+
         # Only the root proc will work here
         if self.myID == 0:
 
@@ -145,7 +149,7 @@ class TSurfGeometry(Geometry):
         if self.myID == 0:
 
             self.curves[curve.name] = copy.deepcopy(curve)
-
+            
     def remove_curve(self, name):
         '''
         Removes a given curve instance from the self.curves dictionary.
