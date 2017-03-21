@@ -716,13 +716,17 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
     curveName: string -> Name of the original curve. This name will be used
                to name the split curves.
 
-    splittingCurve: Curve object -> Curve that will be used to intersect
-                                    the curve to be split. Think of this curve
-                                    as a sharp needle that will break up the
-                                    other curve.
+    optionsDict: dictionary -> Dictionary containing special options for each split
+    criteria. The following fields are needed:
+    For 'sharpness' criteria: -'angle': angle (in degrees) used to split the curve.
+                               the default value is 60 deg.
+    For 'curve' criteria: -'splittingCurves': list of curve objects. We will split
+                           the current curve in the intersection points with other curves.
+    For 'node' criteria: -'splittingNodes': list of integers. They represent the node IDs
+                          where we will split the curve.
 
     criteria: string -> Criteria that will be used to split curves. The options
-              available for now are: ['sharpness', 'curve']
+              available for now are: ['sharpness', 'curve', 'node']
 
     OUTPUTS:
     splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
@@ -756,6 +760,12 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
         # This criteria will split the curve if its sharpness (defined here
         # as the change in tangential direction) is beyond a given threshold.
+
+        # Get the split angle from the options
+        if 'angle' in optionsDict.keys():
+            sharpAngle = optionsDict['angle']*np.pi/180.0
+        else:
+            sharpAngle = 60*np.pi/180.0
 
         # Get the tangent direction of the first bar element
         prevTan = coor[barsConn[0, 1], :] - coor[barsConn[0, 0], :]
@@ -806,10 +816,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
             isPeriodic = True
 
     if criteria == 'curve':
-        if 'splittingNodes' in optionsDict.keys():
-            for node in optionsDict['splittingNodes']:
-                breakList.append(node)
-        else:
+        if 'splittingCurves' in optionsDict.keys():
             for guideCurve in optionsDict['splittingCurves']:
                 split_index = closest_node(guideCurve, coor)
 
@@ -817,6 +824,13 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
                 # Store the current element as a break position
                 breakList.append(elemID[0])
+
+    elif criteria == 'node':
+        if 'splittingNodes' in optionsDict.keys():
+            for node in optionsDict['splittingNodes']:
+                breakList.append(node)
+        else:
+            raise ValueError('node IDs are not provided. Cannot split curve.')
 
     # Make sure that the obtained breakList is in order so that we get
     # the correct split curves
