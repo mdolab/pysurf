@@ -1815,7 +1815,8 @@ class Manager(object):
             # surface meshes associated with the geometry manipulators.
             # Note that all this derivative passing will be done directly to their corresponding objects.
             for geom in self.geoms.itervalues():
-                geom.manipulator_forwardAD(xDvDot)
+                if geom.manipulator is not None:
+                    geom.manipulator_forwardAD(xDvDot)
 
             # Now we can propagate derivatives throughout the geometry operations done by the manager.
             # This will update derivative seeds of the surface collar meshes.
@@ -1879,7 +1880,8 @@ class Manager(object):
             # surface meshes to the design varibles associated with the geometry manipulators.
             # Note that all this derivative passing will be done directly to their corresponding objects.
             for geom in self.geoms.itervalues():
-                geom.manipulator_reverseAD(xDvBar, clean)
+                if geom.manipulator is not None:
+                    geom.manipulator_reverseAD(xDvBar, clean)
 
         else:
 

@@ -83,11 +83,8 @@ class TSurfGeometry(Geometry):
         # Assign component name based on its CGNS file
         self.name = os.path.splitext(os.path.basename(filename))[0]
 
-        # Select all section names in case the user provided none
-        if selectedSections is None:
-            selectedSections = sectionDict.keys()
-        else:
-            # We create a custom name if the user selected a subgroup of sections
+        # We create a custom name if the user selected a subgroup of sections
+        if selectedSections is not None:
             self.name = self.name + "__" + "_".join(selectedSections)
 
         # Rename everything if the user gives a name
@@ -105,6 +102,10 @@ class TSurfGeometry(Geometry):
 
             # Read CGNS file
             self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
+
+            # Select all section names in case the user provided none
+            if selectedSections is None:
+                selectedSections = sectionDict.keys()
 
             # Now we call an auxiliary function to merge selected surface sections in a single
             # connectivity array
@@ -146,9 +147,9 @@ class TSurfGeometry(Geometry):
         '''
 
         # Only the root proc will work here
-        if self.myID == 0:
+        #if self.myID == 0:
 
-            self.curves[curve.name] = copy.deepcopy(curve)
+        self.curves[curve.name] = copy.deepcopy(curve)
             
     def remove_curve(self, name):
         '''
@@ -169,6 +170,7 @@ class TSurfGeometry(Geometry):
         if self.myID == 0:
 
             self.curves[newName] = self.curves.pop(oldName)
+            self.curves[newName].rename(newName)
 
     def update(self, coor=None):
 
@@ -1132,14 +1134,6 @@ class TSurfCurve(Curve):
 
     def flip(self):
 
-        '''
-        # Flip elements
-        self.barsConn = self.barsConn[::-1]
-        # Flip nodes
-        for ii in range(len(self.barsConn)):
-            self.barsConn[ii] = self.barsConn[ii][::-1]
-        '''
-
         self.barsConn = self.barsConn[::-1,::-1]
 
         # Flip the extra data associated with element ordering
@@ -1155,6 +1149,9 @@ class TSurfCurve(Curve):
 
     def rotate(self, angle, axis, point=None):
         tst.rotate(self, angle, axis, point)
+
+    def rename(self, name):
+        self.name = name
 
     #=================================================================
     # PROJECTION FUNCTIONS
