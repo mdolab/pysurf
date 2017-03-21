@@ -24,6 +24,8 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Read CGNS file
     cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
 
+    print 'aehoooooooooooooo'
+
     # Retrieve data from the CGNS file.
     # We need to do actual copies, otherwise data will be overwritten if we read another
     # CGNS file.
@@ -33,13 +35,21 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # we might lose the memory location. So remember that triaConnF and quadsConnF use Fortran
     # indices (starting at 1).
     coor = np.array(cgnsAPI.cgnsapi.coor).T
+    print 'aehoooooooooooooo1'
     triaConnF = np.array(cgnsAPI.cgnsapi.triaconn).T
+    print 'aehoooooooooooooo2'
     quadsConnF = np.array(cgnsAPI.cgnsapi.quadsconn).T
+    print 'aehoooooooooooooo3'
     barsConn = np.array(cgnsAPI.cgnsapi.barsconn).T - 1
+    print 'aehoooooooooooooo4'
     surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr) - 1
+    print 'aehoooooooooooooo5'
     surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr) - 1
+    print 'aehoooooooooooooo6'
     curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr) - 1
+    print 'aehoooooooooooooo7'
     surfNames = cgnsAPI.cgnsapi.surfnames.copy()
+    print 'aehoooooooooooooo8'
     curveNames = cgnsAPI.cgnsapi.curvenames.copy()
 
     # Now we deallocate variables on the Fortran side

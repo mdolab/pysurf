@@ -4,10 +4,10 @@ use precision
 use CGNSinterface
 
 ! OUTPUTS
-real(kind=realType), dimension(:, :), allocatable :: coor
-integer(kind=intType), dimension(:, :), allocatable :: triaConn, quadsConn, barsConn
-integer(kind=intType), dimension(:), allocatable :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
-character*32, dimension(:), allocatable :: surfNames, curveNames
+real(kind=realType), dimension(:, :), allocatable, save :: coor
+integer(kind=intType), dimension(:, :), allocatable, save :: triaConn, quadsConn, barsConn
+integer(kind=intType), dimension(:), allocatable, save :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
+character*32, dimension(:), allocatable, save :: surfNames, curveNames
 
 ! coor: real(3,numNodes) -> X,Y,Z coordinates of all nodes
 ! triaConn: real(3,numTria) -> Triangles connectivity
