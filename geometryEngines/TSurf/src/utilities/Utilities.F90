@@ -357,7 +357,7 @@ subroutine remesh_main(nNodes, nElem, nNewNodes, coor, barsConn, method,&
 
   end do
 
-end subroutine
+end subroutine remesh_main
 
 !============================================================
 
@@ -477,7 +477,8 @@ subroutine interp1d ( m, data_num, t_data, p_data, interp_num, &
   end do
 
   return
-end
+
+end subroutine interp1d
 
 subroutine r8vec_bracket ( n, x, xval, left, right )
 
@@ -544,7 +545,8 @@ subroutine r8vec_bracket ( n, x, xval, left, right )
   right = n
 
   return
-end
+
+end subroutine r8vec_bracket
 
 !============================================================
 
@@ -614,7 +616,7 @@ subroutine getHypTanDist(Sp1, Sp2, N, spacings)
     spacings(i) = U/(2*A + (1-A)*U)
   end do
 
-end subroutine
+end subroutine getHypTanDist
 
 subroutine findRootb(b, Sp1, Sp2, N, b_out)
 
@@ -627,7 +629,7 @@ subroutine findRootb(b, Sp1, Sp2, N, b_out)
 
   b_out = sinh(b) - b/(N-1)/sqrt(Sp1*Sp2)
 
-end subroutine
+end subroutine findRootb
 
 
 !============================================================

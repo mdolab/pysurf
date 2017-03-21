@@ -915,7 +915,7 @@
           ! Normalize the arc-lengths
           arcLength = arcLength/arcLength(nNodes)
 
-        end subroutine
+        end subroutine compute_arc_length
 
         subroutine redistribute_nodes_by_arc_length(r, startArcLength, nNodes, rRemeshed)
 
@@ -954,7 +954,7 @@
           call interp1d(1, nNodes, arcLength, r(2:3*nNodes-1:3), nNodes, startArcLength, rRemeshed(2:3*nNodes-1:3))
           call interp1d(1, nNodes, arcLength, r(3:3*nNodes:3), nNodes, startArcLength, rRemeshed(3:3*nNodes:3))
 
-        end subroutine
+        end subroutine redistribute_nodes_by_arc_length
 
 
         subroutine interp1d ( m, data_num, t_data, p_data, interp_num, &
@@ -1048,7 +1048,7 @@
           end do
 
           return
-        end
+        end subroutine interp1d
 
         subroutine r8vec_bracket ( n, x, xval, left, right )
 
@@ -1115,7 +1115,7 @@
           right = n
 
           return
-        end
+        end subroutine r8vec_bracket
 
 
         subroutine matinv3(A, B)
