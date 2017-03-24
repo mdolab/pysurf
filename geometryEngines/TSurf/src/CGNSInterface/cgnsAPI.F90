@@ -26,6 +26,31 @@ subroutine readCGNS(cgns_file, comm, &
 
   implicit none
 
+  ! This is the main function that should be called from Python to read an UNSTRUCTURED
+  ! CGNS file. This function will open the CGNS file and populate the allocatable variables
+  ! declared at the module definition. Note that this function only returns the sizes of these
+  ! allocatable variables back to Python. The user should call the retrieveData function (defined
+  ! in this same file) from Python to get the actual data. We need this 2-step process to avoid
+  ! direct access to allocatable variables from Python, since this shows issues when we use Intel
+  ! compiler. The user should also remember to call releaseMemory after retrieving the data.
+  !
+  ! INPUTS
+  ! cgns_file : string -> Path to the CGNS file
+  ! comm : MPI communicator
+  !
+  ! OUTPUTS
+  ! numCoor : integer -> Size of the allocatable variable coor
+  ! numTriaConn : integer -> Size of the allocatable variable triaConn
+  ! numQuadsConn : integer -> Size of the allocatable variable quadsConn
+  ! numBarsConn : integer -> Size of the allocatable variable barsConn
+  ! numSurfTriaPtr : integer -> Size of the allocatable variable surfTriaPtr
+  ! numSurfQuadsPtr : integer -> Size of the allocatable variable surfQuadsPtr
+  ! numCurveBarsPtr : integer -> Size of the allocatable variable curveBarsPtr
+  ! numSurfNames : integer -> Size of the allocatable variable surfNames
+  ! numCurveNames : integer -> Size of the allocatable variable curveNames
+  !
+  ! These outputs should be used as inputs to the retrieveData function.
+
   !f2py intent(in) cgns_file, comm
   !f2py intent(out) numCoor, numTriaConn, numQuadsConn, numBarsConn
   !f2py intent(out) numSurfTriaPtr, numSurfQuadsPtr, numCurveBarsPtr
@@ -79,7 +104,31 @@ subroutine retrieveData(numCoor, numTriaConn, numQuadsConn, numBarsConn, &
                         surfNamesData, curveNamesData)
 
   ! This is a function used to retrieve data from the allocatable arrays back to Python, so
-  ! that Python does not need a direct access to the allocatable variables.
+  ! that Python does not need direct access to the allocatable variables.
+  ! We return the same in static variables instead.
+  ! Remember to call releaseMemory after you use this function.
+  !
+  ! INPUTS
+  ! numCoor : integer -> Size of the allocatable variable coor
+  ! numTriaConn : integer -> Size of the allocatable variable triaConn
+  ! numQuadsConn : integer -> Size of the allocatable variable quadsConn
+  ! numBarsConn : integer -> Size of the allocatable variable barsConn
+  ! numSurfTriaPtr : integer -> Size of the allocatable variable surfTriaPtr
+  ! numSurfQuadsPtr : integer -> Size of the allocatable variable surfQuadsPtr
+  ! numCurveBarsPtr : integer -> Size of the allocatable variable curveBarsPtr
+  ! numSurfNames : integer -> Size of the allocatable variable surfNames
+  ! numCurveNames : integer -> Size of the allocatable variable curveNames
+  !
+  ! These inputs are given by the readCGNS function.
+  !
+  ! OUTPUTS
+  ! coorData: real(3,numNodes) -> X,Y,Z coordinates of all nodes
+  ! triaConnData: real(3,numTria) -> Triangles connectivity
+  ! quadsConnData: integer(4,numQuads) -> Quads connectivity
+  ! barsConnData: integer(2,numBars) -> bars connectivity
+  ! surfTriaPtrData: integer(numSections) -> Pointer indicating index of triaConn where a surface section begins
+  ! surfQuadsPtrData: integer(numSections) -> Pointer indicating index of quadsConn where a surface section begins
+  ! curveBarsPtrData: integer(numCurves) -> Pointer indicating index of barsConn where a curve section begins
 
   ! INPUTS
   integer(kind=intType), intent(in) :: numCoor, numTriaConn, numQuadsConn, numBarsConn

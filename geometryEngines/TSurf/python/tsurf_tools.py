@@ -52,13 +52,16 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
     # Second Fortran call to retrieve data from the CGNS file.
     # We need to do actual copies, otherwise data will be overwritten if we read another CGNS file.
-    # We subtract one to make it consistent with the Python 0-based indices
+    # We subtract one to make indices consistent with the Python 0-based indices.
+    # We also need to transpose it since Python and Fortran use different orderings to store matrices
+    # in memory.
     # We cannot subtract 1 from triaConn and quadsConn because the ADT will have pointers
     # to these values in the Fortran level, so we have to keep these variables fixed, otherwise
     # we might lose the memory location. So remember that triaConnF and quadsConnF use Fortran
     # indices (starting at 1).
     cgnsArrays = cgnsAPI.cgnsapi.retrievedata(*np.abs(arraySizes))
 
+    # Split results
     coor = np.array(cgnsArrays[0].T)
     triaConnF = np.array(cgnsArrays[1].T)
     quadsConnF = np.array(cgnsArrays[2].T)
@@ -1080,21 +1083,45 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Get communicator from the first object
     comm = TSurfGeometryA.comm
 
-    # Call Fortran code to find intersections
+    ### Call Fortran code to find intersections
 
-    intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
-                                                        TSurfGeometryA.triaConnF.T,
-                                                        TSurfGeometryA.quadsConnF.T,
-                                                        TSurfGeometryB.coor.T,
-                                                        TSurfGeometryB.triaConnF.T,
-                                                        TSurfGeometryB.quadsConnF.T,
-                                                        distTol,
-                                                        comm.py2f())
+    # This will de done in two steps:
+    # The first Fortran call will give us a tuple containing the number of nodes, bars, and parent triangles
+    # These are the sizes of the allocatable arrays that were defined in the Fortran call.
+    # The second Fortran call will use this information to actually retrieve the intersection data.
+    # We have to use this two steps approach so that Python does not need direct access to the
+    # allocatable arrays, since this does not work when we use Intel compilers.
 
-    # Retrieve results from Fortran
-    coor = np.array(intersectionAPI.intersectionapi.coor).T
-    barsConn = np.array(intersectionAPI.intersectionapi.barsconn).T - 1
-    parentTria = np.array(intersectionAPI.intersectionapi.parenttria).T - 1
+    arraySizes= intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
+                                                                    TSurfGeometryA.triaConnF.T,
+                                                                    TSurfGeometryA.quadsConnF.T,
+                                                                    TSurfGeometryB.coor.T,
+                                                                    TSurfGeometryB.triaConnF.T,
+                                                                    TSurfGeometryB.quadsConnF.T,
+                                                                    distTol,
+                                                                    comm.py2f())
+
+    # Retrieve results from Fortran if we have an intersection
+    if np.max(arraySizes) > 0:
+
+        # Second Fortran call to retrieve data from the CGNS file.
+        intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)
+
+        # Split results.
+        # We need to do actual copies, otherwise data will be overwritten if we compute another intersection.
+        # We subtract one to make indices consistent with the Python 0-based indices.
+        # We also need to transpose it since Python and Fortran use different orderings to store matrices
+        # in memory.
+        coor = np.array(intersectionArrays[0]).T
+        barsConn = np.array(intersectionArrays[1]).T - 1
+        parentTria = np.array(intersectionArrays[2]).T - 1
+
+    else:
+
+        # Assign empty arrays
+        coor = np.zeros((0,3))
+        barsConn = np.zeros((0,2))
+        parentTria = np.zeros((0,2))
 
     # Release memory used by Fortran so we can run another intersection in the future
     intersectionAPI.intersectionapi.releasememory()

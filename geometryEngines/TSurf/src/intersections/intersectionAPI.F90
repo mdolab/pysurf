@@ -3,9 +3,6 @@ module intersectionAPI
   use precision
   implicit none
 
-  ! Here we define output variables of unknown shape as attributes, so we
-  ! can read them from Python
-
   ! Intersection FE data
   ! coor: real(3,nNodesInt) -> Coordinates of the nodes that define the intersection.
   real(kind=realType), dimension(:,:), allocatable :: coor
@@ -23,10 +20,15 @@ contains
     nNodesB, nTriaB, nQuadsB, &
     coorA, triaConnA, quadsConnA, &
     coorB, triaConnB, quadsConnB, &
-    distTol, comm)
+    distTol, comm, &
+    numCoor, numBarsConn, numParentTria)
 
     ! This function computes the intersection curve between two
     ! triangulated surface components A and B.
+    ! It updates the variables coor, barsConn, and parentTria
+    ! which should be passed to Python with the retrieveData function.
+    ! We need to do this because Python cannot have direct access to allocatable
+    ! variables if the Fortran code is compiled with the Intel compiler.
     !
     ! INPUTS
     !
@@ -60,8 +62,15 @@ contains
     ! comm : integer -> MPI communicator.
     !
     ! OUTPUTS
-    ! This subroutine has no explicit outputs. It updates the variables coor, barsConn, and parentTria
-    ! which should be called from Python as attributes of the intersectionAPI module.
+    !
+    ! numCoor : final size of the allocatable variable coor
+    !
+    ! numBarsConn : final size of the allocatable variable barsConn
+    !
+    ! numParentTria : final size of the allocatable variable parentTria
+    !
+    ! These outputs will be the arguments to the retrieveData function when
+    ! calling it from Python.
     !
     ! Ney Secco 2016-08
 
@@ -69,6 +78,13 @@ contains
     use Utilities ! This will bring condenseBarNodes_main
     use adtAPI ! This will bring adtBuildSurfaceADT and adtIntersectionSearch
     implicit none
+
+    !f2py intent(in) nNodesA, nTriaA, nQuadsA
+    !f2py intent(in) nNodesB, nTriaB, nQuadsB
+    !f2py intent(in) coorA, triaConnA, quadsConnA
+    !f2py intent(in) coorB, triaConnB, quadsConnB
+    !f2py intent(in) distTol, comm
+    !f2py intent(out) numCoor, numBarsConn, numParentTria
 
     ! Input variables
     integer(kind=intType), intent(in) :: nNodesA, nTriaA, nQuadsA
@@ -81,11 +97,9 @@ contains
     integer(kind=intType), dimension(4,nQuadsB), intent(in) :: quadsConnB
     real(kind=realType), intent(in) :: distTol
     integer(kind=intType), intent(in) :: comm
-    !f2py intent(in) nNodesA, nTriaA, nQuadsA
-    !f2py intent(in) nNodesB, nTriaB, nQuadsB
-    !f2py intent(in) coorA, triaConnA, quadsConnA
-    !f2py intent(in) coorB, triaConnB, quadsConnB
-    !f2py intent(in) distTol, comm
+
+    ! Output variables
+    integer(kind=intType), intent(out) :: numCoor, numBarsConn, numParentTria
 
     ! Working variables
     real(kind=realType), dimension(3,2) :: BBoxA, BBoxB, BBoxAB
@@ -354,6 +368,13 @@ contains
     coor(:,:) = extCoor(:,1:nUniqueNodes)
     deallocate(extCoor)
     deallocate(linkOld2New)
+
+    ! Get sizes of the allocatable arrays.
+    ! These are the outputs we will send back to Python.
+    ! The actual intersectin values will be retrieved with the retrievaData function.
+    numCoor = size(coor,2)
+    numBarsConn = size(barsConn,2)
+    numParentTria = size(parentTria,2)
 
   end subroutine computeIntersection
 
@@ -884,6 +905,61 @@ contains
     end if
 
   end subroutine computeIntersection_d
+
+  !=============================================
+
+  subroutine retrieveData(numCoor, numBarsConn, numParentTria, &
+                          coorData, barsConnData, parentTriaData)
+
+    ! This function will copy data from allocatable arrays to fixed-size arrays,
+    ! So that we can send the values back to Python.
+    ! We need to do this because Python cannot have direct access to allocatable
+    ! variables if the Fortran code is compiled with the Intel compiler.
+    ! Remember to use the outputs of the computeIntersection function as inputs
+    ! to this function.
+    !
+    ! INPUTS
+    !
+    ! numCoor : expected size of the coor array
+    !
+    ! numBarsConn : expected size of the barsConn array
+    !
+    ! numParentTria : expected size of the parentTria array
+    !
+    ! OUTPUTS
+    !
+    ! coorData : static copy of the allocatable array coor
+    !
+    ! barsConnData : static copy of the allocatable array barsConn
+    !
+    ! parentTriaData : static copy of the allocatable array parentTria
+    !
+    ! The explanation of these variables are at the allocatable variable definition at the
+    ! beginning of this file.
+    !
+    ! Ney Secco 2017-03
+
+    implicit none
+
+    !f2py intent(in) numCoor, numBarsConn, numParentTria
+    !f2py intent(out) coorData, barsConnData, parentTriaData
+
+    ! Input variables
+    integer(kind=intType), intent(in) :: numCoor, numBarsConn, numParentTria
+
+    ! Output variables
+    real(kind=realType), dimension(3,numCoor), intent(out) :: coorData
+    integer(kind=intType), dimension(2,numBarsConn), intent(out) :: barsConnData
+    integer(kind=intType), dimension(2,numParentTria), intent(out) :: parentTriaData
+
+    ! EXECUTION
+
+    ! Copy values
+    coorData = coor
+    barsConnData = barsConn
+    parentTriaData = parentTria
+
+  end subroutine retrieveData
 
   !=============================================
 

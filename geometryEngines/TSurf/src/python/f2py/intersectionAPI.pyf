@@ -5,10 +5,7 @@ python module intersectionAPI ! in
     interface  ! in :intersectionAPI
         module intersectionapi ! in :intersectionAPI:intersectionAPI.F90
             use precision
-            integer(kind=inttype), allocatable,dimension(:,:) :: barsconn
-            real(kind=realtype), allocatable,dimension(:,:) :: coor
-            integer(kind=inttype), allocatable,dimension(:,:) :: parenttria
-            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb,disttol,comm) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
+            subroutine computeintersection(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,coora,triaconna,quadsconna,coorb,triaconnb,quadsconnb,disttol,comm,numcoor,numbarsconn,numparenttria) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection
                 use utilities
                 use adtapi
@@ -26,6 +23,9 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(4,nquadsb),intent(in) :: quadsconnb
                 real(kind=realtype) intent(in) :: disttol
                 integer(kind=inttype) intent(in) :: comm
+                integer(kind=inttype) intent(out) :: numcoor
+                integer(kind=inttype) intent(out) :: numbarsconn
+                integer(kind=inttype) intent(out) :: numparenttria
             end subroutine computeintersection
             subroutine computeintersection_b(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,nnodesint,nbarsint,coora,coorab,triaconna,quadsconna,coorb,coorbb,triaconnb,quadsconnb,coorint,coorintb,barsconnint,parenttriaint,disttol) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection_b, only: tritriintersect_b
@@ -79,10 +79,20 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(2,nbarsint),intent(in),depend(nbarsint) :: parenttriaint
                 real(kind=realtype) intent(in) :: disttol
             end subroutine computeintersection_d
+            subroutine retrievedata(numcoor,numbarsconn,numparenttria,coordata,barsconndata,parenttriadata) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
+                integer(kind=inttype) intent(in) :: numcoor
+                integer(kind=inttype) intent(in) :: numbarsconn
+                integer(kind=inttype) intent(in) :: numparenttria
+                real(kind=realtype) dimension(3,numcoor),intent(out),depend(numcoor) :: coordata
+                integer(kind=inttype) dimension(2,numbarsconn),intent(out),depend(numbarsconn) :: barsconndata
+                integer(kind=inttype) dimension(2,numparenttria),intent(out),depend(numparenttria) :: parenttriadata
+            end subroutine retrievedata
             subroutine releasememory ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
             end subroutine releasememory
             subroutine testtri(v0,v1,v2,u0,u1,u2,intersect,vecstart,vecend) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
-                use intersection
+                use intersection_b, only: tritriintersect_b
+                use intersection, only: tritriintersect
+                use intersection_d, only: tritriintersect_d
                 real(kind=realtype) dimension(3),intent(in) :: v0
                 real(kind=realtype) dimension(3),intent(in) :: v1
                 real(kind=realtype) dimension(3),intent(in) :: v2
