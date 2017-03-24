@@ -21,36 +21,71 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     for each section.
     '''
 
-    # Read CGNS file
-    cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
+    ### Read CGNS file in Fortran
 
-    print 'aehoooooooooooooo'
+    # This will de done in two steps:
+    # The first Fortran call will give us a tuple containing the number of nodes, trias, quads, etc...
+    # These are the sizes of the allocatable arrays that were defined in the Fortran call.
+    # The second Fortran call will use this information to actually retrieve the surface data.
+    # We have to use this two steps approach so that Python does not need direct access to the
+    # allocatable arrays, since this does not work when we use Intel compilers.
+    
+    # First Fortran call to read CGNS file and get array sizes
+    arraySizes = cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
 
-    # Retrieve data from the CGNS file.
-    # We need to do actual copies, otherwise data will be overwritten if we read another
-    # CGNS file.
+    # If an arraySizes value is zero, which mean we have empty allocated arrays, we need to
+    # convert them to at least 1 so that f2py does not complain when we retrieve values
+    # (It can't understand that we want to retrieve a 0-sized array). So we will do the following
+    # trick:
+    # If an arraySizes element is 0, we will set it to -1. We will call the Fortran code with the
+    # absolute values of arraySizes (so -1 will be converted to 1 in this case) and we will get
+    # a corresponding 1-sized array from Fortran, with meaningless values. Then, back in Python,
+    # we will erase the data from the arrays that have corresponding -1 in arraySizes.
+
+    # Conver arraySizes from tuple to list so we can modify it
+    arraySizes = list(arraySizes)
+
+    # Loop over arraySizes to replace 0 with -1
+    for ii in range(len(arraySizes)):
+        if arraySizes[ii] == 0:
+            arraySizes[ii] = -1
+
+    # Second Fortran call to retrieve data from the CGNS file.
+    # We need to do actual copies, otherwise data will be overwritten if we read another CGNS file.
     # We subtract one to make it consistent with the Python 0-based indices
     # We cannot subtract 1 from triaConn and quadsConn because the ADT will have pointers
     # to these values in the Fortran level, so we have to keep these variables fixed, otherwise
     # we might lose the memory location. So remember that triaConnF and quadsConnF use Fortran
     # indices (starting at 1).
-    coor = np.array(cgnsAPI.cgnsapi.coor).T
-    print 'aehoooooooooooooo1'
-    triaConnF = np.array(cgnsAPI.cgnsapi.triaconn).T
-    print 'aehoooooooooooooo2'
-    quadsConnF = np.array(cgnsAPI.cgnsapi.quadsconn).T
-    print 'aehoooooooooooooo3'
-    barsConn = np.array(cgnsAPI.cgnsapi.barsconn).T - 1
-    print 'aehoooooooooooooo4'
-    surfTriaPtr = np.array(cgnsAPI.cgnsapi.surftriaptr) - 1
-    print 'aehoooooooooooooo5'
-    surfQuadsPtr = np.array(cgnsAPI.cgnsapi.surfquadsptr) - 1
-    print 'aehoooooooooooooo6'
-    curveBarsPtr = np.array(cgnsAPI.cgnsapi.curvebarsptr) - 1
-    print 'aehoooooooooooooo7'
-    surfNames = cgnsAPI.cgnsapi.surfnames.copy()
-    print 'aehoooooooooooooo8'
-    curveNames = cgnsAPI.cgnsapi.curvenames.copy()
+    cgnsArrays = cgnsAPI.cgnsapi.retrievedata(*np.abs(arraySizes))
+
+    coor = np.array(cgnsArrays[0].T)
+    triaConnF = np.array(cgnsArrays[1].T)
+    quadsConnF = np.array(cgnsArrays[2].T)
+    barsConn = np.array(cgnsArrays[3].T - 1)
+    surfTriaPtr = np.array(cgnsArrays[4] - 1)
+    surfQuadsPtr = np.array(cgnsArrays[5] - 1)
+    curveBarsPtr = np.array(cgnsArrays[6] - 1)
+    surfNames = cgnsArrays[7].copy()
+    curveNames = cgnsArrays[8].copy()
+
+    # Transform flagged arrays back to empty ones
+    if arraySizes[1] == -1:
+        triaConnF = np.zeros((0,3))
+    if arraySizes[2] == -1:
+        quadsConnF = np.zeros((0,4))
+    if arraySizes[3] == -1:
+        barsConnF = np.zeros((0,2))
+    if arraySizes[4] == -1:
+        surfTriaPtr = np.zeros(0)
+    if arraySizes[5] == -1:
+        surfQuadsPtr = np.zeros(0)
+    if arraySizes[6] == -1:
+        curveBarsPtr = np.zeros(0)
+    if arraySizes[7] == -1:
+        surfNames = np.zeros((0,32))
+    if arraySizes[8] == -1:
+        curveNames = np.zeros((0,32))
 
     # Now we deallocate variables on the Fortran side
     cgnsAPI.cgnsapi.releasememory()
@@ -1224,7 +1259,7 @@ def formatStringArray(fortranArray):
     shape = fortranArray.shape
 
     # We need to tranpose the array considering the Fortran ordering
-    fortranArray = fortranArray.reshape([shape[1], shape[0]], order='F')
+    fortranArray = fortranArray.T
 
     # Initialize new array
     pythonArray = []
