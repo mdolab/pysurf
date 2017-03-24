@@ -14,19 +14,18 @@ CGNS_INCLUDE_FLAGS=-I$(HOME)/packages/cgnslib_3.2.1/src
 CGNS_LINKER_FLAGS=-L$(HOME)/packages/cgnslib_3.2.1/src -lcgns
 
 # ------- Define Compiler Flags ----------------------------------------
-FF90_GEN_FLAGS = -DHAS_ISNAN -fPIC -r8 -O2 -g
-CC_GEN_FLAGS   = -DHAS_ISNAN -O -fPIC
+FF90_GEN_FLAGS = -fPIC -g -fbounds-check
+CC_GEN_FLAGS   = -fPIC
 
-FF90_OPT_FLAGS   = -DHAS_ISNAN -fPIC -r8 -O2 -g
-CC_OPT_FLAGS     = -DHAS_ISNAN -O -fPIC
+FF90_OPT_FLAGS   =  -fPIC -fdefault-real-8 -O2 -fdefault-double-8
+CC_OPT_FLAGS     = -O2
 
 # ------- Define Archiver  and Flags -----------------------------------
 AR       = ar
 AR_FLAGS = -rvs
 
 # ------- Define Linker Flags ------------------------------------------
-LINKER = $(FF90)
-LINKER_FLAGS = -nofor_main
+LINKER_FLAGS = 
 
 # ------- Define Petsc Info --- Should not need to modify this -----
 include ${PETSC_DIR}/lib/petsc/conf/variables # PETSc 3.6

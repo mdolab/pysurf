@@ -6,22 +6,42 @@ python module cgnsAPI ! in
         module cgnsapi ! in :cgnsAPI:cgnsAPI.F90
             use precision
             use cgnsinterface
-            real(kind=realtype), allocatable, dimension(:,:), save :: coor
-            integer(kind=inttype), allocatable, dimension(:,:), save :: triaconn
-            integer(kind=inttype), allocatable, dimension(:,:), save :: quadsconn
-            integer(kind=inttype), allocatable, dimension(:,:), save :: barsconn
-            integer(kind=inttype), allocatable, dimension(:), save :: surftriaptr
-            integer(kind=inttype), allocatable, dimension(:), save :: surfquadsptr
-            integer(kind=inttype), allocatable, dimension(:), save :: curvebarsptr
-            character(32), allocatable, dimension(:), save :: surfnames
-            character(32), allocatable, dimension(:), save :: curvenames
-            subroutine readcgns(cgns_file,comm) ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
-                character(128) intent(in) :: cgns_file
+            subroutine readcgns(cgns_file,comm,numcoor,numtriaconn,numquadsconn,numbarsconn,numsurftriaptr,numsurfquadsptr,numcurvebarsptr,numsurfnames,numcurvenames) ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
+                character*128 intent(in) :: cgns_file
                 integer(kind=inttype) intent(in) :: comm
+                integer(kind=inttype) intent(out) :: numcoor
+                integer(kind=inttype) intent(out) :: numtriaconn
+                integer(kind=inttype) intent(out) :: numquadsconn
+                integer(kind=inttype) intent(out) :: numbarsconn
+                integer(kind=inttype) intent(out) :: numsurftriaptr
+                integer(kind=inttype) intent(out) :: numsurfquadsptr
+                integer(kind=inttype) intent(out) :: numcurvebarsptr
+                integer(kind=inttype) intent(out) :: numsurfnames
+                integer(kind=inttype) intent(out) :: numcurvenames
             end subroutine readcgns
-            subroutine releasememory()
-                use precision
+            subroutine retrievedata(numcoor,numtriaconn,numquadsconn,numbarsconn,numsurftriaptr,numsurfquadsptr,numcurvebarsptr,numsurfnames,numcurvenames,coordata,triaconndata,quadsconndata,barsconndata,surftriaptrdata,surfquadsptrdata,curvebarsptrdata,surfnamesdata,curvenamesdata) ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
+                integer(kind=inttype) intent(in) :: numcoor
+                integer(kind=inttype) intent(in) :: numtriaconn
+                integer(kind=inttype) intent(in) :: numquadsconn
+                integer(kind=inttype) intent(in) :: numbarsconn
+                integer(kind=inttype) intent(in) :: numsurftriaptr
+                integer(kind=inttype) intent(in) :: numsurfquadsptr
+                integer(kind=inttype) intent(in) :: numcurvebarsptr
+                integer(kind=inttype) intent(in) :: numsurfnames
+                integer(kind=inttype) intent(in) :: numcurvenames
+                real(kind=realtype) dimension(3,numcoor),intent(out),depend(numcoor) :: coordata
+                integer(kind=inttype) dimension(3,numtriaconn),intent(out),depend(numtriaconn) :: triaconndata
+                integer(kind=inttype) dimension(4,numquadsconn),intent(out),depend(numquadsconn) :: quadsconndata
+                integer(kind=inttype) dimension(2,numbarsconn),intent(out),depend(numbarsconn) :: barsconndata
+                integer(kind=inttype) dimension(numsurftriaptr),intent(out),depend(numsurftriaptr) :: surftriaptrdata
+                integer(kind=inttype) dimension(numsurfquadsptr),intent(out),depend(numsurfquadsptr) :: surfquadsptrdata
+                integer(kind=inttype) dimension(numcurvebarsptr),intent(out),depend(numcurvebarsptr) :: curvebarsptrdata
+                character dimension(numsurfnames,32),intent(out,c),depend(numsurfnames) :: surfnamesdata
+                character dimension(numcurvenames,32),intent(out,c),depend(numcurvenames) :: curvenamesdata
+            end subroutine retrievedata
+            subroutine releasememory ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
                 use cgnsgrid
+                use precision
             end subroutine releasememory
         end module cgnsapi
     end interface 
