@@ -791,7 +791,7 @@ class TSurfGeometry(Geometry):
         '''
 
         if coord is not None:
-            self.coord = np.array(coord)
+            self.coord[:,:] = np.array(coord)
 
         if curveCoord is not None:
             for curveName in self.curves:

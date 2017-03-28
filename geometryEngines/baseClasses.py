@@ -340,8 +340,8 @@ class Geometry(object):
         # Update surface nodes
         print 'Updating surface nodes from ',self.name
         coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
-        #self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
-        self.set_forwardADSeeds(coord=coord)
+        self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
+        #self.set_forwardADSeeds(coord=coord) # Use this if we fix DVGeo shape
         print 'Done'
 
         # Now we need to update every curve as well
@@ -350,16 +350,16 @@ class Geometry(object):
             # Update curve nodes
             print 'Updating nodes from curve ',curveName
             coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
-            #self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
-            self.curves[curveName].set_forwardADSeeds(coord)
+            self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
+            #self.curves[curveName].set_forwardADSeeds(coord)
             print 'Done'
 
         # Finally update the structured surface mesh, if we have one
         if self.meshPtSetName is not None:
             print 'Updating surface mesh from ',self.name
             coord = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
-            #self.meshObj.set_forwardADSeeds(coord.reshape((-1,3)))
-            self.meshObj.set_forwardADSeeds(coord)
+            self.meshObj.set_forwardADSeeds(coord.reshape((-1,3)))
+            #self.meshObj.set_forwardADSeeds(coord)
             print 'Done'
 
     def manipulator_reverseAD(self, xDVb, ptSetName=None, clean=True):
