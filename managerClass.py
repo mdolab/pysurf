@@ -1891,6 +1891,50 @@ class Manager(object):
         # Return design variable seeds
         return xDvBar
 
+    def addVariablesPyOpt(self, optProb, globalVars=True, localVars=True,
+                          sectionlocalVars=True, ignoreVars=None, freezeVars=None):
+        """
+        Add the current set of variables to the optProb object.
+
+        Parameters
+        ----------
+        optProb : pyOpt_optimization class
+            Optimization problem definition to which variables are added
+
+        globalVars : bool
+            Flag specifying whether global variables are to be added
+
+        localVars : bool
+            Flag specifying whether local variables are to be added
+
+        ignoreVars : list of strings
+            List of design variables the user DOESN'T want to use
+            as optimization variables.
+
+        freezeVars : list of string
+            List of design variables the user WANTS to add as optimization
+            variables, but to have the lower and upper bounds set at the current
+            variable. This effectively eliminates the variable, but it the variable
+            is still part of the optimization.
+        """
+
+        # The root processor will do the main job
+        if self.myID == 0:
+
+            print '#======================================'
+            print 'Adding manipulator DVs to pyOpt'
+
+            # Call the manipulators of each geometry object
+            for geom in self.geoms.itervalues():
+                if geom.manipulator is not None:
+                    geom.manipulator.addVariablesPyOpt(optProb, globalVars, localVars,
+                                                       sectionlocalVars, ignoreVars, freezeVars)
+                    print 'Added variables from',geom.name
+
+            print 'Done'
+            print '#======================================'
+
+
     #=====================================================
     # DEBUG TOOLS
 
