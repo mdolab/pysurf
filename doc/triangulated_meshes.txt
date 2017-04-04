@@ -1,0 +1,25 @@
+GENERATING TRIANGULATED MESHES IN ICEM
+
+- In order to start the triangulated mesh generation, you will need a valid .tin file. You can import an IGES or STEP file in ICEM in order to generate a .tin file.
+
+- Open the .tin file in ICEM.
+
+- Check if you have a smooth surface, without any overlapping patches. You might need to adjust/heal the surface if this is case.
+
+- Then delete all points and curves from the geometry. You should use the appropriate function on the top bar to remove points, and the other one to remove curves. Remember to also delete all dormant points and curves.
+
+- Then go to Geometry > Repair geometry > Build Diagnostic Topology. Set the tolerance as half the length of the smallest edge of your geometry (e.g. trailing edge). Activate "Single Curve Cleanup" and use the same tolerance. Also activate "Split surface at T-connections", "Join edge curves", "Delete unnatached curves and points", "Keep dormant as dormant", and "Use Local Tolerance". Then select Apply.
+
+- In the end, the free edges should be yellow, and the interior edges should be red. If you get yellow curves in the interior of the surfaces, then this means that you have a discontinuity in your geometry. You might need to adjust the tolerances or find a way to reduce the gap.
+
+- Once the topology is correct, go to Mesh > Global Mesh Setup > Global Mesh Size. Select an appropriate size for the Max element (You can adjust this later if the cells are too big). Click Apply.
+
+- Go to Mesh > Global Mesh Setup > Shell Meshing Parameters. Set "Ignore Size" to the same tolerance you used for the topology, or even smaller. This prevents the collapsing of the trailing edge.
+
+- Go to Mesh > Compute Mesh > Surface Mesh Only. Select "Overwrite Surface Preset/Default Mesh Type" and choose "All Tri". Select "Overwrite Surface Preset/Default Mesh Method" and choose "Patch Dependent". Then select "Compute". If the resulting mesh is too coarse, you can adjust the Max element size explained two steps ago. But remember that you can also locally refine the mesh, as explained in the next step.
+
+- If you want to refine a specific region of the surface (e.g. leading edge) after the initial mesh has been generated, you can go to Edit Mesh > Adjust Mesh Density > Refine Selected Mesh. Then you can select the cells you want to refine!
+
+- After you are happy with your mesh, then you should SAVE and export it. Go to Output > Select Solver. Select "CGNS" and "NASTRAN" as options. Activate "Set as Default". Then click Apply.
+
+- Go to Output > Write Input. Save the project. Select the appropriate .uns file. Then the options should be: "Unstructured", "No", "Face elements", "Yes", "2.4". Then click Done. A new CGNS file should appear in the directory. It can be used as an input to pySurf.
