@@ -789,9 +789,14 @@
 
         real(kind=realType), intent(out) :: radius
 
+        real(kind=realType) :: r_scaled(3*numNodes)
         real(kind=realType) :: r_node(3), r_centroid(3), distVec(3)
-        real(kind=realType) :: dist, sumExp, rho, b
+        real(kind=realType) :: dist, sumExp, rho, b, scaleFactor
         integer(kind=intType) :: ii
+
+        ! Scale the radius to avoid big numbers in the exponential
+        scaleFactor = 1.0
+        r_scaled = r/scaleFactor
 
         ! Find the average of all nodes
         ! We know that this is not the proper centroid, but it is ok since
@@ -799,7 +804,7 @@
         r_centroid = 0.0
 
         do ii=1,numNodes
-           r_node = r(3*ii-2:3*ii)
+           r_node = r_scaled(3*ii-2:3*ii)
            r_centroid = r_centroid + r_node
         end do
 
@@ -821,7 +826,7 @@
         do ii=1,numNodes
            
            ! Get coordinates of the current node
-           r_node = r(3*ii-2:3*ii)
+           r_node = r_scaled(3*ii-2:3*ii)
 
            ! Compute distance
            distVec = r_node - r_centroid
@@ -832,8 +837,8 @@
 
         end do
 
-        ! Use the KS function to estimate maximum radius
-        radius = log(sumExp)/rho
+        ! Use the KS function to estimate maximum radius (remember to rescale back to original dimension)
+        radius = log(sumExp)/rho*scaleFactor
 
         end subroutine findRadius
 
