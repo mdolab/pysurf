@@ -252,6 +252,21 @@ class Manager(object):
         # Extrude meshes
         combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo)
 
+        # Set symmetry planes to zero (only the root proc will use cgns_utils
+        if self.myID == 0:
+
+            # Import cgns_utils
+            from cgnsutilities import cgns_utils as cs
+
+            # Load the CGNS file
+            grid = cs.readGrid(combinedFileName)
+
+            # Force symmetry planes to zero
+            grid.symmZero(backgroundMeshInfo['sym'])
+
+            # Write updated mesh
+            grid.writeToCGNS(combinedFileName)
+
         # Return combined file name to use in ADflow
         return combinedFileName
 

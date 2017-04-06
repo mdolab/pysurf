@@ -1487,9 +1487,11 @@ CONTAINS
     REAL(kind=realtype), INTENT(IN) :: rd(3*numnodes)
     REAL(kind=realtype), INTENT(OUT) :: radius
     REAL(kind=realtype), INTENT(OUT) :: radiusd
+    REAL(kind=realtype) :: r_scaled(3*numnodes)
+    REAL(kind=realtype) :: r_scaledd(3*numnodes)
     REAL(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
     REAL(kind=realtype) :: r_noded(3), r_centroidd(3), distvecd(3)
-    REAL(kind=realtype) :: dist, sumexp, rho, b
+    REAL(kind=realtype) :: dist, sumexp, rho, b, scalefactor
     REAL(kind=realtype) :: distd, sumexpd
     INTEGER(kind=inttype) :: ii
     INTRINSIC SUM
@@ -1500,14 +1502,18 @@ CONTAINS
     REAL(kind=realtype), DIMENSION(3) :: arg1d
     REAL(kind=realtype) :: arg2
     REAL(kind=realtype) :: arg2d
+! Scale the radius to avoid big numbers in the exponential
+    scalefactor = 1.0
+    r_scaledd = rd/scalefactor
+    r_scaled = r/scalefactor
 ! Find the average of all nodes
 ! We know that this is not the proper centroid, but it is ok since
 ! the radius is already an approximation
     r_centroid = 0.0
     r_centroidd = 0.0_8
     DO ii=1,numnodes
-      r_noded = rd(3*ii-2:3*ii)
-      r_node = r(3*ii-2:3*ii)
+      r_noded = r_scaledd(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
       r_centroidd = r_centroidd + r_noded
       r_centroid = r_centroid + r_node
     END DO
@@ -1526,8 +1532,8 @@ CONTAINS
     sumexpd = 0.0_8
     DO ii=1,numnodes
 ! Get coordinates of the current node
-      r_noded = rd(3*ii-2:3*ii)
-      r_node = r(3*ii-2:3*ii)
+      r_noded = r_scaledd(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
 ! Compute distance
       distvecd = r_noded - r_centroidd
       distvec = r_node - r_centroid
@@ -1545,17 +1551,18 @@ CONTAINS
       sumexpd = sumexpd + rho*distd*EXP(rho*dist)
       sumexp = sumexp + EXP(rho*dist)
     END DO
-! Use the KS function to estimate maximum radius
-    radiusd = sumexpd/sumexp/rho
-    radius = LOG(sumexp)/rho
+! Use the KS function to estimate maximum radius (remember to rescale back to original dimension)
+    radiusd = scalefactor*sumexpd/(sumexp*rho)
+    radius = LOG(sumexp)/rho*scalefactor
   END SUBROUTINE FINDRADIUS_D
   SUBROUTINE FINDRADIUS(r, numnodes, radius)
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: numnodes
     REAL(kind=realtype), INTENT(IN) :: r(3*numnodes)
     REAL(kind=realtype), INTENT(OUT) :: radius
+    REAL(kind=realtype) :: r_scaled(3*numnodes)
     REAL(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
-    REAL(kind=realtype) :: dist, sumexp, rho, b
+    REAL(kind=realtype) :: dist, sumexp, rho, b, scalefactor
     INTEGER(kind=inttype) :: ii
     INTRINSIC SUM
     INTRINSIC SQRT
@@ -1563,12 +1570,15 @@ CONTAINS
     INTRINSIC LOG
     REAL(kind=realtype), DIMENSION(3) :: arg1
     REAL(kind=realtype) :: arg2
+! Scale the radius to avoid big numbers in the exponential
+    scalefactor = 1.0
+    r_scaled = r/scalefactor
 ! Find the average of all nodes
 ! We know that this is not the proper centroid, but it is ok since
 ! the radius is already an approximation
     r_centroid = 0.0
     DO ii=1,numnodes
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
       r_centroid = r_centroid + r_node
     END DO
     r_centroid = r_centroid/numnodes
@@ -1584,7 +1594,7 @@ CONTAINS
     sumexp = 0.0
     DO ii=1,numnodes
 ! Get coordinates of the current node
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
 ! Compute distance
       distvec = r_node - r_centroid
       arg1(:) = distvec**2
@@ -1593,8 +1603,8 @@ CONTAINS
 ! Add contribution to the sum
       sumexp = sumexp + EXP(rho*dist)
     END DO
-! Use the KS function to estimate maximum radius
-    radius = LOG(sumexp)/rho
+! Use the KS function to estimate maximum radius (remember to rescale back to original dimension)
+    radius = LOG(sumexp)/rho*scalefactor
   END SUBROUTINE FINDRADIUS
 !  Differentiation of findratio in forward (tangent) mode (with options i4 dr8 r8):
 !   variations   of useful results: q

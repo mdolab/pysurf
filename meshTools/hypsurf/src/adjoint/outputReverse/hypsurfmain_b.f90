@@ -1764,21 +1764,26 @@ contains
     real(kind=realtype) :: rb(3*numnodes)
     real(kind=realtype) :: radius
     real(kind=realtype) :: radiusb
+    real(kind=realtype) :: r_scaled(3*numnodes)
+    real(kind=realtype) :: r_scaledb(3*numnodes)
     real(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
     real(kind=realtype) :: r_nodeb(3), r_centroidb(3), distvecb(3)
-    real(kind=realtype) :: dist, sumexp, rho, b
+    real(kind=realtype) :: dist, sumexp, rho, b, scalefactor
     real(kind=realtype) :: distb, sumexpb
     integer(kind=inttype) :: ii
     intrinsic sum
     intrinsic sqrt
     intrinsic exp
     intrinsic log
+! scale the radius to avoid big numbers in the exponential
+    scalefactor = 1.0
+    r_scaled = r/scalefactor
 ! find the average of all nodes
 ! we know that this is not the proper centroid, but it is ok since
 ! the radius is already an approximation
     r_centroid = 0.0
     do ii=1,numnodes
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
       r_centroid = r_centroid + r_node
     end do
     r_centroid = r_centroid/numnodes
@@ -1794,7 +1799,7 @@ contains
     sumexp = 0.0
     do ii=1,numnodes
 ! get coordinates of the current node
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
 ! compute distance
       distvec = r_node - r_centroid
       call pushreal8array(dist, realtype/8)
@@ -1802,11 +1807,12 @@ contains
 ! add contribution to the sum
       sumexp = sumexp + exp(rho*dist)
     end do
-    sumexpb = radiusb/(rho*sumexp)
+    sumexpb = scalefactor*radiusb/(rho*sumexp)
     r_centroidb = 0.0_8
+    r_scaledb = 0.0_8
     do ii=numnodes,1,-1
       distb = exp(rho*dist)*rho*sumexpb
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
       distvec = r_node - r_centroid
       distvecb = 0.0_8
       call popreal8array(dist, realtype/8)
@@ -1818,14 +1824,15 @@ contains
       r_nodeb = 0.0_8
       r_nodeb = distvecb
       r_centroidb = r_centroidb - distvecb
-      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
+      r_scaledb(3*ii-2:3*ii) = r_scaledb(3*ii-2:3*ii) + r_nodeb
     end do
     r_centroidb = r_centroidb/numnodes
     do ii=numnodes,1,-1
       r_nodeb = 0.0_8
       r_nodeb = r_centroidb
-      rb(3*ii-2:3*ii) = rb(3*ii-2:3*ii) + r_nodeb
+      r_scaledb(3*ii-2:3*ii) = r_scaledb(3*ii-2:3*ii) + r_nodeb
     end do
+    rb = r_scaledb/scalefactor
     radiusb = 0.0_8
   end subroutine findradius_b
   subroutine findradius(r, numnodes, radius)
@@ -1833,19 +1840,23 @@ contains
     integer(kind=inttype), intent(in) :: numnodes
     real(kind=realtype), intent(in) :: r(3*numnodes)
     real(kind=realtype), intent(out) :: radius
+    real(kind=realtype) :: r_scaled(3*numnodes)
     real(kind=realtype) :: r_node(3), r_centroid(3), distvec(3)
-    real(kind=realtype) :: dist, sumexp, rho, b
+    real(kind=realtype) :: dist, sumexp, rho, b, scalefactor
     integer(kind=inttype) :: ii
     intrinsic sum
     intrinsic sqrt
     intrinsic exp
     intrinsic log
+! scale the radius to avoid big numbers in the exponential
+    scalefactor = 1.0
+    r_scaled = r/scalefactor
 ! find the average of all nodes
 ! we know that this is not the proper centroid, but it is ok since
 ! the radius is already an approximation
     r_centroid = 0.0
     do ii=1,numnodes
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
       r_centroid = r_centroid + r_node
     end do
     r_centroid = r_centroid/numnodes
@@ -1861,15 +1872,15 @@ contains
     sumexp = 0.0
     do ii=1,numnodes
 ! get coordinates of the current node
-      r_node = r(3*ii-2:3*ii)
+      r_node = r_scaled(3*ii-2:3*ii)
 ! compute distance
       distvec = r_node - r_centroid
       dist = sqrt(sum(distvec**2))
 ! add contribution to the sum
       sumexp = sumexp + exp(rho*dist)
     end do
-! use the ks function to estimate maximum radius
-    radius = log(sumexp)/rho
+! use the ks function to estimate maximum radius (remember to rescale back to original dimension)
+    radius = log(sumexp)/rho*scalefactor
   end subroutine findradius
 !  differentiation of findratio in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: q

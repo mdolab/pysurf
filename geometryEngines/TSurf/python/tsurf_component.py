@@ -2022,7 +2022,7 @@ class TSurfCurve(Curve):
             self.coor = newCoor
             self.barsConn = newBarsConn
 
-    def shift_end_nodes(self, criteria='maxX', startPoint=np.zeros((3))):
+    def shift_end_nodes(self, criteria='maxX', startPoint=np.zeros((3)), curveObject=None):
 
         '''
         This method will shift the finite element ordering of
@@ -2037,7 +2037,7 @@ class TSurfCurve(Curve):
         INPUTS:
 
         criteria: string -> criteria used to reorder FE data. Available options are:
-                  ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ', 'startPoint']
+                  ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ', 'startPoint', 'curve']
 
         OUTPUTS:
         This function has no explicit outputs. It changes self.barsConn.
@@ -2115,6 +2115,11 @@ class TSurfCurve(Curve):
             # Set the start node as the curve coordinate point closest to the
             # selected startPoint
             startNodeID = np.argmin(dist_2)
+
+        elif criteria == 'curve':
+
+            # Find which node is the closest one to the reference curve
+            startNodeID = closest_node(curveObject.coor, coor)
 
         # Now we look for an element that starts at the reference node
         startElemID = np.where(barsConn[:, 0] == startNodeID)[0][0]
@@ -2426,12 +2431,12 @@ class TSurfCurve(Curve):
 
 ### HELPER FUNCTIONS ###
 
-def closest_node(guideCurve, curve):
-    """ Find closest node from a list of node coordinates. """
+def closest_node(guideCurveNodes, points):
+    """ Find which point in points is the closest to the set of nodes in guideCurveNodes. """
     minDist = 1e9
-    for node in guideCurve:
-        curve = np.asarray(curve)
-        deltas = curve - node
+    points = np.asarray(points)
+    for refNode in guideCurveNodes:
+        deltas = points - refNode
         dist_2 = np.einsum('ij,ij->i', deltas, deltas)
         if minDist > np.min(dist_2):
             minDist = np.min(dist_2)
