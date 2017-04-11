@@ -378,7 +378,7 @@ class TSurfGeometry(Geometry):
     def project_on_surface_b(self, xyz, xyzProj, xyzProjb, normProj, normProjb, projDict):
 
         '''
-        This function will compute derivatives of the projection algorithm in forward mode.
+        This function will compute derivatives of the projection algorithm in reverse mode.
 
         INPUTS:
         xyz -> float[numPts, 3] : Coordinates of the points that should be projected.

@@ -4,6 +4,7 @@
 # neysecco@umich.edu
 # Jan 2016
 
+from __future__ import division
 import numpy as np
 
 # DEFINING CLASSES
@@ -79,10 +80,12 @@ class Grid():
         '''
 
         for iblock in range(self.num_blocks):
-            # Gather old coordiantes
+
+            # Gather old coordinates
             X = self.blocks[iblock].X
             Y = self.blocks[iblock].Y
             Z = self.blocks[iblock].Z
+
             # Update values with flipped order
             self.blocks[iblock].update(X,Z,Y)
 
