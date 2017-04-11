@@ -2140,8 +2140,8 @@ class Manager(object):
 
                 # We don't need the local copy of the global surface vector anymore.
                 # We also don't need the unsorted index mapping as well.
-                del solverPts
-                del indexMap
+                #del solverPts
+                #del indexMap
 
                 # Now we can save the mapping for future use
                 self.indexSolverPts = indexSolverPts
@@ -2182,6 +2182,14 @@ class Manager(object):
                 # Save the number of repetitions for future use
                 # We need to make it a 2D array for matrix operations
                 self.numSurfRepetitions = np.array([numSurfRepetitions]).T
+
+                # Check if some nodes were not mapped
+                unmatchedNodes = np.where(self.numSurfRepetitions == 0)[0]
+                if len(unmatchedNodes > 0):
+                    print 'Some solver nodes did not find the corresponding copy in the manager object'
+                    print 'Here is the list of solver nodes:'
+                    print solverPts[unmatchedNodes,:]
+                    raise ValueError('Nodes not found')
 
     def _convertManagerToSolver(self, managerPts):
 

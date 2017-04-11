@@ -185,9 +185,9 @@ def writeTecplotSurfaceFEData(coor,triaConn,quadsConn,surfName,fileName):
     fileID.write('\n')
     
     # Gather number of nodes and finite elements
-    nNodes = coor.shape[1]
-    nTria = triaConn.shape[1]
-    nQuads = quadsConn.shape[1]
+    nNodes = coor.shape[0]
+    nTria = triaConn.shape[0]
+    nQuads = quadsConn.shape[0]
 
     # Write curve data
     fileID.write('Zone T= \"'+surfName+'\"\n')
@@ -195,16 +195,16 @@ def writeTecplotSurfaceFEData(coor,triaConn,quadsConn,surfName,fileName):
     fileID.write('DATAPACKING=POINT\n')
     
     # Write nodal coordinates
-    np.savetxt(fileID, coor.T)
+    np.savetxt(fileID, coor)
 
     # Extend tria connectivities to include degenerate node
-    triaConnExt = np.vstack([triaConn, triaConn[-1,:]])
+    triaConnExt = np.hstack([triaConn, np.array([triaConn[:,-1]]).T])
 
     # Write tria connectivities
-    np.savetxt(fileID, triaConnExt.T, fmt='%i')
+    np.savetxt(fileID, triaConnExt+1, fmt='%i')
 
     # Write quad connectivities
-    np.savetxt(fileID, quadsConn.T, fmt='%i')
+    np.savetxt(fileID, quadsConn+1, fmt='%i')
 
     # Close output file
     fileID.close()
