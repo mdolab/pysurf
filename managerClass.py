@@ -218,7 +218,7 @@ class Manager(object):
             # Call base function to operate on the manager itself
             self.baseFunction(self)
 
-    def initialize(self, directory, backgroundMeshInfo=None):
+    def initialize(self, directory, backgroundMeshInfo=None, fileNameTag=None):
 
         '''
         This method will do the initialization step. This includes:
@@ -250,7 +250,7 @@ class Manager(object):
             self.run_baseFunction()
 
         # Extrude meshes
-        combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo)
+        combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo, fileNameTag)
 
         # Set symmetry planes to zero (only the root proc will use cgns_utils
         if self.myID == 0:
@@ -270,7 +270,7 @@ class Manager(object):
         # Return combined file name to use in ADflow
         return combinedFileName
 
-    def reinitialize(self, directory):
+    def reinitialize(self, directory, fileNameTag=None):
 
         '''
         This method will do the pre-optimization step. This includes:
@@ -286,6 +286,8 @@ class Manager(object):
         
         Please refer to self.extrude_meshes to verify the inputs/outputs description.
 
+        IMPORTANT: You should use the same fileNameTag used for the initialization!
+
         Ney Secco 2017-02
         '''
 
@@ -297,7 +299,7 @@ class Manager(object):
         self.run_baseFunction()
 
         # Regenerate filename that has combined meshes
-        combinedFileName = generate_combined_filename(directory)
+        combinedFileName = generate_combined_filename(directory, fileNameTag)
 
         # Return combined file name to use in ADflow
         return combinedFileName
@@ -990,7 +992,7 @@ class Manager(object):
     #=====================================================
     # MESH EXPORTATION METHODS
 
-    def export_meshes(self, directory, fileNameTag=''):
+    def export_meshes(self, directory, fileNameTag=None):
 
         '''
         This function will export all structured surface meshes into
@@ -1026,7 +1028,7 @@ class Manager(object):
                 if geom.meshObj is not None:
 
                     # Generate file name
-                    fileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
+                    fileName = generate_primary_surface_mesh_filename(directory, geom.name, fileNameTag)
 
                     # Export mesh
                     geom.meshObj.export_plot3d(fileName)
@@ -1044,7 +1046,7 @@ class Manager(object):
                 if curve.extra_data['childMeshes'] is not None:
 
                     # Generate file name
-                    fileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
+                    fileName = generate_collar_surface_mesh_filename(directory, curve.name, fileNameTag)
 
                     # Merge different meshes that make up a single collar
                     meshList = []
@@ -1069,7 +1071,7 @@ class Manager(object):
             print 'Exported all meshes!'
             print ''
 
-    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=''):
+    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=None):
 
         '''
         This function will use pyHyp to extrude all surface meshes into
@@ -1134,8 +1136,8 @@ class Manager(object):
             if geom.meshObj is not None:
 
                 # Generate file names
-                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, primaryID, fileNameTag)
-                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, primaryID, fileNameTag)
+                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, fileNameTag)
+                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, fileNameTag)
 
                 # Get extrusion options
                 extrusionOptions = geom.meshObj.extrusionOptions
@@ -1165,8 +1167,8 @@ class Manager(object):
             if curve.extra_data['childMeshes'] is not None:
 
                 # Generate file name
-                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, collarID, fileNameTag)
-                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, collarID, fileNameTag)
+                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, fileNameTag)
+                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, fileNameTag)
 
                 # Get extrusion options from the first mesh object
                 meshName = curve.extra_data['childMeshes'][0]
@@ -1198,6 +1200,9 @@ class Manager(object):
 
         ### ADDING BACKGROUND MESHES
 
+        # Generate name for combined nearfield meshes
+        nearfieldFilename = generate_nearfield_filename(directory, fileNameTag)
+
         # Only the root proc will work here
         if self.myID == 0:
 
@@ -1214,7 +1219,6 @@ class Manager(object):
             nearfieldCombo = cs.combineGrids(nearfieldMeshes)
 
             # Save it in a single file
-            nearfieldFilename = directory + 'near_field_meshes.cgns'
             nearfieldCombo.writeToCGNS(nearfieldFilename)
 
         self.comm.Barrier()
@@ -1235,7 +1239,7 @@ class Manager(object):
             # to generate a new background mesh
 
             # Assign the background mesh filename for the next operations
-            bgMeshNames = directory + 'Auto_background.cgns'
+            bgMeshNames = generate_background_filename(directory, fileNameTag)
 
             # Define default set of options
             bg_options = {
@@ -1254,7 +1258,6 @@ class Manager(object):
                     bg_options[key] = backgroundMeshInfo[key]
 
             # Run cartesian mesh generator from cgns_utils
-            nearfieldFilename = directory + 'near_field_meshes.cgns'
             nearfieldGrid = cs.readGrid(nearfieldFilename)
             nearfieldGrid.simpleOCart(bg_options['dh'],
                                       bg_options['hExtra'],
@@ -1275,7 +1278,7 @@ class Manager(object):
         # Now we can run the cgns_utils command to join all blocks in a single file
 
         # First we generate the name of the combined file in all procs
-        combinedFileName = generate_combined_filename(directory)
+        combinedFileName = generate_combined_filename(directory, fileNameTag)
 
         # Only the root proc will work here
         if self.myID == 0:
@@ -1310,11 +1313,13 @@ class Manager(object):
         # Return the name of the combined file
         return combinedFileName
 
-    def generate_default_pyWarpMulti_options(self, directory):
+    def generate_default_pyWarpMulti_options(self, directory, fileNameTag=None):
 
         '''
         This method will give a dictionary with default set of options that can be used
         to initialize a pyWarpMulti instance for the current manager.
+
+        directory and fileNameTag should be the same ones used during self.initialize
         '''
 
         # Add a slash if the directory does not have it
@@ -1348,6 +1353,10 @@ class Manager(object):
         optionsDict = {}
         for zoneName in zoneNames:
 
+            # Append nametag if necessary
+            if fileNameTag is not None:
+                zoneName = zoneName + '_' + fileNameTag
+
             optionsDict[zoneName] = {
                 'warpType':'unstructured',
                 'aExp': 3.0,
@@ -1365,7 +1374,7 @@ class Manager(object):
         optionsDict = self.comm.bcast(optionsDict, root=0)
 
         # Regenerate combined filename
-        combinedFileName = generate_combined_filename(directory)
+        combinedFileName = generate_combined_filename(directory, fileNameTag)
 
         return combinedFileName, optionsDict
 
@@ -2336,58 +2345,90 @@ class Manager(object):
 #=================================================
 # AUXILIARY FUNCTIONS
 
-def generate_primary_surface_mesh_filename(directory, geomName, primaryID, fileNameTag=''):
+def generate_primary_surface_mesh_filename(directory, geomName, fileNameTag=None):
 
     '''
     This just generates a filename for the surface mesh
     '''
 
-    #fileName = directory + fileNameTag + 'Primary_%03d'%primaryID + '.xyz'
-    fileName = directory + geomName + '.xyz'
+    if fileNameTag is None:
+        fileName = directory + geomName + '.xyz'
+    else:
+        fileName = directory + geomName + '_' + fileNameTag + '.xyz'
 
     return fileName
 
-def generate_primary_volume_mesh_filename(directory, geomName, primaryID, fileNameTag=''):
+def generate_primary_volume_mesh_filename(directory, geomName, fileNameTag=None):
 
     '''
     This just generates a filename for the surface mesh
     '''
 
-    #fileName = directory + fileNameTag + 'Primary_vol_%03d'%primaryID + '.cgns'
-
-    fileName = directory + geomName + '.cgns'
+    if fileNameTag is None:
+        fileName = directory + geomName + '.cgns'
+    else:
+        fileName = directory + geomName + '_' + fileNameTag + '.cgns'
 
     return fileName
 
-def generate_collar_surface_mesh_filename(directory, curveName, collarID, fileNameTag=''):
+def generate_collar_surface_mesh_filename(directory, curveName, fileNameTag=None):
 
     '''
     This just generates a filename for the surface mesh
     '''
-    
-    # Generate file name
-    #fileName = directory + fileNameTag + 'Collar_%03d'%collarID + '.xyz'
 
-    fileName = directory + curveName + '.xyz'
+    if fileNameTag is None:
+        fileName = directory + curveName + '.xyz'
+    else:
+        fileName = directory + curveName + '_' + fileNameTag + '.xyz'
 
     return fileName
 
-def generate_collar_volume_mesh_filename(directory, curveName, collarID, fileNameTag=''):
+def generate_collar_volume_mesh_filename(directory, curveName, fileNameTag=None):
 
     '''
     This just generates a filename for the surface mesh
     '''
-    
-    # Generate file name
-    #fileName = directory + fileNameTag + 'Collar_vol_%03d'%collarID + '.cgns'
 
-    fileName = directory + curveName + '.cgns'
+    if fileNameTag is None:
+        fileName = directory + curveName + '.cgns'
+    else:
+        fileName = directory + curveName + '_' + fileNameTag + '.cgns'
 
     return fileName
 
-def generate_combined_filename(directory):
+def generate_nearfield_filename(directory, fileNameTag=None):
 
-    # First we generate the name of the combined file in all procs
-    combinedFileName = directory + 'aeroInput.cgns'
+    '''
+    This just generates a filename for the combined near-field meshes
+    '''
+
+    if fileNameTag is None:
+        fileName = directory + 'near_field_meshes.cgns'
+    else:
+        fileName = directory + 'near_field_meshes_' + fileNameTag + '.cgns'
+
+    return fileName
+
+def generate_background_filename(directory, fileNameTag=None):
+
+    '''
+    This just generates a filename for the background mesh
+    '''
+
+    if fileNameTag is None:
+        fileName = directory + 'autobg.cgns'
+    else:
+        fileName = directory + 'autobg_' + fileNameTag + '.cgns'
+
+    return fileName
+
+def generate_combined_filename(directory,fileNameTag=None):
+
+    # Generate the name of the combined file in all procs
+    if fileNameTag is None:
+        combinedFileName = directory + 'aeroInput.cgns'
+    else:
+        combinedFileName = directory + 'aeroInput_' + fileNameTag + '.cgns'
 
     return combinedFileName
