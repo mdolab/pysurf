@@ -236,6 +236,9 @@ class Geometry(object):
         This function assign a geometry manipulation object (such ad DVGeo) to the
         current Geometry object.
 
+        This function receives a geometry manipulator object and then embed the points of
+        the current geometry object into this manipulator
+
         INPUTS:
 
         GMObj: Geometry Manipulation Object
@@ -283,10 +286,13 @@ class Geometry(object):
             if self.meshFileName is not None:
                 self.embed_mesh_points()
 
-
-
             print 'Manipulator assignment finished'
             print ''
+
+        else:
+
+            # The other processors will just save the reference to the manipulator
+            self.manipulator = GMObj
 
     def manipulator_update(self):
 
