@@ -1102,7 +1102,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
                                                                     comm.py2f())
 
     # Retrieve results from Fortran if we have an intersection
-    if np.max(arraySizes) > 0:
+    if np.max(arraySizes[1:]) > 0:
 
         # Second Fortran call to retrieve data from the CGNS file.
         intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)

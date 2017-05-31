@@ -100,19 +100,36 @@ class TSurfGeometry(Geometry):
                 print ' was specified.'
                 quit()
 
-            # Read CGNS file
-            self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
+            # Get file extension
+            fileExt = os.path.splitext(os.path.basename(filename))[1]
 
-            # Select all section names in case the user provided none
-            if selectedSections is None:
-                selectedSections = sectionDict.keys()
+            if fileExt == '.cgns':
 
-            # Now we call an auxiliary function to merge selected surface sections in a single
-            # connectivity array
-            self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
+                # Read CGNS file
+                self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
 
-            # Initialize curves
-            tst.initialize_curves(self, sectionDict, selectedSections)
+                # Select all section names in case the user provided none
+                if selectedSections is None:
+                    selectedSections = sectionDict.keys()
+
+                # Now we call an auxiliary function to merge selected surface sections in a single
+                # connectivity array
+                self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
+
+                # Initialize curves
+                tst.initialize_curves(self, sectionDict, selectedSections)
+
+            elif fileExt == '.plt':
+
+                # Read Tecplot file
+                self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(filename)
+
+                # Adjust indices to Fortran ordering
+                self.triaConnF = triaConn + 1
+                self.quadsConnF = quadsConn + 1
+
+                # Assign curves
+                self.curves = {}
 
             # Now we remove unused points
             self.coor, usedPtsMask = tst.remove_unused_points(self.coor, triaConnF=self.triaConnF, quadsConnF=self.quadsConnF)
@@ -987,7 +1004,7 @@ class TSurfGeometry(Geometry):
 
         '''
         This method will export the triangulated surface data into a tecplot format.
-        The will write all elements as quad data. The triangle elements will be exported
+        This will write all elements as quad data. The triangle elements will be exported
         as degenerated quads (quads with a repeated node).
 
         Ney Secco 2017-02
