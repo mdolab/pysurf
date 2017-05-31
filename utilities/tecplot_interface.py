@@ -35,6 +35,7 @@ def readTecplotFEdata(fileName):
 
     # Written by Ney Secco
     # This script will read sections from a Tecplot FE file
+    # FOR NOW THIS JUST READS BAR FE FILES FOR THE CURVE FUNCTIONS
 
     # IMPORTS
     from numpy import array
@@ -109,6 +110,74 @@ def readTecplotFEdata(fileName):
 
     # RETURNS
     return sectionName, sectionData, sectionConn
+
+#==================================================================
+#==================================================================
+
+def readTecplotFEdataSurf(fileName):
+
+    # Written by Ney Secco
+    # This script will read sections from a Tecplot FE file with quads written by pysurf.
+    # The Tecplot file should have a single zone
+
+    # IMPORTS
+    from numpy import array
+
+    # Initialize arrays
+    coor = []
+    triaConn = []
+    quadsConn = []
+
+    # Read the lines of the file
+    with open(fileName,'r') as fid:
+        lines = fid.readlines()
+
+    # Loop over the lines to gather data
+    for line in lines:
+
+        # Split data
+        data = line.split()
+
+        # Assing something to data if we got an empty list so that the
+        # rest of the code does not break.
+        if len(data) == 0:
+            data = [None]
+
+        # Check if we have a coordinate line
+        if len(data) == 3:
+
+            # Try to convert the elements of this line to numbers.
+            # If this doesn't work, it means we do not have a data line.
+            try:
+                coor.append(map(float,data))
+            except:
+                pass
+
+        # Check if we have a quad connectivity line
+        if len(data) == 4:
+
+            # Try to convert the elements of this line to numbers.
+            # If this doesn't work, it means we do not have a connectivity line.
+            try:
+                # We also do set() to eliminate equal entries, so we can detect triangles as degenerate quads
+                currConn = list(set(map(int,data)))
+
+                # See if we have a tria or a quad
+                if len(currConn) == 3:
+                    triaConn.append(currConn)
+                elif len(currConn) == 4:
+                    quadsConn.append(currConn)
+            except:
+                pass
+
+    # Transform everything to numpy arrays
+    # The -1 is to make it consistent with python indexing
+    coor = np.array(coor)
+    triaConn = np.array(triaConn) - 1
+    quadsConn = np.array(quadsConn) - 1
+
+    # RETURNS
+    return coor, triaConn, quadsConn
 
 #==================================================================
 #==================================================================
