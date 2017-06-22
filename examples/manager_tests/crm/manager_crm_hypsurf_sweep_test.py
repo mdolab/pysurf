@@ -13,7 +13,7 @@ LE_spacing = 0.001
 TE_spacing = 0.01
 
 # WING POSITIONS
-deltaZ = np.linspace(0.0, 0.04, 5)
+deltaZ = np.linspace(0.0, 3.0, 2)
 
 # TRACKING POINT
 # Give i coordinate that we will use to create the tracking slice
@@ -64,7 +64,7 @@ def compute_position(wing_deltaZ):
     '''
 
     # Clear the manager object first
-    manager.clear_all()
+    manager.clean_all()
 
     # Translate the wing
     manager.geoms[name1].translate(0.0, 0.0, wing_deltaZ)
@@ -91,7 +91,7 @@ def compute_position(wing_deltaZ):
     # Find the highest z-coordinate of the entire intersection (vertical position)
     maxZ = -99999
     for curve in splitCurveNames:
-        curr_maxZ = np.max(manager.intCurves[curve].coor[2,:])
+        curr_maxZ = np.max(manager.intCurves[curve].coor[:,2])
         maxZ = max(maxZ, curr_maxZ)
 
     # Now we can identify and remesh each curve properly
@@ -115,7 +115,7 @@ def compute_position(wing_deltaZ):
             # LE to TE or vice-versa
 
             curveCoor = curve.get_points()
-            deltaX = curveCoor[0,-1] - curveCoor[0,0]
+            deltaX = curveCoor[-1,0] - curveCoor[0,0]
 
             if deltaX > 0:
                 LE_to_TE = True
@@ -123,7 +123,7 @@ def compute_position(wing_deltaZ):
                 LE_to_TE = False
 
             # Compute the highest vertical coordinate of the curve
-            curr_maxZ = np.max(curve.coor[2,:])
+            curr_maxZ = np.max(curve.coor[:,2])
 
             # Now we can determine if we have upper or lower skin
             if curr_maxZ < maxZ:
@@ -180,7 +180,7 @@ def compute_position(wing_deltaZ):
 
     # Flip the curve for marching if necessary
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
-    deltaZ = mergedCurveCoor[2,1] - mergedCurveCoor[2,0]
+    deltaZ = mergedCurveCoor[1,2] - mergedCurveCoor[0,2]
 
     if deltaZ > 0:
         manager.intCurves[mergedCurveName].flip()
@@ -234,12 +234,12 @@ def compute_position(wing_deltaZ):
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_wing, options1=options_body, meshName=meshName)
 
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'_%03d'%numPasses+'.xyz')
+        manager.meshGenerators[meshName].export_plot3d(meshName+'_%03d'%numPasses+'.xyz')
 
     # DERIVATIVE SEEDS
-
+    '''
     # Get spanwise position of the tracked node
-    Y = manager.meshes[meshNames[0]].mesh[1, i_node, j_node]
+    Y = manager.meshGenerators[meshNames[0]].meshObj.get_points()[1, i_node]
 
     # Set up derivative seeds so we can compute the derivative of the spanwise position
     # of the tracked node of the intersection
@@ -260,12 +260,16 @@ def compute_position(wing_deltaZ):
 
     # Condense derivatives to take into acount the translation
     dYdZ = 0.0
-    dYdZ = np.sum(coor1b[2,:])
+    dYdZ = np.sum(coor1b[:,2])
     for curveName in curveCoor1b:
-        dYdZ = dYdZ + np.sum(curveCoor1b[curveName][2,:])
+        dYdZ = dYdZ + np.sum(curveCoor1b[curveName][:,2])
 
     # Move the wing back to its original position
     manager.geoms[name1].translate(0.0, 0.0, -wing_deltaZ)
+    '''
+
+    Y = 0
+    dYdZ = 0
 
     # Return the spanwise position of the highest intersection node and its derivative
     return Y, dYdZ

@@ -33,7 +33,7 @@ CONTAINS
   SUBROUTINE COMPUTEMATRICES_MAIN_B(r0, r0b, n0, n0b, s0, s0b, rm1, rm1b&
 &   , sm1, sm1b, layerindex, theta, sigmasplay, bc1, bc2, numlayers, &
 &   epse0, guideindices, retainspacing, rnew, rnewb, numnodes, numguides&
-& )
+&   , nu_guide_blend)
     USE SOLVEROUTINES_B, ONLY : solve, solve_b
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -44,7 +44,7 @@ CONTAINS
     REAL(kind=realtype), INTENT(IN) :: rm1(3*numnodes), sm1(numnodes), &
 &   theta
     REAL(kind=realtype) :: rm1b(3*numnodes), sm1b(numnodes)
-    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
+    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0, nu_guide_blend
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     REAL(kind=realtype) :: rnew(3*numnodes)
     REAL(kind=realtype) :: rnewb(3*numnodes)
@@ -57,8 +57,10 @@ CONTAINS
 &   , d_vec_rotb(3)
     REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
     REAL(kind=realtype) :: kb(3*numnodes, 3*numnodes)
-    REAL(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
-    REAL(kind=realtype) :: fb(3*numnodes), delta_rb(3*numnodes)
+    REAL(kind=realtype) :: f(3*numnodes), delta_r0(3*numnodes), delta_r(&
+&   3*numnodes)
+    REAL(kind=realtype) :: fb(3*numnodes), delta_r0b(3*numnodes), &
+&   delta_rb(3*numnodes)
     INTEGER(kind=inttype) :: index, i
     INTEGER(kind=inttype) :: ipiv(3*numnodes)
     INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
@@ -234,6 +236,11 @@ CONTAINS
 &                  numlayers, epse0, layerindex, theta, index, k, f)
       CALL PUSHCONTROL3B(6)
     END IF
+! Blend guide curves
+    CALL PUSHREAL8ARRAY(f, realtype*3*numnodes/8)
+    CALL PUSHREAL8ARRAY(k, realtype*3**2*numnodes**2/8)
+    CALL BLENDGUIDEMATRICES(k, f, guideindices, nu_guide_blend, &
+&                     numguides, numnodes)
 ! Set other parameters
 ! Problem size
     n = 3*numnodes
@@ -241,12 +248,20 @@ CONTAINS
 ! leading dimension of K (should be = n unless we work with submatrices)
 ! leading dimension of f (should be = n unless we work with submatrices)
 ! Solve the linear system K*delta_r = f
+! Blending due to guide curves
+!call blendGuideCurves(delta_r0, delta_r, guideIndices, nu_guide_blend, numGuides, numNodes)
 ! Note that this f is rNext when outputted from computeMatrices_main
     r0b = 0.0_8
     delta_rb = 0.0_8
     r0b = rnewb
     delta_rb = rnewb
-    CALL SOLVE_B(k, kb, delta_r, delta_rb, f, fb, n, ipiv)
+    delta_r0b = 0.0_8
+    delta_r0b = delta_rb
+    CALL SOLVE_B(k, kb, delta_r0, delta_r0b, f, fb, n, ipiv)
+    CALL POPREAL8ARRAY(k, realtype*3**2*numnodes**2/8)
+    CALL POPREAL8ARRAY(f, realtype*3*numnodes/8)
+    CALL BLENDGUIDEMATRICES_B(k, kb, f, fb, guideindices, nu_guide_blend&
+&                       , numguides, numnodes)
     CALL POPCONTROL3B(branch)
     IF (branch .LT. 3) THEN
       IF (branch .EQ. 0) THEN
@@ -409,7 +424,7 @@ CONTAINS
 !=================================================================
   SUBROUTINE COMPUTEMATRICES_MAIN(r0, n0, s0, rm1, sm1, layerindex, &
 &   theta, sigmasplay, bc1, bc2, numlayers, epse0, guideindices, &
-&   retainspacing, rnew, numnodes, numguides)
+&   retainspacing, rnew, numnodes, numguides, nu_guide_blend)
     USE SOLVEROUTINES_B, ONLY : solve
     IMPLICIT NONE
     INTEGER(kind=inttype), INTENT(IN) :: layerindex, numnodes, numlayers
@@ -417,7 +432,7 @@ CONTAINS
 &   s0(numnodes)
     REAL(kind=realtype), INTENT(IN) :: rm1(3*numnodes), sm1(numnodes), &
 &   theta
-    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0
+    REAL(kind=realtype), INTENT(IN) :: sigmasplay, epse0, nu_guide_blend
     CHARACTER(len=32), INTENT(IN) :: bc1, bc2
     REAL(kind=realtype), INTENT(OUT) :: rnew(3*numnodes)
     INTEGER(kind=inttype), INTENT(IN) :: numguides
@@ -426,7 +441,8 @@ CONTAINS
     REAL(kind=realtype) :: r_curr(3), r_next(3), r_prev(3), d_vec(3), &
 &   d_vec_rot(3), eye(3, 3)
     REAL(kind=realtype) :: k(3*numnodes, 3*numnodes)
-    REAL(kind=realtype) :: f(3*numnodes), delta_r(3*numnodes)
+    REAL(kind=realtype) :: f(3*numnodes), delta_r0(3*numnodes), delta_r(&
+&   3*numnodes)
     INTEGER(kind=inttype) :: index, i
     INTEGER(kind=inttype) :: ipiv(3*numnodes)
     INTEGER(kind=inttype) :: n, nrhs, ldk, ldf, info
@@ -585,6 +601,9 @@ CONTAINS
       CALL MATRIXBUILDER(index, bc1, bc2, r0, rm1, n0, s0, sm1, &
 &                  numlayers, epse0, layerindex, theta, index, k, f)
     END IF
+! Blend guide curves
+    CALL BLENDGUIDEMATRICES(k, f, guideindices, nu_guide_blend, &
+&                     numguides, numnodes)
 ! Set other parameters
 ! Problem size
     n = 3*numnodes
@@ -595,10 +614,369 @@ CONTAINS
 ! leading dimension of f (should be = n unless we work with submatrices)
     ldf = n
 ! Solve the linear system K*delta_r = f
-    CALL SOLVE(k, delta_r, f, n, ipiv)
+    CALL SOLVE(k, delta_r0, f, n, ipiv)
+! Blending due to guide curves
+!call blendGuideCurves(delta_r0, delta_r, guideIndices, nu_guide_blend, numGuides, numNodes)
+    delta_r = delta_r0
 ! Note that this f is rNext when outputted from computeMatrices_main
     rnew = r0 + delta_r
   END SUBROUTINE COMPUTEMATRICES_MAIN
+!  Differentiation of blendguidematrices in reverse (adjoint) mode (with options i4 dr8 r8):
+!   gradient     of useful results: f k
+!   with respect to varying inputs: f k
+!================================================================
+  SUBROUTINE BLENDGUIDEMATRICES_B(k, kb, f, fb, guideindices, &
+&   nu_guide_blend, numguides, numnodes)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: numguides, numnodes, &
+&   guideindices(numguides)
+    REAL(kind=realtype), INTENT(IN) :: nu_guide_blend
+    REAL(kind=realtype), INTENT(INOUT) :: k(3*numnodes, 3*numnodes), f(3&
+&   *numnodes)
+    REAL(kind=realtype) :: kb(3*numnodes, 3*numnodes), fb(3*numnodes)
+    INTEGER(kind=inttype) :: i, index, index_neighbor
+    REAL(kind=realtype) :: f_neighbor(3), f_guided(3), nu_blend, &
+&   m_neighbor(3, 3)
+    REAL(kind=realtype) :: f_neighborb(3), f_guidedb(3), m_neighborb(3, &
+&   3)
+    INTRINSIC SUM
+    REAL(kind=realtype) :: tempb9
+    REAL(kind=realtype) :: tempb8
+    REAL(kind=realtype) :: tempb7
+    REAL(kind=realtype) :: tempb6
+    REAL(kind=realtype) :: tempb5
+    REAL(kind=realtype) :: tempb4
+    REAL(kind=realtype) :: tempb3
+    REAL(kind=realtype) :: tempb2
+    REAL(kind=realtype) :: tempb1
+    REAL(kind=realtype) :: tempb0
+    REAL(kind=realtype) :: tempb10
+    REAL(kind=realtype) :: tempb
+! ! Smooth guide curves direction to the neighbor nodes
+    DO i=1,numguides
+! Get blending value
+      nu_blend = nu_guide_blend
+! Get node index
+      index = guideindices(i)
+! Get rhs of the guided node
+      CALL PUSHREAL8ARRAY(f_guided, realtype*3/8)
+      f_guided = f(3*(index-1)+1:3*(index-1)+3)
+! Previous neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index - 1
+      CALL PUSHREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Next neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index + 1
+      CALL PUSHREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Weaken blending parameter
+      nu_blend = nu_guide_blend*0.5
+! Get node index
+      index = guideindices(i)
+! Get rhs of the guided node
+      CALL PUSHREAL8ARRAY(f_guided, realtype*3/8)
+      f_guided = f(3*(index-1)+1:3*(index-1)+3)
+! Previous previous neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index - 2
+      CALL PUSHREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Next next neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index + 2
+      CALL PUSHREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+    END DO
+    DO i=numguides,1,-1
+      nu_blend = nu_guide_blend*0.5
+      index = guideindices(i)
+      index_neighbor = index + 2
+      m_neighborb = 0.0_8
+      m_neighborb = kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*&
+&       (index_neighbor-1)+1:3*(index_neighbor-1)+3)/(1-nu_blend)
+      f_neighborb = 0.0_8
+      f_neighborb = fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighborb
+      f_guidedb = 0.0_8
+      tempb = nu_blend*f_neighborb(3)/(1-nu_blend)
+      m_neighborb(3, :) = m_neighborb(3, :) + f_guided*tempb
+      tempb0 = nu_blend*f_neighborb(2)/(1-nu_blend)
+      m_neighborb(2, :) = m_neighborb(2, :) + f_guided*tempb0
+      tempb1 = nu_blend*f_neighborb(1)/(1-nu_blend)
+      f_guidedb = m_neighbor(2, :)*tempb0 + m_neighbor(1, :)*tempb1 + &
+&       m_neighbor(3, :)*tempb
+      m_neighborb(1, :) = m_neighborb(1, :) + f_guided*tempb1
+      kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&     index_neighbor-1)+1:3*(index_neighbor-1)+3) = m_neighborb
+      CALL POPREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      index_neighbor = index - 2
+      m_neighborb = 0.0_8
+      m_neighborb = kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*&
+&       (index_neighbor-1)+1:3*(index_neighbor-1)+3)/(1-nu_blend)
+      f_neighborb = 0.0_8
+      f_neighborb = fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighborb
+      tempb2 = nu_blend*f_neighborb(3)/(1-nu_blend)
+      m_neighborb(3, :) = m_neighborb(3, :) + f_guided*tempb2
+      tempb3 = nu_blend*f_neighborb(2)/(1-nu_blend)
+      m_neighborb(2, :) = m_neighborb(2, :) + f_guided*tempb3
+      tempb4 = nu_blend*f_neighborb(1)/(1-nu_blend)
+      f_guidedb = f_guidedb + m_neighbor(2, :)*tempb3 + m_neighbor(1, :)&
+&       *tempb4 + m_neighbor(3, :)*tempb2
+      m_neighborb(1, :) = m_neighborb(1, :) + f_guided*tempb4
+      kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&     index_neighbor-1)+1:3*(index_neighbor-1)+3) = m_neighborb
+      CALL POPREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      CALL POPREAL8ARRAY(f_guided, realtype*3/8)
+      fb(3*(index-1)+1:3*(index-1)+3) = fb(3*(index-1)+1:3*(index-1)+3) &
+&       + f_guidedb
+      nu_blend = nu_guide_blend
+      index = guideindices(i)
+      index_neighbor = index + 1
+      m_neighborb = 0.0_8
+      m_neighborb = kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*&
+&       (index_neighbor-1)+1:3*(index_neighbor-1)+3)/(1-nu_blend)
+      f_neighborb = 0.0_8
+      f_neighborb = fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighborb
+      f_guidedb = 0.0_8
+      tempb5 = nu_blend*f_neighborb(3)/(1-nu_blend)
+      m_neighborb(3, :) = m_neighborb(3, :) + f_guided*tempb5
+      tempb6 = nu_blend*f_neighborb(2)/(1-nu_blend)
+      m_neighborb(2, :) = m_neighborb(2, :) + f_guided*tempb6
+      tempb7 = nu_blend*f_neighborb(1)/(1-nu_blend)
+      f_guidedb = m_neighbor(2, :)*tempb6 + m_neighbor(1, :)*tempb7 + &
+&       m_neighbor(3, :)*tempb5
+      m_neighborb(1, :) = m_neighborb(1, :) + f_guided*tempb7
+      kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&     index_neighbor-1)+1:3*(index_neighbor-1)+3) = m_neighborb
+      CALL POPREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      index_neighbor = index - 1
+      m_neighborb = 0.0_8
+      m_neighborb = kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*&
+&       (index_neighbor-1)+1:3*(index_neighbor-1)+3)/(1-nu_blend)
+      f_neighborb = 0.0_8
+      f_neighborb = fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      fb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighborb
+      tempb8 = nu_blend*f_neighborb(3)/(1-nu_blend)
+      m_neighborb(3, :) = m_neighborb(3, :) + f_guided*tempb8
+      tempb9 = nu_blend*f_neighborb(2)/(1-nu_blend)
+      m_neighborb(2, :) = m_neighborb(2, :) + f_guided*tempb9
+      tempb10 = nu_blend*f_neighborb(1)/(1-nu_blend)
+      f_guidedb = f_guidedb + m_neighbor(2, :)*tempb9 + m_neighbor(1, :)&
+&       *tempb10 + m_neighbor(3, :)*tempb8
+      m_neighborb(1, :) = m_neighborb(1, :) + f_guided*tempb10
+      kb(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&     index_neighbor-1)+1:3*(index_neighbor-1)+3) = m_neighborb
+      CALL POPREAL8ARRAY(m_neighbor, realtype*3**2/8)
+      CALL POPREAL8ARRAY(f_guided, realtype*3/8)
+      fb(3*(index-1)+1:3*(index-1)+3) = fb(3*(index-1)+1:3*(index-1)+3) &
+&       + f_guidedb
+    END DO
+  END SUBROUTINE BLENDGUIDEMATRICES_B
+!================================================================
+  SUBROUTINE BLENDGUIDEMATRICES(k, f, guideindices, nu_guide_blend, &
+&   numguides, numnodes)
+    IMPLICIT NONE
+    INTEGER(kind=inttype), INTENT(IN) :: numguides, numnodes, &
+&   guideindices(numguides)
+    REAL(kind=realtype), INTENT(IN) :: nu_guide_blend
+    REAL(kind=realtype), INTENT(INOUT) :: k(3*numnodes, 3*numnodes), f(3&
+&   *numnodes)
+    INTEGER(kind=inttype) :: i, index, index_neighbor
+    REAL(kind=realtype) :: f_neighbor(3), f_guided(3), nu_blend, &
+&   m_neighbor(3, 3)
+    INTRINSIC SUM
+! ! Smooth guide curves direction to the neighbor nodes
+    DO i=1,numguides
+! Get blending value
+      nu_blend = nu_guide_blend
+! Get node index
+      index = guideindices(i)
+! Get rhs of the guided node
+      f_guided = f(3*(index-1)+1:3*(index-1)+3)
+! Previous neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index - 1
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Next neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index + 1
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Weaken blending parameter
+      nu_blend = nu_guide_blend*0.5
+! Get node index
+      index = guideindices(i)
+! Get rhs of the guided node
+      f_guided = f(3*(index-1)+1:3*(index-1)+3)
+! Previous previous neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index - 2
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+! Next next neighbor
+! Get matrix and rhs of the neighbor
+      index_neighbor = index + 2
+      m_neighbor = k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(&
+&       index_neighbor-1)+1:3*(index_neighbor-1)+3)
+      f_neighbor = f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3)
+! Compute matrix-vector product
+      f_neighbor(1) = f_neighbor(1) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(1, :)*f_guided)
+      f_neighbor(2) = f_neighbor(2) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(2, :)*f_guided)
+      f_neighbor(3) = f_neighbor(3) + nu_blend/(1-nu_blend)*SUM(&
+&       m_neighbor(3, :)*f_guided)
+! Assign new rhs
+      f(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = f_neighbor
+! Modify neighbor matrix
+      k(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3, 3*(index_neighbor&
+&     -1)+1:3*(index_neighbor-1)+3) = m_neighbor/(1-nu_blend)
+    END DO
+  END SUBROUTINE BLENDGUIDEMATRICES
+!================================================================
+  SUBROUTINE BLENDGUIDECURVES(delta_r0, delta_r, guideindices, &
+&   nu_guide_blend, numguides, numnodes)
+    IMPLICIT NONE
+! This subroutine just blends the marching direction near guide curves
+    INTEGER(kind=inttype), INTENT(IN) :: numguides, numnodes, &
+&   guideindices(numguides)
+    REAL(kind=realtype), INTENT(IN) :: delta_r0(3*numnodes), &
+&   nu_guide_blend
+    REAL(kind=realtype), INTENT(OUT) :: delta_r(3*numnodes)
+    INTEGER(kind=inttype) :: iguide, index, index_neighbor
+    REAL(kind=realtype) :: nu_blend
+! First copy all values
+    delta_r = delta_r0
+! Smooth displacement of neighbors
+    DO iguide=1,numguides
+! Get blending value
+      nu_blend = nu_guide_blend
+! Get node index
+      index = guideindices(iguide)
+! Previous neighbor
+      index_neighbor = index - 1
+      delta_r(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = (1-&
+&       nu_blend)*delta_r0(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3&
+&       ) + nu_blend*delta_r0(3*(index-1)+1:3*(index-1)+3)
+! Next neighbor
+      index_neighbor = index + 1
+      delta_r(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = (1-&
+&       nu_blend)*delta_r0(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3&
+&       ) + nu_blend*delta_r0(3*(index-1)+1:3*(index-1)+3)
+! Weaken blending value
+      nu_blend = nu_guide_blend*0.5
+! Previous previous neighbor
+      index_neighbor = index - 2
+      delta_r(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = (1-&
+&       nu_blend)*delta_r0(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3&
+&       ) + nu_blend*delta_r0(3*(index-1)+1:3*(index-1)+3)
+! Next next neighbor
+      index_neighbor = index + 2
+      delta_r(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3) = (1-&
+&       nu_blend)*delta_r0(3*(index_neighbor-1)+1:3*(index_neighbor-1)+3&
+&       ) + nu_blend*delta_r0(3*(index-1)+1:3*(index-1)+3)
+    END DO
+  END SUBROUTINE BLENDGUIDECURVES
 !  Differentiation of matrixbuilder in reverse (adjoint) mode (with options i4 dr8 r8):
 !   gradient     of useful results: f k s0 sm1 n0 rm1 r0
 !   with respect to varying inputs: f k s0 sm1 n0 rm1 r0

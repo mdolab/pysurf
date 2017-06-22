@@ -46,7 +46,7 @@
 
         subroutine march(py_projection, rStart, dStart, theta, sigmaSplay, bc1, bc2,&
         epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, extension_given,&
-        guideIndices, retainSpacing, numSmoothingPasses, numAreaPasses, numGuides,&
+        guideIndices, nu_guide_blend, retainSpacing, numSmoothingPasses, numAreaPasses, numGuides,&
         numLayers, numNodes, R, fail, ratios, majorIndices)
 
         implicit none
@@ -56,7 +56,7 @@
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
         real(kind=realType), intent(in) :: epsE0, marchParameter, nuArea
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
+        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax, nu_guide_blend
         integer(kind=intType), intent(in) :: numSmoothingPasses
         logical, intent(in) :: extension_given
         integer(kind=intType), intent(in) :: numGuides
@@ -415,7 +415,7 @@
 
             ! Generate matrices of the linear system
             call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex-1, theta,&
-            sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNext, numNodes, numGuides)
+            sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNext, numNodes, numGuides, nu_guide_blend)
 
             ! Save this initially marched row for later use in the backwards
             ! derivative computation if it's the last one of the subiterations
@@ -571,7 +571,7 @@
 
         subroutine march_d(py_projection_d, rStart, rStartd, R_projected_in, R_final_in, &
         N_projected_in, N_final_in, dStart, theta, sigmaSplay, bc1, bc2, &
-        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices, retainSpacing,&
+        epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax, guideIndices, nu_guide_blend, retainSpacing,&
         extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, numGuides, nSubIters_in, R, Rd, fail, ratios)
 
@@ -587,7 +587,7 @@
         integer(kind=intType), intent(in) :: numNodes, numLayers, numAreaPasses
         real(kind=realType), intent(in) :: epsE0, marchParameter, nuArea
         character*32, intent(in) :: bc1, bc2
-        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax
+        real(kind=realType), intent(in) :: alphaP0, ratioGuess, cMax, nu_guide_blend
         integer(kind=intType), intent(in) :: numSmoothingPasses
         logical, intent(in) :: extension_given
         integer(kind=intType), intent(in) :: numGuides, nSubIters_in
@@ -766,7 +766,7 @@
              rNextd = 0.
              call computeMatrices_main_d(r0, r0d, N0, N0d, S0, S0d, rm1, rm1d, &
              Sm1, Sm1d, layerIndex-1, theta, sigmaSplay, bc1, bc2, &
-             numLayers, epsE0, guideIndices, retainSpacing, rNext, rNextd, numNodes, numGuides)
+             numLayers, epsE0, guideIndices, retainSpacing, rNext, rNextd, numNodes, numGuides, nu_guide_blend)
 
              rSmoothedd = 0.
              call smoothing_main_d(rNext, rNextd, eta, alphaP0, numSmoothingPasses, numLayers, numNodes, rSmoothed, rSmoothedd)
@@ -859,7 +859,7 @@
         subroutine march_b(py_projection_b, rStart, rStartb, R_initial_march_in, R_smoothed_in, &
         R_projected_in, R_remeshed_in, R_final_in, N_projected_in, N_final_in, Sm1_hist_in, S0_hist_in, dStart, &
         theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, marchParameter, nuArea, ratioGuess, cMax,&
-        guideIndices, retainSpacing, extension_given, numSmoothingPasses, numAreaPasses,&
+        guideIndices, nu_guide_blend, retainSpacing, extension_given, numSmoothingPasses, numAreaPasses,&
         numLayers, numNodes, nSubIters, numGuides, numProjs, R, Rb)
 
           ! numProjs: integer -> This is the total number of projections done during
@@ -882,7 +882,7 @@
           real(kind=realtype) :: dStartb, dStartb_dummy
           real(kind=realtype), intent(in) :: epsE0, marchParameter, nuArea
           character(len=32), intent(in) :: bc1, bc2
-          real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax
+          real(kind=realtype), intent(in) :: alphaP0, ratioGuess, cMax, nu_guide_blend
           integer(kind=inttype), intent(in) :: numSmoothingPasses
           logical, intent(in) :: extension_given
           integer(kind=intType), intent(in) :: numGuides, numProjs
@@ -1209,7 +1209,7 @@
                      &                      sm1b_dummy, arg10, theta, sigmasplay, bc1, bc2, &
                      &                      numlayers, epse0, guideindices, &
                      &                      retainspacing, rnext1, rnext1b, numnodes, &
-                     &                      numguides)
+                     &                      numguides, nu_guide_blend)
                 r0b = r0b + r0b_dummy
                 n0b = n0b + n0b_dummy
                 s0b = s0b + s0b_dummy
@@ -1338,14 +1338,14 @@
         !=================================================================
 
         subroutine computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
-        sigmaSplay, bc1, bc2, guideIndices, retainSpacing, numLayers, epsE0, rNext, numNodes, numGuides)
+        sigmaSplay, bc1, bc2, guideIndices, retainSpacing, numLayers, epsE0, rNext, numNodes, numGuides, nu_guide_blend)
 
         implicit none
 
         integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
         real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
-        real(kind=realType), intent(in) :: sigmaSplay, epsE0
+        real(kind=realType), intent(in) :: sigmaSplay, epsE0, nu_guide_blend
         character*32, intent(in) :: bc1, bc2
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
@@ -1361,7 +1361,7 @@
         real(kind=realType) :: one, zero
 
         call computeMatrices_main(r0, N0, S0, rm1, Sm1, layerIndex, theta,&
-        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNext, numNodes, numGuides)
+        sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing, rNext, numNodes, numGuides, nu_guide_blend)
 
         end subroutine computeMatrices
 
@@ -1369,7 +1369,7 @@
 
         subroutine computeMatrices_b(r0, r0_b, N0, N0_b, S0, S0_b, rm1, rm1_b, Sm1,&
         Sm1_b, layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing,&
-        rNext, rNext_b, numNodes, numGuides)
+        rNext, rNext_b, numNodes, numGuides, nu_guide_blend)
 
         use hypsurfmain_b, only: computematrices_main_b
         implicit none
@@ -1377,7 +1377,7 @@
         integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
         real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
-        real(kind=realType), intent(in) :: sigmaSplay, epsE0, rNext_b(3*numNodes)
+        real(kind=realType), intent(in) :: sigmaSplay, epsE0, rNext_b(3*numNodes), nu_guide_blend
         character*32, intent(in) :: bc1, bc2
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
@@ -1396,7 +1396,7 @@
 
         call computematrices_main_b(r0, r0_b, N0, N0_b, S0, S0_b, rm1, rm1_b, Sm1, Sm1_b,&
         layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing,&
-        rNext, rNext_b, numNodes, numGuides)
+        rNext, rNext_b, numNodes, numGuides, nu_guide_blend)
 
         end subroutine computeMatrices_b
 
@@ -1404,7 +1404,7 @@
 
         subroutine computeMatrices_d(r0, r0_d, N0, N0_d, S0, S0_d, rm1, rm1_d, Sm1,&
         Sm1_d, layerIndex, theta, sigmaSplay, bc1, bc2, guideIndices, retainSpacing, numLayers,&
-        epsE0, rNext, rNext_d, numNodes, numGuides)
+        epsE0, rNext, rNext_d, numNodes, numGuides, nu_guide_blend)
 
         use hypsurfmain_d, only: computematrices_main_d
         implicit none
@@ -1412,7 +1412,7 @@
         integer(kind=intType), intent(in) :: layerIndex, numNodes, numLayers
         real(kind=realType), intent(in) :: r0(3*numNodes), N0(3, numNodes), S0(numNodes)
         real(kind=realType), intent(in) :: rm1(3*numNodes), Sm1(numNodes), theta
-        real(kind=realType), intent(in) :: sigmaSplay, epsE0
+        real(kind=realType), intent(in) :: sigmaSplay, epsE0, nu_guide_blend
         character*32, intent(in) :: bc1, bc2
         integer(kind=intType), intent(in) :: numGuides
         integer(kind=intType), intent(in) :: guideIndices(numGuides)
@@ -1431,7 +1431,7 @@
 
         call computematrices_main_d(r0, r0_d, N0, N0_d, S0, S0_d, rm1, rm1_d, Sm1, Sm1_d,&
         layerIndex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, guideIndices, retainSpacing,&
-        rNext, rNext_d, numNodes, numGuides)
+        rNext, rNext_d, numNodes, numGuides, nu_guide_blend)
 
         end subroutine computeMatrices_d
 

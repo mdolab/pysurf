@@ -161,6 +161,7 @@ class HypSurfMesh(object):
         numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
         numAreaPasses = int(self.optionsDict['numAreaPasses'])
         nuArea = float(self.optionsDict['nuArea'])
+        nuGuideBlend = float(self.optionsDict['nuGuideBlend'])
 
         # Get coordinates of the initial curve (this is a flattened array)
         rStart = self.curve.get_points()
@@ -179,7 +180,7 @@ class HypSurfMesh(object):
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
 
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, nuGuideBlend, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
@@ -299,6 +300,7 @@ class HypSurfMesh(object):
                                                             self.optionsDict['ratioGuess'],
                                                             self.optionsDict['cMax'],
                                                             self.guideIndices+1,
+                                                            self.optionsDict['nuGuideBlend'],
                                                             self.optionsDict['remesh'],
                                                             self.extension_given,
                                                             self.optionsDict['numSmoothingPasses'],
@@ -388,6 +390,7 @@ class HypSurfMesh(object):
                                                 self.optionsDict['ratioGuess'],
                                                 self.optionsDict['cMax'],
                                                 self.guideIndices+1,
+                                                self.optionsDict['nuGuideBlend'],
                                                 self.optionsDict['remesh'],
                                                 self.extension_given,
                                                 self.optionsDict['numSmoothingPasses'],
@@ -426,9 +429,6 @@ class HypSurfMesh(object):
 
         # Project onto surface and compute surface normals
         rNext, NNext, projDict = self.ref_geom.project_on_surface(r.reshape((numNodes, 3)))
-        #print 'AQUIIIIIIIIIIIIIIIIIIII'
-        #print r
-        #print r.reshape((numNodes, 3))
         rNext = rNext.flatten()
         NNext = NNext.T
 
@@ -653,6 +653,7 @@ class HypSurfMesh(object):
             'plotQuality' : False,
             'guideCurves' : [],
             'remesh' : False,
+            'nuGuideBlend':0.0, # This blends the marching direction of guide curves
             }
 
     def _applyUserOptions(self, options):
@@ -752,6 +753,7 @@ class HypSurfMesh(object):
         numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
         numAreaPasses = int(self.optionsDict['numAreaPasses'])
         nuArea = float(self.optionsDict['nuArea'])
+        nuGuideBlend = float(self.optionsDict['nuGuideBlend'])
 
         # First we need to solve the current case to get a baseline mesh
         self.createMesh(fortran_flag=True)
@@ -1182,14 +1184,14 @@ class HypSurfMesh(object):
         retainSpacing = self.optionsDict['remesh']
 
         # Run the forward AD
-        rnext0, rnext_d = hypsurfAPI.hypsurfapi.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0)
+        rnext0, rnext_d = hypsurfAPI.hypsurfapi.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0, nuGuideBlend)
 
         # REVERSE MODE
         rnext_b = np.random.random_sample(r0.shape)
 
         rnext_b_copy = rnext_b.copy()
 
-        r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hypsurfAPI.hypsurfapi.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, self.guideIndices, retainSpacing, rnext_b)
+        r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hypsurfAPI.hypsurfapi.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, self.guideIndices, retainSpacing, rnext_b, nuGuideBlend)
 
         # Dot product test
         dotProd = 0.0
@@ -1217,7 +1219,7 @@ class HypSurfMesh(object):
         sm1 = sm1 + sm1_d*stepSize
 
         # Run code
-        rnext = hypsurfAPI.hypsurfapi.computematrices(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0)
+        rnext = hypsurfAPI.hypsurfapi.computematrices(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0, nuGuideBlend)
 
         # Compute derivatives
         rnext_d_FD = (rnext - rnext0)/stepSize
