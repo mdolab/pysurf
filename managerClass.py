@@ -2171,6 +2171,10 @@ class Manager(object):
                 #del solverPts
                 #del indexMap
 
+                # Convert arrays to integers
+                indexSolverPts = map(int,indexSolverPts)
+                indexManagerPts = map(int,indexManagerPts)
+
                 # Now we can save the mapping for future use
                 self.indexSolverPts = indexSolverPts
                 self.indexManagerPts = indexManagerPts

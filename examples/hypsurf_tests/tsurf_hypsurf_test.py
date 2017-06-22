@@ -187,7 +187,8 @@ options = {
     'cMax' : cMax,
     'ratioGuess' : ratioGuess,
     'remesh':True,
-    'guideCurves':guideCurves
+    'guideCurves':guideCurves,
+    'nuGuideBlend':0.5
         
 }
 
