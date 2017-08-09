@@ -87,6 +87,9 @@ manager0 = pysurf.Manager()
 manager0.add_geometry(comp1)
 manager0.add_geometry(comp2)
 
+#comp1.export_tecplot('cube.plt')
+#comp2.export_tecplot('rect.plt')
+
 distTol = 1e-7
 
 # Set up integer to export different meshes

@@ -217,7 +217,7 @@ class SurfaceMesh(object):
             numPoints = dims[0]*dims[1]
 
             # Assign the new points
-            self.coor[block] = flatArray[offset:offset+numPoints,:].reshape((dims[0],dims[1],3),order='F')
+            self.coor[block][:,:,:] = flatArray[offset:offset+numPoints,:].reshape((dims[0],dims[1],3),order='F')
 
             # Update the offset
             offset = offset + numPoints

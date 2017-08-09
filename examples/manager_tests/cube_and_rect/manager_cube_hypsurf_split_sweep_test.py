@@ -15,7 +15,7 @@ import pickle
 
 # WING POSITIONS
 #deltaZ = np.linspace(-0.1, 0.15, 11)
-deltaZ = np.linspace(0.145, 0.15, 11)
+deltaZ = np.linspace(0.145, 0.15, 5)
 
 
 # TRACKING POINT
@@ -70,7 +70,7 @@ for ext_curve in curves:
 
         # Extract the curve points and compute the length
         pts = split_curve[name].get_points()
-        length = pts[2, 0] - pts[2, -1]
+        length = pts[0,2] - pts[-1,2]
 
         # Hardcoded logic here based on the length of edges
         if np.abs(length) > 1:
@@ -91,6 +91,9 @@ for ext_curve in long_curves:
     comp2.add_curve(ext_curve)
     if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)
+
+print 'guideCurves'
+print guideCurves
 
 # Rotate the rectangle in 5 degrees
 comp2.rotate(5,2)
@@ -119,7 +122,7 @@ def compute_position(rect_deltaZ, i_track, j_track):
     '''
 
     # Clear the manager object first
-    manager.clear_all()
+    manager.clean_all()
 
     # Translate the wing
     manager.geoms[name2].translate(0.0, rect_deltaZ, 0.0)
@@ -209,20 +212,21 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     # EXPORT
     for meshName in meshNames:
-        manager.meshes[meshName].exportPlot3d(meshName+'_'+str(mesh_pass)+'.xyz')
+        manager.meshGenerators[meshName].export_plot3d(meshName+'_'+str(mesh_pass)+'.xyz')
 
     # DERIVATIVE SEEDS
 
     # Get spanwise position of the tracked node
-    Y = manager.meshes[meshNames[0]].mesh[2, i_node, j_node]
+    meshCoor = manager.meshGenerators[meshNames[0]].meshObj.get_points()
+    Y = meshCoor[i_node*21 + j_node,2]
 
     # Set up derivative seeds so we can compute the derivative of the spanwise position
     # of the tracked node of the intersection
-    meshb = np.zeros(manager.meshes[meshNames[0]].mesh.shape)
-    meshb[2, i_node, j_node] = 1.0
+    meshCoorb = np.zeros(meshCoor.shape)
+    meshCoorb[i_node*21 + j_node,2] = 1.0
 
     # Set derivatives to the intersection curve
-    manager.meshes[meshNames[0]].set_reverseADSeeds(meshb)
+    manager.meshGenerators[meshNames[0]].meshObj.set_reverseADSeeds(meshCoorb)
 
     # REVERSE AD
     

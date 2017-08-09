@@ -1,3 +1,9 @@
+'''
+In this example, we split the 4 edges of the intersection curve to
+perform individual remesh steps. This avoids the undefined derivatives
+at the rectangle edges.
+'''
+
 # IMPORTS
 from __future__ import division
 import pysurf
@@ -7,20 +13,15 @@ import unittest
 import os
 import pickle
 
-'''
-This script tracks the "spanwise" position of a surface mesh node on the cube
-as we move the rectangle vertically.
-
-It generates results.pickle, which will be read by plotDeriv.py
-'''
-
 # WING POSITIONS
-deltaZ = np.linspace(-0.1, 0.15, 5)
+deltaZ = np.linspace(-0.1, 0.15, 11)
+#deltaZ = np.linspace(0.145, 0.15, 5)
+
 
 # TRACKING POINT
 # Give i coordinate that we will use to create the tracking slice
-i_node = 26
-j_node = 15
+i_node = 53
+j_node = 11
 
 # TESTING FUNCTION
 
@@ -69,7 +70,7 @@ for ext_curve in curves:
 
         # Extract the curve points and compute the length
         pts = split_curve[name].get_points()
-        length = pts[0, 2] - pts[-1, 2]
+        length = pts[0,2] - pts[-1,2]
 
         # Hardcoded logic here based on the length of edges
         if np.abs(length) > 1:
@@ -91,6 +92,9 @@ for ext_curve in long_curves:
     if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)
 
+print 'guideCurves'
+print guideCurves
+
 # Rotate the rectangle in 5 degrees
 comp2.rotate(5,2)
 
@@ -98,6 +102,9 @@ comp2.rotate(5,2)
 manager = pysurf.Manager()
 manager.add_geometry(comp1)
 manager.add_geometry(comp2)
+
+# Initialize collar blender
+blender = pysurf.collarBlender(comp1)
 
 distTol = 1e-7
 
@@ -131,19 +138,38 @@ def compute_position(rect_deltaZ, i_track, j_track):
 
     manager.intCurves[intCurveName].shift_end_nodes(criteria='maxX')
 
-    # REMESH
-    optionsDict = {
-        'nNewNodes':41,
-        'spacing':'linear',
-        'initialSpacing':0.005,
-        'finalSpacing':0.005,
-    }
-    remeshedCurveName = manager.remesh_intCurve(intCurveName,optionsDict)
+    # SPLIT
 
-    manager.intCurves[remeshedCurveName].export_tecplot(remeshedCurveName)
+    # Split the intersection curve
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             criteria='sharpness')
+
+    # REMESH
+    remeshedCurveNames = []
+    for splitCurveName in splitCurveNames:
+
+        # Remesh each splitted curve individually
+        optionsDict = {
+            'nNewNodes':21,
+            'spacing':'linear',
+            'initialSpacing':0.005,
+            'finalSpacing':0.005,
+        }
+
+        # The remesh function returns a name that we will append to the list
+        # of curve names so we can merge them later
+        remeshedCurveNames.append(manager.remesh_intCurve(splitCurveName,optionsDict))
+
+    # MERGE
+    mergedCurveName = 'intersection'
+    manager.merge_intCurves(remeshedCurveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='maxX')
+
+    manager.intCurves[mergedCurveName].export_tecplot('intersection_'+str(mesh_pass))
 
     # MARCH SURFACE MESHES
-    meshName = 'mesh'
 
     options_rect = {
     
@@ -169,11 +195,11 @@ def compute_position(rect_deltaZ, i_track, j_track):
     
         'bc1' : 'continuous',
         'bc2' : 'continuous',
-        'dStart' : 0.02,
+        'dStart' : 0.005,#0.02,
         'numLayers' : 17,
-        'extension' : 2.5,
-        'epsE0' : 4.5,
-        'theta' : -0.5,
+        'extension' : 1.5,#2.5,
+        'epsE0' : 2.5,
+        'theta' : 2.5,
         'alphaP0' : 0.25,
         'numSmoothingPasses' : 0,
         'nuArea' : 0.16,
@@ -185,12 +211,16 @@ def compute_position(rect_deltaZ, i_track, j_track):
     }
 
     meshName = 'mesh'
-    meshNames = manager.march_intCurve_surfaceMesh(remeshedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName, options0=options_cube, options1=options_rect, meshName=meshName)
+
+    # Blending
+    blender.blend(manager.meshGenerators[meshNames[0]].meshObj)
 
     # EXPORT
     for meshName in meshNames:
         manager.meshGenerators[meshName].export_plot3d(meshName+'_'+str(mesh_pass)+'.xyz')
 
+    '''
     # DERIVATIVE SEEDS
 
     # Get spanwise position of the tracked node
@@ -218,10 +248,12 @@ def compute_position(rect_deltaZ, i_track, j_track):
     dYdZ = np.sum(coor2b[1,:])
     for curveName in curveCoor2b:
         dYdZ = dYdZ + np.sum(curveCoor2b[curveName][1,:])
-
+    '''
     # Translate the rectangle back
     manager.geoms[name2].translate(0.0, -rect_deltaZ, 0.0)
 
+    Y = 0.0
+    dYdZ = 0.0
     # Return the spanwise position of the highest intersection node and its derivative
     return Y, dYdZ
 
