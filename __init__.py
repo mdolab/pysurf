@@ -20,3 +20,6 @@ from meshTools.meshClass import SurfaceMesh
 
 # Import surface mesh tools
 from meshTools import mesh_tools
+
+# Import collar blender
+from meshTools.meshBlender import collarBlender

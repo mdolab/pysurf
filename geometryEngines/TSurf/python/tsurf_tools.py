@@ -1092,15 +1092,15 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
 
-    arraySizes= intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
-                                                                    TSurfGeometryA.triaConnF.T,
-                                                                    TSurfGeometryA.quadsConnF.T,
-                                                                    TSurfGeometryB.coor.T,
-                                                                    TSurfGeometryB.triaConnF.T,
-                                                                    TSurfGeometryB.quadsConnF.T,
-                                                                    distTol,
-                                                                    comm.py2f())
-
+    arraySizes = intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
+                                                                     TSurfGeometryA.triaConnF.T,
+                                                                     TSurfGeometryA.quadsConnF.T,
+                                                                     TSurfGeometryB.coor.T,
+                                                                     TSurfGeometryB.triaConnF.T,
+                                                                     TSurfGeometryB.quadsConnF.T,
+                                                                     distTol,
+                                                                     comm.py2f())
+    
     # Retrieve results from Fortran if we have an intersection
     if np.max(arraySizes[1:]) > 0:
 
@@ -1122,10 +1122,10 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         coor = np.zeros((0,3))
         barsConn = np.zeros((0,2))
         parentTria = np.zeros((0,2))
-
+    
     # Release memory used by Fortran so we can run another intersection in the future
     intersectionAPI.intersectionapi.releasememory()
-
+    
     # Initialize list to hold all intersection curves
     Intersections = []
 
@@ -1172,7 +1172,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
     # Return intersection FE data
     return Intersections
-
+    
 #=================================================================
 
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd, distTol):
