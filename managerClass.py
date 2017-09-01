@@ -18,7 +18,7 @@ class Manager(object):
     steps to properly execute the AD modes and compute derivatives.
     '''
 
-    def __init__(self, comm=None):
+    def __init__(self, distTol=1e-7, comm=None):
 
         # Set up MPI communicator if the user provided None
         if comm is None:
@@ -72,6 +72,9 @@ class Manager(object):
 
         # Initialize field that will hold mapping between Solver and Manager
         self.indexSolverPts = None
+
+        # Store tolerance to merge and identify nodes
+        self.distTol = distTol
 
         pass
 
@@ -218,7 +221,7 @@ class Manager(object):
             # Call base function to operate on the manager itself
             self.baseFunction(self)
 
-    def initialize(self, directory, backgroundMeshInfo=None, fileNameTag=None):
+    def initialize(self, directory, backgroundMeshInfo=None, fileNameTag=None, staticMeshFiles=None):
 
         '''
         This method will do the initialization step. This includes:
@@ -250,7 +253,7 @@ class Manager(object):
             self.run_baseFunction()
 
         # Extrude meshes
-        combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo, fileNameTag)
+        combinedFileName = self.extrude_meshes(directory, backgroundMeshInfo, fileNameTag, staticMeshFiles)
 
         # Set symmetry planes to zero (only the root proc will use cgns_utils
         if self.myID == 0:
@@ -276,7 +279,6 @@ class Manager(object):
         This method will do the pre-optimization step. This includes:
 
         - run base function to generate surface collar meshes
-        - extrude all meshes with pyHyp
         - generate CGNS files with isolated meshes for pyWarp inputs
         - generate combined CGNS file with all meshes for ADflow
 
@@ -1071,7 +1073,7 @@ class Manager(object):
             print 'Exported all meshes!'
             print ''
 
-    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=None):
+    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=None, staticMeshFiles=None):
 
         '''
         This function will use pyHyp to extrude all surface meshes into
@@ -1095,6 +1097,9 @@ class Manager(object):
         If the user provides None, then nothing will be added to the combined CGNS file.
 
         fileNameTag: string -> Optional tag to append to the file names.
+
+        staticMeshFiles: list of string -> Additional meshes to be merged to the final combined file.
+                                           This mesh will not be warped.
 
         OUTPUTS:
 
@@ -1198,7 +1203,12 @@ class Manager(object):
         print 'Extruded all meshes!'
         print ''
 
-        ### ADDING BACKGROUND MESHES
+        ### ADD USER-PROVIDED FIXED MESHES
+
+        if staticMeshFiles is not None:
+            volFileList = volFileList + staticMeshFiles
+
+        ### GENERATE BACKGROUND MESHES
 
         # Generate name for combined nearfield meshes
         nearfieldFilename = generate_nearfield_filename(directory, fileNameTag)
@@ -1566,7 +1576,7 @@ class Manager(object):
     #=====================================================
     # MACH INTERFACE METHODS
 
-    def addPointSet(self, coor, ptSetName, origConfig=True, distTol=1e-6, **kwargs):
+    def addPointSet(self, coor, ptSetName, origConfig=True, **kwargs):
 
         '''
         This function receives a set of coordinates from a solver (coor) and then makes the mapping
@@ -1593,7 +1603,7 @@ class Manager(object):
 
         # Now we can create the mapping between the solver ordering and the manager ordering
         # Note that this will populate self.managerPoints.
-        self._setSolverToManagerMapping(coor, distTol)
+        self._setSolverToManagerMapping(coor, self.distTol)
 
 
         # Print log
@@ -1779,12 +1789,15 @@ class Manager(object):
 
         return self.updated[ptSetName]
 
-    def update(self, ptSetName=None, childDelta=True, config=None):
+    def update(self, ptSetName=None, childDelta=True, config=None, solverOrder=True):
 
         '''
         This function will update all surface coordinates under ptSetName based on
         the current values of design variables. The user should call self.setDesignVars
         before calling this function.
+
+        solverOrder==True will return points in the solver ordering defined by adding point set.
+        If solverOrder==False, we will return the native ordering used by pySurf.
 
         Ney Secco 2017-02
         '''
@@ -1814,7 +1827,7 @@ class Manager(object):
             print ''
 
         # Gather the updated coordinates, in solver ordering
-        pts = self.getSurfacePoints()
+        pts = self.getSurfacePoints(solverOrder=solverOrder)
 
         # Update corresponding dictionary entry if requested
         if ptSetName is not None:
