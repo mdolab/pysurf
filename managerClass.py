@@ -489,7 +489,7 @@ class Manager(object):
     #=====================================================
     # INTERSECTION METHODS
 
-    def intersect(self, geomList=None, distTol=1e-7):
+    def intersect(self, geomList=None, distTol=None):
 
         '''
         This method intersects all geometries contained in the current Manager,
@@ -499,8 +499,13 @@ class Manager(object):
         if geomList==None, all geometries will be intersected.
 
         distTol is a distance tolerance used to merge nearby nodes when
-        generating the intersection finite element data.
+        generating the intersection finite element data. If the user provides None,
+        then we use the default value of the manager class
         '''
+
+        # Assign tolerance if user provided none
+        if distTol is None:
+            distTol = self.distTol
 
         # Only the root proc will work here
         if self.myID == 0:
@@ -2042,7 +2047,7 @@ class Manager(object):
     #=====================================================
     # INTERNAL METHODS
 
-    def _setSolverToManagerMapping(self, solverPts, distTol=1e-6):
+    def _setSolverToManagerMapping(self, solverPts, distTol=None):
 
         '''
         This method creates a mapping between the solver-provided surface mesh coordinates, and
@@ -2072,6 +2077,10 @@ class Manager(object):
 
         # IMPORTS
         from scipy.spatial import cKDTree
+
+        # Assign tolerance if user provided none
+        if distTol is None:
+            distTol = self.distTol
 
         # Each proc should compute how many nodes it has
         numSolverPts = solverPts.shape[0]
