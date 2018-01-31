@@ -44,7 +44,6 @@ class TSurfGeometry(Geometry):
 
         # Set default values in case we have no additional arguments
         selectedSections = None # We will update this later if necessary
-        self.comm = MPI.COMM_WORLD # Communicate to all processors
 
         # Check the optional arguments and do the necessary changes
         for optarg in arg:
@@ -61,9 +60,6 @@ class TSurfGeometry(Geometry):
             elif type(optarg) == str:
                 # Get filename
                 filename = optarg
-
-        # Assign proc ID
-        self.myID = self.comm.Get_rank()
 
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
@@ -793,7 +789,7 @@ class TSurfGeometry(Geometry):
     #===========================================================#
     # DERIVATIVE SEED MANIPULATION METHODS
 
-    def set_forwardADSeeds(self, coord=None, curveCoord=None, meshCoord=None):
+    def set_forwardADSeeds(self, coord=None, curveCoord=None):
         '''
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -816,9 +812,6 @@ class TSurfGeometry(Geometry):
                     if curveCoord[curveName] is not None:
                         self.curves[curveName].set_forwardADSeeds(curveCoord[curveName])
 
-        if meshCoord is not None:
-            self.meshObj.set_forwardADSeeds(meshCoord)
-
 
     def get_forwardADSeeds(self):
         '''
@@ -835,14 +828,9 @@ class TSurfGeometry(Geometry):
         for curveName in self.curves:
             curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
 
-        if self.meshObj is not None:
-            meshCoord = self.meshObj.get_forwardADSeeds()
-            return coord, curveCoord, meshCoord
+        return coord, curveCoord
 
-        else:
-            return coord, curveCoord
-
-    def set_reverseADSeeds(self, coorb=None, curveCoorb=None, meshCoorb=None):
+    def set_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -859,9 +847,6 @@ class TSurfGeometry(Geometry):
                 if curveName in curveCoorb.keys():
                     if curveCoorb[curveName] is not None:
                         self.curves[curveName].set_reverseADSeeds(curveCoorb[curveName])
-
-        if meshCoorb is not None:
-            self.meshObj.set_reverseADSeeds(meshCoorb)
 
     def get_reverseADSeeds(self,clean=True):
         '''
@@ -884,14 +869,10 @@ class TSurfGeometry(Geometry):
         for curveName in self.curves:
             curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean)
 
-        if self.meshObj is not None:
-            meshCoorb = self.meshObj.get_reverseADSeeds(clean)
-            return coorb, curveCoorb, meshCoorb
+        # We have no mesh information to return
+        return coorb, curveCoorb
 
-        else: # We have no mesh information to return
-            return coorb, curveCoorb
-
-    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None, meshCoorb=None):
+    def accumulate_reverseADSeeds(self, coorb=None, curveCoorb=None):
         '''
         This will accumulate derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
@@ -908,9 +889,6 @@ class TSurfGeometry(Geometry):
                 if curveCoorb[curveName] is not None:
                     self.curves[curveName].coorb = self.accumulate_reverseADSeeds(curveCoorb[curveName])
 
-        if meshCoorb is not None:
-            self.meshObj.accumulate_reverseADSeeds(meshCoorb)
-
     def clean_reverseADSeeds(self):
         '''
         This will erase all reverse derivative seeds of the surface design variables (coor)
@@ -924,9 +902,6 @@ class TSurfGeometry(Geometry):
 
         for curveName in self.curves:
             self.curves[curveName].coorb[:, :] = 0.0
-
-        if self.meshObj is not None:
-            self.meshObj.clean_reverseADSeeds()
 
     def set_randomADSeeds(self, mode='both', fixedSeed=True):
 
@@ -954,9 +929,6 @@ class TSurfGeometry(Geometry):
                 self.curves[curveName].set_randomADSeeds(mode='forward', fixedSeed=fixedSeed)
                 curveCoord[curveName] = self.curves[curveName].get_forwardADSeeds()
 
-            if self.meshObj is not None:
-                meshCoord = self.meshObj.set_randomADSeeds(mode='forward',fixedSeed=fixedSeed)
-
         # Set reverse AD seeds
         if mode=='reverse' or mode=='both':
 
@@ -969,33 +941,17 @@ class TSurfGeometry(Geometry):
                 self.curves[curveName].set_randomADSeeds(mode='reverse', fixedSeed=fixedSeed)
                 curveCoorb[curveName] = self.curves[curveName].get_reverseADSeeds(clean=False)
 
-            if self.meshObj is not None:
-                meshCoorb = self.meshObj.set_randomADSeeds(mode='reverse',fixedSeed=fixedSeed)
-
 
         # Return the randomly generated seeds
 
-        if self.meshObj is not None:
+        if mode == 'forward':
+            return coord, curveCoord
 
-            if mode == 'forward':
-                return coord, curveCoord, meshCoord
+        elif mode == 'reverse':
+            return coorb, curveCoorb
 
-            elif mode == 'reverse':
-                return coorb, curveCoorb, meshCoorb
-
-            elif mode == 'both':
-                return coord, curveCoord, meshCoord, coorb, curveCoorb, meshCoorb
-
-        else:
-
-            if mode == 'forward':
-                return coord, curveCoord
-
-            elif mode == 'reverse':
-                return coorb, curveCoorb
-
-            elif mode == 'both':
-                return coord, curveCoord, coorb, curveCoorb
+        elif mode == 'both':
+            return coord, curveCoord, coorb, curveCoorb
 
     #===========================================================#
     # VISUALIZATION METHODS
@@ -1089,8 +1045,8 @@ class TSurfCurve(Curve):
                 mergeTol = currArg
 
             else:
-                    print ' ERROR: Could not recognize inputs when initializing TSurfCurve.'
-                    quit()
+                print ' ERROR: Could not recognize inputs when initializing TSurfCurve.'
+                quit()
 
         # Remove unused points (This will update and barsConn)
         coor, usedPtsMask = tst.remove_unused_points(coor, barsConn=barsConn)

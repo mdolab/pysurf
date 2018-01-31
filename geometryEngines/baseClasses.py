@@ -24,7 +24,10 @@ class Geometry(object):
     def __init__(self, *arg, **kwargs):
         '''
         Call the initialization method defined in each
-        derived class
+        derived class.
+
+        Expected arguments for the base class are:
+        comm : MPI Communicator
         '''
 
         self.name = ''
@@ -36,17 +39,19 @@ class Geometry(object):
         else:
             self.comm = MPI.COMM_WORLD
 
+        # Assign proc ID
+        self.myID = self.comm.Get_rank()
+
         # Define attribute to hold the geometry manipulation object
         self.manipulator = None
 
-        # Define attribute to hold mesh object
-        self.meshObj = None
+        # Define attribute to hold point sets embedded into the manipulator
+        self.manipulatorPts = {}
+        self.manipulatorPtsd = {}
+        self.manipulatorPtsb = {}
 
-        # Define attribute to hold structured surface mesh file name (we will use this to call pyHyp)
-        self.meshFileName = None
-
-        # Define attribute to hold structured surface mesh point set name (used by the geometry manipulator)
-        self.meshPtSetName = None
+        # Define point set name to store geometry nodes into the manipulator
+        self.ptSetName = None
 
         self._initialize(*arg, **kwargs)
 
@@ -246,7 +251,7 @@ class Geometry(object):
         Ney Secco 2017-02
         '''
 
-        # Only the root proc will work here
+        # Only the root proc will embed the pySurf nodes into the manipulator
         if self.myID == 0:
 
             print ''
@@ -282,10 +287,6 @@ class Geometry(object):
                 # Store the set name for future uses
                 self.curves[curveName].ptSetName = ptSetName
 
-            # Assign surface mesh node if we already have one
-            if self.meshFileName is not None:
-                self.embed_mesh_points()
-
             print 'Manipulator assignment finished'
             print ''
 
@@ -294,7 +295,25 @@ class Geometry(object):
             # The other processors will just save the reference to the manipulator
             self.manipulator = GMObj
 
-    def manipulator_update(self):
+    def manipulator_addPointSet(self, coor, ptSetName):
+
+        '''
+        This method adds an extra point set to the manipulator object.
+
+        Ney Secco 2017-11
+        '''
+
+        # First store the point set array
+        self.manipulatorPts[ptSetName] = coor
+
+        # Initialize arrays for derivative seeds
+        self.manipulatorPtsd[ptSetName] = np.zeros(coor.shape)
+        self.manipulatorPtsb[ptSetName] = np.zeros(coor.shape)
+
+        # Now embed the points into the manipulator, under the same ptSetName
+        self.manipulator.addPointSet(coor, ptSetName)
+
+    def manipulator_update(self, ptSetName=None):
 
         '''
         This method will call the update functions from the manipulator object accordingly
@@ -305,29 +324,41 @@ class Geometry(object):
         function as many times as needed, based on the internal structured of the derived
         geometry class.
 
+        If ptSetName==None, we only update the triangulated surface description. Otherwise,
+        we update the triangulated surface and also the points in under the ptSetName.
+
         Ney Secco 2017-02
         '''
 
-        # Update surface nodes
-        print 'Updating surface nodes from ',self.name
-        coor = self.manipulator.update(self.ptSetName)
-        self.set_points(coor)
-        print 'Done'
+        # Only the root proc should update the triangulated surfaces and curves
+        if self.myID == 0:
 
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            coor = self.manipulator.update(self.curves[curveName].ptSetName)
-            self.curves[curveName].set_points(coor)
+            # Update surface nodes
+            print 'Updating triangulated surface nodes from ',self.name
+            coor = self.manipulator.update(self.ptSetName)
+            self.set_points(coor)
             print 'Done'
 
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            self.meshObj.set_points(self.manipulator.update(self.meshPtSetName))
-            print 'Done'
+            # Now we need to update every curve as well
+            for curveName in self.curves:
+
+                # Update curve nodes
+                print 'Updating nodes from curve ',curveName
+                coor = self.manipulator.update(self.curves[curveName].ptSetName)
+                self.curves[curveName].set_points(coor)
+                print 'Done'
+
+        # Finally, all procs update the embeded nodes, if they have one
+        if ptSetName is not None:
+
+            if self.myID == 0:
+                print 'Updating embedded nodes from ',self.name,' under ptSet ',ptSetName
+
+            coor = self.manipulator.update(ptSetName)
+            self.manipulatorPts[ptSetName] = coor
+
+            if self.myID == 0:
+                print 'Done'
 
     def manipulator_forwardAD(self, xDVd, ptSetName=None):
 
@@ -340,35 +371,40 @@ class Geometry(object):
         '''
 
         # Print log
-        print ''
-        print 'Forward AD call to manipulator of ',self.name,' object'
+        if self.myID == 0:
+            print ''
+            print 'Forward AD call to manipulator of ',self.name,' object'
 
-        # Update surface nodes
-        print 'Updating surface nodes from ',self.name
-        coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
-        self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
-        #self.set_forwardADSeeds(coord=coord) # Use this if we fix DVGeo shape
-        print 'Done'
-
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
-            self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
-            #self.curves[curveName].set_forwardADSeeds(coord)
+            # Update surface nodes
+            print 'Updating triangulated surface nodes from ',self.name
+            coord = self.manipulator.totalSensitivityProd(xDVd, self.ptSetName)
+            self.set_forwardADSeeds(coord=coord.reshape((-1,3)))
+            #self.set_forwardADSeeds(coord=coord) # Use this if we fix DVGeo shape
             print 'Done'
 
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            coord = self.manipulator.totalSensitivityProd(xDVd, self.meshPtSetName)
-            self.meshObj.set_forwardADSeeds(coord.reshape((-1,3)))
-            #self.meshObj.set_forwardADSeeds(coord)
-            print 'Done'
+            # Now we need to update every curve as well
+            for curveName in self.curves:
 
-    def manipulator_reverseAD(self, xDVb, ptSetName=None, clean=True):
+                # Update curve nodes
+                print 'Updating nodes from curve ',curveName
+                coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
+                self.curves[curveName].set_forwardADSeeds(coord.reshape((-1,3)))
+                #self.curves[curveName].set_forwardADSeeds(coord)
+                print 'Done'
+
+        # Finally, all procs update the embeded nodes, if they have one
+        if ptSetName is not None:
+
+            if self.myID == 0:
+                print 'Updating embedded nodes from ',self.name,' under ptSet ',ptSetName
+
+            coord = self.manipulator.totalSensitivityProd(xDVd, ptSetName)
+            self.manipulatorPtsd[ptSetName] = coord.reshape((-1,3))
+
+            if self.myID == 0:
+                print 'Done'
+
+    def manipulator_reverseAD(self, xDVb, ptSetName=None, comm=None, clean=True):
 
         '''
         This method uses reverse AD to propagate derivative seeds from the surface mesh
@@ -376,40 +412,45 @@ class Geometry(object):
 
         xDVb : dictionary whose keys are the design variable names, and whose
                values are the derivative seeds of the corresponding design variable.
-               This function will acuumulate the derivative seeds contained in xDVb.
+               This function will accumulate the derivative seeds contained in xDVb.
         '''
 
-        # Print log
-        print ''
-        print 'Reverse AD call to manipulator of ',self.name,' object'
+        if self.myID == 0:
 
-        # Get derivative seeds
-        if self.meshPtSetName is not None:
-            coorb, curveCoorb, meshCoorb = self.get_reverseADSeeds(clean=clean)
-        else:
+            # Print log
+            print ''
+            print 'Reverse AD call to manipulator of ',self.name,' object'
+
+            # Get derivative seeds
             coorb, curveCoorb = self.get_reverseADSeeds(clean=clean)
 
-        # Update surface nodes
-        print 'Updating triangulated surface nodes from ',self.name
-        xDVb_curr = self.manipulator.totalSensitivity(coorb, self.ptSetName)
-        accumulate_dict(xDVb, xDVb_curr)
-        print 'Done'
-
-        # Now we need to update every curve as well
-        for curveName in self.curves:
-
-            # Update curve nodes
-            print 'Updating nodes from curve ',curveName
-            xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName], self.curves[curveName].ptSetName)
+            # Update surface nodes
+            print 'Updating triangulated surface nodes from ',self.name
+            xDVb_curr = self.manipulator.totalSensitivity(coorb, self.ptSetName)
             accumulate_dict(xDVb, xDVb_curr)
             print 'Done'
 
-        # Finally update the structured surface mesh, if we have one
-        if self.meshPtSetName is not None:
-            print 'Updating surface mesh from ',self.name
-            xDVb_curr = self.manipulator.totalSensitivity(meshCoorb, self.meshPtSetName)
+            # Now we need to update every curve as well
+            for curveName in self.curves:
+
+                # Update curve nodes
+                print 'Updating nodes from curve ',curveName
+                xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName], self.curves[curveName].ptSetName)
+                accumulate_dict(xDVb, xDVb_curr)
+                print 'Done'
+
+        # Finally, all procs update the embeded nodes, if they have one
+        if ptSetName is not None:
+
+            if self.myID == 0:
+                print 'Updating embedded nodes from ',self.name,' under ptSet ',ptSetName
+
+            xDVb_curr = self.manipulator.totalSensitivity(self.manipulatorPtsb[ptSetName], ptSetName)
             accumulate_dict(xDVb, xDVb_curr)
-            print 'Done'
+
+            if self.myID == 0:
+                print 'Done'
+
 
     def manipulator_getDVs(self):
 
@@ -425,67 +466,6 @@ class Geometry(object):
 
         return dvDict
 
-    #===========================================================#
-    # MESH METHODS
-
-    def assign_structured_surface_mesh(self, fileName, extrusionOptions={}):
-
-        '''
-        This method reads a CGNS or Plot3D file that contains just a structured
-        SURFACE mesh and assigns its nodes to the current geometry.
-
-        INPUTS:
-        fileName: string -> It should specify the file name that
-        contains the surface coordinates. If the file extension is
-        ".cgns" we will use the CGNS reader. Otherwise, we will treat it
-        as a formatted Plot3D file.
-
-        Ney Secco 2017-02
-        '''
-
-        # Only the root proc will work here
-        if self.myID == 0:
-
-            # Add spaces for printing statements
-            print ''
-
-            # Save filename
-            self.meshFileName = fileName
-
-            # Initialize mesh object
-            print 'Assigning surface mesh to ',self.name
-            print 'mesh file:',fileName
-            self.meshObj = pysurf.SurfaceMesh('mesh', fileName, extrusionOptions)
-
-            # Print statements
-            print 'Done'
-            print ''
-
-    def embed_mesh_points(self):
-
-        '''
-        This method will assign the structured surface mesh points to the
-        geometry manipulator. The manipulator and the mesh should be assigned
-        BEFORE this method is called.
-        '''
-
-        # Add spaces for printing statements
-        print ''
-
-        # Generate name for the mesh point set
-        ptSetName = self.name + ':surfMesh'
-        self.meshPtSetName = ptSetName
-
-        # Get surface mesh coordinates
-        coor = self.meshObj.get_points()
-
-        # Embed coordinates into the manipulator
-        print 'Assigning surface mesh of ',self.name,' to the manipulator'
-        self.manipulator.addPointSet(coor, self.meshPtSetName)
-        print 'Done'
-
-        # Add spaces for printing statements
-        print ''
 
 class Curve(object):
 

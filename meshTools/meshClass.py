@@ -10,7 +10,7 @@ class SurfaceMesh(object):
     #=================================================
     # BASE METHODS
 
-    def __init__(self, meshName, arg, extrusionOptions=None):
+    def __init__(self, meshName, arg):
         '''
         This function initializes a multi-block surface mesh object.
 
@@ -29,9 +29,6 @@ class SurfaceMesh(object):
         contains the surface coordinates. If the file extension is
         ".cgns" we will use the CGNS reader. Otherwise, we will treat it
         as a formatted Plot3D file.
-
-        extrusionOptions : dictionary -> This will be passed to pyHyp in
-        order to generate the volume mesh.
 
         CLASS ATTRIBUTES:
 
@@ -135,9 +132,6 @@ class SurfaceMesh(object):
 
         # Assign number of points
         self.numPts = numPts
-
-        # Create attribute to hold extrusion options (the Manager will use this at the appropriate time)
-        self.extrusionOptions = extrusionOptions
 
     def __str__(self):
 
