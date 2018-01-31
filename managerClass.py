@@ -29,12 +29,12 @@ class Manager(object):
 
         # Save ID of the current proc
         self.myID = self.comm.Get_rank()
-
+        '''
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
         # a single proc.
         comm = MPI.COMM_WORLD
-
+        
         # Create colors so that only the root proc is the worker
         if comm.Get_rank() == 0:
             color = 0
@@ -44,7 +44,7 @@ class Manager(object):
         newComm = comm.Split(color)
         
         self.commSingle = newComm
-
+        '''
         # Define dictionary that will hold all geometries
         self.geoms = OrderedDict()
 
@@ -70,11 +70,14 @@ class Manager(object):
         self.points = OrderedDict()
         self.updated = {}
 
-        # Initialize field that will hold mapping between Solver and Manager
-        self.indexSolverPts = None
-
         # Store tolerance to merge and identify nodes
         self.distTol = distTol
+
+        # Store solver node indices owned by each primary component and collar mesh
+        self.solverPointIDs = {}
+        
+        # Store total number of solver points for each point set
+        self.numSolverPts = OrderedDict()
 
         pass
 
@@ -220,6 +223,34 @@ class Manager(object):
 
             # Call base function to operate on the manager itself
             self.baseFunction(self)
+
+        # Now we need to send mesh information to the other procs.
+        # The root proc will prepare a simple dictionary containing the relevant info
+        # then the other procs will store this data in their intCurves field.
+        # The curve data is used at addPointSet and getSurfacePoints.
+
+        if self.myID == 0:
+
+            # Initialize dictionary
+            dummyMeshDict = OrderedDict()
+
+            # Append data to the dictionary
+            for meshName in self.meshGenerators:
+                
+                # Save mesh name in the dictionary with dummy data
+                dummyMeshDict[meshName] = 0.0
+
+        else:
+
+            # Other procs just initialize variable to receive data
+            dummyMeshDict = None
+
+        # Broadcast the curve info to other procs
+        dummyMeshDict = self.comm.bcast(dummyMeshDict, root=0)
+
+        # Now the other procs store the data
+        if self.myID != 0:
+            self.meshGenerators = dummyMeshDict
 
     def initialize(self, directory, backgroundMeshInfo=None, fileNameTag=None, staticMeshFiles=None):
 
@@ -889,7 +920,7 @@ class Manager(object):
     #=====================================================
     # SURFACE MESHING METHODS
 
-    def march_intCurve_surfaceMesh(self, curveName, options0={}, options1={}, meshName=None, extrusionOptions={}):
+    def march_intCurve_surfaceMesh(self, curveName, options0={}, options1={}, meshName=None):
 
         '''
         This method will generate the surface mesh on both sides of the
@@ -924,9 +955,6 @@ class Manager(object):
             #quit()
 
             meshGen0.createMesh()
-
-            # Save the extrusion options into the first mesh object
-            meshGen0.meshObj.extrusionOptions = extrusionOptions
 
             # Flip the curve
             curve.flip()
@@ -999,7 +1027,7 @@ class Manager(object):
     #=====================================================
     # MESH EXPORTATION METHODS
 
-    def export_meshes(self, directory, fileNameTag=None):
+    def export_surface_meshes(self, directory, fileNameTag=None):
 
         '''
         This function will export all structured surface meshes into
@@ -1028,6 +1056,7 @@ class Manager(object):
             primaryID = 0
             collarID = 0
 
+            '''
             # First we will export the primary geometry meshes
             for geom in self.geoms.itervalues():
 
@@ -1045,6 +1074,11 @@ class Manager(object):
 
                     # Print log
                     print 'Exported primary mesh for',geom.name
+            '''
+
+            # Initialize dictionary to hold family names.
+            # pySurf will use family names to associate the meshes given by the solver
+            familyList = {}
 
             # Now we will export the collar meshes
             for curve in self.intCurves.itervalues():
@@ -1071,264 +1105,27 @@ class Manager(object):
                     # Increment counter
                     collarID = collarID + 1
 
+                    # Save family names
+                    familyList[curve.name] = {(ii+1):name for (ii,name) in enumerate(curve.extra_data['childMeshes'])}
+
                     # Print log
-                    print 'Exported collar mesh for',curve.name
+                    print '    Exported collar mesh for',curve.name
 
             # Print log
             print 'Exported all meshes!'
             print ''
 
-    def extrude_meshes(self, directory, backgroundMeshInfo=None, fileNameTag=None, staticMeshFiles=None):
+        else:
 
-        '''
-        This function will use pyHyp to extrude all surface meshes into
-        volume meshes.
-        It will also use cgns_utils to generate the background mesh (if the user
-        provided None) and then merge all blocks in a single CGNS file.
+            familyList = None
 
-        INPUTS:
+        # Send dictionary from root proc to all other procs
+        familyList = self.comm.bcast(familyList, root=0)
 
-        directory: string -> Directory where will place all mesh files.
+        # Return family names that should be used for pyHyp extrusion
+        return familyList
 
-        backgroundMeshInfo: list or dict -> List containing filenames of the background
-        meshes that should be appended to the combined CGNS file. The user could also
-        provide a dictionary of options to use cgns_utils simpleOCart to generate a new
-        background mesh. The dictionary fields should be:
-           dh          Uniform cartesian spacing size
-           hExtra      Extension in "O" dimension
-           nExtra      Number of nodes to use for extension
-           sym         Normal for possible sym plane
-           mgcycle     Minimum MG cycle to enforce
-        If the user provides None, then nothing will be added to the combined CGNS file.
-
-        fileNameTag: string -> Optional tag to append to the file names.
-
-        staticMeshFiles: list of string -> Additional meshes to be merged to the final combined file.
-                                           This mesh will not be warped.
-
-        OUTPUTS:
-
-        combinedFileName: string -> Filename of the CGNS file that contains all blocks
-        (including the background mesh). This file should be used as input to ADflow.
-        The blocks in the CGNS file always follow the ordering:
-        primary meshes, collar meshes, background meshes.
-        This order is important to match the coordinates between ADflow and pySurf.
-
-        Ney Secco 2017-02
-        '''
-
-        # Import pyHyp
-        from pyhyp import pyHyp
-
-        # Export the surface meshes once again just to make sure we have
-        # the correct files available
-        self.export_meshes(directory, fileNameTag)
-
-        # Print log
-        print ''
-        print 'Extruding surface meshes'
-
-        # Add a slash if the directory does not have it
-        if directory[-1] != '/':
-            directory = directory + '/'
-
-        # Initialize counters
-        primaryID = 0
-        collarID = 0
-
-        # Initialize list of volume meshes
-        volFileList = []
-
-        # First we will export the primary geometry meshes
-        for geom in self.geoms.itervalues():
-            
-            # Check if the component has an associated surface mesh
-            if geom.meshObj is not None:
-
-                # Generate file names
-                surfFileName = generate_primary_surface_mesh_filename(directory, geom.name, fileNameTag)
-                volFileName = generate_primary_volume_mesh_filename(directory, geom.name, fileNameTag)
-
-                # Get extrusion options
-                extrusionOptions = geom.meshObj.extrusionOptions
-                
-                # Give correct file name
-                extrusionOptions['inputFile'] = surfFileName
-                extrusionOptions['fileType'] = 'plot3d'
-
-                # Extrude mesh
-                hyp = pyHyp(options=extrusionOptions, comm=self.commSingle)
-                hyp.run()
-                hyp.writeCGNS(volFileName)
-
-                # Increment counter
-                primaryID = primaryID + 1
-
-                # Append filename to the list
-                volFileList.append(volFileName)
-
-                # Print log
-                print 'Extruded primary mesh for',geom.name
-
-        # Now we will export the collar meshes
-        for curve in self.intCurves.itervalues():
-            
-            # Verify if this curve was used to generate collar meshes
-            if curve.extra_data['childMeshes'] is not None:
-
-                # Generate file name
-                surfFileName = generate_collar_surface_mesh_filename(directory, curve.name, fileNameTag)
-                volFileName = generate_collar_volume_mesh_filename(directory, curve.name, fileNameTag)
-
-                # Get extrusion options from the first mesh object
-                meshName = curve.extra_data['childMeshes'][0]
-                meshObj = self.meshGenerators[meshName].meshObj
-                extrusionOptions = meshObj.extrusionOptions
-
-                # Give correct file name (this one already contains all blocks of the collar mesh
-                # since they were joined in the export_plot3d function).
-                extrusionOptions['inputFile'] = surfFileName
-                extrusionOptions['fileType'] = 'plot3d'
-
-                # Extrude mesh
-                hyp = pyHyp(options=extrusionOptions, comm=self.commSingle)
-                hyp.run()
-                hyp.writeCGNS(volFileName)
-
-                # Increment counter
-                collarID = collarID + 1
-
-                # Append filename to the list
-                volFileList.append(volFileName)
-
-                # Print log
-                print 'Extruded collar mesh for',curve.name
-
-        # Print log
-        print 'Extruded all meshes!'
-        print ''
-
-        ### ADD USER-PROVIDED FIXED MESHES
-
-        if staticMeshFiles is not None:
-            volFileList = volFileList + staticMeshFiles
-
-        ### GENERATE BACKGROUND MESHES
-
-        # Generate name for combined nearfield meshes
-        nearfieldFilename = generate_nearfield_filename(directory, fileNameTag)
-
-        # Only the root proc will work here
-        if self.myID == 0:
-
-            ### First let's combine the near-field meshes in a single file
-
-            # Initialize list of nearfield meshes
-            nearfieldMeshes = []
-            
-            # Load files with CGNS utils
-            for fileName in volFileList:
-                nearfieldMeshes.append(cs.readGrid(fileName))
-
-            # Combine grids in a single one
-            nearfieldCombo = cs.combineGrids(nearfieldMeshes)
-
-            # Save it in a single file
-            nearfieldCombo.writeToCGNS(nearfieldFilename)
-
-        self.comm.Barrier()
-
-        # Check for background meshes
-        if backgroundMeshInfo is None:
-
-            # The user did not provide any background mesh
-            bgMeshNames = ''
-
-        elif isinstance(backgroundMeshInfo, dict):
-
-            # Print log
-            print ''
-            print 'Generating background mesh with cgns_utils'
-
-            # The user provided a set of options to run cgns_utils simpleOCart
-            # to generate a new background mesh
-
-            # Assign the background mesh filename for the next operations
-            bgMeshNames = generate_background_filename(directory, fileNameTag)
-
-            # Define default set of options
-            bg_options = {
-                'dh':0.1,
-                'hExtra':5.0,
-                'nExtra':9,
-                'sym':'z',
-                'mgcycle':3,
-            }
-
-            # Replace default options by the user-provided ones
-            for key in backgroundMeshInfo:
-                if key not in bg_options.keys():
-                    raise NameError('key',key,'not recognized by the background mesh generator.')
-                else:
-                    bg_options[key] = backgroundMeshInfo[key]
-
-            # Run cartesian mesh generator from cgns_utils
-            nearfieldGrid = cs.readGrid(nearfieldFilename)
-            nearfieldGrid.simpleOCart(bg_options['dh'],
-                                      bg_options['hExtra'],
-                                      bg_options['nExtra'],
-                                      bg_options['sym'],
-                                      bg_options['mgcycle'],
-                                      bgMeshNames,
-                                      comm=self.comm)
-
-            # Print log
-            print 'Background mesh generated and saved as:'
-            print bgMeshNames
-            print ''
-
-            # Transform file name to list so we could combine all meshes later on
-            bgMeshNames = [bgMeshNames]
-
-        # Now we can run the cgns_utils command to join all blocks in a single file
-
-        # First we generate the name of the combined file in all procs
-        combinedFileName = generate_combined_filename(directory, fileNameTag)
-
-        # Only the root proc will work here
-        if self.myID == 0:
-
-            ### First let's combine the near-field meshes in a single file
-
-            # Initialize list of all meshes
-            allMeshes = []
-            
-            # We can already use all nearfield meshes
-            allMeshes = allMeshes + nearfieldMeshes
-
-            # Add background meshes 
-            for fileName in bgMeshNames:
-                allMeshes.append(cs.readGrid(fileName))
-
-            # Combine grids in a single one
-            allMeshCombo = cs.combineGrids(allMeshes)
-
-            # Save it in a single file
-            allMeshCombo.writeToCGNS(combinedFileName)
-
-            # Check block-to-block connectivities
-            os.system('cgns_utils connect ' + combinedFileName)
-
-            # Print log
-            print 'Combined all meshes! The combined CGNS file is:'
-            print combinedFileName
-            print 'This one should be used as input to ADflow.'
-            print ''
-
-        # Return the name of the combined file
-        return combinedFileName
-
-    def generate_default_pyWarpMulti_options(self, directory, fileNameTag=None):
+    def generate_default_pyWarpMulti_options(self, fileNameTag=None):
 
         '''
         This method will give a dictionary with default set of options that can be used
@@ -1336,10 +1133,6 @@ class Manager(object):
 
         directory and fileNameTag should be the same ones used during self.initialize
         '''
-
-        # Add a slash if the directory does not have it
-        if directory[-1] != '/':
-            directory = directory + '/'
 
         # First we gather names of primary components and intersection curves that have meshes
 
@@ -1349,11 +1142,8 @@ class Manager(object):
         # Loop over all primary meshes to gather their names
         for geom in self.geoms.itervalues():
 
-            # Check if the current object has an associated mesh
-            if geom.meshObj is not None:
-
-                # Append name to the list
-                zoneNames.append(geom.name)
+            # Append name to the list
+            zoneNames.append(geom.name)
 
         # Loop over all collar meshes to gather their coordinates
         for curve in self.intCurves.itervalues():
@@ -1388,134 +1178,137 @@ class Manager(object):
         # The root processor will send its dictionary to everybody else
         optionsDict = self.comm.bcast(optionsDict, root=0)
 
-        # Regenerate combined filename
-        combinedFileName = generate_combined_filename(directory, fileNameTag)
-
-        return combinedFileName, optionsDict
+        return optionsDict
 
     #=====================================================
     # GENERAL INTERFACE METHODS
         
-    def getSurfacePoints(self, solverOrder=True):
+    def getSurfacePoints(self, ptSetName):
 
         '''
         This function returns the surface mesh points of all meshes contained
-        in the manager object (including both primary and collar meshes).
+        in the manager object (including both embeded points by the solver and collar meshes).
 
-        ATTENTION: These points are in Manager ordering.
-        If you want to convert them to Solver ordering, you have
-        to do:
-        pts = self._convertManagerToSolver(pts)
+        ATTENTION: These points are in Solver ordering, so this can only be used after self.addPointSet
 
-        if solverOrder is True, the the points will be returned in solver ordering.
-        Otherwise, they will be in manager ordering.
+        INPUTS:
+
+        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
         '''
 
-        # Only the root processor will get the points
-        if self.myID == 0:
+        # Loop over all primary meshes to gather their surface mesh coordinates.
+        # Those coordinates are embedded in the FFDs and assign their to the
+        # full solver points vector.
+        for geom in self.geoms.itervalues():
 
-            # Initialize list of points with a single entry ([0, 0, 0])
-            # We will remove this point at the end
-            pts = np.zeros((1,3))
+            # Check if we assigned manipulators to this component
+            if geom.name in self.solverPointIDs:
 
-            # Loop over all primary meshes to gather their coordinates
-            for geom in self.geoms.itervalues():
+                # Get indices of the full solver vector that correspond to this component
+                geomPointIDs = self.solverPointIDs[geom.name]
 
                 # Get points of the current mesh
-                currPts = geom.meshObj.get_points()
+                self.points[ptSetName][geomPointIDs] = geom.manipulatorPts[ptSetName]
 
-                # Append them to the list
-                pts = np.vstack([pts, currPts])
+        # Loop over every block of the collar mesh
+        for meshName in self.meshGenerators:
 
-            # Loop over all collar meshes to gather their coordinates
-            for curve in self.intCurves.itervalues():
-
-                # Verify if this curve was used to generate collar meshes
-                if curve.extra_data['childMeshes'] is not None:
-
-                    # Loop over every block of the collar mesh
-                    for meshName in curve.extra_data['childMeshes']:
-
-                        # Get points of the current mesh
-                        currPts = self.meshGenerators[meshName].meshObj.get_points()
-
-                        # Append them to the list
-                        pts = np.vstack([pts, currPts])
-
-            # Remove the initial dummy point
-            pts = pts[1:,:]
-
-        else:
+            # Get points of the current collar mesh.
+            # Just the root has the collar mesh points initially, so we need to
+            # broadcast them to all procs.
+            if self.myID == 0:
+                collarManagerPts = self.meshGenerators[meshName].meshObj.get_points()
+            else:
+                collarManagerPts = None
+            collarManagerPts = self.comm.bcast(collarManagerPts, root=0)
             
-            # Assign dummy variable in other procs
-            pts = None
-
-        # Convert the ordering if necessary
-        if solverOrder:
-            pts = self._convertManagerToSolver(pts)
+            # Get indices of the collar mesh points in the solver vector
+            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
+            
+            # Extract slice of solver vector with the collar points
+            # This is just to get the right size
+            collarSolverPts = self.points[ptSetName][collarIDs,:]
+            
+            # Take the values from the manager collar and replace the
+            # appropriate values of the solver collar
+            self._convertManagerToSolver(collarSolverPts,
+                                         collarManagerPts,
+                                         self.solverPointIDs[meshName]['indexSolverPts'],
+                                         self.solverPointIDs[meshName]['indexManagerPts'],
+                                         self.solverPointIDs[meshName]['numSurfRepetition'])
+            
+            # Assign the points back to the full solver vector
+            self.points[ptSetName][collarIDs,:] = collarSolverPts
 
         # Return the set of points
-        return pts
+        return self.points[ptSetName]
 
-    def getSurfaceForwardADSeeds(self, solverOrder=True):
+    def getSurfaceForwardADSeeds(self, ptSetName):
 
         '''
         This function returns the forward AD seeds of all meshes contained
         in the manager object (including both primary and collar meshes).
 
-        ATTENTION: These points are in Manager ordering.
-        If you want to convert them to Solver ordering, you have
-        to do:
-        pts = self._convertManagerToSolver(pts)
+        INPUTS:
+
+        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
+
+        RETURNS:
+
+        ptsd: float[nPts,3] -> Forward derivative seeds of all surface points, following the solver ordering.
         '''
 
-        # Only the root processor will get the seeds
-        if self.myID == 0:
+        # Initialize array of derivatives
+        ptsd = np.zeros(self.points[ptSetName].shape)
 
-            # Initialize list of points with a single entry ([0, 0, 0])
-            # We will remove this point at the end
-            ptsd = np.zeros((1,3))
+        # Loop over all primary meshes to gather their surface mesh coordinates.
+        # Those coordinates are embedded in the FFDs and assign their to the
+        # full solver points vector.
+        for geom in self.geoms.itervalues():
 
-            # Loop over all primary meshes to gather their coordinates
-            for geom in self.geoms.itervalues():
+            # Check if we assigned manipulators to this component
+            if geom.name in self.solverPointIDs:
+
+                # Get indices of the full solver vector that correspond to this component
+                geomPointIDs = self.solverPointIDs[geom.name]
 
                 # Get points of the current mesh
-                currPtsd = geom.meshObj.get_forwardADSeeds()
+                ptsd[geomPointIDs,:] = geom.manipulatorPtsd[ptSetName]
 
-                # Append them to the list
-                ptsd = np.vstack([ptsd, currPtsd])
+        # Loop over every block of the collar mesh
+        for meshName in self.meshGenerators:
 
-            # Loop over all collar meshes to gather their coordinates
-            for curve in self.intCurves.itervalues():
+            # Get points of the current collar mesh.
+            # Just the root has the collar mesh points initially, so we need to
+            # broadcast them to all procs.
+            if self.myID == 0:
+                collarManagerPtsd = self.meshGenerators[meshName].meshObj.get_forwardADSeeds()
+            else:
+                collarManagerPtsd = None
+            collarManagerPtsd = self.comm.bcast(collarManagerPtsd, root=0)
 
-                # Verify if this curve was used to generate collar meshes
-                if curve.extra_data['childMeshes'] is not None:
+            # Get indices of the collar mesh points in the solver vector
+            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
 
-                    # Loop over every block of the collar mesh
-                    for meshName in curve.extra_data['childMeshes']:
+            # Extract slice of solver vector with the collar points.
+            # These values might be replaced by _convertManagerToSolver
+            collarSolverPtsd = ptsd[collarIDs,:]
 
-                        # Get points of the current mesh
-                        currPtsd = self.meshGenerators[meshName].meshObj.get_forwardADSeeds()
-
-                        # Append them to the list
-                        ptsd = np.vstack([ptsd, currPtsd])
-
-            # Remove the initial dummy point
-            ptsd = ptsd[1:,:]
-
-        else:
+            # Take the values from the manager collar and replace the
+            # appropriate values of the solver collar
+            self._convertManagerToSolver(collarSolverPtsd,
+                                         collarManagerPtsd,
+                                         self.solverPointIDs[meshName]['indexSolverPts'],
+                                         self.solverPointIDs[meshName]['indexManagerPts'],
+                                         self.solverPointIDs[meshName]['numSurfRepetition'])
             
-            # Assign dummy variable in other procs
-            ptsd = None
-
-        # Convert the ordering if necessary
-        if solverOrder:
-            ptsd = self._convertManagerToSolver(ptsd)
+            # Assign the points back to the full solver vector
+            ptsd[collarIDs,:] = collarSolverPtsd
 
         # Return the set of points
         return ptsd
 
-    def setSurfaceReverseADSeeds(self, ptsb, solverOrder=True):
+    def setSurfaceReverseADSeeds(self, ptsb, ptSetName):
 
         '''
         This function sets the reverse AD seeds of all meshes contained
@@ -1523,97 +1316,221 @@ class Manager(object):
 
         INPUTS:
 
-        ptsb: float[nPts,3] -> Reverse derivative seeds of all surface points,
-        following the solver or manager ordering, depending on solverOrder flag.
+        ptsb: float[nPts,3] -> Reverse derivative seeds of all surface points, following the solver ordering.
 
-        solverOrder: logical -> If solverOrder==True, we treat ptsb as if in solver ordering.
-        Otherwise, we assume ptsb is in manager ordering.
-        If solverOrder==False, only the root proc values will be useful.
-        The values on the other procs will be discarded.
+        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
         '''
 
-        # Convert ordering if necessary
-        if solverOrder:
-            ptsb = self._convertSolverToManagerb(ptsb)
+        # Loop over all primary meshes to gather their surface mesh coordinates.
+        # Those coordinates are embedded in the FFDs and assign their to the
+        # full solver points vector.
+        for geom in self.geoms.itervalues():
 
-        # Only the root processor will assign seeds
-        if self.myID == 0:
+            # Check if we assigned manipulators to this component
+            if geom.name in self.solverPointIDs:
 
-            # Initialize offset variable to help us slice ptsb
-            offset = 0
+                # Get indices of the full solver vector that correspond to this component
+                geomPointIDs = self.solverPointIDs[geom.name]
 
-            # Loop over all primary meshes to set their seeds
-            for geom in self.geoms.itervalues():
+                # Get points of the current mesh
+                geom.manipulatorPtsb[ptSetName][:,:] = ptsb[geomPointIDs,:]
 
-                # Get number of points in the current mesh
-                numPts = geom.meshObj.numPts
+                # Burn derivatives so that they are not used again
+                ptsb[geomPointIDs,:] = 0.0
 
-                # Slice the global derivative seed vector
-                curr_ptsb = ptsb[offset:offset+numPts]
+        # Loop over every block of the collar mesh
+        for meshName in self.meshGenerators:
 
-                # Assign the derivative seeds
-                geom.meshObj.set_reverseADSeeds(curr_ptsb)
+            # Get indices of the collar mesh points in the solver vector
+            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
 
-                # Update the offset variable
-                offset = offset + numPts
+            # Extract slice of solver vector with the collar points.
+            collarSolverPtsb = ptsb[collarIDs,:]
 
-            # Loop over all collar meshes to set their seeds
-            for curve in self.intCurves.itervalues():
+            # The root proc should send the collar mesh size to the other procs
+            if self.myID == 0:
+                collarSize = self.meshGenerators[meshName].meshObj.numPts
+            else:
+                collarSize = None
+            collarSize = self.comm.bcast(collarSize, root=0)
 
-                # Verify if this curve was used to generate collar meshes
-                if curve.extra_data['childMeshes'] is not None:
+            # Initialize array that will hold the derivative seeds.
+            # These values might be replaced by _convertSolverToManagerb.
+            collarManagerPtsb = np.zeros((collarSize,3))
 
-                    # Loop over every block of the collar mesh
-                    for meshName in curve.extra_data['childMeshes']:
+            # Take the values from the manager collar and replace the
+            # appropriate values of the solver collar.
+            self._convertSolverToManagerb(collarSolverPtsb,
+                                          collarManagerPtsb,
+                                          self.solverPointIDs[meshName]['indexSolverPts'],
+                                          self.solverPointIDs[meshName]['indexManagerPts'],
+                                          self.solverPointIDs[meshName]['numSurfRepetition'])
 
-                        # Get number of points in the current mesh
-                        numPts = self.meshGenerators[meshName].meshObj.numPts
+            # Accumulate derivatives into the root proc
+            collarManagerPtsb = self.comm.reduce(collarManagerPtsb, MPI.SUM, root=0)
 
-                        # Slice the global derivative seed vector
-                        curr_ptsb = ptsb[offset:offset+numPts]
+            # After the conversion, the derivatives from collarSolverPtsb that were used are
+            # replaced by zeros. So now we can eliminate the derivative seeds from the original
+            # vector of seeds.
+            ptsb[collarIDs,:] = collarSolverPtsb
 
-                        # Assign the derivative seeds
-                        self.meshGenerators[meshName].meshObj.set_reverseADSeeds(curr_ptsb)
+            # Get points of the current collar mesh.
+            # Just the root has the collar mesh points initially, so we need to
+            # broadcast them to all procs.
+            if self.myID == 0:
+                self.meshGenerators[meshName].meshObj.set_reverseADSeeds(collarManagerPtsb)
 
-                        # Update the offset variable
-                        offset = offset + numPts
 
     #=====================================================
     # MACH INTERFACE METHODS
 
-    def addPointSet(self, coor, ptSetName, origConfig=True, **kwargs):
+    def addPointSet(self, coor, ptSetName, conn, faceSizes, famIDs, famName2FamID, origConfig=True, **kwargs):
 
         '''
         This function receives a set of coordinates from a solver (coor) and then makes the mapping
         between this set of coordinates and the coordinates currently owned by this manager.
         Therefore, for every surface update, we can recreate an array with the order expected by the solver.
 
-        Ney Secco 2017-02
+        Parameters
+        ----------
+        coor : array, size (M, 3)
+            Solver nodes on this processor
+        ptSetName : string
+            Name assigned to the set of points
+        conn : int array, size  (sum(faceSizes))
+            Connectivity of the nodes on this processor.
+            All connectivities are assembled in a single flattened array,
+            then we will use faceSizes to slice this array for each cell.
+        faceSizes : int Array size (N)
+            Treat the conn array as a flat list with the faceSizes giving
+            connectivity offset for each element.
+        famIDs : int Array size (N)
+            family ID of each element.
+        famName2FamID : Dictionary of strings to ints
+            Dictionary to convert the family names to integers of famID.
+            Each component names should match to one family name, since we will take
+            the points of that family name and assign to the corresponding manipulator.
+
+        Ney Secco 2017-11
         '''
-
-        # Print log
-        print ''
-        print 'Adding point set',ptSetName,'to the manager.'
-
-        # Store the coordinates given by ADflow in a separate dictionary
+                         
+        # Check if we already have this point set
         if ptSetName in self.points.keys():
             raise NameError('The point set',ptSetName,'is already defined under this manager.')
-        else:
-
-            # Save the coordinates in solver ordering (they are basically the same ones assigned to the FFDs)
-            self.points[ptSetName] = coor.copy()
-
-            # Flag that they are up to date
-            self.updated[ptSetName] = True
-
-        # Now we can create the mapping between the solver ordering and the manager ordering
-        # Note that this will populate self.managerPoints.
-        self._setSolverToManagerMapping(coor, self.distTol)
-
 
         # Print log
-        print 'Done'
-        print ''
+        if self.myID == 0:
+            print ''
+            print 'Adding point set',ptSetName,'to the manager.'
+
+        # Store the total number of solver nodes
+        self.numSolverPts[ptSetName] = coor.shape[0]
+
+        # Store the coordinates given by the Solver in a separate dictionary
+        self.points[ptSetName] = coor.copy()
+
+        # First we need to flag the families of each point in coor.
+        # We know the family of each cell, so we need to use the connectivities
+        # to transfer this information to the points.
+
+        # Create an array to hold the family ID of each point.
+        pointFamIDs = np.zeros(self.numSolverPts[ptSetName], dtype='int64')
+
+        # Initialize counter to slice the conn array
+        startID = 0
+
+        # Loop over the cells
+        for cellID in np.arange(len(faceSizes)):
+
+            # Get family name of the current cell
+            cellFamID = famIDs[cellID]
+
+            # Get size of the current cell
+            faceSize = faceSizes[cellID]
+
+            # Slice the conn array to get the point IDs of the current cell
+            pointIDs = conn[startID:startID+faceSize]
+
+            # Update counter for the next iteration
+            startID = startID + faceSize
+
+            # Loop over each point of the cell
+            for pointID in pointIDs:
+                
+                # Assign same family of the cell to its points
+                pointFamIDs[pointID] = cellFamID
+                
+        # Now we loop over each main component to find the solver points that correspond to each
+        # one of them
+        for geom in self.geoms.itervalues():
+
+            # Check if the geometry object has a manipulator
+            if geom.manipulator is not None:
+
+                # Find points of the same family as geom
+                geomPointIDs = np.where(pointFamIDs == famName2FamID[geom.name])[0]
+
+                # Store IDs for future reference
+                self.solverPointIDs[geom.name] = geomPointIDs
+
+                # Assign the selected points to the manipulator object
+                geom.manipulator_addPointSet(coor[geomPointIDs,:], ptSetName)
+
+                # Print log
+                if self.myID == 0:
+                    print ' Assigned points from solver family "'+geom.name+'" to manipulator'
+
+        # Now we need to find the collar mesh nodes
+        # The family name used by the wall BC of the collar meshes should be the
+        # same as the curve name that generated it.
+        
+        # Loop over every block of the collar mesh
+        for meshName in self.meshGenerators:
+
+            # Get IDs of the solver points that correspond to the collar mesh
+            collarPointIDs = np.where(pointFamIDs == famName2FamID[meshName])[0]
+
+            # Get solver points that have the collar family
+            solverCollarPts = coor[collarPointIDs,:]
+
+            # Get points of the current collar mesh.
+            # Just the root has the collar mesh points initially, so we need to
+            # broadcast them to all procs.
+            if self.myID == 0:
+                collarPts = self.meshGenerators[meshName].meshObj.get_points()
+            else:
+                collarPts = None
+            collarPts = self.comm.bcast(collarPts, root=0)
+                    
+            # Now we need to find which points given by the solver in this proc
+            # correspond to the pySurf collar mesh nodes.
+            indexSolverPts, indexManagerPts, numSurfRepetition = self._setSolverToManagerMapping(collarPts,
+                                                                                                 solverCollarPts,
+                                                                                                 distTol=None)
+
+            # We also store the collar mesh mapping under self.solverPointIDs.
+            # However, we need to store more data for the collar meshes.
+            # So we use a dictionary for that.
+            # collarPointIDs is used to extract the collar nodes from the full solver nodes array.
+            # indexSolverPts has the indices of the extracted collar nodes that will map to each
+            # element from the indexManagerPts.
+            # numSurfRepetition is the number of repeated nodes in indexSolverPts.
+            self.solverPointIDs[meshName] = {'collarPointIDs':collarPointIDs,
+                                             'indexSolverPts':indexSolverPts,
+                                             'indexManagerPts':indexManagerPts,
+                                             'numSurfRepetition':numSurfRepetition}
+
+            # Print log
+            if self.myID == 0:
+                print ' Assigned points from solver family "'+meshName
+
+        # Flag this point set as up to date
+        self.updated[ptSetName] = True
+
+        # Print log
+        if self.myID == 0:
+            print 'Done'
+            print ''
 
     def getValues(self):
 
@@ -1628,34 +1545,23 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
-        # Only the root processor will gather the design variables
-        if self.myID == 0:
+        # Initialize dictionary of design variables
+        dvDict = {}
 
-            # Initialize dictionary of design variables
-            dvDict = {}
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
 
-            # Loop over the primary geometries to find design variables
-            for geom in self.geoms.itervalues():
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
 
-                # Check if the geometry object has an associated geometry manipulator
-                if geom.manipulator is not None:
+                # Get design variables from the manipulator
+                curr_dvDict = geom.manipulator_getDVs()
 
-                    # Get design variables from the manipulator
-                    curr_dvDict = geom.manipulator_getDVs()
+                # Loop over every entry of the new DV dictionary
+                for key in curr_dvDict:
 
-                    # Loop over every entry of the new DV dictionary
-                    for key in curr_dvDict:
-
-                        # Add new entries to the dictionary
-                        dvDict[key] = curr_dvDict[key]
-
-        else:
-
-            # Assign dummy variable for the MPI process
-            dvDict = None
-
-        # The root processor will send the dictionary to all others
-        dvDict = self.comm.bcast(dvDict, root=0)
+                    # Add new entries to the dictionary
+                    dvDict[key] = curr_dvDict[key]
 
         # Return DV dictionary
         return dvDict
@@ -1666,31 +1572,20 @@ class Manager(object):
         Returns a list of design variable names.
         '''
 
-        # Only the root processor will gather the design variable names
-        if self.myID == 0:
+        # Initialize list of design variable names
+        names = []
 
-            # Initialize list of design variable names
-            names = []
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
 
-            # Loop over the primary geometries to find design variables
-            for geom in self.geoms.itervalues():
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
 
-                # Check if the geometry object has an associated geometry manipulator
-                if geom.manipulator is not None:
+                # Get design variable names from the manipulator
+                currNames = geom.manipulator.getVarNames()
 
-                    # Get design variable names from the manipulator
-                    currNames = geom.manipulator.getVarNames()
-
-                    # Add names to the list
-                    names = names + currNames
-
-        else:
-
-            # Assign dummy variable for the MPI process
-            names = None
-
-        # The root processor will send the list to all others
-        names = self.comm.bcast(names, root=0)
+                # Add names to the list
+                names = names + currNames
 
         # Return list of names
         return names
@@ -1750,34 +1645,23 @@ class Manager(object):
         Ney Secco 2017-02
         '''
 
-        # Only the root processor will count the design variables
-        if self.myID == 0:
+        # Initialize dictionary of design variables
+        dvDict = {}
 
-            # Initialize dictionary of design variables
-            dvDict = {}
+        # Initialize DV counter
+        NDV = 0
 
-            # Initialize DV counter
-            NDV = 0
+        # Loop over the primary geometries to find design variables
+        for geom in self.geoms.itervalues():
 
-            # Loop over the primary geometries to find design variables
-            for geom in self.geoms.itervalues():
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
 
-                # Check if the geometry object has an associated geometry manipulator
-                if geom.manipulator is not None:
+                # Get design variables from the manipulator
+                curr_dvDict = geom.manipulator_getDVs()
 
-                    # Get design variables from the manipulator
-                    curr_dvDict = geom.manipulator_getDVs()
-
-                    # Increment the DV counter
-                    NDV = NDV + len(curr_dvDict)
-
-        else:
-
-            # Assign dummy variable for the MPI process
-            NDV = None
-
-        # The root will send the value to all procs
-        NDV = self.comm.bcast(NDV, root=0)
+                # Increment the DV counter
+                NDV = NDV + len(curr_dvDict)
 
         # Return number of DVs
         return NDV
@@ -1794,15 +1678,15 @@ class Manager(object):
 
         return self.updated[ptSetName]
 
-    def update(self, ptSetName=None, childDelta=True, config=None, solverOrder=True):
+    def update(self, ptSetName=None, childDelta=True, config=None):
 
         '''
         This function will update all surface coordinates under ptSetName based on
         the current values of design variables. The user should call self.setDesignVars
         before calling this function.
 
-        solverOrder==True will return points in the solver ordering defined by adding point set.
-        If solverOrder==False, we will return the native ordering used by pySurf.
+        If ptSetName is None, pySurf will update the triangulated surfaces and collar meshes,
+        but it will not return anything useful.
 
         Ney Secco 2017-02
         '''
@@ -1812,37 +1696,40 @@ class Manager(object):
 
             # Print log
             print ''
-            print 'Updating manager surface meshes.'
+            print 'Updating manager manipulators for point set:',ptSetName
 
-            # Loop over all primary geometry objects to update their manipulators
-            for geom in self.geoms.itervalues():
+        # Loop over all primary geometry objects to update their manipulators
+        for geom in self.geoms.itervalues():
 
-                # Check if the geometry object has an associated geometry manipulator
-                if geom.manipulator is not None:
+            # Check if the geometry object has an associated geometry manipulator
+            if geom.manipulator is not None:
 
-                    # Update the manipulator. Remember that this will update the associated
-                    # surface mesh and triangulated mesh
-                    geom.manipulator_update()
+                # Update the manipulator. Remember that this will update the associated
+                # surface mesh and triangulated mesh
+                geom.manipulator_update(ptSetName)
 
-            # Now we need to repeat the tasks associated with the collar mesh generation
-            self.run_baseFunction()
+        # Now we need to repeat the tasks associated with the collar mesh generation
+        self.run_baseFunction()
 
-            # Print log
+        # Print log
+        if self.myID == 0:
             print 'Done'
             print ''
 
-        # Gather the updated coordinates, in solver ordering
-        pts = self.getSurfacePoints(solverOrder=solverOrder)
+        # Set default value for the output
+        pts = None
 
-        # Update corresponding dictionary entry if requested
+        # Update point set if requested by the user.
         if ptSetName is not None:
-            self.points[ptSetName] = pts
+            pts = self.getSurfacePoints(ptSetName)
             self.updated[ptSetName] = True
 
-        # Return the new set of points
+        # Return the new set of solver points.
+        # If the user did not set any point set, then this will be the default
+        # value of self.points
         return pts
 
-    def totalSensitivityProd(self, xDvDot, ptSetName):
+    def totalSensitivityProd(self, xDvDot, ptSetName, comm=None, config=None):
 
         '''
         This method executes the forward AD to compute the derivatives of the
@@ -1871,25 +1758,28 @@ class Manager(object):
             if not self.updated[ptSetName]:
                 raise NameError('The point set',ptSetName,'is outdated. Cannot propagate derivatives.')
 
-            # First update the geometry manipulators. This will propagate derivative seeds from
-            # design variables to all triangulated surface nodes, discrete curves, and primary structured
-            # surface meshes associated with the geometry manipulators.
-            # Note that all this derivative passing will be done directly to their corresponding objects.
-            for geom in self.geoms.itervalues():
-                if geom.manipulator is not None:
-                    geom.manipulator_forwardAD(xDvDot)
+        # First update the geometry manipulators. This will propagate derivative seeds from
+        # design variables to all triangulated surface nodes, discrete curves, and primary structured
+        # surface meshes associated with the geometry manipulators.
+        # Note that all this derivative passing will be done directly to their corresponding objects.
+        for geom in self.geoms.itervalues():
+            if geom.manipulator is not None:
+                geom.manipulator_forwardAD(xDvDot, ptSetName)
+
+        # The root processor will do the main job
+        if self.myID == 0:
 
             # Now we can propagate derivatives throughout the geometry operations done by the manager.
             # This will update derivative seeds of the surface collar meshes.
             self.forwardAD()
 
         # Now we need to gather the derivative seeds of all surface meshes, in solver ordering
-        xsDot = self.getSurfaceForwardADSeeds()
+        xsDot = self.getSurfaceForwardADSeeds(ptSetName)
 
         # Return derivative seeds
         return xsDot
 
-    def totalSensitivity(self,xsBar, ptSetName, comm=None, config=None, clean=True):
+    def totalSensitivity(self, xsBar, ptSetName, comm=None, config=None, clean=True):
 
         '''
         This method executes the reverse AD to compute the derivatives of the
@@ -1911,6 +1801,8 @@ class Manager(object):
 
         xDvBar: dictionary -> Dictionary containing derivative seeds of the design variables.
         It will follow the same structure as dvDict.
+        ATTENTION: If comm is provided, the derivatives should be reduced at the end.
+                   That is, all procs should receive the sum of all seeds.
 
         Ney Secco 2017-02
         '''
@@ -1927,7 +1819,7 @@ class Manager(object):
             raise NameError('The point set',ptSetName,'is outdated. Cannot propagate derivatives.')
 
         # Assign the derivative seeds to the surface meshes, assuming they are in solver ordering
-        self.setSurfaceReverseADSeeds(xsBar)
+        self.setSurfaceReverseADSeeds(xsBar, ptSetName)
 
         # Only the root proc will do the next seed propagation for its design variables
         if self.myID == 0:
@@ -1936,18 +1828,19 @@ class Manager(object):
             # This will update derivative seeds of the triangulated surface meshes and discrete curves.
             self.reverseAD()
 
-            # Then update the geometry manipulators. This will propagate derivative seeds from
-            # all triangulated surface nodes, discrete curves, and primary structured
-            # surface meshes to the design varibles associated with the geometry manipulators.
-            # Note that all this derivative passing will be done directly to their corresponding objects.
-            for geom in self.geoms.itervalues():
-                if geom.manipulator is not None:
-                    geom.manipulator_reverseAD(xDvBar, clean)
+        # Then update the geometry manipulators. This will propagate derivative seeds from
+        # all triangulated surface nodes, discrete curves, and primary structured
+        # surface meshes to the design varibles associated with the geometry manipulators.
+        # Note that all this derivative passing will be done directly to their corresponding objects.
+        # Here we give None as communicator otherwise pyGeo would reduce the derivative seeds and then
+        # we would do another allreduce here, yielding wrong results.
+        for geom in self.geoms.itervalues():
+            if geom.manipulator is not None:
+                geom.manipulator_reverseAD(xDvBar, ptSetName, comm=None, clean=clean)
 
-        else:
-
-            # Since nothing happens with the DVs in the other procs, they should remain with zeroes as seeds.
-            pass
+        # Do the reduction if we have a communicator object
+        for dvkey in xDvBar:
+            xDvBar[dvkey] = self.comm.allreduce(xDvBar[dvkey], op=MPI.SUM)
 
         # Return design variable seeds
         return xDvBar
@@ -1999,7 +1892,7 @@ class Manager(object):
     #=====================================================
     # DEBUG TOOLS
 
-    def give_randomADSeeds_MACHinterface(self, fixedSeed=True):
+    def give_randomADSeeds_MACHinterface(self, ptSetName, fixedSeed=True):
 
         '''
         This method generates a set of random AD seeds to test the MACH interface functions above.
@@ -2034,7 +1927,7 @@ class Manager(object):
         # GENERATE REVERSE AD SEEDS FOR SURFACE MESH POINTS
         
         # Copy coordinate array, in solver ordering, as a baseline
-        xsBar = self.getSurfacePoints()
+        xsBar = self.getSurfacePoints(ptSetName)
 
         # Generate random seeds
         xsBar = np.random.random_sample(xsBar.shape)
@@ -2047,7 +1940,7 @@ class Manager(object):
     #=====================================================
     # INTERNAL METHODS
 
-    def _setSolverToManagerMapping(self, solverPts, distTol=None):
+    def _setSolverToManagerMapping(self, managerPts, solverPts, distTol=None):
 
         '''
         This method creates a mapping between the solver-provided surface mesh coordinates, and
@@ -2055,24 +1948,28 @@ class Manager(object):
 
         INPUTS:
 
-        solverPts: array[Nx3] -> Local array containing the coordinates given by the solver,
+        solverPts: array[numSolverPtsx3] -> Local array containing the coordinates given by the solver,
         in the current proc.
+
+        managerPts: array[numManagerPtsx3] -> Local array containing the coordinates given by the manager,
+        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+        from the root proc to all other procs.
 
         distTol: Distance tolerance to flag that a given surface node does not
                  belong to the current Manager surface definition.
 
         OUTPUTS:
 
-        This function has no explicit outputs. It sets:
-        self.indexSolverPts
-        self.indexManagerPts
-        self.numSurfRepetitions
-        self.startSolverIndex
-        self.endSolverIndex
-        self.numSolverPts
-        self.numManagerPts
+        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
+                                         linked to managerPts nodes.
 
-        Ney Secco 2017-03
+        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
+                                          linked to managerPts nodes.
+                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
+
+        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
+
+        Ney Secco 2018-01
         '''
 
         # IMPORTS
@@ -2082,310 +1979,221 @@ class Manager(object):
         if distTol is None:
             distTol = self.distTol
 
-        # Each proc should compute how many nodes it has
+        # Get number of manager surface nodes
+        numManagerPts = managerPts.shape[0]
+
+        # Get number of solver surface nodes
         numSolverPts = solverPts.shape[0]
 
-        # Now we do an allGather operation so that every proc knows how many nodes each other proc has
-        numSolverPtsGather = np.hstack(self.comm.allgather(numSolverPts))
+        # Initialize the tree with the manager nodes.
+        # The manager might have repeated nodes (shared block edges for instance)
+        tree = cKDTree(managerPts)
 
-        # Now we use cumulative sums to find out the slice of the global surface node vector that
-        # belongs to the current proc
-        self.startSolverIndex = 0 + np.sum(numSolverPtsGather[:self.myID])
-        self.endSolverIndex = self.startSolverIndex + numSolverPts
+        # We need to be careful because some nodes in the manager vector may be repeated (shared by multiple blocks),
+        # and we can't leave these repeated nodes out of the mapping. So we allow the KDTree to search for multiple
+        # candidates, then we can assign all possible repeated mappings.
+        # Here we set the maximum number we expect that a node may be repeated.
+        maxRep = 6
 
-        # Send all coordinates to the root processor
-        solverPts = self.comm.gather(solverPts.copy(), root=0)
+        # Now use the KDTree to find which indices from managerPts is correlated to a given
+        # node from solverPts.
+        # That is solverPts[ii] = managerPts[indexMap[ii]]
+        # If a given Solver node does not match with any node in the tree, then its
+        # indexMap value will be numManagerPts (which is out of the range of managerPts)
+        # We also allow the KDTree to search for the best k candidates, so we can
+        # take care of repeated nodes.
+        dist, indexMap = tree.query(solverPts, distance_upper_bound=distTol, k=maxRep)
 
-        # Now only the root processor will do the mapping
-        if self.myID == 0:
+        # Convert indexMap to a numpy array to facilitate next operations
+        indexMap = np.array(indexMap)
 
-            # Concatenate all coordinates, since the gather operation brings a list of arrays
-            solverPts = np.vstack(solverPts)
+        # At this point, indexMap is [numSolverPts x maxRep]. Therefore,
+        # indexMap[i,j] gives the j-th candidate index in managerPts that corresponds
+        # to the i-th node in solverPts.
+        # So now we need to analyze column by column to take into account the multiple
+        # candidates.
 
-            # We can skip this if we already have a mapping
-            if self.indexSolverPts is None:
+        # First let's initialize 1D arrays that we will increment for every candidate
+        # analysis. Please see the comments over indexSolverPtsCurr and indexManagerPtsCurr to
+        # understand the role of these arrays
+        indexSolverPts = []
+        indexManagerPts = []
 
-                # Get manager coordinates (only the root proc has pySurf coordinates, so this is fine)
-                managerPts = self.getSurfacePoints(solverOrder=False)
+        for candID in range(maxRep):
 
-                # Get number of manager surface nodes
-                numManagerPts = managerPts.shape[0]
+            # Now we need to remove entries from the indexMap that correspond to Solver nodes
+            # that did not match with any Manager node in this proc. We can find these nodes
+            # because indexMap[ii,candID]==numManagerPts.
+            # Let's say we have numManagerPts = 5, and our current indexMap is
+            # indexMap[:,candID] = [0 1 5 3 2 5 4]
+            # This means that the 0th solverPts node is linked to the 0th managerPts node,
+            # the 1st solverPts node is linked to the 1st managerPts node, the 2nd solverPts node
+            # did not find any match in managerPts, the 3rd solverPts node is linked to the 3rd managerPts
+            # node, the 4th solverPts node is linked to the 2nd managerPts node, and so on...
+            # In the end, the important index relations are:
+            #  solverPts -> managerPts
+            #        0th -> 0th
+            #        1th -> 1th
+            #        3rd -> 3rd
+            #        4th -> 2nd
+            #        6th -> 4th
+            # So we will create two arrays to express these relationships.
+            # The first column will be indexSolverPtsCurr, and the second one will be indexManagerPtsCurr
+            # These arrays will be concatenated into indexSolverPts and indexManagerPts to gather results
+            # for all candidate orders.
 
-                # Get number of solver surface nodes
-                numSolverPts = solverPts.shape[0]
+            # Find indices of indexMap that are smaller than numManagerPts. These are
+            # the indices that managed to find a match in the current proc, for the current candidate level.
+            # Note that this also discard the candidates that are beyond the distance tolerance.
+            indexSolverPtsCurr = np.where(indexMap[:,candID] < numManagerPts)[0]
 
-                # Store the number of points in each ordering
-                self.numSolverPts = numSolverPts
-                self.numManagerPts = numManagerPts
+            # Now take the corresponding links
+            indexManagerPtsCurr = indexMap[indexSolverPtsCurr, candID]
 
-                # Initialize the tree with the manager nodes.
-                # The manager might have repeated nodes (shared block edges for instance)
-                tree = cKDTree(managerPts)
+            # Concatenate these arrays into the major arrays that gather results for all
+            # candidates
+            indexSolverPts = np.hstack([indexSolverPts, indexSolverPtsCurr])
+            indexManagerPts = np.hstack([indexManagerPts, indexManagerPtsCurr])
 
-                # We need to be careful because some nodes in the manager vector may be repeated (shared by multiple blocks),
-                # and we can't leave these repeated nodes out of the mapping. So we allow the KDTree to search for multiple
-                # candidates, then we can assign all possible repeated mappings.
-                # Here we set the maximum number we expect that a node may be repeated.
-                maxRep = 6
+        # Convert arrays to integers
+        indexSolverPts = map(int, indexSolverPts)
+        indexManagerPts = map(int, indexManagerPts)
 
-                # Now use the KDTree to find which index from managerPts is correlated to a given
-                # node from solverPts.
-                # That is solverPts[ii] = managerPts[indexMap[ii]]
-                # If a given Solver node does not match with any node in the tree, then its
-                # indexMap value will be numManagerPts (which is out of the range of managerPts)
-                # We also allow the KDTree to search for the best k candidates, so we can
-                # take care of repeated nodes.
-                dist, indexMap = tree.query(solverPts, distance_upper_bound=distTol, k=maxRep)
+        #---------------------------
+        # Here is another very important detail.
+        # We know that the Manager only repeats a surface node if it is shared by multiple blocks.
+        # Therefore, the number of surface nodes in the Manager is exactly the same as the original
+        # CGNS file, even if we are working with multiple procs. The Solver, on the other hand, may
+        # duplicate surface nodes when working in parallel.
+        # Our current mapping will map all repeated Solver nodes to all repeated Manager nodes,
+        # regardless if they were generated by partitioning or shared block edges.
+        # If we use our mapping to take coordinate values from the Manager vector (managerPts) and insert
+        # them directly into the corresponding spot of the Solver vector (solverPts), we will
+        # be fine since the repeated nodes will assign the same coordinate values.
+        # However, if we are dealing with sensitivities, the same repeated nodes in the Manager vector
+        # may have different sensitivities. Therefore, if we just insert values in the scatter operation
+        # some sensitivity values may be lost, since the repeated nodes will always overwrite their values.
+        # We can solve this by doing and additive scatter, and them taking the average of the added values!
+        # If we define the coordinate of a Solver surface node as the average of all Manager nodes
+        # that we linked with our mapping, then we will get the correct coordinate value since we will
+        # take the average of repeated nodes. The nice thing is that this operation have a well-defined
+        # differentiated version: just take the average of the derivative seeds!
+        # So here we will count how many Manager nodes are linked to each Solver node, so we can
+        # take the average of the additive scatters later on.
 
-                # Convert indexMap to a numpy array to facilitate next operations
-                indexMap = np.array(indexMap)
+        # Initialize counter of repeated Manager surface nodes
+        numSurfRepetitions = np.zeros(numSolverPts)
 
-                # At this point, indexMap is [numSolverPts x maxRep]. Therefore,
-                # indexMap[i,j] gives the j-th candidate index in managerPts that corresponds
-                # to the i-th node in solverPts.
-                # So now we need to analyze column by column to take into account the multiple
-                # candidates.
+        # Now loop over the indices that Solver will map to in order to count the number of repetitions
+        for solverIndex in indexSolverPts:
 
-                # First let's initialize 1D arrays that we will increment for every candidate
-                # analysis. Please see the comments over indexSolverPtsCurr and indexManagerPtsCurr to
-                # understand the role of these arrays
-                indexSolverPts = []
-                indexManagerPts = []
+            # Note that solverIndex is the index that the current Manager node is linked to.
+            # So we can increment the repetition counter.
+            numSurfRepetitions[solverIndex] = numSurfRepetitions[solverIndex] + 1
 
-                for candID in range(maxRep):
-
-                    # Now we need to remove entries from the indexMap that correspond to ADflow nodes
-                    # that did not match with any pyWarp node in this proc. We can find these nodes
-                    # because indexMap[ii,candID]==numManagerPts.
-                    # Let's say we have numManagerPts = 5, and our current indexMap is
-                    # indexMap[:,candID] = [0 1 5 3 2 5 4]
-                    # This means that the 0th solverPts node is linked to the 0th managerPts node,
-                    # the 1st solverPts node is linked to the 1st managerPts node, the 2nd solverPts node
-                    # did not find any match in managerPts, the 3rd solverPts node is linked to the 3rd managerPts
-                    # node, the 4th solverPts node is linked to the 2nd managerPts node, and so on...
-                    # In the end, the important index relations are:
-                    #  solverPts -> managerPts
-                    #        0th -> 0th
-                    #        1th -> 1th
-                    #        3rd -> 3rd
-                    #        4th -> 2nd
-                    #        6th -> 4th
-                    # So we will create two arrays to express these relationships.
-                    # The first column will be indexSolverPtsCurr, and the second one will be indexManagerPtsCurr
-                    # These arrays will be concatenated into indexSolverPts and indexManagerPts to gather results
-                    # for all candidate orders.
-
-                    # Find indices of indexMap that are smaller than numManagerPts. These are
-                    # the indices that managed to find a match in the current proc, for the current candidate level.
-                    # Note that this also discard the candidates that are beyond the distance tolerance.
-                    indexSolverPtsCurr = np.where(indexMap[:,candID] < numManagerPts)[0]
-
-                    # Now take the corresponding links
-                    indexManagerPtsCurr = indexMap[indexSolverPtsCurr,candID]
-
-                    # Concatenate these arrays into the major arrays that gather results for all
-                    # candidates
-                    indexSolverPts = np.hstack([indexSolverPts,indexSolverPtsCurr])
-                    indexManagerPts = np.hstack([indexManagerPts,indexManagerPtsCurr])
-
-                # We don't need the local copy of the global surface vector anymore.
-                # We also don't need the unsorted index mapping as well.
-                #del solverPts
-                #del indexMap
-
-                # Convert arrays to integers
-                indexSolverPts = map(int,indexSolverPts)
-                indexManagerPts = map(int,indexManagerPts)
-
-                # Now we can save the mapping for future use
-                self.indexSolverPts = indexSolverPts
-                self.indexManagerPts = indexManagerPts
-
-                #---------------------------
-                # Here is another very important detail.
-                # We know that the Manager only repeats a surface node if it is shared by multiple blocks.
-                # Therefore, the number of surface nodes in the Manager is exactly the same as the original
-                # CGNS file, even if we are working with multiple procs. The Solver, on the other hand, may
-                # duplicate surface nodes when working in parallel.
-                # Our current mapping will map all repeated Solver nodes to all repeated Manager nodes,
-                # regardless if they were generated by partitioning or shared block edges.
-                # If we use our mapping to take coordinate values from the Manager vector (managerPts) and insert
-                # them directly into the corresponding spot of the Solver vector (solverPts), we will
-                # be fine since the repeated nodes will assign the same coordinate values.
-                # However, if we are dealing with sensitivities, the same repeated nodes in the Manager vector
-                # may have different sensitivities. Therefore, if we just insert values in the scatter operation
-                # some sensitivity values may be lost, since the repeated nodes will always overwrite their values.
-                # We can solve this by doing and additive scatter, and them taking the average of the added values!
-                # If we define that the coordinate of a Solver surface node is the average of all Manager nodes
-                # that we linked with our mapping, then we will get the correct coordinate value since we will
-                # take the average of repeated nodes. The nice thing is that this operation have a well-defined
-                # differentiated version: just take the average of the derivative seeds!
-                # So here we will count how many Manager nodes are linked to each Solver node, so we can
-                # take the average of the additive scatters later on.
-
-                # Initialize counter of repeated Manager surface nodes
-                numSurfRepetitions = np.zeros(self.numSolverPts)
-
-                # Now loop over the indices that Solver will map to in order to count the number of repetitions
-                for solverIndex in indexSolverPts:
-
-                    # Note that solverIndex is the index that the current Manager node is linked to.
-                    # So we can increment the repetition counter.
-                    numSurfRepetitions[solverIndex] = numSurfRepetitions[solverIndex] + 1
-
-                # Save the number of repetitions for future use
-                # We need to make it a 2D array for matrix operations
-                self.numSurfRepetitions = np.array([numSurfRepetitions]).T
-
-                # Check if some nodes were not mapped
-                unmatchedNodes = np.where(self.numSurfRepetitions == 0)[0]
-                if len(unmatchedNodes > 0):
-                    print 'Some solver nodes did not find the corresponding copy in the manager object'
-                    print 'Here is the list of solver nodes:'
-                    print solverPts[unmatchedNodes,:]
-                    raise ValueError('Nodes not found')
-
-    def _convertManagerToSolver(self, managerPts):
+        # Save the number of repetitions for future use
+        # We need to make it a 2D array for matrix operations
+        numSurfRepetitions = np.array([numSurfRepetitions]).T
 
         '''
-        This uses the mapping to convert surface nodes in Manager ordering to Solver ordering.
+        # Check if some nodes were not mapped
+        unmatchedNodes = np.where(numSurfRepetitions == 0)[0]
+        if len(unmatchedNodes > 0):
+            print 'Some solver nodes did not find the corresponding copy in the manager object'
+            print 'Here is the list of solver nodes:'
+            print solverPts[unmatchedNodes,:]
+            raise ValueError('Nodes not found')
+        '''
+
+        # Return the mapping info
+        return indexSolverPts, indexManagerPts, numSurfRepetitions
+
+    def _convertManagerToSolver(self, solverPts, managerPts, indexSolverPts, indexManagerPts, numSurfRepetitions):
+
+        '''
+        This uses the mapping to update surface nodes in the solver vector with the values from
+        the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
         
         INPUTS:
 
-        managerPts: array[Nx3] -> Local array containing the coordinates given by the manager,
-        in the current proc. Since we are running this in serial, only the managerPts in the
-        root proc will be actually used.
+        solverPts: array[numSolverPtsx3] -> Local array containing the coordinates given by the solver,
+        in the current proc.
+
+        managerPts: array[numManagerPtsx3] -> Local array containing the coordinates given by the manager,
+        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+        from the root proc to all other procs.
+
+        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
+                                         linked to managerPts nodes.
+
+        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
+                                          linked to managerPts nodes.
+                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
+
+        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
 
         OUTPUTS:
 
+        This function modifies solverPts.
 
-
-        Ney Secco 2017-03
+        Ney Secco 2018-01
         '''
 
-        # The root proc should generate all entries of the solver vector.
-        # Each proc will slice its data from this general vector later on
-        if self.myID == 0:
+        # First we remove previous data from the solver points that will be overwritten
+        solverPts[indexSolverPts,:] = 0.0
 
-            # Check if we already generated the mapping
-            if self.indexSolverPts is None:
-                raise NameError('There is no mapping between pySurf and the Solver. Run manager.addPointsSet first')
+        # Loop over every solver node to get its contribution from the manager nodes.
+        for (solverPtID, managerPtID) in zip(indexSolverPts, indexManagerPts):
 
-            # Define an array to store coordinates in the solver ordering
-            solverPts = np.zeros((self.numSolverPts,3))
+            # Assign value
+            solverPts[solverPtID,:] = solverPts[solverPtID,:] + managerPts[managerPtID,:]/numSurfRepetitions[solverPtID]
 
-            # Loop over every solver node to get its contribution from the manager nodes.
-            for (solverPtID, managerPtID) in zip(self.indexSolverPts,self.indexManagerPts):
 
-                # Assign value
-                solverPts[solverPtID,:] = solverPts[solverPtID,:] + managerPts[managerPtID,:]
-
-            # Now divide the values to compute averaged values
-            solverPts = solverPts/self.numSurfRepetitions
-
-        else:
-
-            # Assign a dummy variable to receive data later on
-            solverPts = None
-
-        # Now do a broadcast operation to send the full surface vector (in solver ordering) to all procs
-        solverPts = self.comm.bcast(solverPts, root=0)
-
-        # Then each proc takes its slice from the full vector
-        solverPts = solverPts[self.startSolverIndex:self.endSolverIndex,:]
-
-        return solverPts
-
-    def _convertSolverToManager(self, solverPts):
+    def _convertSolverToManagerb(self, solverPtsb, managerPtsb, indexSolverPts, indexManagerPts, numSurfRepetitions):
 
         '''
-        This uses the mapping to convert surface nodes in Solver ordering to Manager ordering.
+        This uses the mapping to update surface nodes in the solver vector with the values from
+        the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
-        Remember that we will send the full value back to the manager nodes. This can't be used
-        as a reverse AD of the forward scatter. Use _convertSolverToManagerb for this purpose.
-
-        INPUTS:
-
-        solverPts: array[Nx3] -> Local array containing the coordinates given by the solver,
-        in the current proc.
-
-        Ney Secco 2017-03
-        '''
-
-        # Send all coordinates to the root processor
-        solverPts = self.comm.gather(solverPts.copy(), root=0)
-
-        # Now only the root processor will do the conversion
-        if self.myID == 0:
-
-            # Concatenate all coordinates, since the gather operation brings a list of arrays
-            solverPts = np.vstack(solverPts)
-
-            # Define an array to store to coordinates in the manager ordering
-            managerPts = np.zeros((self.numManagerPts,3))
-
-            # Loop over every solver node to send its contribution to the manager nodes
-            for (solverPtID, managerPtID) in zip(self.indexSolverPts,self.indexManagerPts):
-
-                # Accumulate contribution
-                managerPts[managerPtID,:] = solverPts[solverPtID,:]
-
-            # Return the averaged points
-            return managerPts
         
-        else:
-
-            return None
-
-    def _convertSolverToManagerb(self, solverPtsb):
-
-        '''
-        This uses the mapping to send reverse derivative seeds from the Solver ordering
-        to the Manager ordering.
-        You need to run self._setSolverToManagerMapping() first to establish the mapping.
-        This is the reverse AD mode of self._convertManagerToSolver().
-
         INPUTS:
 
-        solverPts: array[Nx3] -> Local array containing the coordinate seeds given by the solver,
+        solverPtsb: array[numSolverPtsx3] -> Local array containing the derivative seeds given by the solver,
         in the current proc.
+
+        managerPtsb: array[numManagerPtsx3] -> Local array containing the derivative seeds given by the manager,
+        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+        from the root proc to all other procs.
+
+        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
+                                         linked to managerPts nodes.
+
+        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
+                                          linked to managerPts nodes.
+                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
+
+        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
 
         OUTPUTS:
 
+        This function modifies managerPtsb and deletes the used seeds from solverPtsb.
 
-
-        Ney Secco 2017-03
+        Ney Secco 2018-01
         '''
 
-        # Send all coordinate seeds to the root processor
-        solverPtsb = self.comm.gather(solverPtsb.copy(), root=0)
+        # First we remove previous data from the solver points that will be overwritten
+        managerPtsb[indexManagerPts,:] = 0.0
 
-        # Now only the root processor will do the mapping
-        if self.myID == 0:
+        # Loop over every solver node to get its contribution from the manager nodes.
+        for (solverPtID, managerPtID) in zip(indexSolverPts, indexManagerPts):
 
-            # Concatenate all coordinates, since the gather operation brings a list of arrays
-            solverPtsb = np.vstack(solverPtsb)
+            # Assign value
+            managerPtsb[managerPtID,:] = managerPtsb[managerPtID,:] + solverPtsb[solverPtID,:]/numSurfRepetitions[solverPtID]
 
-            # Define an array to store to coordinates in the manager ordering
-            managerPtsb = np.zeros((self.numManagerPts,3))
-
-            # First we need to divide the solver seeds to take into account the reverse
-            # AD of the division
-            solverPtsb = solverPtsb/self.numSurfRepetitions
-
-            # Loop over every solver node to send its contribution to the manager nodes
-            for (solverPtID, managerPtID) in zip(self.indexSolverPts,self.indexManagerPts):
-
-                # Accumulate contribution
-                managerPtsb[managerPtID,:] = managerPtsb[managerPtID,:] + solverPtsb[solverPtID,:]
-
-            # Return the averaged points
-            return managerPtsb
-        
-        else:
-
-            return None
+        # Burn the derivatives so that it won't be used again
+        for solverPtID in indexSolverPts:
+            solverPtsb[solverPtID,:] = 0.0
 
 #=================================================
 # AUXILIARY FUNCTIONS
