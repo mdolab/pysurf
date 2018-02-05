@@ -73,7 +73,7 @@ class TSurfGeometry(Geometry):
             color = MPI.UNDEFINED
 
         newComm = comm.Split(color)
-        
+
         self.comm = newComm
 
         # Assign component name based on its CGNS file
@@ -137,6 +137,15 @@ class TSurfGeometry(Geometry):
             # Create ADT for the current surface, now that coor, triaConn, and quadsConn are correct
             tst.initialize_surface(self)
 
+        else:
+
+            # Other procs create dummy data
+            self.coor = np.zeros((1,3))
+
+            # Create arrays to store derivative seeds
+            self.coord = np.zeros(self.coor.shape)
+            self.coorb = np.zeros(self.coor.shape)
+
     def rename(self, name):
         '''
         Renames the current surface object.
@@ -163,7 +172,7 @@ class TSurfGeometry(Geometry):
         #if self.myID == 0:
 
         self.curves[curve.name] = copy.deepcopy(curve)
-            
+
     def remove_curve(self, name):
         '''
         Removes a given curve instance from the self.curves dictionary.

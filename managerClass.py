@@ -34,7 +34,7 @@ class Manager(object):
         # Here we create a new communicator just for the root proc because TSurf currently runs in
         # a single proc.
         comm = MPI.COMM_WORLD
-        
+
         # Create colors so that only the root proc is the worker
         if comm.Get_rank() == 0:
             color = 0
@@ -42,7 +42,7 @@ class Manager(object):
             color = MPI.UNDEFINED
 
         newComm = comm.Split(color)
-        
+
         self.commSingle = newComm
         '''
         # Define dictionary that will hold all geometries
@@ -65,7 +65,7 @@ class Manager(object):
         self.tasks = []
 
         # MACH INTERFACE ATTRIBUTES
-        
+
         # Set dictionary that will contain surface mesh points for different sets.
         self.points = OrderedDict()
         self.updated = {}
@@ -75,7 +75,7 @@ class Manager(object):
 
         # Store solver node indices owned by each primary component and collar mesh
         self.solverPointIDs = {}
-        
+
         # Store total number of solver points for each point set
         self.numSolverPts = OrderedDict()
 
@@ -236,7 +236,7 @@ class Manager(object):
 
             # Append data to the dictionary
             for meshName in self.meshGenerators:
-                
+
                 # Save mesh name in the dictionary with dummy data
                 dummyMeshDict[meshName] = 0.0
 
@@ -267,7 +267,7 @@ class Manager(object):
         actual optimization.
 
         INPUTS/OUTPUTS:
-        
+
         Please refer to self.extrude_meshes to verify the inputs/outputs description.
 
         Ney Secco 2017-02
@@ -316,7 +316,7 @@ class Manager(object):
         Remember to use this at the beginning of an optimization script.
 
         INPUTS/OUTPUTS:
-        
+
         Please refer to self.extrude_meshes to verify the inputs/outputs description.
 
         IMPORTANT: You should use the same fileNameTag used for the initialization!
@@ -641,7 +641,7 @@ class Manager(object):
             # Get pointers to the parent objects
             geom1 = self.geoms[curve.extra_data['parentGeoms'][0]]
             geom2 = self.geoms[curve.extra_data['parentGeoms'][1]]
-                    
+
             # Run the AD intersection code
             geom1.intersect_b(geom2, curve, distTol, accumulateSeeds)
 
@@ -774,7 +774,7 @@ class Manager(object):
         the same parents as the original curve. This can make it easier to generate
         the surface meshes for intersections.
         '''
-        
+
         # Only the root proc will work here
         if self.myID == 0:
 
@@ -791,7 +791,7 @@ class Manager(object):
                         if self.intCurves[curveName].extra_data['parentGeoms'] is not None:
                             curve.extra_data['parentGeoms'] = self.intCurves[curveName].extra_data['parentGeoms'][:]
                         else:
-                            curve.extra_data['parentGeoms'] = None                        
+                            curve.extra_data['parentGeoms'] = None
 
                     self.add_curve(curve)
 
@@ -1182,7 +1182,7 @@ class Manager(object):
 
     #=====================================================
     # GENERAL INTERFACE METHODS
-        
+
     def getSurfacePoints(self, ptSetName):
 
         '''
@@ -1221,14 +1221,14 @@ class Manager(object):
             else:
                 collarManagerPts = None
             collarManagerPts = self.comm.bcast(collarManagerPts, root=0)
-            
+
             # Get indices of the collar mesh points in the solver vector
             collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
-            
+
             # Extract slice of solver vector with the collar points
             # This is just to get the right size
             collarSolverPts = self.points[ptSetName][collarIDs,:]
-            
+
             # Take the values from the manager collar and replace the
             # appropriate values of the solver collar
             self._convertManagerToSolver(collarSolverPts,
@@ -1236,7 +1236,7 @@ class Manager(object):
                                          self.solverPointIDs[meshName]['indexSolverPts'],
                                          self.solverPointIDs[meshName]['indexManagerPts'],
                                          self.solverPointIDs[meshName]['numSurfRepetition'])
-            
+
             # Assign the points back to the full solver vector
             self.points[ptSetName][collarIDs,:] = collarSolverPts
 
@@ -1301,7 +1301,7 @@ class Manager(object):
                                          self.solverPointIDs[meshName]['indexSolverPts'],
                                          self.solverPointIDs[meshName]['indexManagerPts'],
                                          self.solverPointIDs[meshName]['numSurfRepetition'])
-            
+
             # Assign the points back to the full solver vector
             ptsd[collarIDs,:] = collarSolverPtsd
 
@@ -1413,7 +1413,7 @@ class Manager(object):
 
         Ney Secco 2017-11
         '''
-                         
+
         # Check if we already have this point set
         if ptSetName in self.points.keys():
             raise NameError('The point set',ptSetName,'is already defined under this manager.')
@@ -1456,10 +1456,10 @@ class Manager(object):
 
             # Loop over each point of the cell
             for pointID in pointIDs:
-                
+
                 # Assign same family of the cell to its points
                 pointFamIDs[pointID] = cellFamID
-                
+
         # Now we loop over each main component to find the solver points that correspond to each
         # one of them
         for geom in self.geoms.itervalues():
@@ -1483,7 +1483,7 @@ class Manager(object):
         # Now we need to find the collar mesh nodes
         # The family name used by the wall BC of the collar meshes should be the
         # same as the curve name that generated it.
-        
+
         # Loop over every block of the collar mesh
         for meshName in self.meshGenerators:
 
@@ -1501,7 +1501,7 @@ class Manager(object):
             else:
                 collarPts = None
             collarPts = self.comm.bcast(collarPts, root=0)
-                    
+
             # Now we need to find which points given by the solver in this proc
             # correspond to the pySurf collar mesh nodes.
             indexSolverPts, indexManagerPts, numSurfRepetition = self._setSolverToManagerMapping(collarPts,
@@ -1672,7 +1672,7 @@ class Manager(object):
         This function just returns the state of the given point set.
         If False, it means that the nodal coordinates were not updated
         after the DV change. Thus the user should call self.update(ptSetName)
-        
+
         Ney Secco 2017-02
         '''
 
@@ -1839,8 +1839,9 @@ class Manager(object):
                 geom.manipulator_reverseAD(xDvBar, ptSetName, comm=None, clean=clean)
 
         # Do the reduction if we have a communicator object
-        for dvkey in xDvBar:
-            xDvBar[dvkey] = self.comm.allreduce(xDvBar[dvkey], op=MPI.SUM)
+        if comm is not None:
+            for dvkey in xDvBar:
+                xDvBar[dvkey] = self.comm.allreduce(xDvBar[dvkey], op=MPI.SUM)
 
         # Return design variable seeds
         return xDvBar
@@ -1925,7 +1926,7 @@ class Manager(object):
 
         #======================
         # GENERATE REVERSE AD SEEDS FOR SURFACE MESH POINTS
-        
+
         # Copy coordinate array, in solver ordering, as a baseline
         xsBar = self.getSurfacePoints(ptSetName)
 
@@ -2114,7 +2115,7 @@ class Manager(object):
         This uses the mapping to update surface nodes in the solver vector with the values from
         the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
-        
+
         INPUTS:
 
         solverPts: array[numSolverPtsx3] -> Local array containing the coordinates given by the solver,
@@ -2156,7 +2157,7 @@ class Manager(object):
         This uses the mapping to update surface nodes in the solver vector with the values from
         the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
-        
+
         INPUTS:
 
         solverPtsb: array[numSolverPtsx3] -> Local array containing the derivative seeds given by the solver,

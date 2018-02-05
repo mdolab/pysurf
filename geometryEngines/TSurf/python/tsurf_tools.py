@@ -29,7 +29,7 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # The second Fortran call will use this information to actually retrieve the surface data.
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
-    
+
     # First Fortran call to read CGNS file and get array sizes
     arraySizes = cgnsAPI.cgnsapi.readcgns(inputFile, comm.py2f())
 
@@ -1100,7 +1100,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
                                                                      TSurfGeometryB.quadsConnF.T,
                                                                      distTol,
                                                                      comm.py2f())
-    
+
     # Retrieve results from Fortran if we have an intersection
     if np.max(arraySizes[1:]) > 0:
 
@@ -1122,10 +1122,10 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         coor = np.zeros((0,3))
         barsConn = np.zeros((0,2))
         parentTria = np.zeros((0,2))
-    
+
     # Release memory used by Fortran so we can run another intersection in the future
     intersectionAPI.intersectionapi.releasememory()
-    
+
     # Initialize list to hold all intersection curves
     Intersections = []
 
@@ -1172,7 +1172,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
     # Return intersection FE data
     return Intersections
-    
+
 #=================================================================
 
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd, distTol):
@@ -1608,7 +1608,7 @@ def remove_unused_points(coor,
             # can use it as a pointer from coor to cropCoor when we
             # update element connectivities.
             usedPtsMask[pointID] = cropPointID
-        
+
         else:
 
             # Unused points receive a negative flag
@@ -2173,3 +2173,235 @@ def closest_node(guideCurve, curve):
     ind = np.argmin(dist2)
 
     return ind
+
+#===================================
+# INTERSECTION COMPOSITION FUNCTIONS
+#===================================
+'''
+The next set of functions can be used to expedite the intersection treatment of
+common types of intersections. They already comprise a series of operations such as
+splits and remeshes.
+'''
+
+def airfoil_intersection(manager, intCurveName,
+                         LECurve, UpperTECurve, LowerTECurve,
+                         vertDir,
+                         numTENodes, numSkinNodes,
+                         TESpacing, LESpacing,
+                         mergedCurveName,
+                         optionsBodyMesh, optionsWingMesh,
+                         exportFeatures = False):
+
+    '''
+    This script works for blunt traling edges
+
+    intCurveName: string -> Name of the intersection curve that should be
+                            treated as a wing-body intersection.
+                            This intersection curve should already be in the
+                            manager. manager.intersect() returns curve names.
+
+    LECurve: TSurf curve object -> Curve that follows the wing leading edge.
+
+    UpperTECurve: TSurf curve object -> Curve that follows the wing upper trailing edge.
+
+    LowerTECurve: TSurf curve object -> Curve that follows the wing upper trailing edge.
+
+    mergedCurveName: string -> Name that will be assigned to the intersection curve and
+                               its corresponding collar mesh.
+
+    optionsBodyMesh: Dictionary -> Options to grow the body mesh. The user does not need
+                                     to specify boundary conditions. This is done automatically.
+                                     Here is an example of dictionary:
+    optionsBodyMesh = {
+        'dStart' : 0.01*2/fact,
+        'numLayers' : int(48/2*fact)+1, #Should be /4
+        'extension' : 1.8,
+        'epsE0' : 3.5,
+        'theta' : -0.5,
+        'alphaP0' : 0.25,
+        'numSmoothingPasses' : 0,
+        'nuArea' : 0.16,
+        'numAreaPasses' : 20,
+        'sigmaSplay' : 0.3,
+        'cMax' : 5.0,
+        'ratioGuess' : 10.0,
+    }
+
+    optionsWingMesh: Dictionary -> Options to grow the wing mesh. The user does not need
+                                     to specify boundary conditions. This is done automatically.
+                                     Here is an example of dictionary:
+
+    optionsWingMesh = {
+        'dStart' : 0.01*2/fact,
+        'numLayers' : int(48/2*fact)+1,
+        'extension' : 2.2,
+        'epsE0' : 12.5,
+        'theta' : -0.8,
+        'alphaP0' : 0.25,
+        'numSmoothingPasses' : 4,
+        'nuArea' : 0.16,
+        'numAreaPasses' : 0,
+        'sigmaSplay' : 0.3,
+        'cMax' : 5.0,
+        'ratioGuess' : 10.0,
+        'guideCurves' : ['curve_te_low','curve_te_upp'],
+        'remesh' : True
+    }
+
+    '''
+
+    # SPLIT
+
+    # Split curves based on TE and LE curves
+    optionsDict = {'splittingCurves' : [LECurve,
+                                        UpperTECurve,
+                                        LowerTECurve]}
+
+    splitCurveNames = manager.split_intCurve(intCurveName,
+                                             optionsDict,
+                                             criteria='curve')
+
+    # REMESH
+
+    # Find the highest vertical coordinate of the entire intersection (vertical position)
+    # We also use the same loop to find the curve with the minimum number of nodes,
+    # since this is probably the trailing edge
+
+    # Initialize variables with dummy values
+    maxCoor = -99999
+    minNumNodes = 99999
+
+    # Loop over every curve after the split
+    for curveName in splitCurveNames:
+
+        # Get pointer to the curve object
+        curve = manager.intCurves[curveName]
+
+        # Check maximum vertical position
+        curr_maxCoor = np.max(curve.coor[:,vertDir])
+
+        # Compare against the maximum found so far
+        maxCoor = max(maxCoor, curr_maxCoor)
+
+        # Get the number of nodes
+        curr_numNodes = curve.numNodes
+
+        # Compare against the minimum found so far
+        minNumNodes = min(minNumNodes, curr_numNodes)
+
+    # Now we can identify and remesh each curve properly
+    for curveName in splitCurveNames:
+
+        # Get pointer to the curve object
+        curve = manager.intCurves[curveName]
+
+        # The trailing edge curve probably has less nodes than the other ones
+        if curve.numNodes == minNumNodes:
+
+            # This is the trailing edge curve.
+            # Just apply an uniform spacing
+            optionsDict = {'nNewNodes':int(numTENodes)}
+            TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
+
+        else:
+
+            # We have an upper or lower skin curve.
+            # First let's identify if the curve is defined from
+            # LE to TE or vice-versa
+            curveCoor = curve.get_points()
+            deltaX = curveCoor[-1,0] - curveCoor[0,0]
+
+            if deltaX > 0:
+                LE_to_TE = True
+            else:
+                LE_to_TE = False
+
+            # Compute the highest vertical coordinate of the curve
+            curr_maxCoor = np.max(curve.coor[:,vertDir])
+
+            # Now we can determine if we have upper or lower skin
+            if curr_maxCoor < maxCoor:
+
+                # We are at the lower skin
+
+                if LE_to_TE:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':TESpacing,
+                                   'finalSpacing':LESpacing}
+
+                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+                else:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':LESpacing,
+                                   'finalSpacing':TESpacing}
+
+                    LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+            else:
+
+                # We are at the upper skin
+
+                if LE_to_TE:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':TESpacing,
+                                   'finalSpacing':LESpacing}
+
+                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+                else:
+
+                    optionsDict = {'nNewNodes':numSkinNodes,
+                                   'spacing':'hypTan',
+                                   'initialSpacing':LESpacing,
+                                   'finalSpacing':TESpacing}
+
+                    US_curveName = manager.remesh_intCurve(curveName, optionsDict)
+
+    # MERGE
+    curveNames = [TE_curveName, LS_curveName, US_curveName]
+    manager.merge_intCurves(curveNames, mergedCurveName)
+
+    # REORDER
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='minX')
+
+    # Export final curve
+    if exportFeatures:
+        manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
+
+    # Flip the curve for marching if necessary
+    # Here we verify if the first two points (which are on the leading edge)
+    # are going up or down. They should always go down so that the mesh
+    # marhcing direction points towards the wing tip.
+    mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
+
+    deltaCoor = mergedCurveCoor[1,vertDir] - mergedCurveCoor[0,vertDir]
+
+    if deltaCoor > 0:
+        manager.intCurves[mergedCurveName].flip()
+
+    # MARCH SURFACE MESHES
+
+    # Add approriate boundary conditions
+    optionsBodyMesh['bc1'] = 'continuous'
+    optionsBodyMesh['bc2'] = 'continuous'
+
+    optionsWingMesh['bc1'] = 'curve:'+LECurve.name
+    optionsWingMesh['bc2'] = 'curve:'+LECurve.name
+
+    # Extrude mesh
+    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName,
+                                                   options0=optionsWingMesh,
+                                                   options1=optionsBodyMesh,
+                                                   meshName=mergedCurveName)
+
+    # Export meshes if requested by the user
+    if exportFeatures:
+        for meshName in meshNames:
+            manager.meshGenerators[meshName].export_plot3d(meshName+'.xyz')
