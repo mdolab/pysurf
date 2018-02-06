@@ -2190,6 +2190,7 @@ def airfoil_intersection(manager, intCurveName,
                          TESpacing, LESpacing,
                          mergedCurveName,
                          optionsBodyMesh, optionsWingMesh,
+                         wingGeomName,
                          exportFeatures = False):
 
     '''
@@ -2248,7 +2249,21 @@ def airfoil_intersection(manager, intCurveName,
         'remesh' : True
     }
 
+    wingGeomName: string -> Name of the geometry component that represents the wing.
+                            We need this information because pySurf may store either
+                            the wing or the body as the first marching side for the
+                            collar mesh generation.
+
     '''
+
+    # Get the names of the components that share the intersection
+    parentGeomNames = manager.intCurves[intCurveName].extra_data['parentGeoms']
+
+    # Check if the wing component is the first one that will be marched on
+    if parentGeomNames[0] == wingGeomName:
+        wingIsFirst = True
+    else:
+        wingIsFirst = False
 
     # SPLIT
 
@@ -2383,7 +2398,7 @@ def airfoil_intersection(manager, intCurveName,
 
     deltaCoor = mergedCurveCoor[1,vertDir] - mergedCurveCoor[0,vertDir]
 
-    if deltaCoor > 0:
+    if (deltaCoor > 0) and (not wingIsFirst):
         manager.intCurves[mergedCurveName].flip()
 
     # MARCH SURFACE MESHES
@@ -2394,11 +2409,25 @@ def airfoil_intersection(manager, intCurveName,
 
     optionsWingMesh['bc1'] = 'curve:'+LECurve.name
     optionsWingMesh['bc2'] = 'curve:'+LECurve.name
+    optionsWingMesh['guideCurves'] = [LowerTECurve.name, UpperTECurve.name]
+    optionsWingMesh['remesh'] = True
+
+    # Get the names of the components that share the intersection
+    parentGeomNames = manager.intCurves[mergedCurveName].extra_data['parentGeoms']
+
+    # Now we need to verify which side of the collar mesh is marched first
+    # to assign the correct options.
+    if wingIsFirst:
+        options0 = optionsWingMesh
+        options1 = optionsBodyMesh
+    else:
+        options0 = optionsBodyMesh
+        options1 = optionsWingMesh
 
     # Extrude mesh
     meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName,
-                                                   options0=optionsWingMesh,
-                                                   options1=optionsBodyMesh,
+                                                   options0=options0,
+                                                   options1=options1,
                                                    meshName=mergedCurveName)
 
     # Export meshes if requested by the user
