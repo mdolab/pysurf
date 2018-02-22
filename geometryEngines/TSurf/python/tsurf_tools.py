@@ -2262,8 +2262,10 @@ def airfoil_intersection(manager, intCurveName,
     # Check if the wing component is the first one that will be marched on
     if parentGeomNames[0] == wingGeomName:
         wingIsFirst = True
+        bodyGeomName = parentGeomNames[1]
     else:
         wingIsFirst = False
+        bodyGeomName = parentGeomNames[0]
 
     # SPLIT
 
@@ -2386,20 +2388,30 @@ def airfoil_intersection(manager, intCurveName,
     # REORDER
     manager.intCurves[mergedCurveName].shift_end_nodes(criteria='minX')
 
-    # Export final curve
-    if exportFeatures:
-        manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
-
     # Flip the curve for marching if necessary
     # Here we verify if the first two points (which are on the leading edge)
     # are going up or down. They should always go down so that the mesh
     # marhcing direction points towards the wing tip.
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
 
-    deltaCoor = mergedCurveCoor[1,vertDir] - mergedCurveCoor[0,vertDir]
+    deltaCoor = mergedCurveCoor[1,:] - mergedCurveCoor[0,:]
 
-    if (deltaCoor > 0) and (not wingIsFirst):
+    _, bodyNormal, _ = manager.geoms[bodyGeomName].project_on_surface(np.array([mergedCurveCoor[0,:]]))
+
+    bodyMarchDir = np.cross(bodyNormal[0,:], deltaCoor)
+
+    # Make sure that the marching direction points to the wing tip if the wing
+    # is the first body to be marched on.
+    # Similarly, we can also allow the marching direction to point to the symmetry plane
+    # if the body is the first one to be marched on.
+    if (bodyMarchDir[0] < 0) and (wingIsFirst):
         manager.intCurves[mergedCurveName].flip()
+    elif (bodyMarchDir[0] > 0) and (not wingIsFirst):
+        manager.intCurves[mergedCurveName].flip()
+
+    # Export final curve
+    if exportFeatures:
+        manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
 
     # MARCH SURFACE MESHES
 
@@ -2411,9 +2423,6 @@ def airfoil_intersection(manager, intCurveName,
     optionsWingMesh['bc2'] = 'curve:'+LECurve.name
     optionsWingMesh['guideCurves'] = [LowerTECurve.name, UpperTECurve.name]
     optionsWingMesh['remesh'] = True
-
-    # Get the names of the components that share the intersection
-    parentGeomNames = manager.intCurves[mergedCurveName].extra_data['parentGeoms']
 
     # Now we need to verify which side of the collar mesh is marched first
     # to assign the correct options.
