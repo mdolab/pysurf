@@ -1,4 +1,4 @@
-from utilities import plot3d_interface
+from utilities import plot3d_interface, tecplot_interface
 
 from managerClass import Manager
 
