@@ -36,6 +36,9 @@ class TSurfGeometry(Geometry):
 
         comm: MPI communicator -> An MPI communicator, such as
               MPI.COMM_WORLD
+
+        name: string -> Name that can be assigned to the geometry. This name
+              should match the wall boundary condition family names used by the solver.
         '''
 
         # Set dummy value to filename, so we can check later on if
