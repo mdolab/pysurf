@@ -514,8 +514,10 @@ class Manager(object):
         for intCurve in self.intCurves.itervalues():
             intCurve.clean_reverseADSeeds()
 
-        for meshGen in self.meshGenerators.itervalues():
-            meshGen.meshObj.clean_reverseADSeeds()
+        if self.myID == 0:
+
+            for meshGen in self.meshGenerators.itervalues():
+                meshGen.meshObj.clean_reverseADSeeds()
 
     #=====================================================
     # INTERSECTION METHODS
@@ -1125,13 +1127,18 @@ class Manager(object):
         # Return family names that should be used for pyHyp extrusion
         return familyList
 
-    def generate_default_pyWarpMulti_options(self, fileNameTag=None):
+    def generate_default_pyWarpMulti_options(self, fileNameTag=None, extraZones=None):
 
         '''
         This method will give a dictionary with default set of options that can be used
         to initialize a pyWarpMulti instance for the current manager.
 
-        directory and fileNameTag should be the same ones used during self.initialize
+        directory and fileNameTag should be the same ones used during self.initialize.
+
+        extraZones: list of strings -> Names of cgns zones that should be deformed but have
+                    different names from the components and collar meshes. Nevertheless, remember
+                    that this zone should have wall boundary conditions with family names that
+                    match the component names.
         '''
 
         # First we gather names of primary components and intersection curves that have meshes
@@ -1153,6 +1160,10 @@ class Manager(object):
 
                 # Append name to the list
                 zoneNames.append(curve.name)
+
+        # Add extra zone names provided by the user
+        if extraZones is not None:
+            zoneNames.extend(extraZones)
 
         # Create default options for every name
         optionsDict = {}
@@ -1193,7 +1204,7 @@ class Manager(object):
 
         INPUTS:
 
-        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
+        ptSetName: string -> Name of the point set we want points from. This is the same used for self.addPointSet.
         '''
 
         # Loop over all primary meshes to gather their surface mesh coordinates.
@@ -1202,10 +1213,10 @@ class Manager(object):
         for geom in self.geoms.itervalues():
 
             # Check if we assigned manipulators to this component
-            if geom.name in self.solverPointIDs:
+            if geom.name in self.solverPointIDs[ptSetName]:
 
                 # Get indices of the full solver vector that correspond to this component
-                geomPointIDs = self.solverPointIDs[geom.name]
+                geomPointIDs = self.solverPointIDs[ptSetName][geom.name]
 
                 # Get points of the current mesh
                 self.points[ptSetName][geomPointIDs] = geom.manipulatorPts[ptSetName]
@@ -1223,7 +1234,7 @@ class Manager(object):
             collarManagerPts = self.comm.bcast(collarManagerPts, root=0)
 
             # Get indices of the collar mesh points in the solver vector
-            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
+            collarIDs = self.solverPointIDs[ptSetName][meshName]['collarPointIDs']
 
             # Extract slice of solver vector with the collar points
             # This is just to get the right size
@@ -1233,9 +1244,9 @@ class Manager(object):
             # appropriate values of the solver collar
             self._convertManagerToSolver(collarSolverPts,
                                          collarManagerPts,
-                                         self.solverPointIDs[meshName]['indexSolverPts'],
-                                         self.solverPointIDs[meshName]['indexManagerPts'],
-                                         self.solverPointIDs[meshName]['numSurfRepetition'])
+                                         self.solverPointIDs[ptSetName][meshName]['indexSolverPts'],
+                                         self.solverPointIDs[ptSetName][meshName]['indexManagerPts'],
+                                         self.solverPointIDs[ptSetName][meshName]['numSurfRepetition'])
 
             # Assign the points back to the full solver vector
             self.points[ptSetName][collarIDs,:] = collarSolverPts
@@ -1267,10 +1278,10 @@ class Manager(object):
         for geom in self.geoms.itervalues():
 
             # Check if we assigned manipulators to this component
-            if geom.name in self.solverPointIDs:
+            if geom.name in self.solverPointIDs[ptSetName]:
 
                 # Get indices of the full solver vector that correspond to this component
-                geomPointIDs = self.solverPointIDs[geom.name]
+                geomPointIDs = self.solverPointIDs[ptSetName][geom.name]
 
                 # Get points of the current mesh
                 ptsd[geomPointIDs,:] = geom.manipulatorPtsd[ptSetName]
@@ -1288,7 +1299,7 @@ class Manager(object):
             collarManagerPtsd = self.comm.bcast(collarManagerPtsd, root=0)
 
             # Get indices of the collar mesh points in the solver vector
-            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
+            collarIDs = self.solverPointIDs[ptSetName][meshName]['collarPointIDs']
 
             # Extract slice of solver vector with the collar points.
             # These values might be replaced by _convertManagerToSolver
@@ -1298,9 +1309,9 @@ class Manager(object):
             # appropriate values of the solver collar
             self._convertManagerToSolver(collarSolverPtsd,
                                          collarManagerPtsd,
-                                         self.solverPointIDs[meshName]['indexSolverPts'],
-                                         self.solverPointIDs[meshName]['indexManagerPts'],
-                                         self.solverPointIDs[meshName]['numSurfRepetition'])
+                                         self.solverPointIDs[ptSetName][meshName]['indexSolverPts'],
+                                         self.solverPointIDs[ptSetName][meshName]['indexManagerPts'],
+                                         self.solverPointIDs[ptSetName][meshName]['numSurfRepetition'])
 
             # Assign the points back to the full solver vector
             ptsd[collarIDs,:] = collarSolverPtsd
@@ -1327,10 +1338,10 @@ class Manager(object):
         for geom in self.geoms.itervalues():
 
             # Check if we assigned manipulators to this component
-            if geom.name in self.solverPointIDs:
+            if geom.name in self.solverPointIDs[ptSetName]:
 
                 # Get indices of the full solver vector that correspond to this component
-                geomPointIDs = self.solverPointIDs[geom.name]
+                geomPointIDs = self.solverPointIDs[ptSetName][geom.name]
 
                 # Get points of the current mesh
                 geom.manipulatorPtsb[ptSetName][:,:] = ptsb[geomPointIDs,:]
@@ -1342,7 +1353,7 @@ class Manager(object):
         for meshName in self.meshGenerators:
 
             # Get indices of the collar mesh points in the solver vector
-            collarIDs = self.solverPointIDs[meshName]['collarPointIDs']
+            collarIDs = self.solverPointIDs[ptSetName][meshName]['collarPointIDs']
 
             # Extract slice of solver vector with the collar points.
             collarSolverPtsb = ptsb[collarIDs,:]
@@ -1362,9 +1373,9 @@ class Manager(object):
             # appropriate values of the solver collar.
             self._convertSolverToManagerb(collarSolverPtsb,
                                           collarManagerPtsb,
-                                          self.solverPointIDs[meshName]['indexSolverPts'],
-                                          self.solverPointIDs[meshName]['indexManagerPts'],
-                                          self.solverPointIDs[meshName]['numSurfRepetition'])
+                                          self.solverPointIDs[ptSetName][meshName]['indexSolverPts'],
+                                          self.solverPointIDs[ptSetName][meshName]['indexManagerPts'],
+                                          self.solverPointIDs[ptSetName][meshName]['numSurfRepetition'])
 
             # Accumulate derivatives into the root proc
             collarManagerPtsb = self.comm.reduce(collarManagerPtsb, MPI.SUM, root=0)
@@ -1439,6 +1450,9 @@ class Manager(object):
         # Initialize counter to slice the conn array
         startID = 0
 
+        # Initialize dictionary to hold IDs of nodes that belong to each component
+        self.solverPointIDs[ptSetName] = {}
+
         # Loop over the cells
         for cellID in np.arange(len(faceSizes)):
 
@@ -1471,7 +1485,7 @@ class Manager(object):
                 geomPointIDs = np.where(pointFamIDs == famName2FamID[geom.name])[0]
 
                 # Store IDs for future reference
-                self.solverPointIDs[geom.name] = geomPointIDs
+                self.solverPointIDs[ptSetName][geom.name] = geomPointIDs
 
                 # Assign the selected points to the manipulator object
                 geom.manipulator_addPointSet(coor[geomPointIDs,:], ptSetName)
@@ -1515,10 +1529,10 @@ class Manager(object):
             # indexSolverPts has the indices of the extracted collar nodes that will map to each
             # element from the indexManagerPts.
             # numSurfRepetition is the number of repeated nodes in indexSolverPts.
-            self.solverPointIDs[meshName] = {'collarPointIDs':collarPointIDs,
-                                             'indexSolverPts':indexSolverPts,
-                                             'indexManagerPts':indexManagerPts,
-                                             'numSurfRepetition':numSurfRepetition}
+            self.solverPointIDs[ptSetName][meshName] = {'collarPointIDs':collarPointIDs,
+                                                        'indexSolverPts':indexSolverPts,
+                                                        'indexManagerPts':indexManagerPts,
+                                                        'numSurfRepetition':numSurfRepetition}
 
             # Print log
             if self.myID == 0:
@@ -1806,6 +1820,9 @@ class Manager(object):
 
         Ney Secco 2017-02
         '''
+
+        # Clean previous seeds
+        self.clean_reverseADSeeds()
 
         # Initialize reverse seeds for design variables.
         # We will do this by getting a baseline dictionary with self.getValues and then
