@@ -1434,6 +1434,11 @@ class Manager(object):
             print ''
             print 'Adding point set',ptSetName,'to the manager.'
 
+        # Make sure inputs are integers
+        conn = np.array(conn, dtype=int)
+        faceSizes = np.array(faceSizes, dtype=int)
+        famIDs = np.array(famIDs, dtype=int)
+
         # Store the total number of solver nodes
         self.numSolverPts[ptSetName] = coor.shape[0]
 
