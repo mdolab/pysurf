@@ -2386,7 +2386,9 @@ def airfoil_intersection(manager, intCurveName,
     manager.merge_intCurves(curveNames, mergedCurveName)
 
     # REORDER
-    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='minX')
+    # The first node should be the leading edge node
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='curve',
+                                                       curveObject=LECurve)
 
     # Flip the curve for marching if necessary
     # Here we verify if the first two points (which are on the leading edge)
