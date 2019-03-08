@@ -7,7 +7,7 @@ These surfaces are used to compute intersections between components and regenera
 This tool also computes derivatives of mesh points with respect to shape deformation design variables, which enables gradient-based aerodynamic shape optimization.
 An example of the pySurf-generated surface collar mesh from a wing-body intersection is shown below.
 
-![Example](doc/collar_build_surf.png)
+![Surface collar mesh](doc/collar_build_surf.png)
 
 Citation
 ========
@@ -32,6 +32,18 @@ Bibtex
 	Volume = {56},
 	Year = {2018}}
 ```
+
+How pySurf fits within MACH
+===========================
+
+pySurf takes triangulated surface meshes, intersects them, and creates surface collar meshes.
+That means that you will first need a geometry representation, which may come from CAD (as an .iges file) or from [pyGeo](https://github.com/mdolab/pygeo).
+This geometry representation can then be imported into ICEM where you can create the triangulated surface meshes needed in pySurf.
+Once you generate the surface collar meshes, you can use [pyHyp](https://github.com/mdolab/pyhyp) to extrude the surface meshes into volume meshes.
+These meshes can then be used in [ADflow](https://github.com/mdolab/adflow) to perform CFD.
+An example [XDSM](https://github.com/mdolab/pyXDSM) for an optimization that uses pySurf is shown below.
+
+![pySurf XDSM diagram](doc/pysurf_xdsm.png)
 
 License
 =======
