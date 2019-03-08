@@ -14,12 +14,8 @@ Citation
 
 Please cite the [pySurf journal article](https://arc.aiaa.org/doi/abs/10.2514/1.J056550) if you use any part of this code.
 
-Plain text
-----------
 Ney R. Secco, John P. Jasa, Gaetan K. W. Kenway, and Joaquim R. R. A. Martins.  "Component-Based Geometry Manipulation for Aerodynamic Shape Optimization with Overset Meshes", AIAA Journal, Vol. 56, No. 9 (2018), pp. 3667-3679.
 
-Bibtex
-------
 ```
 @article{Secco2018b,
 	Author = {Ney R. Secco and John P. Jasa and Gaetan K. W. Kenway and Joaquim R. R. A. Martins},
