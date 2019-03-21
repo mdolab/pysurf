@@ -10,7 +10,7 @@ An example of the pySurf-generated surface collar mesh from a wing-body intersec
 ![Surface collar mesh](doc/collar_build_surf.png)
 
 Citation
-========
+--------
 
 Please cite the [pySurf journal article](https://arc.aiaa.org/doi/abs/10.2514/1.J056550) if you use any part of this code.
 
@@ -30,7 +30,7 @@ Ney R. Secco, John P. Jasa, Gaetan K. W. Kenway, and Joaquim R. R. A. Martins.  
 ```
 
 How pySurf fits within MACH
-===========================
+---------------------------
 
 pySurf takes triangulated surface meshes, intersects them, and creates surface collar meshes.
 That means that you will first need a geometry representation, which may come from CAD (as an .iges file) or from [pyGeo](https://github.com/mdolab/pygeo).
@@ -42,7 +42,7 @@ An example [XDSM](https://github.com/mdolab/pyXDSM) for an optimization that use
 ![pySurf XDSM diagram](doc/pysurf_xdsm.png)
 
 License
-=======
+-------
 Copyright 2016-2019 MDO Lab
 
 Licensed under the Apache License, Version 2.0 (the "License");
