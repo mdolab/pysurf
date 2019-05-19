@@ -49,7 +49,7 @@ default: all
 all:
 
 # Generate Python inlude directory
-	 $(eval PYTHON_INCLUDES = $(shell python-config --includes))
+	 $(eval PYTHON_INCLUDES = $(shell $(PYTHON-CONFIG) --includes))
 	 @echo "#------------------------------------------------------#"
 	 @echo Python Include Flags $(PYTHON_INCLUDES)
 	 @echo "#------------------------------------------------------#"
@@ -60,7 +60,7 @@ all:
 	 @echo Numpy Include Directory: $(NUMPY_INCLUDES)
 	 @echo "#------------------------------------------------------#"
 # Generate f2py root directory
-	$(eval F2PY_ROOT = $(shell python get_f2py.py))
+	$(eval F2PY_ROOT = $(shell $(PYTHON) get_f2py.py))
 	 @echo "#------------------------------------------------------#"
 	 @echo f2py root directory: $(F2PY_ROOT)
 	 @echo "#------------------------------------------------------#"
@@ -125,7 +125,7 @@ all:
 	$(FF90) -shared $(UTILITIES_OBJECTS) $(LINKER_ALL_FLAGS) -o utilitiesAPI.so
 
 # Test if modules can be imported
-	python importTest.py
+	$(PYTHON) importTest.py
 
 # Move python modules to the main python folder
 	mv *.so ../../../python
