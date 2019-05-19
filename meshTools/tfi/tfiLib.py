@@ -21,7 +21,7 @@ The TFI geometry used in this work is as follows:
 '''
 
 # IMPORTS
-from __future__ import division
+
 import numpy as np
 
 class tfi(object):
@@ -219,10 +219,10 @@ class tfi(object):
         if F.shape != (self.__nu, self.__nv):
 
             # Print warnings
-            print 'WARNING:'
-            print 'The TFI object is set to a size different from the given matrix.'
-            print 'Reinitializing TFI with the correct size.'
-            print 'You can also do this using the tfi.setTFI function.'
+            print('WARNING:')
+            print('The TFI object is set to a size different from the given matrix.')
+            print('Reinitializing TFI with the correct size.')
+            print('You can also do this using the tfi.setTFI function.')
 
             # Update tfi
             self.setTFI(nu=F.shape[0], nv=F.shape[1])
@@ -232,9 +232,9 @@ class tfi(object):
         if type(F[0,0]) == np.int64:
 
             # Print error message
-            print 'ERROR:'
-            print 'F should be an array of floats. Check if you are providing'
-            print 'integer values to be interpolated and convert them to floats.'
+            print('ERROR:')
+            print('F should be an array of floats. Check if you are providing')
+            print('integer values to be interpolated and convert them to floats.')
 
             # Finish program
             quit()
@@ -277,21 +277,21 @@ class tfi(object):
             u = np.linspace(0,1,nu)
         else:
             if len(u) is not nu:
-                print ''
-                print 'TFI error: __computeInterpolation Arrays'
-                print ' The number of parametric coordinates provided does not match'
-                print ' the number of points.'
-                print ''
+                print('')
+                print('TFI error: __computeInterpolation Arrays')
+                print(' The number of parametric coordinates provided does not match')
+                print(' the number of points.')
+                print('')
 
         if v is 'uniform':
             v = np.linspace(0,1,nv)
         else:
             if len(v) is not nv:
-                print ''
-                print 'TFI error: __computeInterpolation Arrays'
-                print ' The number of parametric coordinates provided does not match'
-                print ' the number of points.'
-                print ''
+                print('')
+                print('TFI error: __computeInterpolation Arrays')
+                print(' The number of parametric coordinates provided does not match')
+                print(' the number of points.')
+                print('')
 
         # Initialize matrices
         self.__A = np.zeros((4, nu))

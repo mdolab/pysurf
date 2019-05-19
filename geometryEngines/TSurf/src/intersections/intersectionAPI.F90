@@ -139,11 +139,11 @@ contains
 
     ! We can stop if there is no bounding box intersection
     if (.not. overlap) then
-      print *,'Geometry objects do not overlap.'
+      ! print *,'Geometry objects do not overlap.'
       allocate(barsConn(0, 0), coor(0, 0))
       return
-    else
-      print *,'Geometry objects overlap.'
+    ! else
+      ! print *,'Geometry objects overlap.'
     end if
 
     ! Filter elements that are inside the intersected bounding box
@@ -159,10 +159,10 @@ contains
     nInnerQuadsB = size(innerQuadsID_B)
 
     ! Print log
-    print *,'Number of interior elements in A:'
-    print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
-    print *,'Number of interior elements in B:'
-    print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
+    ! print *,'Number of interior elements in A:'
+    ! print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
+    ! print *,'Number of interior elements in B:'
+    ! print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
 
     ! Split quads into triangles
     call getAllTrias(triaConnA, quadsConnA, innerTriaID_A, innerQuadsID_A, allTriaConnA)
@@ -273,76 +273,76 @@ contains
           call triTriIntersect(node1A, node2A, node3A, &
                                node1B, node2B, node3B, &
                                intersect, vecStart, vecEnd)
-          
+
           ! Check if the triangles actually intersect
           if (intersect .eq. 1) then
-             
+
              ! Increase the number of intersections elements known so far
              nBarsConn = nBarsConn + 1
 
              ! Check if we already extrapolated the memory allocated so far
              if ((nBarsConn .gt. size(extBarsConn,2)) .or. (2*nBarsConn .gt. size(extCoor,2))) then
-                
+
                 ! We need to allocate more memory
                 nAllocations = nAllocations + 1
-                
+
                 ! REALLOCATING extCoor
-                
+
                 ! Create temporary array and initialize
                 allocate(extTempReal(3,nAllocations*arraySize))
                 extTempReal = 0.0
-                
+
                 ! Tranfer data from original array
                 extTempReal(:,:(nAllocations-1)*arraySize) = extCoor
-                
+
                 ! Now move the new allocation back to extCoor.
                 ! extTemp is deallocated in this process.
                 call move_alloc(extTempReal, extCoor)
-                
+
                 ! REALLOCATING extBarsConn
-                
+
                 ! Create temporary array
                 allocate(extTempInt(2,nAllocations*arraySize))
                 extTempInt = 0
-                
+
                 ! Tranfer data from original array
                 extTempInt(:,:(nAllocations-1)*arraySize) = extBarsConn
-                
+
                 ! Now move the new allocation back to extBarsConn.
                 ! extTemp is deallocated in this process.
                 call move_alloc(extTempInt, extBarsConn)
-                
+
                 ! REALLOCATING extParentTria
-                
+
                 ! Create temporary array
                 allocate(extTempInt(2,nAllocations*arraySize))
                 extTempInt = 0
-                
+
                 ! Tranfer data from original array
                 extTempInt(:,:(nAllocations-1)*arraySize) = extParentTria
-                
+
                 ! Now move the new allocation back to extParentTria.
                 ! extTemp is deallocated in this process.
                 call move_alloc(extTempInt, extParentTria)
-                
+
              end if
-             
+
              ! Assign new nodes
              extCoor(:,2*nBarsConn-1) = vecStart
              extCoor(:,2*nBarsConn)   = vecEnd
-             
+
              ! Assign new connectivity
              extBarsConn(:,nBarsConn) = [2*nBarsConn-1, 2*nBarsConn]
-             
+
              ! Assign new parent triangles
              extParentTria(:,nBarsConn) = [ii, candidateID]
-             
+
           end if
-          
+
        end do
-       
+
     end do
-    
+
     ! Crop extended connectivity array
     allocate(barsConn(2,nBarsConn))
     barsConn(:,:) = extBarsConn(:,:nBarsConn)
@@ -898,7 +898,7 @@ contains
     if (barsConnInt(1,1) .ne. barsConnInt(2,nBarsInt)) then
 
        ! We need to double the sensitivities of the end points
-       
+
        coorIntd(:,barsConnInt(1,1)) = coorIntd(:,barsConnInt(1,1))*2.0
        coorIntd(:,barsConnInt(2,nBarsInt)) = coorIntd(:,barsConnInt(2,nBarsInt))*2.0
 

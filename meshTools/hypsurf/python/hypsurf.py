@@ -5,11 +5,11 @@
 # neysecco@umich.edu
 # July 2016
 
-from __future__ import division
+
 from time import time
 import numpy as np
 import pdb
-import hypsurfAPI
+from . import hypsurfAPI
 import pysurf
 import copy
 
@@ -200,11 +200,11 @@ class HypSurfMesh(object):
         else: # We will use the Python version of hypsurf
 
             # Run the Python marching code
-            import hypsurf_python
+            from . import hypsurf_python
             R, fail, ratios = hypsurf_python.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
         #=====================================
-        print time() - st, 'secs'
+        print(time() - st, 'secs')
 
         if self.optionsDict['plotQuality']:
             fail, ratios = self.qualityCheck(R)
@@ -263,11 +263,11 @@ class HypSurfMesh(object):
 
         # Check if we have projection dictionaries stored
         if not self.projDict:
-            print ''
-            print 'ERROR: hypsurf.py - compute_forwardAD'
-            print ' Cannot compute derivatives without running the original code first.'
-            print ' Call mesh.createMesh, Then use mesh.compute_forwardAD'
-            print ''
+            print('')
+            print('ERROR: hypsurf.py - compute_forwardAD')
+            print(' Cannot compute derivatives without running the original code first.')
+            print(' Call mesh.createMesh, Then use mesh.compute_forwardAD')
+            print('')
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
@@ -337,13 +337,13 @@ class HypSurfMesh(object):
 
         # Check if we have projection dictionaries stored
         if not self.projDict:
-            print ''
-            print 'ERROR: hypsurf.py - compute_reverseAD'
-            print ' Cannot compute derivatives without running the original code first.'
-            print ' 1- Call mesh.createMesh'
-            print ' 2- Set seeds with mesh.set_reverseAD_outputSeeds'
-            print ' 3- Then use mesh.compute_reverseAD'
-            print ''
+            print('')
+            print('ERROR: hypsurf.py - compute_reverseAD')
+            print(' Cannot compute derivatives without running the original code first.')
+            print(' 1- Call mesh.createMesh')
+            print(' 2- Set seeds with mesh.set_reverseAD_outputSeeds')
+            print(' 3- Then use mesh.compute_reverseAD')
+            print('')
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
@@ -658,7 +658,7 @@ class HypSurfMesh(object):
 
     def _applyUserOptions(self, options):
         # Override default options with user options
-        for userKey in options.keys():
+        for userKey in list(options.keys()):
 
             # Treat special options first
             if userKey.lower() == 'extension':
@@ -687,7 +687,7 @@ class HypSurfMesh(object):
             else:
 
                 unusedOption = True
-                for defaultKey in self.optionsDict.keys():
+                for defaultKey in list(self.optionsDict.keys()):
                     if userKey.lower() == defaultKey.lower():
                         unusedOption = False
                         self.optionsDict[defaultKey] = options[userKey]
@@ -707,20 +707,20 @@ class HypSurfMesh(object):
         This method executes all possible tests
         '''
 
-        print ''
-        print '#===================================================#'
-        print 'Initiating hypSurf tests'
-        print ''
+        print('')
+        print('#===================================================#')
+        print('Initiating hypSurf tests')
+        print('')
 
         self.test_internal_fortran_subroutines()
         self.test_python_fortran_consistency(plotError=True)
         self.test_forwardAD_FD(plotError=True)
         self.test_forwardAD_reverseAD()
 
-        print ''
-        print 'Finalized hypSurf tests'
-        print '#===================================================#'
-        print ''
+        print('')
+        print('Finalized hypSurf tests')
+        print('#===================================================#')
+        print('')
 
     def test_internal_fortran_subroutines(self, fixedSeed=True):
 
@@ -729,10 +729,10 @@ class HypSurfMesh(object):
         AD code
         '''
 
-        print ''
-        print '#===================================================#'
-        print 'Checking internal Fortran subroutines'
-        print ''
+        print('')
+        print('#===================================================#')
+        print('Checking internal Fortran subroutines')
+        print('')
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
@@ -779,11 +779,11 @@ class HypSurfMesh(object):
         rOutb_copy = rOutb.copy()
         coorb, rOut = hypsurfAPI.hypsurfapi.smoothing_b(coor, 5., alphaP0, 1, numLayers, rOutb)
 
-        print
-        print 'Dot product test for Smoothing (this should be around 1e-14):'
+        print()
+        print('Dot product test for Smoothing (this should be around 1e-14):')
         dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
-        print dotprod
-        print
+        print(dotprod)
+        print()
 
         # FINITE DIFFERENCE
         # Choose step size
@@ -802,10 +802,10 @@ class HypSurfMesh(object):
         FD_check = np.max(np.abs(rOutd - rOutd_FD))
 
         # Print results
-        print ''
-        print 'Finite difference test for Smoothing (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for Smoothing (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
         ### DOT PRODUCT TEST FOR PROJECTION
 
@@ -866,10 +866,10 @@ class HypSurfMesh(object):
         dotprod = dotprod - np.sum(rNextd*rNextb)
         dotprod = dotprod - np.sum(NNextd*NNextb)
 
-        print ''
-        print 'Dot product test for Projection (this should be around 1e-14):'
-        print dotprod
-        print ''
+        print('')
+        print('Dot product test for Projection (this should be around 1e-14):')
+        print(dotprod)
+        print('')
 
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
 
@@ -891,10 +891,10 @@ class HypSurfMesh(object):
 
         FD_check = np.max([np.max(rNextd - rNextd_FD), np.max(NNextd - NNextd_FD)])
 
-        print ''
-        print 'Finite difference test for Projection (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for Projection (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
         ### DOT PRODUCT TEST FOR AREAFACTOR
 
@@ -926,10 +926,10 @@ class HypSurfMesh(object):
         dotProd = dotProd + d_d_copy*d_b
         dotProd = dotProd - np.sum(s_d*s_b_copy)
 
-        print ''
-        print 'Dot product test for AreaFactor (this should be around 1e-14):'
-        print dotProd
-        print ''
+        print('')
+        print('Dot product test for AreaFactor (this should be around 1e-14):')
+        print(dotProd)
+        print('')
 
         # FINITE DIFFERENCE
         # Choose step size
@@ -949,10 +949,10 @@ class HypSurfMesh(object):
         FD_check = np.max(np.abs(s_d - s_d_FD))
 
         # Print results
-        print ''
-        print 'Finite difference test for AreaFactor (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for AreaFactor (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
         ### DOT PRODUCT TEST FOR FINDRADIUS
 
@@ -967,11 +967,11 @@ class HypSurfMesh(object):
         radiusb_copy = radiusb
         r0b = hypsurfAPI.hypsurfapi.findradius_test_b(r0, radius0, radiusb)
 
-        print
-        print 'Dot product test for FindRadius (this should be around 1e-14):'
+        print()
+        print('Dot product test for FindRadius (this should be around 1e-14):')
         dotprod = np.sum(r0d_copy*r0b) - np.sum(radiusd*radiusb_copy)
-        print dotprod
-        print
+        print(dotprod)
+        print()
 
         # FINITE DIFFERENCE
         # Choose step size
@@ -990,10 +990,10 @@ class HypSurfMesh(object):
         FD_check = np.max(np.abs(radiusd - radiusd_FD))
 
         # Print results
-        print ''
-        print 'Finite difference test for FindRadius (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for FindRadius (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
         ### DOT PRODUCT TEST FOR DISSIPATIONCOEFFICIENTS
 
@@ -1004,7 +1004,7 @@ class HypSurfMesh(object):
 
         r0_xi = 0.5*(r0[3*(iIndex+1):3*(iIndex+1)+3] - r0[3*(iIndex-1):3*(iIndex-1)+3])
 
-        import hypsurf_python as hp
+        from . import hypsurf_python as hp
         angle = hp.giveAngle(r0[3*(iIndex-1):3*(iIndex-1)+3],
                              r0[3*(iIndex+0):3*(iIndex+0)+3],
                              r0[3*(iIndex+1):3*(iIndex+1)+3],
@@ -1058,10 +1058,10 @@ class HypSurfMesh(object):
         dotProd = dotProd - epsEd*epsEb_copy
         dotProd = dotProd - epsId*epsIb_copy
 
-        print ''
-        print 'Dot product test for DissipationCoefficients (this should be around 1e-14):'
-        print dotProd
-        print ''
+        print('')
+        print('Dot product test for DissipationCoefficients (this should be around 1e-14):')
+        print(dotProd)
+        print('')
 
         # FINITE DIFFERENCE
         # Choose step size
@@ -1090,10 +1090,10 @@ class HypSurfMesh(object):
                                   epsId - epsId_FD]))
 
         # Print results
-        print ''
-        print 'Finite difference test for DissipationCoefficients (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for DissipationCoefficients (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
         ### DOT PRODUCT TEST FOR MATRIXBUILDER
 
@@ -1142,11 +1142,11 @@ class HypSurfMesh(object):
         hypsurfAPI.hypsurfapi.matrixbuilder_d_test(iIndex, bc1, bc2, r0, r0_d, rm1, rm1_d, n0, n0_d, s0, s0_d, sm1, sm1_d,
                                                    numLayers, epsE0, layerIndex, theta, K, K_d, f, f_d)
 
-        print ''
-        print 'matrixbuilder test'
-        print np.max(np.abs(K-K0))
-        print np.max(np.abs(f-f0))
-        print ''
+        print('')
+        print('matrixbuilder test')
+        print(np.max(np.abs(K-K0)))
+        print(np.max(np.abs(f-f0)))
+        print('')
 
         ### DOT PRODUCT TEST FOR COMPUTEMATRICES
         r0 = rNext
@@ -1202,10 +1202,10 @@ class HypSurfMesh(object):
         dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
         dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
 
-        print ''
-        print 'Dot product test for ComputeMatrices (this should be around 1e-14):'
-        print dotProd
-        print ''
+        print('')
+        print('Dot product test for ComputeMatrices (this should be around 1e-14):')
+        print(dotProd)
+        print('')
 
         # FINITE DIFFERENCE
         # Define step size
@@ -1227,13 +1227,13 @@ class HypSurfMesh(object):
         # Compute maximum error in the FD code
         FD_check = np.max(np.abs(rnext_d - rnext_d_FD))
 
-        print ''
-        print 'Finite difference test for ComputeMatrices (this should be around 1e-8):'
-        print FD_check
-        print ''
+        print('')
+        print('Finite difference test for ComputeMatrices (this should be around 1e-8):')
+        print(FD_check)
+        print('')
 
-        print '#===================================================#'
-        print ''
+        print('#===================================================#')
+        print('')
 
         #quit()
 
@@ -1244,10 +1244,10 @@ class HypSurfMesh(object):
 
         from time import time
 
-        print ''
-        print '#===================================================#'
-        print 'Checking consistency between the Python and Fortran versions of hypsurf'
-        print ''
+        print('')
+        print('#===================================================#')
+        print('Checking consistency between the Python and Fortran versions of hypsurf')
+        print('')
 
         # Call the Fortran version
         st = time()
@@ -1259,7 +1259,7 @@ class HypSurfMesh(object):
         R_fortran[:,1::3] = self.meshObj.coor['block'][:,:,1].T
         R_fortran[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
-        print 'Fortran version took: ',time() - st, 'secs'
+        print('Fortran version took: ',time() - st, 'secs')
 
         # Call the Python version
         st = time()
@@ -1271,16 +1271,16 @@ class HypSurfMesh(object):
         R_python[:,1::3] = self.meshObj.coor['block'][:,:,1].T
         R_python[:,2::3] = self.meshObj.coor['block'][:,:,2].T
 
-        print 'Python version took: ',time() - st, 'secs'
+        print('Python version took: ',time() - st, 'secs')
 
         # Compare differences
         differences = np.abs(R_fortran-R_python)
         error = np.max(differences)
 
-        print
-        print 'Maximum difference between Fortran and Python (should be around 1e-14):'
-        print error
-        print
+        print()
+        print('Maximum difference between Fortran and Python (should be around 1e-14):')
+        print(error)
+        print()
 
         # Show matrix of errors if max error is too large
         if plotError or error > 1e-9:
@@ -1291,8 +1291,8 @@ class HypSurfMesh(object):
             # Plot error matrix
             view_mat(differences)
 
-        print '#===================================================#'
-        print ''
+        print('#===================================================#')
+        print('')
 
     def test_forwardAD_FD(self, stepSize=1e-7, fixedSeed=True, plotError=False):
 
@@ -1309,10 +1309,10 @@ class HypSurfMesh(object):
 
         # INITIALIZATION
 
-        print ''
-        print '#===================================================#'
-        print 'Checking forward AD derivatives with Finite Differences'
-        print ''
+        print('')
+        print('#===================================================#')
+        print('Checking forward AD derivatives with Finite Differences')
+        print('')
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
@@ -1384,10 +1384,10 @@ class HypSurfMesh(object):
         error = np.max(np.abs(differences))
 
         # Print result
-        print ''
-        print 'Maximum discrepancy between AD and FD derivatives (should be around 1e-7):'
-        print error
-        print ''
+        print('')
+        print('Maximum discrepancy between AD and FD derivatives (should be around 1e-7):')
+        print(error)
+        print('')
 
         # Plot errors if requested by the user or if error is too large
         if plotError or error > 1e-4:
@@ -1404,8 +1404,8 @@ class HypSurfMesh(object):
         meshObjAD.export_plot3d('FDtest_AD.xyz')
         meshObjFD.export_plot3d('FDtest_FD.xyz')
 
-        print '#===================================================#'
-        print ''
+        print('#===================================================#')
+        print('')
 
     def test_forwardAD_reverseAD(self, fixedSeed=True):
 
@@ -1418,10 +1418,10 @@ class HypSurfMesh(object):
 
         # INITIALIZATION
 
-        print ''
-        print '#===================================================#'
-        print 'Checking forward and reverse AD with the dot product test'
-        print ''
+        print('')
+        print('#===================================================#')
+        print('Checking forward and reverse AD with the dot product test')
+        print('')
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
@@ -1465,7 +1465,7 @@ class HypSurfMesh(object):
 
         # Only store the initial curve seed if it does not belong to the geometry object.
         # Otherwise, the initial curve seeds are already stored inside the geometry object
-        for geomCurve in self.ref_geom.curves.itervalues():
+        for geomCurve in self.ref_geom.curves.values():
             if self.curve is geomCurve:
                 initCurveCoorb = 0.0
 
@@ -1478,12 +1478,12 @@ class HypSurfMesh(object):
         dotProduct = dotProduct + np.sum(initCurveCoord*initCurveCoorb)
         dotProduct = dotProduct - np.sum(meshd*meshb)
 
-        print ''
-        print ' Marching dot product test (this should be around 1e-14):'
-        print dotProduct
-        print ''
-        print '#===================================================#'
-        print ''
+        print('')
+        print(' Marching dot product test (this should be around 1e-14):')
+        print(dotProduct)
+        print('')
+        print('#===================================================#')
+        print('')
 
 
 '''
@@ -1537,16 +1537,16 @@ def plotGrid(X,Y,Z,show=False):
     return fig
 
 def warn(message):
-    print ''
-    print 'WARNING!:'
-    print message
-    print ''
+    print('')
+    print('WARNING!:')
+    print(message)
+    print('')
 
 def error(message):
-    print ''
-    print 'ERROR!:'
-    print message
-    print ''
+    print('')
+    print('ERROR!:')
+    print(message)
+    print('')
 
 #=============================================
 #=============================================

@@ -90,7 +90,7 @@ def readTecplotFEdata(fileName):
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a data line.
             try:
-                currData.append(map(float,data))
+                currData.append(list(map(float,data)))
             except:
                 pass
 
@@ -100,7 +100,7 @@ def readTecplotFEdata(fileName):
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a connectivity line.
             try:
-                currConn.append(map(int,data))
+                currConn.append(list(map(int,data)))
             except:
                 pass
 
@@ -149,7 +149,7 @@ def readTecplotFEdataSurf(fileName):
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a data line.
             try:
-                coor.append(map(float,data))
+                coor.append(list(map(float,data)))
             except:
                 pass
 
@@ -222,7 +222,7 @@ def writeTecplotFEdata(coor,barsConn,curveName,fileName):
     fileID.close()
 
     # Print log
-    print 'Curve '+curveName+' saved to file '+fileName
+    print('Curve '+curveName+' saved to file '+fileName)
 
 #==================================================================
 #==================================================================
@@ -279,7 +279,7 @@ def writeTecplotSurfaceFEData(coor,triaConn,quadsConn,surfName,fileName):
     fileID.close()
 
     # Print log
-    print 'Surface '+surfName+' saved to file '+fileName
+    print('Surface '+surfName+' saved to file '+fileName)
 
 #==================================================================
 #==================================================================
@@ -364,8 +364,8 @@ def convert(oldData, oldConn):
     elif data[n2, 2] > data[iMin, 2]:
         nextNode = n2
     else:
-        print 'Something wierd happened'
-        print data[iMin, 2], data[n1, 2], data[n2, 2]
+        print('Something wierd happened')
+        print(data[iMin, 2], data[n1, 2], data[n2, 2])
         sys.exit(0)
 
     # So now we know the first and second nodes of rMask

@@ -6,9 +6,9 @@ Ney Secco 2017-02
 '''
 
 # IMPORTS
-from __future__ import division
+
 import numpy as np
-import structCGNS_API
+from . import structCGNS_API
 from collections import OrderedDict
 
 #===========================================
@@ -34,8 +34,8 @@ def readFile(fileName):
     '''
 
     # Print log
-    print ''
-    print 'Reading structured CGNS file:',fileName
+    print('')
+    print('Reading structured CGNS file:',fileName)
 
     # Open the CGNS file, and receive the file handle
     cg = structCGNS_API.openfile(fileName,0)
@@ -76,8 +76,8 @@ def readFile(fileName):
                                                                 dims[2])
             
     # Print log
-    print 'Mesh dimension:',cellDim
-    print 'Number of blocks:',len(Blocks)
+    print('Mesh dimension:',cellDim)
+    print('Number of blocks:',len(Blocks))
 
     # Return the nodal coordinates separated by blocks
     return Blocks, cellDim
