@@ -38,13 +38,13 @@ def readFile(fileName):
     print 'Reading structured CGNS file:',fileName
 
     # Open the CGNS file, and receive the file handle
-    cg = structCGNS_API.openfile(fileName,0)
+    cg = structCGNS_API.utils.openfile(fileName,0)
 
     # Determine the dimension of the grid
-    cellDim = structCGNS_API.getgriddimension(cg)
+    cellDim = structCGNS_API.utils.getgriddimension(cg)
 
     # Get the number of blocks
-    numBlocks = structCGNS_API.getnblocks(cg)
+    numBlocks = structCGNS_API.utils.getnblocks(cg)
 
     # Initialize dictionary to store block information
     Blocks = OrderedDict()
@@ -54,7 +54,7 @@ def readFile(fileName):
     for blockID in range(1,numBlocks+1):
     
         # Get blcok information from the CGNS file
-        blockName, dims, nboco, nb2b = structCGNS_API.getblockinfo(cg, blockID)
+        blockName, dims, nboco, nb2b = structCGNS_API.utils.getblockinfo(cg, blockID)
 
         # Remove whitespaces from the block name
         blockName = blockName.strip()
@@ -63,13 +63,13 @@ def readFile(fileName):
         # We need to call the corresponding version depending on the
         # mesh dimension
         if cellDim == 2:
-            Blocks[blockName] = structCGNS_API.getcoordinates2d(cg,
+            Blocks[blockName] = structCGNS_API.utils.getcoordinates2d(cg,
                                                                 blockID,
                                                                 dims[0],
                                                                 dims[1])
 
         elif cellDim == 3:
-            Blocks[blockName] = structCGNS_API.getcoordinates3d(cg,
+            Blocks[blockName] = structCGNS_API.utils.getcoordinates3d(cg,
                                                                 blockID,
                                                                 dims[0],
                                                                 dims[1],
