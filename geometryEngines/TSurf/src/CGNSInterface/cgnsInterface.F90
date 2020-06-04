@@ -1,5 +1,13 @@
 module CGNSinterface
 
+#ifdef USECGNSMODULE
+   use cgns
+#else
+   include 'cgnslib_f.h'
+   integer(kind=4), private :: dummyInt
+   integer, parameter :: cgsize_t=kind(dummyInt)
+#endif
+
 contains
 
 subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn, barsConn, &
@@ -24,7 +32,6 @@ subroutine readCGNSmain(cgns_file, comm, coor, triaConn, quadsConn, barsConn, &
   use CGNSGrid
 
   implicit none
-  include 'cgnslib_f.h'
 
   ! Input Arguments
   character*(*),intent(in) :: cgns_file
@@ -280,7 +287,6 @@ subroutine readUnstructuredCGNS(cg,allNodes)
   use CGNSGrid
 
   implicit none
-  include 'cgnslib_f.h'
 
   ! Input Arguments
   integer(kind=intType), intent(in) :: cg

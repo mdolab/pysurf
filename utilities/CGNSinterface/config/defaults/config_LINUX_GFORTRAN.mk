@@ -9,9 +9,11 @@ PMAKE = make -j 4
 FF90 = mpif90
 CC   = mpicc
 
-# ------- Define CGNS Inlcude and linker flags -------------------------
-CGNS_INCLUDE_FLAGS=-I$(HOME)/packages/cgnslib_3.2.1/src
-CGNS_LINKER_FLAGS=-L$(HOME)/packages/cgnslib_3.2.1/src -lcgns
+# ----------- CGNS ------------------
+# CGNS_VERSION_FLAG=               # for CGNS 3.2.x
+CGNS_VERSION_FLAG=-DUSECGNSMODULE  # for CGNS 3.3.x
+CGNS_INCLUDE_FLAGS=-I$(CGNS_HOME)/include
+CGNS_LINKER_FLAGS=-L$(CGNS_HOME)/lib -lcgns
 
 # ------- Define Compiler Flags ----------------------------------------
 FF90_GEN_FLAGS = -fPIC -g -fbounds-check

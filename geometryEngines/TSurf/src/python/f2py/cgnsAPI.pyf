@@ -40,8 +40,8 @@ python module cgnsAPI ! in
                 character dimension(numcurvenames,32),intent(out,c),depend(numcurvenames) :: curvenamesdata
             end subroutine retrievedata
             subroutine releasememory ! in :cgnsAPI:cgnsAPI.F90:cgnsapi
-                use cgnsgrid
                 use precision
+                use cgnsgrid
             end subroutine releasememory
         end module cgnsapi
     end interface 
