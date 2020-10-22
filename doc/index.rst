@@ -4,12 +4,8 @@
 pySurf
 ======
 
-Introduction
-============
-
-
-Installation
-============
-
 .. toctree::
-   :maxdepth: 2   
+   :maxdepth: 2
+   
+   installation
+   triangulated_meshes
