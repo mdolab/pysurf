@@ -1,5 +1,6 @@
 pySurf
 ======
+[![Documentation Status](https://readthedocs.com/projects/mdolab-pysurf/badge/?version=latest)](https://mdolab-pysurf.readthedocs-hosted.com/en/latest/)
 
 pySurf is a tool that computes intersections between bodies and create collar surface meshes for use in overset CFD.
 pySurf uses unstructured discrete surfaces as inputs to describe each primary component.
