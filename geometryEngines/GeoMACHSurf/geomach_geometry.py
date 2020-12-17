@@ -1,4 +1,3 @@
-from __future__ import division, print_function
 from GeoMACH.BSE import BSEmodel
 from scipy.sparse.linalg import bicgstab
 import numpy

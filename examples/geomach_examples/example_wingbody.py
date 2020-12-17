@@ -1,6 +1,5 @@
 # IMPORTS
 
-from __future__ import division
 import hypsurf
 from numpy import array, cos, sin, linspace, pi, zeros, vstack, ones, sqrt, hstack, ceil
 from numpy.random import rand

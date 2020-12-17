@@ -7,7 +7,6 @@ pass it to Fortran later on.
 Ney Secco 2017-01
 '''
 
-from __future__ import division
 import numpy as np
 
 def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,

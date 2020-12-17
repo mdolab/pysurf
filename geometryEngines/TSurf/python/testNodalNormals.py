@@ -1,4 +1,3 @@
-from __future__ import division
 import adtAPI
 import numpy as np
 

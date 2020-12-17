@@ -3,7 +3,6 @@ This script tests the projection algorithm for a TSurf curve.
 
 """
 
-from __future__ import division
 import pysurf
 import numpy as np
 import unittest

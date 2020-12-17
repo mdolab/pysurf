@@ -3,7 +3,6 @@
 # curve were twice as expected. I suspect this is due to the double propagation of derivative seeds.
 
 # IMPORTS
-from __future__ import division
 import numpy as np
 import pysurf
 from mpi4py import MPI

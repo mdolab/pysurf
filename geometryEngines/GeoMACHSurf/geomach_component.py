@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from mpi4py import MPI
 from ..baseClasses import Geometry

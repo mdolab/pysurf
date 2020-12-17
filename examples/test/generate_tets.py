@@ -1,4 +1,3 @@
-from __future__ import division
 
 with open('results.txt','r') as fid:
     lines = fid.readlines()

@@ -1,6 +1,5 @@
 # IMPORTS
 
-from __future__ import division
 from pysurf import hypsurf
 import numpy as np
 from numpy.random import rand

@@ -1,5 +1,4 @@
 # IMPORTS
-from __future__ import division
 import pysurf
 from mpi4py import MPI
 import numpy as np
