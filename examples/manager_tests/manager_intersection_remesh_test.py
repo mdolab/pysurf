@@ -87,8 +87,8 @@ class RemeshTest(unittest.TestCase):
         for curveName in curveCoor2d:
             dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=11)
 
         # FINITE DIFFERENCE
@@ -122,9 +122,9 @@ class RemeshTest(unittest.TestCase):
         intCoord_FD = (coor - coor0)/stepSize
 
         # Print results
-        print 'FD test'
+        print('FD test')
         FD_results = np.max(np.abs(intCoord-intCoord_FD))
-        print FD_results
+        print(FD_results)
         # Note that this is a pretty loose tolerance for the test here
         np.testing.assert_almost_equal(FD_results, 0., decimal=4)
 

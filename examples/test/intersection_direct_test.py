@@ -114,10 +114,10 @@ intCoord_FD = (intCoor - intCoor0)/stepSize
 # Compute the maximum difference between derivatives
 maxError = np.max(np.abs(intCoord - intCoord_FD))
 
-print ''
-print 'FD test (this should be around',stepSize,'):'
-print maxError
-print ''
+print('')
+print('FD test (this should be around',stepSize,'):')
+print(maxError)
+print('')
 
 # DOT PRODUCT TEST
 dotProd = 0.0
@@ -129,10 +129,10 @@ for curveName in curveCoor1d:
 for curveName in curveCoor2d:
     dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
-print ''
-print 'dot product test (this should be around 1e-14):'
-print dotProd
-print ''
+print('')
+print('dot product test (this should be around 1e-14):')
+print(dotProd)
+print('')
 
 
 def view_mat(mat):

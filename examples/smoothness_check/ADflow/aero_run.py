@@ -135,5 +135,5 @@ CFDSolver.evalFunctions(ap, funcs)
 #CFDSolver.evalFunctionsSens(ap, funcsSens)
 
 if MPI.COMM_WORLD.rank == 0:
-    print 'Functions:', funcs
+    print('Functions:', funcs)
     #print 'Functions Sens:', funcsSens

@@ -69,7 +69,7 @@ for ext_curve in curves:
 # We use the same loop to add the guide curves to the rectangle object
 guideCurves = []
 for ext_curve in long_curves:
-    print ext_curve.name
+    print(ext_curve.name)
     comp2.add_curve(ext_curve)
     if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)
@@ -226,18 +226,18 @@ dotProd = 0.0
 for ii in range(len(meshd)):
     dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
 dotProd = dotProd - np.sum(coor1b*coor1d)
-print dotProd
+print(dotProd)
 dotProd = dotProd - np.sum(coor2b*coor2d)
-print dotProd
+print(dotProd)
 for curveName in curveCoor1b:
     dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
-    print dotProd
+    print(dotProd)
 for curveName in curveCoor2b:
     dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
-    print dotProd
+    print(dotProd)
 
-print 'dotProd test (this will be repeated at the end as well)'
-print dotProd
+print('dotProd test (this will be repeated at the end as well)')
+print(dotProd)
 
 # FINITE DIFFERENCE
 stepSize = 1e-7
@@ -294,7 +294,7 @@ for ii in range(len(manager0.meshGenerators)):
     FD_error = max(FD_error, np.max(curr_error))
 
 # Print results
-print 'dotProd test'
-print dotProd
-print 'FD test'
-print FD_error
+print('dotProd test')
+print(dotProd)
+print('FD test')
+print(FD_error)

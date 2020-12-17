@@ -120,11 +120,11 @@ def march(projection_func, rStart, dStart, theta, sigmaSplay, bc1, bc2,
         parameterName = 'extension'
     else:
         parameterName = 'growth ratio'
-    print ''
-    print 'Running with user provided '+parameterName
-    print 'Extension: ',extension
-    print 'Growth ratio: ',dGrowth
-    print ''
+    print('')
+    print('Running with user provided '+parameterName)
+    print('Extension: ',extension)
+    print('Growth ratio: ',dGrowth)
+    print('')
 
     # Store the initial curve
     R[0,:] = rNext
@@ -1153,15 +1153,15 @@ def redistribute_nodes_by_arc_length(r,arcLength):
 #=============================================
 
 def warn(message):
-    print ''
-    print 'WARNING!:'
-    print message
-    print ''
+    print('')
+    print('WARNING!:')
+    print(message)
+    print('')
 
 #=============================================
 
 def error(message):
-    print ''
-    print 'ERROR!:'
-    print message
-    print ''
+    print('')
+    print('ERROR!:')
+    print(message)
+    print('')

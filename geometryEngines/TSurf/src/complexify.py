@@ -188,7 +188,7 @@ def fix_file(file):
         i_line = 0
         i_line, is_EOF = fix_routine(i_line, lines)
         if is_EOF:
-            print 'EOF'
+            print('EOF')
     else:                  # routine file
         while 1:
             if (i_line >= len(lines)): break
@@ -213,9 +213,9 @@ def fix_routine(i_line, lines):
         #rep('> ' + newline)
         lines[i_line] = newline
     i_line = i_line + 1
-    print 'before cont:', i_line
+    print('before cont:', i_line)
     i_line = skip_continuation(i_line, lines)
-    print 'after cont:', i_line
+    print('after cont:', i_line)
     lines.insert(i_line, use_module_line)
     #rep(`i_line+1`+'\n'+'>'+use_module_line)
     i_line_use = i_line

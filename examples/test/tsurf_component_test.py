@@ -24,11 +24,11 @@ class TestTSurfProjection(unittest.TestCase):
     def test_orig_cube_projection(self):
         xyzProj, normProj, projDict = self.cube.project_on_surface(self.pts)
 
-        print
-        print 'Original cube projection:'
-        print xyzProj
-        print normProj
-        print
+        print()
+        print('Original cube projection:')
+        print(xyzProj)
+        print(normProj)
+        print()
 
         np.testing.assert_almost_equal(xyzProj, np.array([[ 0.6, 0.5, 1.],
                                                           [ 0.6, 0.5, 0.]]))
@@ -43,11 +43,11 @@ class TestTSurfProjection(unittest.TestCase):
     def test_orig_cube_edge_projection(self):
         xyzProj, normProj, curveProjDict = self.cube.project_on_curve(self.pts)
 
-        print
-        print 'Original cube edge projection:'
-        print xyzProj
-        print normProj
-        print
+        print()
+        print('Original cube edge projection:')
+        print(xyzProj)
+        print(normProj)
+        print()
 
         np.testing.assert_almost_equal(xyzProj, np.array([[ 0.6, 0.70999998, 1.],
                                                           [ 0.55, 0.55, 0.]]))
@@ -58,11 +58,11 @@ class TestTSurfProjection(unittest.TestCase):
         xyzProj, normProj, projDict = self.cube.project_on_surface(self.pts)
         self.cube.translate(0, 0, -3)
 
-        print
-        print 'Modified cube projection:'
-        print xyzProj
-        print normProj
-        print
+        print()
+        print('Modified cube projection:')
+        print(xyzProj)
+        print(normProj)
+        print()
 
         np.testing.assert_almost_equal(xyzProj, np.array([[ 0.6, 0.5, 3.],
                                                           [ 0.6, 0.5, 3.]]))
@@ -74,11 +74,11 @@ class TestTSurfProjection(unittest.TestCase):
         xyzProj, normProj, curveProjDict = self.cube.project_on_curve(self.pts)
         self.cube.translate(0, 0, -3)
 
-        print
-        print 'Modified cube edge projection:'
-        print xyzProj
-        print normProj
-        print
+        print()
+        print('Modified cube edge projection:')
+        print(xyzProj)
+        print(normProj)
+        print()
 
         np.testing.assert_almost_equal(xyzProj, np.array([[ 0.55, 0.55, 3.],
                                                           [ 0.55, 0.55, 3.]]))

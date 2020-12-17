@@ -58,7 +58,7 @@ for ext_curve in curves:
 # We use the same loop to add the guide curves to the rectangle object
 guideCurves = []
 for ext_curve in long_curves:
-    print ext_curve.name
+    print(ext_curve.name)
     geom.add_curve(ext_curve)
     if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)

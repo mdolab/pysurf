@@ -73,7 +73,7 @@ for j in range(1):
         e = row[1]
         ax.plot([s[0], e[0]], [s[1], e[1]], [s[2], e[2]], color='r')
 
-    print s
-    print e
+    print(s)
+    print(e)
 
     plt.show()

@@ -239,15 +239,15 @@ dYdZ = np.zeros(numPos)
 # Compute intersection for every wing position
 numPasses = 0
 for ii in range(numPos):
-    print ''
-    print 'translation'
-    print deltaZ[ii]
+    print('')
+    print('translation')
+    print(deltaZ[ii])
     Y[ii], dYdZ[ii] = compute_position(deltaZ[ii])
     numPasses = numPasses + 1
-    print 'results'
-    print Y[ii]
-    print dYdZ[ii]
-    print ''
+    print('results')
+    print(Y[ii])
+    print(dYdZ[ii])
+    print('')
 
 results = np.vstack([deltaZ,Y,dYdZ])
 with open('results.pickle','w') as fid:

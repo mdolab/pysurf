@@ -52,22 +52,22 @@ nodal_normalsd_FD = (nodal_normals - nodal_normals0)/stepSize
 
 # Compute dot product test
 dotProd = 0.0
-print dotProd
+print(dotProd)
 dotProd = dotProd + np.sum(coord*coorb_AD)
-print dotProd
+print(dotProd)
 dotProd = dotProd - np.sum(nodal_normalsd_AD*nodal_normalsb)
-print dotProd
+print(dotProd)
 
 # Print results
-print 'nodal_normals0'
-print nodal_normals0
-print 'nodal_normals_AD'
-print nodal_normals_AD
-print 'nodal_normalsd_AD'
-print nodal_normalsd_AD
-print 'nodal_normalsd_FD'
-print nodal_normalsd_FD
-print 'coorb_AD'
-print coorb_AD
-print 'dot product test (should be 0.0)'
-print dotProd
+print('nodal_normals0')
+print(nodal_normals0)
+print('nodal_normals_AD')
+print(nodal_normals_AD)
+print('nodal_normalsd_AD')
+print(nodal_normalsd_AD)
+print('nodal_normalsd_FD')
+print(nodal_normalsd_FD)
+print('coorb_AD')
+print(coorb_AD)
+print('dot product test (should be 0.0)')
+print(dotProd)

@@ -79,7 +79,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
     #================================================
 
     # Apply transformations to the wing
-    print wingTranslation
+    print(wingTranslation)
     wing.translate(wingTranslation[0],wingTranslation[1],wingTranslation[2])
 
     # Compute intersection
@@ -123,7 +123,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     if generate_wing:
 
-        print 'Generating wing mesh'
+        print('Generating wing mesh')
 
         # Flip BC curve
         #wing.curves['intersection'].flip()
@@ -157,7 +157,7 @@ def generateWingBodyMesh(wingTranslation, wingRotation, meshIndex):
 
     if generate_body:
 
-        print 'Generating body mesh'
+        print('Generating body mesh')
 
         # Flip BC curve
         body.curves['intersection'].flip()

@@ -348,11 +348,11 @@ class TestCreateMesh(unittest.TestCase):
             rOutb_copy = rOutb.copy()
             coorb, rOut = hs.smoothing_b(coor, 5., self.alphaP0, 1, self.numLayers, rOutb)
 
-            print
-            print 'Dot product test for Smoothing. This should be zero:'
+            print()
+            print('Dot product test for Smoothing. This should be zero:')
             dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
-            print dotprod
-            print
+            print(dotprod)
+            print()
             np.testing.assert_almost_equal(dotprod, 0.)
 
 
@@ -398,8 +398,8 @@ class TestCreateMesh(unittest.TestCase):
             dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
             dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
 
-            print 'Dot product test for ComputeMatrices. This should be zero:'
-            print dotProd
+            print('Dot product test for ComputeMatrices. This should be zero:')
+            print(dotProd)
 
 
             ### DOT PRODUCT TEST FOR AREAFACTOR
@@ -418,11 +418,11 @@ class TestCreateMesh(unittest.TestCase):
             S0b_copy = S0b.copy()
             r0b, db = hs.areafactor_test_b(r0, .2, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, S0, S0b, maxstretch)
 
-            print
-            print 'Dot product test for Area Factor. This should be zero:'
+            print()
+            print('Dot product test for Area Factor. This should be zero:')
             dotprod = np.sum(r0d_copy*r0b) - np.sum(S0d*S0b_copy)
-            print dotprod
-            print
+            print(dotprod)
+            print()
             # np.testing.assert_almost_equal(dotprod, 0.)
 
 

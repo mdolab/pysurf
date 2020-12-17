@@ -31,14 +31,14 @@ N0v[5,:] = 1.0
 
 derivDict = computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v)
 
-print derivDict
+print(derivDict)
 
 computeMesh(X, Y, Z, derivDict)
 
 exportPlot3d(X, Y, Z, 'output.xyz')
 
-#print X
-#print Y
-#print Z
+#print(X)
+#print(Y)
+#print(Z)
 
 os.system('tec360 layout_mesh.lay')

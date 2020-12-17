@@ -89,8 +89,8 @@ class SplitTest(unittest.TestCase):
         for ii in range(len(newCurveNames)):
             dotProd = dotProd - np.sum(splitCurvesCoorb[ii]*splitCurvesCoord[ii])
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         #np.testing.assert_almost_equal(dotProd, 0., decimal=15)
 
         # FINITE DIFFERENCE TEST
@@ -122,8 +122,8 @@ class SplitTest(unittest.TestCase):
         for ii in range(len(newCurveNames)):
             curr_error = np.max(np.abs(splitCurvesCoord[ii] - splitCurvesCoord_FD[ii]))
             FD_error = max(curr_error, FD_error)
-        print 'FD test'
-        print FD_error
+        print('FD test')
+        print(FD_error)
         np.testing.assert_almost_equal(FD_error, 0., decimal=8)
 
 if __name__ == "__main__":

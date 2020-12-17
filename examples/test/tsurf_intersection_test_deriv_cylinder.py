@@ -74,8 +74,8 @@ def curve_intersection(comp1,comp2,deltaZ,ii):
             dotProd = dotProd - np.sum(coorBb*coorBd)
 
             # Print results; should be 0
-            print 'dotProd test'
-            print dotProd
+            print('dotProd test')
+            print(dotProd)
             np.testing.assert_almost_equal(dotProd, 0.)
 
             # Save the curve
@@ -114,10 +114,10 @@ def curve_intersection(comp1,comp2,deltaZ,ii):
     comp1.translate(0.0,0.0,-deltaZ)
 
     # Print results
-    print 'results'
-    print 'Y:',Y
-    print 'dYdZ:',dYdZ
-    print ''
+    print('results')
+    print('Y:',Y)
+    print('dYdZ:',dYdZ)
+    print('')
 
     # Return results
     return Y, dYdZ
@@ -147,14 +147,14 @@ def cylinder_level(level):
     dYdZ = np.zeros(nStates)
 
     for ii in range(nStates):
-        print ''
-        print 'translation'
-        print Z[ii]
+        print('')
+        print('translation')
+        print(Z[ii])
         Y[ii], dYdZ[ii] = curve_intersection(comp1,comp2,Z[ii],ii)
-        print 'results'
-        print Y[ii]
-        print dYdZ[ii]
-        print ''
+        print('results')
+        print(Y[ii])
+        print(dYdZ[ii])
+        print('')
 
     results = np.vstack([Z,Y,dYdZ])
     with open('results_L%d.pickle'%level,'w') as fid:

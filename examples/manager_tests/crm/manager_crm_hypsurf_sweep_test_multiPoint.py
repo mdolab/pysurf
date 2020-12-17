@@ -295,16 +295,16 @@ def compute_position(wing_deltaZ):
 
 # Now we will execute the function for every wing position
 for ii in range(len(deltaZ)):
-    print ''
-    print 'translation'
-    print deltaZ[ii]
-    print ''
+    print('')
+    print('translation')
+    print(deltaZ[ii])
+    print('')
     Y, dYdZ = compute_position(deltaZ[ii])
-    print ''
-    print 'results'
-    print Y
-    print dYdZ
-    print ''
+    print('')
+    print('results')
+    print(Y)
+    print(dYdZ)
+    print('')
 
     results = [deltaZ[ii], np.vstack([Y,dYdZ])]
     with open('results_%03d.pickle'%(ii),'w') as fid:

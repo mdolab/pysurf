@@ -53,8 +53,8 @@ dotProd = 0.0
 dotProd = dotProd + np.sum(coord*coorb)
 dotProd = dotProd - np.sum(remeshedCoord*remeshedCoorb)
 
-print 'dot product test'
-print dotProd
+print('dot product test')
+print(dotProd)
 
 # Define step size for finite difference test
 stepSize = 1e-7
@@ -75,8 +75,8 @@ remeshedCoord_FD = (remeshedCoorf - remeshedCoor0)/stepSize
 # Compare derivatives
 max_FD_error = np.max(np.abs(remeshedCoord - remeshedCoord_FD))
 
-print 'finite difference test'
-print max_FD_error
+print('finite difference test')
+print(max_FD_error)
 
 # Export the curve predicted by AD
 remeshedCurve.set_points(remeshedCurve.get_points() + stepSize*remeshedCoord)
@@ -96,6 +96,6 @@ def view_mat(mat):
 
 view_mat(np.abs(remeshedCoord - remeshedCoord_FD))
 
-print remeshedCoord
+print(remeshedCoord)
 
-print remeshedCoord_FD
+print(remeshedCoord_FD)

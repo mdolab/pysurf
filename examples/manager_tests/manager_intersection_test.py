@@ -81,8 +81,8 @@ class IntersectionTest(unittest.TestCase):
         for curveName in curveCoor2d:
             dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=11)
 
         # FINITE DIFFERENCE

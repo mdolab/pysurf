@@ -187,7 +187,7 @@ bodyMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=bodyGeom, options=optio
 if generateBodyMesh:
 
     # Print log
-    print 'Generating body mesh'
+    print('Generating body mesh')
 
     # Generate mesh
     bodyMesh.createMesh()
@@ -234,7 +234,7 @@ wingMesh = hypsurf.HypSurfMesh(curve=rBaseline, ref_geom=wingGeom, options=optio
 if generateWingMesh:
 
     # Print log
-    print 'Generating wing mesh'
+    print('Generating wing mesh')
 
     # Generate mesh
     wingMesh.createMesh()

@@ -144,8 +144,8 @@ class HypsurfTest(unittest.TestCase):
         for ii in range(len(meshNames)):
             dotProd = dotProd - np.sum(meshb[ii]*meshd[ii])
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=13)
 
         # FINITE DIFFERENCE
@@ -178,13 +178,13 @@ class HypsurfTest(unittest.TestCase):
         for ii in range(len(meshNames)):
 
             # Print results
-            print 'FD test'
+            print('FD test')
             FD_results = np.max(np.abs(meshd[ii]-meshd_FD[ii]))
-            print FD_results
+            print(FD_results)
             np.testing.assert_almost_equal(FD_results, 0., decimal=6)
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=13)
 
 

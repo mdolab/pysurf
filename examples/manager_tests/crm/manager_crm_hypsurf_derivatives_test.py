@@ -275,8 +275,8 @@ dotProd = dotProd - np.sum(coor2b*coor2d)
 for curveName in curveCoor2d:
     dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
 
-print 'dotProd test (this will be repeated at the end as well)'
-print dotProd
+print('dotProd test (this will be repeated at the end as well)')
+print(dotProd)
 
 # FINITE DIFFERENCE
 stepSize = 1e-7
@@ -335,7 +335,7 @@ for ii in range(len(manager0.meshGenerators)):
     FD_error = max(FD_error, np.max(curr_error))
 
 # Print results
-print 'dotProd test'
-print dotProd
-print 'FD test'
-print FD_error
+print('dotProd test')
+print(dotProd)
+print('FD test')
+print(FD_error)

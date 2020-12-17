@@ -160,35 +160,35 @@ intCoorb = manager0.intCurves[intCurveName].get_reverseADSeeds()
 # Dot product test
 dotProd = 0.0
 
-print 'int'
+print('int')
 dotProd = dotProd + np.sum(intCoorb*intCoord)
-print dotProd
+print(dotProd)
 
-print 'coor1'
+print('coor1')
 dotProd = dotProd + np.sum(coor1b*coor1d)
-print dotProd
+print(dotProd)
 
-print 'curves1'
+print('curves1')
 for curveName in curveCoor1d:
     dotProd = dotProd + np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
-    print dotProd
+    print(dotProd)
 
-print 'coor2'
+print('coor2')
 dotProd = dotProd + np.sum(coor2b*coor2d)
-print dotProd
+print(dotProd)
 
-print 'curves2'
+print('curves2')
 for curveName in curveCoor2d:
     dotProd = dotProd + np.sum(curveCoor2d[curveName]*curveCoor2b[curevName])
-    print dotProd
+    print(dotProd)
 
-print 'mesh'
+print('mesh')
 for ii in range(len(meshNames)):
     dotProd = dotProd - np.sum(meshb[ii]*meshd[ii])
-    print dotProd
+    print(dotProd)
 
-print 'dotProd test'
-print dotProd
+print('dotProd test')
+print(dotProd)
 
 # FINITE DIFFERENCE
 stepSize = 1e-7
@@ -225,8 +225,8 @@ for meshName in meshNames:
 for ii in range(len(meshNames)):
 
     # Print results
-    print 'FD test for mesh',meshNames[ii]
-    print np.max(np.abs(meshd[ii]-meshd_FD[ii]))
+    print('FD test for mesh',meshNames[ii])
+    print(np.max(np.abs(meshd[ii]-meshd_FD[ii])))
 
-print 'dotProd test'
-print dotProd
+print('dotProd test')
+print(dotProd)

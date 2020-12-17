@@ -106,12 +106,12 @@ def curve_intersection_internal(deltaZ,ii):
             # Finite difference test
             FD_error = np.max(np.abs(newCoorIntd - newCoorIntd_FD))
 
-            print 'FD test (this should be around',stepSize,' or less)'
-            print FD_error
+            print('FD test (this should be around',stepSize,' or less)')
+            print(FD_error)
 
             # Print results; should be 0
-            print 'dotProd test'
-            print dotProd
+            print('dotProd test')
+            print(dotProd)
             np.testing.assert_almost_equal(dotProd, 0.)
 
             # Remesh the curve in a linear spacing
@@ -154,10 +154,10 @@ def curve_intersection_internal(deltaZ,ii):
     comp1.translate(0.0,+100.0,-deltaZ)
 
     # Print results
-    print 'results'
-    print 'Y:',Y
-    print 'dYdZ:',dYdZ
-    print ''
+    print('results')
+    print('Y:',Y)
+    print('dYdZ:',dYdZ)
+    print('')
 
     # Return results
     return Y, dYdZ
@@ -242,8 +242,8 @@ def curve_intersection(deltaZ,ii):
     '''
 
     # Print results; should be 0
-    print 'dotProd test'
-    print dotProd
+    print('dotProd test')
+    print(dotProd)
     np.testing.assert_almost_equal(dotProd, 0.)
 
 

@@ -24,7 +24,7 @@ wing.add_curve(curveName, curve_te_upp[curveName])
 curveName = curve_te_low.keys()[0]
 wing.add_curve(curveName, curve_te_low[curveName])
 
-print wing.curves.keys()
+print(wing.curves.keys())
 
 # Remove tip section from the trailing edge curves
 pysurf.tsurf_tools.split_curve_with_curve(wing.curves, 'curve_te_upp', wing.curves['curve_tip_upp'])
@@ -66,7 +66,7 @@ curveList = []
 ii = 0 # Counter to use different refinement
 for curveName in tficurves:
 
-    print 'Remeshing curve:',curveName
+    print('Remeshing curve:',curveName)
 
     # Define refinement level
     if np.mod(ii,2) == 0:
@@ -77,7 +77,7 @@ for curveName in tficurves:
     # Remesh curve
     wing.curves[curveName] = wing.curves[curveName].remesh(nNewNodes=nNewNodes)
 
-    print wing.curves[curveName].coor.shape
+    print(wing.curves[curveName].coor.shape)
 
     # Add curve to the list
     curveList.append(wing.curves[curveName])

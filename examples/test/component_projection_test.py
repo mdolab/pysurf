@@ -36,11 +36,11 @@ def computeProjections(xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
     coorb = cube.coorb
 
     # Print results
-    print
-    print 'Cube projection:'
-    print xyzProj
-    print normProj
-    print
+    print()
+    print('Cube projection:')
+    print(xyzProj)
+    print(normProj)
+    print()
 
     # Return results
     return xyzProj, xyzProjd, normProj, normProjd, xyzb, coorb
@@ -69,11 +69,11 @@ def computeCurveProjections(xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=Non
         allCoorb[curve.name] = curve.get_reverseADSeeds()
 
     # Print results
-    print
-    print 'Cube edge projection:'
-    print xyzProj
-    print tanProj
-    print
+    print()
+    print('Cube edge projection:')
+    print(xyzProj)
+    print(tanProj)
+    print()
 
     # Return results
     return xyzProj, xyzProjd, tanProj, tanProjd, xyzb, allCoorb
@@ -133,32 +133,32 @@ dotProd = dotProd - np.sum(xyzProjd_AD*xyzProjb)
 dotProd = dotProd - np.sum(normProjd_AD*normProjb)
 
 # Compare directional derivatives
-print 'SURFACE PROJECTION'
-print ''
-print 'xyzProjd_AD'
-print xyzProjd_AD
-print 'xyzProjd_FD'
-print xyzProjd_FD
-print 'normProjd_AD'
-print normProjd_AD
-print 'normProjd_FD'
-print normProjd_FD
+print('SURFACE PROJECTION')
+print('')
+print('xyzProjd_AD')
+print(xyzProjd_AD)
+print('xyzProjd_FD')
+print(xyzProjd_FD)
+print('normProjd_AD')
+print(normProjd_AD)
+print('normProjd_FD')
+print(normProjd_FD)
 
 # Get finite difference error
 FD_error_projection = np.max(np.abs(xyzProjd_AD - xyzProjd_FD))
 FD_error_normal = np.max(np.abs(normProjd_AD - normProjd_FD))
 
 # Print results
-print ''
-print '#=================================================================#'
-print 'Finite difference error for projection (should be around 1e-7)'
-print FD_error_projection
-print 'Finite difference error for normals (should be around 1e-7)'
-print FD_error_normal
-print 'dot product (should be 0.0)'
-print dotProd
-print '#=================================================================#'
-print ''
+print('')
+print('#=================================================================#')
+print('Finite difference error for projection (should be around 1e-7)')
+print(FD_error_projection)
+print('Finite difference error for normals (should be around 1e-7)')
+print(FD_error_normal)
+print('dot product (should be 0.0)')
+print(dotProd)
+print('#=================================================================#')
+print('')
 
 #############################
 # CURVE PROJECTION
@@ -194,29 +194,29 @@ dotProd = dotProd - np.sum(xyzProjd_AD*xyzProjb)
 dotProd = dotProd - np.sum(tanProjd_AD*tanProjb)
 
 # Compare directional derivatives
-print 'CURVE PROJECTION'
-print ''
-print 'xyzProjd_AD'
-print xyzProjd_AD
-print 'xyzProjd_FD'
-print xyzProjd_FD
-print 'tanProjd_AD'
-print tanProjd_AD
-print 'tanProjd_FD'
-print tanProjd_FD
+print('CURVE PROJECTION')
+print('')
+print('xyzProjd_AD')
+print(xyzProjd_AD)
+print('xyzProjd_FD')
+print(xyzProjd_FD)
+print('tanProjd_AD')
+print(tanProjd_AD)
+print('tanProjd_FD')
+print(tanProjd_FD)
 
 # Get finite difference error
 FD_error_projection = np.max(np.abs(xyzProjd_AD - xyzProjd_FD))
 FD_error_tangent = np.max(np.abs(tanProjd_AD - tanProjd_FD))
 
 # Print results
-print ''
-print '#=================================================================#'
-print 'Finite difference error for projection (should be around 1e-7)'
-print FD_error_projection
-print 'Finite difference error for normals (should be around 1e-7)'
-print FD_error_tangent
-print 'dot product (should be 0.0)'
-print dotProd
-print '#=================================================================#'
-print ''
+print('')
+print('#=================================================================#')
+print('Finite difference error for projection (should be around 1e-7)')
+print(FD_error_projection)
+print('Finite difference error for normals (should be around 1e-7)')
+print(FD_error_tangent)
+print('dot product (should be 0.0)')
+print(dotProd)
+print('#=================================================================#')
+print('')

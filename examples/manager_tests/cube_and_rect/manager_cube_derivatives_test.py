@@ -115,8 +115,8 @@ for curveName in curveCoor1b:
 for curveName in curveCoor2b:
     dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
 
-print 'dotProd test (this will be repeated at the end as well)'
-print dotProd
+print('dotProd test (this will be repeated at the end as well)')
+print(dotProd)
 
 # FINITE DIFFERENCE
 stepSize = 1e-7
@@ -145,8 +145,8 @@ coor1 = manager1.intCurves[remeshedCurveName].get_points()
 intCoord_FD = (coor1 - coor0)/stepSize
 
 # Print results
-print 'dotProd test'
-print dotProd
-print 'FD test'
-print np.max(np.abs(intCoord-intCoord_FD))
+print('dotProd test')
+print(dotProd)
+print('FD test')
+print(np.max(np.abs(intCoord-intCoord_FD)))
 #print np.abs(intCoord-intCoord_FD)

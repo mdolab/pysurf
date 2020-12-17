@@ -36,4 +36,4 @@ mesh = pysurf.tfi_mesh.TFIMesh(leftCurve, bottomCurve, rightCurve, topCurve, ref
 
 mesh.generate_mesh()
 
-print mesh.get_mesh()
+print(mesh.get_mesh())

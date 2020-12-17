@@ -85,7 +85,7 @@ for ext_curve in curves:
 # We use the same loop to add the guide curves to the rectangle object
 guideCurves = []
 for ext_curve in long_curves:
-    print ext_curve.name
+    print(ext_curve.name)
     comp2.add_curve(ext_curve)
     if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)
@@ -237,15 +237,15 @@ dYdZ = np.zeros(numPos)
 
 # Compute intersection for every wing position
 for ii in range(numPos):
-    print ''
-    print 'translation'
-    print deltaZ[ii]
+    print('')
+    print('translation')
+    print(deltaZ[ii])
     Y[ii], dYdZ[ii] = compute_position(deltaZ[ii], i_node, j_node)
     mesh_pass = mesh_pass + 1
-    print 'results'
-    print Y[ii]
-    print dYdZ[ii]
-    print ''
+    print('results')
+    print(Y[ii])
+    print(dYdZ[ii])
+    print('')
 
 results = np.vstack([deltaZ,Y,dYdZ])
 with open('results.pickle','w') as fid:

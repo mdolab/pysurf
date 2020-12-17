@@ -135,7 +135,7 @@ def extrude_rect_volume_mesh():
     hyp.run()
     hyp.writeCGNS('rect_vol.cgns')
 
-    print rectTranslation
+    print(rectTranslation)
     # Translate wing primary mesh
     subprocess.call(["cp rect_vol.cgns rect_vol_temp.cgns"], shell=True)
     subprocess.call(["cgns_utils translate rect_vol_temp.cgns {} {} {}".format(rectTranslation[0], rectTranslation[1], rectTranslation[2])], shell=True)
@@ -201,7 +201,7 @@ def march_surface_meshes():
     # We use the same loop to add the guide curves to the rectangle object
     guideCurves = []
     for ext_curve in long_curves:
-        print ext_curve.name
+        print(ext_curve.name)
         comp2.add_curve(ext_curve)
         # if ext_curve.name != 'int_011':
         guideCurves.append(ext_curve.name)
@@ -298,7 +298,7 @@ def march_surface_meshes():
 
         # EXPORT
         for meshName in meshNames:
-            print meshName + '.xyz'
+            print(meshName + '.xyz')
             manager.meshes[meshName].exportPlot3d(meshName + '.xyz')
 
         return meshNames
@@ -332,9 +332,9 @@ def run_pyhyp_for_collar():
     cube and rect, we need to run pyHyp to extrude a volume mesh for the collar.
     """
 
-    print
-    print 'Now running pyHyp on the merged mesh'
-    print
+    print()
+    print('Now running pyHyp on the merged mesh')
+    print()
 
     fileName = 'merged.xyz'
     fileType = 'plot3d'
@@ -434,7 +434,7 @@ def run_pyhyp_for_collar():
 
 def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
 
-    print 'Using previously created volume mesh and warping it to the new surface.\n'
+    print('Using previously created volume mesh and warping it to the new surface.\n')
     coords = np.load('merged.npy')
 
     # Here we use the remapped coordinate points to pass in to
@@ -457,8 +457,8 @@ def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
     dotProd = 0.0
     dotProd += np.sum(dXvWarpd * dXvWarpb)
     dotProd -= np.sum(dXsb * dXsd)
-    print 'pyWarp dot-product:', dotProd
-    print
+    print('pyWarp dot-product:', dotProd)
+    print()
 
 
 def create_OCart_mesh_and_merge():
@@ -470,9 +470,9 @@ def create_OCart_mesh_and_merge():
     then calls pyHyp to extrude an O mesh around this block.
     """
 
-    print
-    print "Now creating OCart mesh"
-    print
+    print()
+    print("Now creating OCart mesh")
+    print()
 
     subprocess.call(["cgns_utils combine cube_vol.cgns rect_vol_temp.cgns collar.cgns half_full.cgns"], shell=True)
 
@@ -643,9 +643,9 @@ for i in range(1):
     for curveName in curveCoor2b:
         dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
 
-    print 'no merged dot-product here'
-    print dotProd
-    print
+    print('no merged dot-product here')
+    print(dotProd)
+    print()
 
     # Dot product test
     dotProd = 0.0
@@ -658,19 +658,19 @@ for i in range(1):
     for curveName in curveCoor2b:
         dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
 
-    print 'Full dot-product here'
-    print dotProd
-    print
+    print('Full dot-product here')
+    print(dotProd)
+    print()
 
-    print 'fwd seeds pysurf ordering'
-    print manager0.mergedMeshes['collar'].mergedDerivs_d
+    print('fwd seeds pysurf ordering')
+    print(manager0.mergedMeshes['collar'].mergedDerivs_d)
 
     # This is what we'd give to pywarpustruct
     meshd = manager0.mergedMeshes['collar'].mergedDerivs_d[pySurf2pyWarp]
-    print 'fwd seeds pywarp ordering'
-    print meshd
+    print('fwd seeds pywarp ordering')
+    print(meshd)
 
     for entry in sorted(pySurf2pyWarp):
-        print entry
+        print(entry)
     for entry in sorted(pyWarp2pySurf):
-        print entry
+        print(entry)

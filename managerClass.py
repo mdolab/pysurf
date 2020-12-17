@@ -2122,9 +2122,9 @@ class Manager(object):
         # Check if some nodes were not mapped
         unmatchedNodes = np.where(numSurfRepetitions == 0)[0]
         if len(unmatchedNodes > 0):
-            print 'Some solver nodes did not find the corresponding copy in the manager object'
-            print 'Here is the list of solver nodes:'
-            print solverPts[unmatchedNodes,:]
+            print('Some solver nodes did not find the corresponding copy in the manager object')
+            print('Here is the list of solver nodes:')
+            print(solverPts[unmatchedNodes,:])
             raise ValueError('Nodes not found')
         '''
 

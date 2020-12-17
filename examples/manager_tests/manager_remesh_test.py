@@ -106,8 +106,8 @@ class MergeTest(unittest.TestCase):
         dotProd = dotProd + np.sum(initCurveCoorb*initCurveCoord)
         dotProd = dotProd - np.sum(newCurveCoorb*newCurveCoord)
 
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=14)
 
         # FINITE DIFFERENCE TEST
@@ -138,8 +138,8 @@ class MergeTest(unittest.TestCase):
 
         # Finite difference test
         FD_error = np.max(np.abs(newCurveCoord - newCurveCoord_FD))
-        print 'FD test'
-        print FD_error
+        print('FD test')
+        print(FD_error)
         # Extremely loose tolerance here
         np.testing.assert_almost_equal(FD_error, 0., decimal=3)
 

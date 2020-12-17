@@ -60,7 +60,7 @@ times['ADflow'] = []
 # Function to print time formatted info
 def print_line_time(name, time_list, string=''):
     sumlist = np.sum(time_list)
-    print '   %-14s : %10.7f : %10.7f' % (name, sumlist, sumlist / len(time_list)), string
+    print('   %-14s : %10.7f : %10.7f' % (name, sumlist, sumlist / len(time_list)), string)
 
 if __name__ == "__main__":
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         # print "Fixing trailing edge.\n"
         # subprocess.call(["python script02_fix_trailing_edge.py"], shell=True)
 
-        print "Replacing values in scripts with desired translation.\n"
+        print("Replacing values in scripts with desired translation.\n")
         python_string_replacement = "sed -i -e 's/wingTranslation =.*/wingTranslation = [{}, {}, {}]/g' script03_example_crm_fullInt.py".format(wingT[0], wingT[1], wingT[2])
         subprocess.call([python_string_replacement], shell=True)
 
@@ -85,13 +85,13 @@ if __name__ == "__main__":
 
         t1 = time()
 
-        print "Computing intersections and marching collar mesh.\n"
+        print("Computing intersections and marching collar mesh.\n")
         subprocess.call(["python script03_example_crm_fullInt.py"], shell=True)
 
         t2 = time()
         times['intersections'].append(t2 - t1)
 
-        print "Merging collar meshes.\n"
+        print("Merging collar meshes.\n")
         subprocess.call(["python script04_mergeCollar.py"], shell=True)
 
         t3 = time()
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         # pyHyp so we can later warp it
         if i == 0:
 
-            print "Extruding collar mesh using pyHyp.\n"
+            print("Extruding collar mesh using pyHyp.\n")
             subprocess.call(["python script05_runPyhyp.py"], shell=True)
 
             t4 = time()
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
         else:
 
-            print 'Using previously created volume mesh and warping it to the new surface.\n'
+            print('Using previously created volume mesh and warping it to the new surface.\n')
             coords = np.load('merged.npy')
 
             # Here we use the remapped coordinate points to pass in to
@@ -173,28 +173,28 @@ if __name__ == "__main__":
             t5 = time()
             times['pywarp'].append(t5 - t3)
 
-        print "Merging meshes into single .cgns file.\n"
+        print("Merging meshes into single .cgns file.\n")
         subprocess.call(["sh script06_alternative.sh"], shell=True)
 
         t6 = time()
         times['mergeMeshes'].append(t6 - t5)
 
-        print "Renaming and copying meshes.\n"
+        print("Renaming and copying meshes.\n")
         subprocess.call(["cp crm_wb_L1.cgns grids/crm_wb_L1_"+str(i).zfill(2)+".cgns"], shell=True)
         subprocess.call(["cp crm_wb_L2.cgns grids/crm_wb_L2_"+str(i).zfill(2)+".cgns"], shell=True)
 
-        print "Running ADflow using the combined meshes.\n"
+        print("Running ADflow using the combined meshes.\n")
         subprocess.call(["cd ADflow; sh run_check.sh"], shell=True)
         subprocess.call(["cd ADflow; cp fc_-001_surf.plt fc_surf_"+str(i).zfill(2)+".plt"], shell=True)
 
         t7 = time()
         times['ADflow'].append(t7 - t6)
 
-    print '           Timings summary (sec)      '
-    print '   ========================================  '
-    print '                       Total       Average'
-    print '                                          '
+    print('           Timings summary (sec)      ')
+    print('   ========================================  ')
+    print('                       Total       Average')
+    print('                                          ')
 
     for key, value in times.iteritems():
         print_line_time(key, value)
-    print
+    print()

@@ -220,8 +220,8 @@ class CRMDerivTest(unittest.TestCase):
         for curveName in curveCoor2d:
             dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
 
-        print 'dotProd test (this will be repeated at the end as well)'
-        print dotProd
+        print('dotProd test (this will be repeated at the end as well)')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=13)
 
         # FINITE DIFFERENCE
@@ -257,19 +257,19 @@ class CRMDerivTest(unittest.TestCase):
         # Export predicted position of the new points
         intCurve = manager0.intCurves[mergedCurveName]
         intCoor = intCurve.get_points() + stepSize*intCoord
-        print np.max(intCoor - coor0)
+        print(np.max(intCoor - coor0))
         np.testing.assert_almost_equal(np.max(intCoor - coor0), 0., decimal=10)
-        print np.max(coor1 - coor0)
+        print(np.max(coor1 - coor0))
         np.testing.assert_almost_equal(np.max(coor1 - coor0), 0., decimal=10)
         intCurve.set_points(intCoor)
         intCurve.export_tecplot(mergedCurveName+'_predicted')
 
         # Print results
-        print 'dotProd test'
-        print dotProd
+        print('dotProd test')
+        print(dotProd)
         np.testing.assert_almost_equal(dotProd, 0., decimal=13)
-        print 'FD test'
-        print max_FD_error
+        print('FD test')
+        print(max_FD_error)
         # Pretty loose tolerance here
         np.testing.assert_almost_equal(max_FD_error, 0., decimal=5)
 
