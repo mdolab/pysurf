@@ -20,8 +20,8 @@ radius = 0.5 # cylinder ratio
 # Set cylinder points
 nu, nv = 100, 100
 pts = zeros((nu, nv, 3))
-for i in xrange(nu):
-    for j in xrange(nv):
+for i in range(nu):
+    for j in range(nv):
         theta = pi*j/(nv-1)
         pts[i, j, 0] = x0 + length*i/(nu-1)
         pts[i, j, 1] = -radius*cos(theta)
@@ -91,8 +91,8 @@ nu = rBaseline.shape[0]
 
 # Determine points
 pts = zeros((nu, nv, 3))
-for i in xrange(nu):
-    for j in xrange(nv):
+for i in range(nu):
+    for j in range(nv):
         pts[i, j, 0] = rBaseline[i,0]
         pts[i, j, 1] = rBaseline[i,1]
         pts[i, j, 2] = rBaseline[i,2] + span*(j/(nv-1) - 0.05)
@@ -106,8 +106,8 @@ if trailingEdge == 'blunt':
 
     # Determine points
     ptsTE = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             ptsTE[i, j, 0] = rBaselineTE[i,0]
             ptsTE[i, j, 1] = rBaselineTE[i,1]
             ptsTE[i, j, 2] = rBaselineTE[i,2] + span*(j/(nv-1) - 0.05)
@@ -132,8 +132,8 @@ wingSurf = Surface('wing', wingPts)
 nu = 6
 nv = 4
 curve1_pts = zeros((nu, nv, 3))
-for i in xrange(nu):
-    for j in xrange(nv):
+for i in range(nu):
+    for j in range(nv):
         curve1_pts[i, j, 0] = rBaseline[-1,0]
         curve1_pts[i, j, 1] = rBaseline[-1,1]
         curve1_pts[i, j, 2] = rBaseline[-1,2] + span*(i/(nv-1) - 0.05)

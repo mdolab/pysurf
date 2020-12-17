@@ -349,7 +349,7 @@ def areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices):
     maxStretch = np.max(stretchRatio)
 
     # Do the requested number of averagings
-    for index in xrange(numAreaPasses):
+    for index in range(numAreaPasses):
         # Store previous values
         Splus = S[1]
         Sminus = S[-2]
@@ -633,7 +633,7 @@ def computeMatrices(r0, N0, S0, rm1, Sm1, layerIndex, guideIndices, extraData):
             # Call assembly routine
             matrixBuilder(index)
 
-    for index in xrange(1,numNodes-1):
+    for index in range(1,numNodes-1):
 
         # Set guideCurve matrix contributions
         if guideIndices.any():
@@ -769,7 +769,7 @@ def smoothing(r, eta, alphaP0, numSmoothingPasses, numLayers, numNodes):
         r_smooth[-3:] = r[-3:]
 
         # Smooth every node
-        for index in xrange(1,numNodes-1):
+        for index in range(1,numNodes-1):
 
             # Get coordinates
             r_curr = r[3*(index):3*(index)+3]
@@ -983,7 +983,7 @@ def findRatio(dMax, d0, numLayers, ratioGuess):
     q = q0
 
     # Newton search loop
-    for i in xrange(nIters):
+    for i in range(nIters):
        # Residual function
        R = d0*(1-q**(numLayers-1)) - dMax*(1-q)
 

@@ -28,7 +28,7 @@ class Surface(object):
         jac = self.bse.jac['d(pt_str)/d(cp_str)']
 
         self.bse.vec['pt_str'](0)[:, :, :] = surf
-        for ind in xrange(3):
+        for ind in range(3):
             cp[:, ind] = bicgstab(jac.T.dot(jac), jac.T.dot(pt[:, ind]), tol=1.0e-8)[0]
 
     def project(self, xyz, dist2, xyzProj, normProj):
@@ -45,7 +45,7 @@ class Surface(object):
         dv = numpy.array(self.bse.vec['proj'].array)
         cross = numpy.cross(du, dv)
         norms = numpy.sum(cross**2, axis=1)**0.5
-        for ind in xrange(3):
+        for ind in range(3):
             cross[:, ind] = cross[:, ind] / norms
 
         # Get new distances
@@ -87,7 +87,7 @@ class Curve(object):
         jac = self.bse.jac['d(pt_str)/d(cp_str)']
 
         self.bse.vec['pt_str'](0)[:, :, :] = curve
-        for ind in xrange(3):
+        for ind in range(3):
             cp[:, ind] = bicgstab(jac.T.dot(jac), jac.T.dot(pt[:, ind]), tol=1.0e-8)[0]
 
     def project(self, xyz, dist2, xyzProj, tanProj):
@@ -121,8 +121,8 @@ if __name__ == '__main__':
     radius = 0.5
     nu, nv = 100, 100
     pts = numpy.zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             theta = numpy.pi*j/(nv-1)
             pts[i, j, 0] = s0 + (s1-s0) * (i / (nu-1))
             pts[i, j, 1] = -radius*numpy.cos(theta)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     s1 = 100
     nu = 10
     curve1_pts = numpy.zeros((nu, 3))
-    for i in xrange(nu):
+    for i in range(nu):
         curve1_pts[i, 0] = -5. + i
         curve1_pts[i, 1] = 2.5
 

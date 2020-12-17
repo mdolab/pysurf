@@ -42,8 +42,8 @@ if example == 'kink_on_plate':
     s1 = 100
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))
             pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))
 
@@ -52,8 +52,8 @@ if example == 'kink_on_plate':
     s1 = 100
     nu, nv = 100, 4
     curve1_pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             curve1_pts[i, j, 0] = 0.0
             curve1_pts[i, j, 1] = s1 * (-1. + 2 * i / (nv-1))
 
@@ -62,8 +62,8 @@ if example == 'kink_on_plate':
     s1 = 50
     nu, nv = 5, 4
     curve2_pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             curve2_pts[i, j, 0] = 5.0
             curve2_pts[i, j, 1] = s1 * (-1. + 2 * i / (nv-1))
 
@@ -100,8 +100,8 @@ elif example == 'line_on_curve':
     s1 = 3
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / (nu-1))    # X coordinates
             pts[i, j, 1] = s1 * (-1. + 2 * j / (nv-1))    # Y coordinates
             pts[i, j, 2] = 10*(s1 * (-1. + 2 * j / (nv-1)))**2  # Z coordinates
@@ -143,8 +143,8 @@ elif example == 'line_on_cylinder':
     radius = 0.5
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             theta = 2*pi*j/(nv-1)
             pts[i, j, 0] = s0 + (s1-s0) * (i / nu)
             pts[i, j, 1] = -radius*cos(theta)
@@ -192,8 +192,8 @@ elif example == 'line_on_paraboloid':
     s1 = 100
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
             pts[i, j, 2] = 10*s0 * (-1. + 2 * i / nv)**2 + 10*s1 * (-1. + 2 * j / nv)**2
@@ -203,8 +203,8 @@ elif example == 'line_on_paraboloid':
     s1 = 100
     nu, nv = 10, 4
     curve1_pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             curve1_pts[i, j, 0] = -10. + (nu - i) - 1.
             curve1_pts[i, j, 1] = 2.5
 
@@ -213,8 +213,8 @@ elif example == 'line_on_paraboloid':
     s1 = 100
     nu, nv = 10, 4
     curve2_pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             curve2_pts[i, j, 0] = -10. + (nu - i) - 1.
             curve2_pts[i, j, 1] = -2.5
 
@@ -255,8 +255,8 @@ elif example == 'line_on_eggcrate':
     s1 = 10
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0*(-1. + 2 * i / (nu-1))    # X coordinates
             pts[i, j, 1] = s1*(-1. + 2 * j / (nv-1))    # Y coordinates
             pts[i, j, 2] = parAmplitude*(pts[i, j, 0]**2 + pts[i, j, 1]**2) + \
@@ -295,8 +295,8 @@ elif example == 'circle_on_curve':
     s1 = 100
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
             pts[i, j, 2] = 10*s1 * (-1. + 2 * j / nv)**2
@@ -334,8 +334,8 @@ elif example == 'circle_on_paraboloid':
     s1 = 100
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = s1 * (-1. + 2 * j / nv)
             pts[i, j, 2] = 10*s0 * (-1. + 2 * i / nv)**2 + 10*s1 * (-1. + 2 * j / nv)**2
@@ -377,8 +377,8 @@ elif example == 'airfoil_on_cylinder':
     radius = 1.0
     nu, nv = 100, 100
     pts = zeros((nu, nv, 3))
-    for i in xrange(nu):
-        for j in xrange(nv):
+    for i in range(nu):
+        for j in range(nv):
             theta = pi*j/(nv-1)
             pts[i, j, 0] = s0 * (-1. + 2 * i / nu)
             pts[i, j, 1] = -radius*cos(theta)
