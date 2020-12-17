@@ -1,8 +1,8 @@
-from __future__ import division
+
 import numpy as np
-import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI
+from . import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI
 from mpi4py import MPI
-import tsurf_component
+from . import tsurf_component
 
 '''
 TODO:
@@ -193,7 +193,7 @@ def initialize_surface(TSurfGeometry):
     on the initial connectivity and coordinates
     '''
 
-    print 'My ID is',TSurfGeometry.name
+    print('My ID is',TSurfGeometry.name)
 
     # Now call general function that sets ADT
     update_surface(TSurfGeometry)
@@ -259,7 +259,7 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
     # Now we will initialize curve objects
     for sectionName in sectionDict:
 
-        if ('barsConn' in sectionDict[sectionName].keys()) and \
+        if ('barsConn' in list(sectionDict[sectionName].keys())) and \
            (sectionName in selectedSections): # Then we have a curve section that should be stored
 
             # Get data from current section
@@ -357,7 +357,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     for triaID in range(nTria):
 
         if np.mod(triaID,200) == 0:
-            print 'Checking tria',triaID+1,'of',nTria
+            print('Checking tria',triaID+1,'of',nTria)
 
         # Get current element connectivity
         # The minus 1 is due to Fortran indexing present in triaConnF
@@ -374,7 +374,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         for bar in bars:
 
             # Check if the bar is not defined in the dictionary yet
-            if bar not in edge2Elem.keys():
+            if bar not in list(edge2Elem.keys()):
 
                 # Then add a new entry for this bar, containing
                 # the first element we found
@@ -406,7 +406,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     for quadID in range(nQuads):
 
         if np.mod(quadID,200) == 0:
-            print 'Checking quad',quadID+1,'of',nQuads
+            print('Checking quad',quadID+1,'of',nQuads)
 
         # Get current element connectivity
         # The minus 1 is due to Fortran indexing present in quadsConnF
@@ -426,7 +426,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         for bar in bars:
 
             # Check if the bar is not defined in the dictionary yet
-            if bar not in edge2Elem.keys():
+            if bar not in list(edge2Elem.keys()):
 
                 # Then add a new entry for this bar, containing
                 # the first element we found.
@@ -457,7 +457,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
 
     # Now we transfer the remaining edges in edge2Elem to sharedBarInfo. These remaining bars
     # are at domain boundaries, so they are linked to a single element only
-    for bar in edge2Elem.keys():
+    for bar in list(edge2Elem.keys()):
 
         # Check if we should increase the array size.
         if nEdge == sharedBarInfo.shape[0]:
@@ -541,7 +541,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         TSurfGeometry.add_curve(newCurve)
 
     # Print log
-    print 'Number of extracted curves: ',len(selectedBarsConn)
+    print('Number of extracted curves: ',len(selectedBarsConn))
 
 #=================================================================
 
@@ -571,13 +571,13 @@ def merge_surface_sections(sectionDict, selectedSections):
     # Loop over the selected surfaces to gather connectivities
     for sectionName in selectedSections:
 
-        if sectionName not in sectionDict.keys():
+        if sectionName not in list(sectionDict.keys()):
 
             # User wants a section that is not defined. Print a warning message:
-            print 'ERROR: Surface',sectionName,'is not defined. Check surface names in your CGNS file.'
+            print('ERROR: Surface',sectionName,'is not defined. Check surface names in your CGNS file.')
             quit()
 
-        elif 'triaConnF' in sectionDict[sectionName].keys(): # Then we have a surface section
+        elif 'triaConnF' in list(sectionDict[sectionName].keys()): # Then we have a surface section
 
             # Assign connectivities
             if triaConnF is None:
@@ -592,7 +592,7 @@ def merge_surface_sections(sectionDict, selectedSections):
         else:
 
             # The user provided a name that is not a surface section
-            print sectionName,'is not a surface section.'
+            print(sectionName,'is not a surface section.')
 
     return triaConnF, quadsConnF
 
@@ -639,7 +639,7 @@ def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
 
     # Create bar element connectivity
     barsConn = np.zeros((numNodes-1, 2))
-    barsConn[:, 0] = range(numNodes-1)
+    barsConn[:, 0] = list(range(numNodes-1))
     barsConn[:, 1] = barsConn[:, 0] + 1
 
     # Add an extra element if the curve is periodic
@@ -671,7 +671,7 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
     # Merge all curves if user provided none
     if curvesToMerge == None:
-        curvesToMerge = curveDict.keys()
+        curvesToMerge = list(curveDict.keys())
 
     # Initialize index offset. The new curves cannot reference
     # nodes of the old ones.
@@ -724,7 +724,7 @@ def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='shar
 
     # Split all curves in the dictionary if the user provided None as input
     if curvesToBeSplit is None:
-        curvesToBeSplit = curveDict.keys()
+        curvesToBeSplit = list(curveDict.keys())
 
     '''
     # Set the default curvesToBeSplit; useful if criteria = 'sharpness'
@@ -733,7 +733,7 @@ def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='shar
     '''
 
     # Loop over every curve to check for splits
-    for curveName in curveDict.keys():
+    for curveName in list(curveDict.keys()):
 
         if curveName in curvesToBeSplit:
 
@@ -810,7 +810,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         # as the change in tangential direction) is beyond a given threshold.
 
         # Get the split angle from the options
-        if 'angle' in optionsDict.keys():
+        if 'angle' in list(optionsDict.keys()):
             sharpAngle = optionsDict['angle']*np.pi/180.0
         else:
             sharpAngle = 60*np.pi/180.0
@@ -864,7 +864,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
             isPeriodic = True
 
     if criteria == 'curve':
-        if 'splittingCurves' in optionsDict.keys():
+        if 'splittingCurves' in list(optionsDict.keys()):
             for guideCurve in optionsDict['splittingCurves']:
                 split_index = closest_node(guideCurve, coor)
 
@@ -874,7 +874,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
                 breakList.append(elemID[0])
 
     elif criteria == 'node':
-        if 'splittingNodes' in optionsDict.keys():
+        if 'splittingNodes' in list(optionsDict.keys()):
             for node in optionsDict['splittingNodes']:
                 breakList.append(node)
         else:
@@ -1045,7 +1045,7 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
     # Stop if user gives only one component
     if numGeometries < 2:
-        print 'ERROR: Cannot compute intersections with just one component'
+        print('ERROR: Cannot compute intersections with just one component')
         quit()
 
     # Initialize dictionary of intersections
@@ -1065,7 +1065,7 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
                 Intersections[curve.name] = curve
 
     # Print log
-    print 'Computed',len(Intersections),'intersection curves.'
+    print('Computed',len(Intersections),'intersection curves.')
 
     # Return all intersections
     return Intersections
@@ -1295,7 +1295,7 @@ def formatStringArray(fortranArray):
     for index in range(shape[0]):
 
         # format string
-        newString = ''.join(fortranArray[:,index]).strip().lower()
+        newString = ''.join(str(fortranArray[:,index],'utf-8')).strip().lower()
 
         # Add formatted string to the list
         pythonArray.append(newString)
@@ -1788,7 +1788,7 @@ def detect_feature(node1, node2, element1, element2,
 
     else:
 
-        print 'ERROR: Feature',feature,'cannot be detected as it is not an option.'
+        print('ERROR: Feature',feature,'cannot be detected as it is not an option.')
         quit()
 
 
@@ -1818,7 +1818,7 @@ def hypTanDist(Sp1,Sp2,N):
 
     # Check existence of result
     if (N-1)*sqrt(Sp1*Sp2) < 1:
-        print 'Hyperbolic distribution not possible'
+        print('Hyperbolic distribution not possible')
         #exit()
 
     # First find b
@@ -1877,7 +1877,7 @@ def tanDist(Sp1,Sp2,N):
     try:
         from scipy.optimize import minimize
     except:
-        print 'ERROR: Scipy not available'
+        print('ERROR: Scipy not available')
 
     # Convert number of nodes to number of cells
     N = N-1

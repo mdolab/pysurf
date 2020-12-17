@@ -1,20 +1,20 @@
 #! /usr/bin/env python
-
+from __future__ import print_function
 import sys
 
 modules = ['structCGNS_API']
 
 for name in modules:
-    print ''
-    print "Testing if module %s can be imported..." % name
+    print ('')
+    print ("Testing if module %s can be imported..." % name)
     import_cmd = "import %s" % name
     try:
-        exec import_cmd
-    except Exception, inst:
-        print "Error: %s." % inst
+        exec (import_cmd)
+    except (Exception, inst):
+        print ("Error: %s." % inst)
         sys.exit(1)
     # end try
 
-    print "OK! Module %s was successfully imported." % name
+    print ("OK! Module %s was successfully imported." % name)
 
-print ''
+print ('')

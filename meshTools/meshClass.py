@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 from mpi4py import MPI
 import os
@@ -142,22 +142,22 @@ class SurfaceMesh(object):
         '''
 
         # Blank space
-        print ''
+        print('')
 
         # Print mesh name
-        print 'Printing log of mesh:',self.name
+        print('Printing log of mesh:',self.name)
 
         # Print the number of blocks
-        print 'Number of blocks:',len(self.coor)
+        print('Number of blocks:',len(self.coor))
 
         # Print block dimensions
-        print 'Block dimensions:'
+        print('Block dimensions:')
         for block in self.coor:
             dims = self.coor[block].shape
-            print block,':',dims
+            print(block,':',dims)
 
         # Blank space
-        print ''
+        print('')
 
         # Return a blank string
         return ''

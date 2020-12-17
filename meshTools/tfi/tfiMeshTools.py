@@ -22,9 +22,9 @@ The TFI geometry used in this work is as follows:
 '''
 
 # GENERAL IMPORTS
-from __future__ import division
+
 import numpy as np
-import tfiLib
+from . import tfiLib
 
 def computeMesh(X, Y, Z, derivDict=None):
 
@@ -299,7 +299,7 @@ def computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v, blendingFactor=0.6):
             # This will use only BC information
             alpha = None
             beta = None
-            print 'Only BC information will be used to estimate derivatives.'
+            print('Only BC information will be used to estimate derivatives.')
 
         # Get weights with beta distribution
         weights = betaDist(nl,alpha,beta)
@@ -332,12 +332,12 @@ def computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v, blendingFactor=0.6):
     uvDir = np.cross(uDir,vDir)
     normProj = min(uvDir.dot(N0u[0,:3]), uvDir.dot(N0u[0,:3])) # Even though the two normals should be the same, we still check both
     if normProj < 0:
-        print 'TFI WARNING:'
-        print 'The patch normal is not consistent with the surface normal.'
-        print 'The code will continue but the mesh may step in the wrong direction'
-        print 'and extrapolate the patch boundaries.'
-        print 'The easiest way to fix this is by flipping u and v directions by'
-        print 'transposing the coordinates and normal matrices.'
+        print('TFI WARNING:')
+        print('The patch normal is not consistent with the surface normal.')
+        print('The code will continue but the mesh may step in the wrong direction')
+        print('and extrapolate the patch boundaries.')
+        print('The easiest way to fix this is by flipping u and v directions by')
+        print('transposing the coordinates and normal matrices.')
 
     # We need to multiply the marching distances to take into account
     # the normalization of u and v between 0 and 1, instead of 0 and nu or 0 and
@@ -529,8 +529,8 @@ def betaDist(n,alpha,beta):
 
     # Show warning for bad inputs
     if alpha < 1.0 or beta < 1.0:
-        print 'Warning: the beta distribution function in this code only'
-        print 'works properly for alpha >= 1.0 and beta >= 1.0.'
+        print('Warning: the beta distribution function in this code only')
+        print('works properly for alpha >= 1.0 and beta >= 1.0.')
 
     # If alpha=beta=1, all weights should be 1.0
     if alpha <= 1.0 and beta <= 1.0:

@@ -1,12 +1,12 @@
-from __future__ import division
+
 import os
 import numpy as np
 from mpi4py import MPI
 from ...baseClasses import Geometry, Curve
 from ....utilities import plot3d_interface, tecplot_interface
-import utilitiesAPI, curveSearchAPI
-import tsurf_tools as tst
-import adtAPI
+from . import utilitiesAPI, curveSearchAPI
+from . import tsurf_tools as tst
+from . import adtAPI
 import copy
 
 fortran_flag = True
@@ -58,7 +58,7 @@ class TSurfGeometry(Geometry):
                 selectedSections = optarg
 
             elif optarg in (None, []):
-                print 'Reading all CGNS sections in ADTGeometry assigment.'
+                print('Reading all CGNS sections in ADTGeometry assigment.')
 
             elif type(optarg) == str:
                 # Get filename
@@ -95,8 +95,8 @@ class TSurfGeometry(Geometry):
 
             # Check if the user provided no input file
             if filename == None:
-                print ' ERROR: Cannot initialize TSurf Geometry as no input file'
-                print ' was specified.'
+                print(' ERROR: Cannot initialize TSurf Geometry as no input file')
+                print(' was specified.')
                 quit()
 
             # Get file extension
@@ -109,7 +109,7 @@ class TSurfGeometry(Geometry):
 
                 # Select all section names in case the user provided none
                 if selectedSections is None:
-                    selectedSections = sectionDict.keys()
+                    selectedSections = list(sectionDict.keys())
 
                 # Now we call an auxiliary function to merge selected surface sections in a single
                 # connectivity array
@@ -210,11 +210,11 @@ class TSurfGeometry(Geometry):
 
                 # First check if we have the same number of new coordinates
                 if not self.coor.shape == coor.shape:
-                    print ''
-                    print 'WARNING: self.update in TSurfGeometry class'
-                    print '         The new set of coordinates does not have the'
-                    print '         same number of points as the original set.'
-                    print ''
+                    print('')
+                    print('WARNING: self.update in TSurfGeometry class')
+                    print('         The new set of coordinates does not have the')
+                    print('         same number of points as the original set.')
+                    print('')
 
                 # Update coordinates
                 self.coor = coor.copy()
@@ -229,7 +229,7 @@ class TSurfGeometry(Geometry):
 
             tst.translate(self, x, y, z)
             tst.update_surface(self)
-            for curve in self.curves.itervalues():
+            for curve in self.curves.values():
                 curve.translate(x, y, z)
 
     def scale(self, factor):
@@ -239,7 +239,7 @@ class TSurfGeometry(Geometry):
 
             tst.scale(self, factor)
             tst.update_surface(self)
-            for curve in self.curves.itervalues():
+            for curve in self.curves.values():
                 curve.scale(factor)
 
     def rotate(self, angle, axis, point=None):
@@ -249,7 +249,7 @@ class TSurfGeometry(Geometry):
 
             tst.rotate(self, angle, axis, point)
             tst.update_surface(self)
-            for curve in self.curves.itervalues():
+            for curve in self.curves.values():
                 curve.rotate(angle, axis, point)
 
     #===========================================================#
@@ -525,7 +525,7 @@ class TSurfGeometry(Geometry):
 
         # Use all curves if None is provided by the user
         if curveCandidates is None:
-            curveCandidates = self.curves.keys()
+            curveCandidates = list(self.curves.keys())
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
@@ -535,11 +535,11 @@ class TSurfGeometry(Geometry):
         elemIDs = np.zeros((numPts),dtype='int32')
 
         # Check if the candidates are actually defined
-        curveKeys = self.curves.keys()
+        curveKeys = list(self.curves.keys())
         for curve in curveCandidates:
             if curve not in curveKeys:
-                print 'ERROR: Curve',curve,'is not defined. Check the curve names in your CGNS file.'
-                print '       Also check if you included this curve name when selecting CGNS sections.'
+                print('ERROR: Curve',curve,'is not defined. Check the curve names in your CGNS file.')
+                print('       Also check if you included this curve name when selecting CGNS sections.')
                 quit()
 
         # Initialize list that will contain the names of the curves that got the best projections for
@@ -694,7 +694,7 @@ class TSurfGeometry(Geometry):
         Intersection = tst._compute_pair_intersection(self, otherGeometry, distTol)
 
         # Print the number of intersections
-        print 'Number of intersections between',self.name,'and',otherGeometry.name,'is',len(Intersection)
+        print('Number of intersections between',self.name,'and',otherGeometry.name,'is',len(Intersection))
 
         # Return the intersection curves
         return Intersection
@@ -714,10 +714,10 @@ class TSurfGeometry(Geometry):
            (otherGeometry.name == intCurve.extra_data['parentGeoms'][1]):
 
             # Print log
-            print ''
-            print 'Propagating forward AD seeds for intersection curve:'
-            print intCurve.name
-            print ''
+            print('')
+            print('Propagating forward AD seeds for intersection curve:')
+            print(intCurve.name)
+            print('')
 
         else:
 
@@ -750,10 +750,10 @@ class TSurfGeometry(Geometry):
            (otherGeometry.name == intCurve.extra_data['parentGeoms'][1]):
 
             # Print log
-            print ''
-            print 'Propagating reverse AD seeds for intersection curve:'
-            print intCurve.name
-            print ''
+            print('')
+            print('Propagating reverse AD seeds for intersection curve:')
+            print(intCurve.name)
+            print('')
 
         else:
 
@@ -820,7 +820,7 @@ class TSurfGeometry(Geometry):
 
         if curveCoord is not None:
             for curveName in self.curves:
-                if curveName in curveCoord.keys():
+                if curveName in list(curveCoord.keys()):
                     if curveCoord[curveName] is not None:
                         self.curves[curveName].set_forwardADSeeds(curveCoord[curveName])
 
@@ -856,7 +856,7 @@ class TSurfGeometry(Geometry):
 
         if curveCoorb is not None:
             for curveName in self.curves:
-                if curveName in curveCoorb.keys():
+                if curveName in list(curveCoorb.keys()):
                     if curveCoorb[curveName] is not None:
                         self.curves[curveName].set_reverseADSeeds(curveCoorb[curveName])
 
@@ -1047,9 +1047,9 @@ class TSurfCurve(Curve):
                     barsConn = np.array(currArg, dtype=np.int32)
 
                 else:
-                    print ' ERROR: Could not recognize array inputs when initializing TSurfCurve.'
-                    print ' Please provide an [n x 3] array with nodal coordinates and an'
-                    print ' [m x 2] array for bar connectivities.'
+                    print(' ERROR: Could not recognize array inputs when initializing TSurfCurve.')
+                    print(' Please provide an [n x 3] array with nodal coordinates and an')
+                    print(' [m x 2] array for bar connectivities.')
                     quit()
 
             elif type(currArg) == float:
@@ -1057,7 +1057,7 @@ class TSurfCurve(Curve):
                 mergeTol = currArg
 
             else:
-                print ' ERROR: Could not recognize inputs when initializing TSurfCurve.'
+                print(' ERROR: Could not recognize inputs when initializing TSurfCurve.')
                 quit()
 
         # Remove unused points (This will update and barsConn)
@@ -1093,9 +1093,9 @@ class TSurfCurve(Curve):
             # Just use the original connectivity
             sortedConn = barsConn
             # Print message
-            print ''
-            print 'Curve','"'+name+'"','could not be sorted. It might be composed by disconnected curves.'
-            print ''
+            print('')
+            print('Curve','"'+name+'"','could not be sorted. It might be composed by disconnected curves.')
+            print('')
 
         # Assing coor and barsConn. Remember to crop coor to get unique nodes only
         self.coor = coor[:nUniqueNodes, :]
@@ -1235,9 +1235,9 @@ class TSurfCurve(Curve):
         nPoints = xyz.shape[0]
 
         if self.coor.shape != self.coord.shape:
-            print 'ERROR: Derivative seeds should have the same dimension of the original'
-            print 'variable. The number of derivatives for the bar element nodes does not match'
-            print 'with the number of nodes.'
+            print('ERROR: Derivative seeds should have the same dimension of the original')
+            print('variable. The number of derivatives for the bar element nodes does not match')
+            print('with the number of nodes.')
 
         # Call fortran code
         curveSearchAPI.curvesearchapi.mindistancecurve_d(xyz.T,
@@ -1286,9 +1286,9 @@ class TSurfCurve(Curve):
         nPoints = xyz.shape[0]
 
         if xyzProj.shape != xyzProjb.shape:
-            print 'ERROR: Derivative seeds should have the same dimension of the original'
-            print 'variable. The number of derivatives for the projected points does not match'
-            print 'with the number of points.'
+            print('ERROR: Derivative seeds should have the same dimension of the original')
+            print('variable. The number of derivatives for the projected points does not match')
+            print('with the number of points.')
 
         # Call fortran code (This will accumulate seeds in xyzb and self.coorb)
         xyzb_new, coorb_new = curveSearchAPI.curvesearchapi.mindistancecurve_b(xyz.T,
@@ -1399,8 +1399,8 @@ class TSurfCurve(Curve):
                 if prevNodeID != currNodeID:
 
                     # Print warning
-                    print 'WARNING: Could not remesh curve because it has unordered FE data.'
-                    print '         Call FEsort first.'
+                    print('WARNING: Could not remesh curve because it has unordered FE data.')
+                    print('         Call FEsort first.')
                     return
 
             # COMPUTE ARC-LENGTH
@@ -1509,8 +1509,8 @@ class TSurfCurve(Curve):
             # Generate new connectivity (the nodes are already in order so we just
             # need to assign an ordered set to barsConn).
             barsConn = np.zeros((nNewNodes-1, 2), dtype='int32')
-            barsConn[:, 0] = range(0,nNewNodes-1)
-            barsConn[:, 1] = range(1,nNewNodes)
+            barsConn[:, 0] = list(range(0,nNewNodes-1))
+            barsConn[:, 1] = list(range(1,nNewNodes))
 
             newBarsConn = barsConn
 
@@ -1599,8 +1599,8 @@ class TSurfCurve(Curve):
         newCoorf = newCoorf.T
 
         newCoord_FD = (newCoorf - newCoor)/stepSize
-        print 'FD test @ remesh_d'
-        print np.max(np.abs(newCoord_FD - newCoord))
+        print('FD test @ remesh_d')
+        print(np.max(np.abs(newCoord_FD - newCoord)))
 
 
         # Adjust seeds if curve is periodic
@@ -1710,7 +1710,7 @@ class TSurfCurve(Curve):
         '''
 
         # Check if the given curve is actually a child
-        if childCurve.name in self.extra_data['splitCurves'].keys():
+        if childCurve.name in list(self.extra_data['splitCurves'].keys()):
 
             # The usedPtsMask of the child curve will help us inherit derivative seeds from
             # the parent curve
@@ -1735,7 +1735,7 @@ class TSurfCurve(Curve):
         '''
 
         # Check if the given curve is actually a child
-        if childCurve.name in self.extra_data['splitCurves'].keys():
+        if childCurve.name in list(self.extra_data['splitCurves'].keys()):
 
             # The usedPtsMask of the child curve will help us inherit derivative seeds from
             # the parent curve
@@ -1762,12 +1762,12 @@ class TSurfCurve(Curve):
         '''
 
         # Add the current curve to the dictionary
-        if self.name not in curveDict.keys():
+        if self.name not in list(curveDict.keys()):
             curveDict[self.name] = self
 
         # Merge all curves if user provided none
         if curvesToMerge == None:
-            curvesToMerge = curveDict.keys()
+            curvesToMerge = list(curveDict.keys())
 
         # Check if the current curve is in the curvesToMerge list
         if self.name not in curvesToMerge:
@@ -1926,11 +1926,11 @@ class TSurfCurve(Curve):
         if False:#numCurves == 1:
             # The sorting works just fine and it found a single curve!
             # There is no need to condense nodes
-            print ''
-            print 'tsurf_component:condense_nodes'
-            print 'Curve is already composed by a single FE set.'
-            print 'There is no need to condense curves.'
-            print ''
+            print('')
+            print('tsurf_component:condense_nodes')
+            print('Curve is already composed by a single FE set.')
+            print('There is no need to condense curves.')
+            print('')
         else:
 
             # Initialize
@@ -2050,15 +2050,15 @@ class TSurfCurve(Curve):
             if prevNodeID != currNodeID:
 
                 # Print warning
-                print 'WARNING: Could not shift curve because it has unordered FE data.'
-                print '         Call FEsort first.'
+                print('WARNING: Could not shift curve because it has unordered FE data.')
+                print('         Call FEsort first.')
                 return
 
         # The first and last nodes should be the same to have a periodic curve.
         if barsConn[0,0] != barsConn[-1, 1]:
 
             # Print warning
-            print 'WARNING: Could not shift curve because it is not periodic.'
+            print('WARNING: Could not shift curve because it is not periodic.')
             return
 
         # REORDERING

@@ -4,10 +4,10 @@ This function defines the child mesh object for TFI, and also other auxiliary fu
 Ney Secco 2016-08
 '''
 
-from __future__ import division
+
 import numpy as np
 from mpi4py import MPI
-import tfiMeshTools
+from . import tfiMeshTools
 from pysurf import plot3d_interface
 
 # OPTIONS
@@ -58,10 +58,10 @@ class TFIMesh(object):
             badcurves = True
 
         if badcurves:
-            print 'TFI Mesh ERROR:'
-            print 'curves are disconnected or are not following the TFIMesh convention.'
-            print 'Check the documentation in the tfi_mesh.py file, or use the function'
-            print 'linkcurves (defined in the same file) to get appropriate curves.'
+            print('TFI Mesh ERROR:')
+            print('curves are disconnected or are not following the TFIMesh convention.')
+            print('Check the documentation in the tfi_mesh.py file, or use the function')
+            print('linkcurves (defined in the same file) to get appropriate curves.')
 
         # INITIALIZE CLASS
 
@@ -132,11 +132,11 @@ class TFIMesh(object):
         nu = len(Xleft)
         nv = len(Xbottom)
 
-        print 'nu'
-        print nu
-        print 'nv'
-        print nv
-        print Xright.shape
+        print('nu')
+        print(nu)
+        print('nv')
+        print(nv)
+        print(Xright.shape)
 
         # Initialize matrices
         X = np.zeros((nu, nv))
@@ -354,8 +354,8 @@ def link_curves(curveList):
 
     # Stop if we did not find any curve
     if bottomCurve is None:
-        print 'TFI Mesh ERROR:'
-        print 'curves are not connected.'
+        print('TFI Mesh ERROR:')
+        print('curves are not connected.')
         quit()
 
     # Now we find which curve is connected to corner3
@@ -379,8 +379,8 @@ def link_curves(curveList):
 
     # Stop if we did not find any curve
     if rightCurve is None:
-        print 'TFI Mesh ERROR:'
-        print 'curves are not connected.'
+        print('TFI Mesh ERROR:')
+        print('curves are not connected.')
         quit()
 
     # The last curve should be connected to corner 4
@@ -395,8 +395,8 @@ def link_curves(curveList):
     elif max(np.linalg.norm(corner4 - endPt), np.linalg.norm(corner1 - startPt)) < tol:
         topCurve = allcurves.pop(0)[::-1]
     else:
-        print 'TFI Mesh ERROR:'
-        print 'The four given curves do not define a closed quad.'
+        print('TFI Mesh ERROR:')
+        print('The four given curves do not define a closed quad.')
         quit()
 
     return leftCurve, bottomCurve, rightCurve, topCurve

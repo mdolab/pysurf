@@ -4,7 +4,7 @@
 # neysecco@umich.edu
 # Jan 2016
 
-from __future__ import division
+
 import numpy as np
 
 # DEFINING CLASSES
@@ -127,7 +127,7 @@ class Curve():
 
     def export_tecplot(self, fileName='curve'):
 
-        import tecplot_interface as ti
+        from . import tecplot_interface as ti
 
         ti.writeTecplotFEdata(self.coor, self.barsConn, self.name, fileName)
 
@@ -165,7 +165,7 @@ def read_plot3d(fileName,dimension):
     num_blocks = int(data_list[0])
 
     # Read dimensions of each block. Each entry will have I,J,K sizes for each block
-    shape_block = [map(int, data_list[dimension*(block_id)+1:dimension*(block_id+1)+1]) for block_id in range(num_blocks)]
+    shape_block = [list(map(int, data_list[dimension*(block_id)+1:dimension*(block_id+1)+1])) for block_id in range(num_blocks)]
 
     # Define index position from where we will start reading coordinates
     # NOTE: I define it as a list so I can change it inside the read_coord function
@@ -308,7 +308,7 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
     '''
 
     # Print log
-    print 'Merging Plot3D files'
+    print('Merging Plot3D files')
 
     # Initialize list of grids and number of blocks
     Grids = []
@@ -323,9 +323,9 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
         Grids.append(read_plot3d(files[ii],3))
 
         # Print log
-        print 'Block dimensions from '+files[ii]
+        print('Block dimensions from '+files[ii])
         for jj in range(Grids[ii].num_blocks):
-            print Grids[ii].blocks[jj].shape
+            print(Grids[ii].blocks[jj].shape)
 
     # Flip coordinates along each dimension if necessary
     for problem in zip(Grids,flips):
@@ -386,7 +386,7 @@ def read_tecplot_curves(fileName):
     '''
 
     # IMPORTS
-    import tecplot_interface as ti
+    from . import tecplot_interface as ti
 
     # Read information from file
     sectionName, sectionData, sectionConn = ti.readTecplotFEdata(fileName)

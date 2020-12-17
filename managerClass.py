@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 from mpi4py import MPI
 import pysurf
@@ -90,7 +90,7 @@ class Manager(object):
         '''
 
         # Check if we already have a curve of same name
-        if geom.name in self.geoms.keys():
+        if geom.name in list(self.geoms.keys()):
             raise NameError('Trying to add geometry of same name.')
 
         self.geoms[geom.name] = geom
@@ -113,7 +113,7 @@ class Manager(object):
         '''
 
         # Check if we already have a curve of same name
-        if curve.name in self.intCurves.keys():
+        if curve.name in list(self.intCurves.keys()):
             raise NameError('Trying to add curves of same name.')
 
         self.intCurves[curve.name] = curve
@@ -348,10 +348,10 @@ class Manager(object):
         # Only the root proc will work here
         if self.myID == 0:
 
-            print ''
-            print '================================================='
-            print 'Starting forward AD pass'
-            print ''
+            print('')
+            print('=================================================')
+            print('Starting forward AD pass')
+            print('')
 
             # Get the number of tasks
             numTasks = int(len(self.tasks))
@@ -364,11 +364,11 @@ class Manager(object):
                 taskName = task[0]
                 taskArg = task[1:]
 
-                print ''
-                print 'forwardAD task'
-                print taskName
-                print taskArg
-                print ''
+                print('')
+                print('forwardAD task')
+                print(taskName)
+                print(taskArg)
+                print('')
 
                 # Run the corresponding AD code
                 if taskName == 'intersect':
@@ -416,10 +416,10 @@ class Manager(object):
                     # Run the AD code
                     self._march_intCurve_surfaceMesh_d(curveName)
 
-            print ''
-            print 'Finished forward AD pass'
-            print '================================================='
-            print ''
+            print('')
+            print('Finished forward AD pass')
+            print('=================================================')
+            print('')
 
     def reverseAD(self):
         '''
@@ -429,27 +429,27 @@ class Manager(object):
         # Only the root proc will work here
         if self.myID == 0:
 
-            print ''
-            print '================================================='
-            print 'Starting reverse AD pass'
-            print ''
+            print('')
+            print('=================================================')
+            print('Starting reverse AD pass')
+            print('')
 
             # Get the number of tasks
             numTasks = int(len(self.tasks))
 
             # Execute reverse AD for every task (in reverse order)
-            for taskID in reversed(range(numTasks)):
+            for taskID in reversed(list(range(numTasks))):
 
                 # Get the name and the arguments of the task
                 task = self.tasks[taskID]
                 taskName = task[0]
                 taskArg = task[1:]
 
-                print ''
-                print 'reverseAD task'
-                print taskName
-                print taskArg
-                print ''
+                print('')
+                print('reverseAD task')
+                print(taskName)
+                print(taskArg)
+                print('')
 
                 # Run the corresponding AD code
                 if taskName == 'intersect':
@@ -497,10 +497,10 @@ class Manager(object):
                     # Run the AD code
                     self._march_intCurve_surfaceMesh_b(curveName)
 
-            print ''
-            print 'Finished reverse AD pass'
-            print '================================================='
-            print ''
+            print('')
+            print('Finished reverse AD pass')
+            print('=================================================')
+            print('')
 
     def clean_reverseADSeeds(self):
 
@@ -508,15 +508,15 @@ class Manager(object):
         This function will clean reverse AD seeds of all objects associated with this manager.
         '''
 
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
             geom.clean_reverseADSeeds()
 
-        for intCurve in self.intCurves.itervalues():
+        for intCurve in self.intCurves.values():
             intCurve.clean_reverseADSeeds()
 
         if self.myID == 0:
 
-            for meshGen in self.meshGenerators.itervalues():
+            for meshGen in self.meshGenerators.values():
                 meshGen.meshObj.clean_reverseADSeeds()
 
     #=====================================================
@@ -545,7 +545,7 @@ class Manager(object):
 
             # Generate list of geometry names if user provided None
             if geomList == None:
-                geomList = self.geoms.keys()
+                geomList = list(self.geoms.keys())
 
             # Make list of geometry objects
             geomObjList = []
@@ -563,7 +563,7 @@ class Manager(object):
 
             # Stop if user gives only one component
             if numGeometries < 2:
-                print 'ERROR: Cannot compute intersections with just one component'
+                print('ERROR: Cannot compute intersections with just one component')
                 quit()
 
             # Initialize number of curves computed so far
@@ -599,7 +599,7 @@ class Manager(object):
                         self.add_curve(curve)
 
             # Print log
-            print 'Computed',numCurves,'intersection curves.'
+            print('Computed',numCurves,'intersection curves.')
 
             # Save the current task and its argument
             self.tasks.append(['intersect', distTol, intCurveNames])
@@ -667,7 +667,7 @@ class Manager(object):
         # Only the root proc will work here
         if self.myID == 0:
 
-            if curveName in self.intCurves.keys():
+            if curveName in list(self.intCurves.keys()):
 
                 newCurve = self.intCurves[curveName].remesh(**optionsDict)
 
@@ -714,9 +714,9 @@ class Manager(object):
         # Set flag to identify errors
         foundCurves = False
 
-        if curveName in self.intCurves.keys():
+        if curveName in list(self.intCurves.keys()):
 
-            if newCurveName in self.intCurves.keys():
+            if newCurveName in list(self.intCurves.keys()):
 
                 # Set flag to identify errors
                 foundCurves = True
@@ -746,9 +746,9 @@ class Manager(object):
         # Set flag to identify errors
         foundCurves = False
 
-        if curveName in self.intCurves.keys():
+        if curveName in list(self.intCurves.keys()):
 
-            if newCurveName in self.intCurves.keys():
+            if newCurveName in list(self.intCurves.keys()):
 
                 # Set flag to identify errors
                 foundCurves = True
@@ -780,13 +780,13 @@ class Manager(object):
         # Only the root proc will work here
         if self.myID == 0:
 
-            if curveName in self.intCurves.keys():
+            if curveName in list(self.intCurves.keys()):
 
                 # Call split function
                 splitCurvesDict = self.intCurves[curveName].split(optionsDict, criteria)
 
                 # Add new curves to the manager's dictionary
-                for curve in splitCurvesDict.itervalues():
+                for curve in splitCurvesDict.values():
 
                     # Assign parents if necessary
                     if inheritParentGeoms:
@@ -798,13 +798,13 @@ class Manager(object):
                     self.add_curve(curve)
 
                 # Save this task
-                self.tasks.append(['split_intCurve',curveName,splitCurvesDict.keys()])
+                self.tasks.append(['split_intCurve',curveName,list(splitCurvesDict.keys())])
 
             else:
                 raise NameError('Cannot split curve '+curveName+'. Curve not defined.')
 
             # Return the names of the new curves
-            return splitCurvesDict.keys()
+            return list(splitCurvesDict.keys())
 
     def _split_intCurve_d(self, curveName, childrenNames):
         '''
@@ -812,7 +812,7 @@ class Manager(object):
         '''
 
         # Check if the parent curve is defined
-        if curveName not in self.intCurves.keys():
+        if curveName not in list(self.intCurves.keys()):
             raise NameError('Cannot use split_intCurve_d with curve '+curveName+'. Curve not defined.')
         else:
             parentCurve = self.intCurves[curveName]
@@ -832,7 +832,7 @@ class Manager(object):
         '''
 
         # Check if the parent curve is defined
-        if curveName not in self.intCurves.keys():
+        if curveName not in list(self.intCurves.keys()):
             raise NameError('Cannot use split_intCurve_d with curve '+curveName+'. Curve not defined.')
         else:
             parentCurve = self.intCurves[curveName]
@@ -1047,8 +1047,8 @@ class Manager(object):
         if self.myID == 0:
 
             # Print log
-            print ''
-            print 'Exporting surface meshes'
+            print('')
+            print('Exporting surface meshes')
 
             # Add a slash if the directory does not have it
             if directory[-1] != '/':
@@ -1083,7 +1083,7 @@ class Manager(object):
             familyList = {}
 
             # Now we will export the collar meshes
-            for curve in self.intCurves.itervalues():
+            for curve in self.intCurves.values():
 
                 # Verify if this curve was used to generate collar meshes
                 if curve.extra_data['childMeshes'] is not None:
@@ -1111,11 +1111,11 @@ class Manager(object):
                     familyList[curve.name] = {(ii+1):name for (ii,name) in enumerate(curve.extra_data['childMeshes'])}
 
                     # Print log
-                    print '    Exported collar mesh for',curve.name
+                    print('    Exported collar mesh for',curve.name)
 
             # Print log
-            print 'Exported all meshes!'
-            print ''
+            print('Exported all meshes!')
+            print('')
 
         else:
 
@@ -1147,13 +1147,13 @@ class Manager(object):
         zoneNames = []
 
         # Loop over all primary meshes to gather their names
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Append name to the list
             zoneNames.append(geom.name)
 
         # Loop over all collar meshes to gather their coordinates
-        for curve in self.intCurves.itervalues():
+        for curve in self.intCurves.values():
 
             # Check if the current object has an associated mesh
             if curve.extra_data['childMeshes'] is not None:
@@ -1210,7 +1210,7 @@ class Manager(object):
         # Loop over all primary meshes to gather their surface mesh coordinates.
         # Those coordinates are embedded in the FFDs and assign their to the
         # full solver points vector.
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if we assigned manipulators to this component
             if geom.name in self.solverPointIDs[ptSetName]:
@@ -1275,7 +1275,7 @@ class Manager(object):
         # Loop over all primary meshes to gather their surface mesh coordinates.
         # Those coordinates are embedded in the FFDs and assign their to the
         # full solver points vector.
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if we assigned manipulators to this component
             if geom.name in self.solverPointIDs[ptSetName]:
@@ -1335,7 +1335,7 @@ class Manager(object):
         # Loop over all primary meshes to gather their surface mesh coordinates.
         # Those coordinates are embedded in the FFDs and assign their to the
         # full solver points vector.
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if we assigned manipulators to this component
             if geom.name in self.solverPointIDs[ptSetName]:
@@ -1426,13 +1426,13 @@ class Manager(object):
         '''
 
         # Check if we already have this point set
-        if ptSetName in self.points.keys():
+        if ptSetName in list(self.points.keys()):
             raise NameError('The point set',ptSetName,'is already defined under this manager.')
 
         # Print log
         if self.myID == 0:
-            print ''
-            print 'Adding point set',ptSetName,'to the manager.'
+            print('')
+            print('Adding point set',ptSetName,'to the manager.')
 
         # Make sure inputs are integers
         conn = np.array(conn, dtype=int)
@@ -1481,7 +1481,7 @@ class Manager(object):
 
         # Now we loop over each main component to find the solver points that correspond to each
         # one of them
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has a manipulator
             if geom.manipulator is not None:
@@ -1497,7 +1497,7 @@ class Manager(object):
 
                 # Print log
                 if self.myID == 0:
-                    print ' Assigned points from solver family "'+geom.name+'" to manipulator'
+                    print(' Assigned points from solver family "'+geom.name+'" to manipulator')
 
         # Now we need to find the collar mesh nodes
         # The family name used by the wall BC of the collar meshes should be the
@@ -1541,15 +1541,15 @@ class Manager(object):
 
             # Print log
             if self.myID == 0:
-                print ' Assigned points from solver family "'+meshName
+                print(' Assigned points from solver family "'+meshName)
 
         # Flag this point set as up to date
         self.updated[ptSetName] = True
 
         # Print log
         if self.myID == 0:
-            print 'Done'
-            print ''
+            print('Done')
+            print('')
 
     def getValues(self):
 
@@ -1568,7 +1568,7 @@ class Manager(object):
         dvDict = {}
 
         # Loop over the primary geometries to find design variables
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has an associated geometry manipulator
             if geom.manipulator is not None:
@@ -1595,7 +1595,7 @@ class Manager(object):
         names = []
 
         # Loop over the primary geometries to find design variables
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has an associated geometry manipulator
             if geom.manipulator is not None:
@@ -1630,11 +1630,11 @@ class Manager(object):
         if self.myID == 0:
 
             # Print log
-            print ''
-            print 'Setting new values for design variables to the manager.'
+            print('')
+            print('Setting new values for design variables to the manager.')
 
         # Loop over the primary geometries to find design variables
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has an associated geometry manipulator
             if geom.manipulator is not None:
@@ -1653,8 +1653,8 @@ class Manager(object):
 
         # Print log
         if self.myID == 0:
-            print 'Done'
-            print ''
+            print('Done')
+            print('')
 
     def getNDV(self):
 
@@ -1671,7 +1671,7 @@ class Manager(object):
         NDV = 0
 
         # Loop over the primary geometries to find design variables
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has an associated geometry manipulator
             if geom.manipulator is not None:
@@ -1714,11 +1714,11 @@ class Manager(object):
         if self.myID == 0:
 
             # Print log
-            print ''
-            print 'Updating manager manipulators for point set:',ptSetName
+            print('')
+            print('Updating manager manipulators for point set:',ptSetName)
 
         # Loop over all primary geometry objects to update their manipulators
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
 
             # Check if the geometry object has an associated geometry manipulator
             if geom.manipulator is not None:
@@ -1732,8 +1732,8 @@ class Manager(object):
 
         # Print log
         if self.myID == 0:
-            print 'Done'
-            print ''
+            print('Done')
+            print('')
 
         # Set default value for the output
         pts = None
@@ -1781,7 +1781,7 @@ class Manager(object):
         # design variables to all triangulated surface nodes, discrete curves, and primary structured
         # surface meshes associated with the geometry manipulators.
         # Note that all this derivative passing will be done directly to their corresponding objects.
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
             if geom.manipulator is not None:
                 geom.manipulator_forwardAD(xDvDot, ptSetName)
 
@@ -1856,7 +1856,7 @@ class Manager(object):
         # Note that all this derivative passing will be done directly to their corresponding objects.
         # Here we give None as communicator otherwise pyGeo would reduce the derivative seeds and then
         # we would do another allreduce here, yielding wrong results.
-        for geom in self.geoms.itervalues():
+        for geom in self.geoms.values():
             if geom.manipulator is not None:
                 geom.manipulator_reverseAD(xDvBar, ptSetName, comm=None, clean=clean)
 
@@ -1898,18 +1898,18 @@ class Manager(object):
         # The root processor will do the main job
         if self.myID == 0:
 
-            print '#======================================'
-            print 'Adding manipulator DVs to pyOpt'
+            print('#======================================')
+            print('Adding manipulator DVs to pyOpt')
 
             # Call the manipulators of each geometry object
-            for geom in self.geoms.itervalues():
+            for geom in self.geoms.values():
                 if geom.manipulator is not None:
                     geom.manipulator.addVariablesPyOpt(optProb, globalVars, localVars,
                                                        sectionlocalVars, ignoreVars, freezeVars)
-                    print 'Added variables from',geom.name
+                    print('Added variables from',geom.name)
 
-            print 'Done'
-            print '#======================================'
+            print('Done')
+            print('#======================================')
 
 
     #=====================================================
@@ -2079,8 +2079,8 @@ class Manager(object):
             indexManagerPts = np.hstack([indexManagerPts, indexManagerPtsCurr])
 
         # Convert arrays to integers
-        indexSolverPts = map(int, indexSolverPts)
-        indexManagerPts = map(int, indexManagerPts)
+        indexSolverPts = list(map(int, indexSolverPts))
+        indexManagerPts = list(map(int, indexManagerPts))
 
         #---------------------------
         # Here is another very important detail.
