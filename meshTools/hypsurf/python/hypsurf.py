@@ -13,12 +13,13 @@ from . import hypsurfAPI
 import pysurf
 import copy
 
-'''
+"""
 TO DO
 
 - set up scaling factor based on distance
 - blend the angle-based dissipation coefficient
-'''
+"""
+
 
 class HypSurfMesh(object):
     """
@@ -27,9 +28,9 @@ class HypSurfMesh(object):
 
     """
 
-    def __init__(self, curve, ref_geom, options={}, meshName='mesh'):
+    def __init__(self, curve, ref_geom, options={}, meshName="mesh"):
 
-        '''
+        """
         This initializes a hyperbolic surface mesh
 
         INPUTS
@@ -39,7 +40,7 @@ class HypSurfMesh(object):
         ref_geom: This is a pysurf geometry object. It's surface will be used
         as reference for the mesh growth. The curves contained in this object could
         be used as source curves, guide curve, or boundary conditions
-        '''
+        """
 
         # Store the mesh name
         self.name = meshName
@@ -63,42 +64,44 @@ class HypSurfMesh(object):
 
         # Compute the closest node for each guideCurve and store the index
         # corresponding to that point on the intersection curve in guideIndices
-        if self.optionsDict['guideCurves']:
-            for curve in self.optionsDict['guideCurves']:
+        if self.optionsDict["guideCurves"]:
+            for curve in self.optionsDict["guideCurves"]:
                 guideCurve = ref_geom.curves[curve]
                 guideIndices.append(closest_node(guideCurve, self.curve))
 
         # Sort the guideIndices so they are in increasing order
         newGuideIndices = np.array(sorted(guideIndices))
-        origGuideCurves = copy.copy(self.optionsDict['guideCurves'])
+        origGuideCurves = copy.copy(self.optionsDict["guideCurves"])
 
         # Sort the guideCurves list so they match the guideIndices ordering
         for i, index in enumerate(newGuideIndices):
-            j = np.where(index==guideIndices)[0][0]
-            self.optionsDict['guideCurves'][i] = origGuideCurves[j]
+            j = np.where(index == guideIndices)[0][0]
+            self.optionsDict["guideCurves"][i] = origGuideCurves[j]
         self.guideIndices = newGuideIndices
 
         if 0 in self.guideIndices:
-            raise NameError('the guide curve is near the first node of the seed curve. Use it as a curve boundary condition instead.')
+            raise NameError(
+                "the guide curve is near the first node of the seed curve. Use it as a curve boundary condition instead."
+            )
 
         # Store the reference geometry object
         self.ref_geom = ref_geom
 
         # Store curve names if we have curve BCs
         # we assume that curve BCs will be defined as: 'curve:<curve_name>'
-        if self.optionsDict['bc1'].lower().startswith('curve'):
-            self.ref_curve1 = self.optionsDict['bc1'][6:]
+        if self.optionsDict["bc1"].lower().startswith("curve"):
+            self.ref_curve1 = self.optionsDict["bc1"][6:]
         else:
             self.ref_curve1 = []
 
-        if self.optionsDict['bc2'].lower().startswith('curve'):
-            self.ref_curve2 = self.optionsDict['bc2'][6:]
+        if self.optionsDict["bc2"].lower().startswith("curve"):
+            self.ref_curve2 = self.optionsDict["bc2"][6:]
         else:
             self.ref_curve2 = []
 
         # Get the number of nodes and layers
         self.numNodes = rStart.shape[0]
-        self.numLayers = self.optionsDict['numLayers']
+        self.numLayers = self.optionsDict["numLayers"]
 
         # Initialize attribute to hold new mesh object
         self.meshObj = None
@@ -114,7 +117,7 @@ class HypSurfMesh(object):
         self.curveProjDictGuide = [[] for s in range(len(guideIndices))]
 
     def createMesh(self, fortran_flag=True):
-        '''
+        """
         This is the main function that generates the surface mesh from an initial curve
 
         INPUTS
@@ -140,33 +143,33 @@ class HypSurfMesh(object):
 
         surf: surface object -> surface object that should contain inverse_evaluate,
               get_points, and get_normals methods
-        '''
+        """
 
         from time import time
+
         st = time()
 
-
         # Make sure variables have the correct type
-        dStart = float(self.optionsDict['dStart'])
-        cMax = float(self.optionsDict['cMax'])
-        ratioGuess = float(self.optionsDict['ratioGuess'])
-        theta = float(self.optionsDict['theta'])
-        bc1 = self.optionsDict['bc1']
-        bc2 = self.optionsDict['bc2']
-        sigmaSplay = float(self.optionsDict['sigmaSplay'])
-        numLayers = int(self.optionsDict['numLayers'])
-        epsE0 = float(self.optionsDict['epsE0'])
-        theta = float(self.optionsDict['theta'])
-        alphaP0 = float(self.optionsDict['alphaP0'])
-        numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
-        numAreaPasses = int(self.optionsDict['numAreaPasses'])
-        nuArea = float(self.optionsDict['nuArea'])
-        nuGuideBlend = float(self.optionsDict['nuGuideBlend'])
+        dStart = float(self.optionsDict["dStart"])
+        cMax = float(self.optionsDict["cMax"])
+        ratioGuess = float(self.optionsDict["ratioGuess"])
+        theta = float(self.optionsDict["theta"])
+        bc1 = self.optionsDict["bc1"]
+        bc2 = self.optionsDict["bc2"]
+        sigmaSplay = float(self.optionsDict["sigmaSplay"])
+        numLayers = int(self.optionsDict["numLayers"])
+        epsE0 = float(self.optionsDict["epsE0"])
+        theta = float(self.optionsDict["theta"])
+        alphaP0 = float(self.optionsDict["alphaP0"])
+        numSmoothingPasses = int(self.optionsDict["numSmoothingPasses"])
+        numAreaPasses = int(self.optionsDict["numAreaPasses"])
+        nuArea = float(self.optionsDict["nuArea"])
+        nuGuideBlend = float(self.optionsDict["nuGuideBlend"])
 
         # Get coordinates of the initial curve (this is a flattened array)
         rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
-        rStart = np.array(rStart,order='F')
+        rStart = np.array(rStart, order="F")
 
         # Clean the projection dictionaries
         self.projDict = []
@@ -180,52 +183,94 @@ class HypSurfMesh(object):
             # fail is a flag set to true if the marching algo failed
             # ratios is the ratios of quality for the mesh
 
-            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1.lower(), bc2.lower(), epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices+1, nuGuideBlend, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
+            R, fail, ratios, majorIndices = hypsurfAPI.hypsurfapi.march(
+                self.projection,
+                rStart,
+                dStart,
+                theta,
+                sigmaSplay,
+                bc1.lower(),
+                bc2.lower(),
+                epsE0,
+                alphaP0,
+                self.marchParameter,
+                nuArea,
+                ratioGuess,
+                cMax,
+                self.extension_given,
+                self.guideIndices + 1,
+                nuGuideBlend,
+                self.optionsDict["remesh"],
+                numSmoothingPasses,
+                numAreaPasses,
+                numLayers,
+            )
 
             # Obtain the pseudomesh, or subiterations mesh from the three stages of marching.
             # These are used in the adjoint formulation.
-            self.R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march,order='F')
-            self.R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed,order='F')
-            self.R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected,order='F')
-            self.R_remeshed = np.array(hypsurfAPI.hypsurfapi.r_remeshed,order='F')
-            self.R_final = np.array(hypsurfAPI.hypsurfapi.r_final,order='F')
-            self.S0_hist = np.array(hypsurfAPI.hypsurfapi.s0_hist,order='F')
-            self.Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist,order='F')
-            self.N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected,order='F')
-            self.N_final = np.array(hypsurfAPI.hypsurfapi.n_final,order='F')
+            self.R_initial_march = np.array(hypsurfAPI.hypsurfapi.r_initial_march, order="F")
+            self.R_smoothed = np.array(hypsurfAPI.hypsurfapi.r_smoothed, order="F")
+            self.R_projected = np.array(hypsurfAPI.hypsurfapi.r_projected, order="F")
+            self.R_remeshed = np.array(hypsurfAPI.hypsurfapi.r_remeshed, order="F")
+            self.R_final = np.array(hypsurfAPI.hypsurfapi.r_final, order="F")
+            self.S0_hist = np.array(hypsurfAPI.hypsurfapi.s0_hist, order="F")
+            self.Sm1_hist = np.array(hypsurfAPI.hypsurfapi.sm1_hist, order="F")
+            self.N_projected = np.array(hypsurfAPI.hypsurfapi.n_projected, order="F")
+            self.N_final = np.array(hypsurfAPI.hypsurfapi.n_final, order="F")
 
             # Release memory for next runs
             hypsurfAPI.hypsurfapi.releasememory()
 
-        else: # We will use the Python version of hypsurf
+        else:  # We will use the Python version of hypsurf
 
             # Run the Python marching code
             from . import hypsurf_python
-            R, fail, ratios = hypsurf_python.march(self.projection, rStart, dStart, theta, sigmaSplay, bc1, bc2, epsE0, alphaP0, self.marchParameter, nuArea, ratioGuess, cMax, self.extension_given, self.guideIndices, self.optionsDict['remesh'], numSmoothingPasses, numAreaPasses, numLayers)
 
-        #=====================================
-        print(time() - st, 'secs')
+            R, fail, ratios = hypsurf_python.march(
+                self.projection,
+                rStart,
+                dStart,
+                theta,
+                sigmaSplay,
+                bc1,
+                bc2,
+                epsE0,
+                alphaP0,
+                self.marchParameter,
+                nuArea,
+                ratioGuess,
+                cMax,
+                self.extension_given,
+                self.guideIndices,
+                self.optionsDict["remesh"],
+                numSmoothingPasses,
+                numAreaPasses,
+                numLayers,
+            )
 
-        if self.optionsDict['plotQuality']:
+        # =====================================
+        print(time() - st, "secs")
+
+        if self.optionsDict["plotQuality"]:
             fail, ratios = self.qualityCheck(R)
             view_mat(ratios)
-        
+
         # Create dictionary to store mesh
         coor = {}
-        coor['block'] = np.zeros((self.numNodes,self.numLayers,3))
-        coor['block'][:,:,0] = R[:,0::3].T
-        coor['block'][:,:,1] = R[:,1::3].T
-        coor['block'][:,:,2] = R[:,2::3].T
+        coor["block"] = np.zeros((self.numNodes, self.numLayers, 3))
+        coor["block"][:, :, 0] = R[:, 0::3].T
+        coor["block"][:, :, 1] = R[:, 1::3].T
+        coor["block"][:, :, 2] = R[:, 2::3].T
 
         # Create mesh object
-        self.meshObj = pysurf.SurfaceMesh(self.name,coor)
+        self.meshObj = pysurf.SurfaceMesh(self.name, coor)
 
     def clean(self):
 
-        '''
+        """
         This method removes the residual data generated by the original
         and differentiated code.
-        '''
+        """
 
         # Clean projection dictionaries
         self.projDict = []
@@ -237,13 +282,13 @@ class HypSurfMesh(object):
         # Clean reverse derivatives
         self.ref_geom.clean_reverseADSeeds()
 
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # FORWARD AD METHODS
 
-    def compute_forwardAD(self,updateSeeds=True):
+    def compute_forwardAD(self, updateSeeds=True):
 
-        '''
+        """
         This method uses forward mode AD to propagate derivatives from inputs to outputs.
 
         This method updates self.meshd. Then user can use self.get_forwardAD_outputSeeds
@@ -259,71 +304,73 @@ class HypSurfMesh(object):
         The user should may call self.set_forwardAD_seeds to define the derivative seeds of
         the input variables, but then it should set updateSeeds to False. The best way is to
         set the derivative seeds directly into the curve object using curve.set_forwardADSeeds.
-        '''
+        """
 
         # Check if we have projection dictionaries stored
         if not self.projDict:
-            print('')
-            print('ERROR: hypsurf.py - compute_forwardAD')
-            print(' Cannot compute derivatives without running the original code first.')
-            print(' Call mesh.createMesh, Then use mesh.compute_forwardAD')
-            print('')
+            print("")
+            print("ERROR: hypsurf.py - compute_forwardAD")
+            print(" Cannot compute derivatives without running the original code first.")
+            print(" Call mesh.createMesh, Then use mesh.compute_forwardAD")
+            print("")
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
         rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
-        rStart = np.array(rStart,order='F')
+        rStart = np.array(rStart, order="F")
 
         # Get derivative seeds from the starting curve
         rStartd = self.curve.get_forwardADSeeds()
         rStartd = rStartd.flatten().astype(float)
-        rStartd = np.array(rStartd,order='F')
+        rStartd = np.array(rStartd, order="F")
 
         # Call the Fortran function that computes derivatives
-        R, Rd, fail, ratios = hypsurfAPI.hypsurfapi.march_d(self.projection_d,
-                                                            rStart,
-                                                            rStartd,
-                                                            self.R_projected,
-                                                            self.R_final,
-                                                            self.N_projected,
-                                                            self.N_final,
-                                                            self.optionsDict['dStart'],
-                                                            self.optionsDict['theta'],
-                                                            self.optionsDict['sigmaSplay'],
-                                                            self.optionsDict['bc1'],
-                                                            self.optionsDict['bc2'],
-                                                            self.optionsDict['epsE0'],
-                                                            self.optionsDict['alphaP0'],
-                                                            self.marchParameter,
-                                                            self.optionsDict['nuArea'],
-                                                            self.optionsDict['ratioGuess'],
-                                                            self.optionsDict['cMax'],
-                                                            self.guideIndices+1,
-                                                            self.optionsDict['nuGuideBlend'],
-                                                            self.optionsDict['remesh'],
-                                                            self.extension_given,
-                                                            self.optionsDict['numSmoothingPasses'],
-                                                            self.optionsDict['numAreaPasses'],
-                                                            self.optionsDict['numLayers'])
-        
+        R, Rd, fail, ratios = hypsurfAPI.hypsurfapi.march_d(
+            self.projection_d,
+            rStart,
+            rStartd,
+            self.R_projected,
+            self.R_final,
+            self.N_projected,
+            self.N_final,
+            self.optionsDict["dStart"],
+            self.optionsDict["theta"],
+            self.optionsDict["sigmaSplay"],
+            self.optionsDict["bc1"],
+            self.optionsDict["bc2"],
+            self.optionsDict["epsE0"],
+            self.optionsDict["alphaP0"],
+            self.marchParameter,
+            self.optionsDict["nuArea"],
+            self.optionsDict["ratioGuess"],
+            self.optionsDict["cMax"],
+            self.guideIndices + 1,
+            self.optionsDict["nuGuideBlend"],
+            self.optionsDict["remesh"],
+            self.extension_given,
+            self.optionsDict["numSmoothingPasses"],
+            self.optionsDict["numAreaPasses"],
+            self.optionsDict["numLayers"],
+        )
+
         # Create dictionary to store mesh seeds
         coord = {}
-        coord['block'] = np.zeros((self.numNodes,self.numLayers,3))
-        coord['block'][:,:,0] = Rd[:,0::3].T
-        coord['block'][:,:,1] = Rd[:,1::3].T
-        coord['block'][:,:,2] = Rd[:,2::3].T
+        coord["block"] = np.zeros((self.numNodes, self.numLayers, 3))
+        coord["block"][:, :, 0] = Rd[:, 0::3].T
+        coord["block"][:, :, 1] = Rd[:, 1::3].T
+        coord["block"][:, :, 2] = Rd[:, 2::3].T
 
         # Create mesh object
         self.meshObj.coord = coord
 
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # REVERSE AD METHODS
 
     def compute_reverseAD(self):
 
-        '''
+        """
         This method will use reverse mode AD to propagate derivatives from outputs to inputs.
 
         ATTENTION:
@@ -333,90 +380,92 @@ class HypSurfMesh(object):
         The user should also call self.set_reverseAD_outputSeeds to define the derivative seeds of
         the output variables.
 
-        '''
+        """
 
         # Check if we have projection dictionaries stored
         if not self.projDict:
-            print('')
-            print('ERROR: hypsurf.py - compute_reverseAD')
-            print(' Cannot compute derivatives without running the original code first.')
-            print(' 1- Call mesh.createMesh')
-            print(' 2- Set seeds with mesh.set_reverseAD_outputSeeds')
-            print(' 3- Then use mesh.compute_reverseAD')
-            print('')
+            print("")
+            print("ERROR: hypsurf.py - compute_reverseAD")
+            print(" Cannot compute derivatives without running the original code first.")
+            print(" 1- Call mesh.createMesh")
+            print(" 2- Set seeds with mesh.set_reverseAD_outputSeeds")
+            print(" 3- Then use mesh.compute_reverseAD")
+            print("")
             exit()
 
         # Get coordinates of the initial curve (this is a flattened array)
         rStart = self.curve.get_points()
         rStart = rStart.flatten().astype(float)
-        rStart = np.array(rStart,order='F')
+        rStart = np.array(rStart, order="F")
 
         # Get total number of projection steps
         numProjs = len(self.projDict)
-        
+
         # Transform the set of 3D coordinates into a 2D array
-        R = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R[:,0::3] = self.meshObj.coor['block'][:,:,0].T
-        R[:,1::3] = self.meshObj.coor['block'][:,:,1].T
-        R[:,2::3] = self.meshObj.coor['block'][:,:,2].T
+        R = np.zeros((self.numLayers, 3 * self.numNodes), order="F")
+        R[:, 0::3] = self.meshObj.coor["block"][:, :, 0].T
+        R[:, 1::3] = self.meshObj.coor["block"][:, :, 1].T
+        R[:, 2::3] = self.meshObj.coor["block"][:, :, 2].T
 
         # Transform the set of 3D derivative seeds into a 2D array
-        Rb = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        Rb[:,0::3] = self.meshObj.coorb['block'][:,:,0].T
-        Rb[:,1::3] = self.meshObj.coorb['block'][:,:,1].T
-        Rb[:,2::3] = self.meshObj.coorb['block'][:,:,2].T
+        Rb = np.zeros((self.numLayers, 3 * self.numNodes), order="F")
+        Rb[:, 0::3] = self.meshObj.coorb["block"][:, :, 0].T
+        Rb[:, 1::3] = self.meshObj.coorb["block"][:, :, 1].T
+        Rb[:, 2::3] = self.meshObj.coorb["block"][:, :, 2].T
 
         # Call the Fortran function that computes derivatives
-        rStartb = hypsurfAPI.hypsurfapi.march_b(self.projection_b,
-                                                rStart,
-                                                self.R_initial_march,
-                                                self.R_smoothed,
-                                                self.R_projected,
-                                                self.R_remeshed,
-                                                self.R_final,
-                                                self.N_projected,
-                                                self.N_final,
-                                                self.Sm1_hist,
-                                                self.S0_hist,
-                                                self.optionsDict['dStart'],
-                                                self.optionsDict['theta'],
-                                                self.optionsDict['sigmaSplay'],
-                                                self.optionsDict['bc1'],
-                                                self.optionsDict['bc2'],
-                                                self.optionsDict['epsE0'],
-                                                self.optionsDict['alphaP0'],
-                                                self.marchParameter,
-                                                self.optionsDict['nuArea'],
-                                                self.optionsDict['ratioGuess'],
-                                                self.optionsDict['cMax'],
-                                                self.guideIndices+1,
-                                                self.optionsDict['nuGuideBlend'],
-                                                self.optionsDict['remesh'],
-                                                self.extension_given,
-                                                self.optionsDict['numSmoothingPasses'],
-                                                self.optionsDict['numAreaPasses'],
-                                                numProjs,
-                                                R,
-                                                Rb)
+        rStartb = hypsurfAPI.hypsurfapi.march_b(
+            self.projection_b,
+            rStart,
+            self.R_initial_march,
+            self.R_smoothed,
+            self.R_projected,
+            self.R_remeshed,
+            self.R_final,
+            self.N_projected,
+            self.N_final,
+            self.Sm1_hist,
+            self.S0_hist,
+            self.optionsDict["dStart"],
+            self.optionsDict["theta"],
+            self.optionsDict["sigmaSplay"],
+            self.optionsDict["bc1"],
+            self.optionsDict["bc2"],
+            self.optionsDict["epsE0"],
+            self.optionsDict["alphaP0"],
+            self.marchParameter,
+            self.optionsDict["nuArea"],
+            self.optionsDict["ratioGuess"],
+            self.optionsDict["cMax"],
+            self.guideIndices + 1,
+            self.optionsDict["nuGuideBlend"],
+            self.optionsDict["remesh"],
+            self.extension_given,
+            self.optionsDict["numSmoothingPasses"],
+            self.optionsDict["numAreaPasses"],
+            numProjs,
+            R,
+            Rb,
+        )
 
         # Reshape rStartb to a 3xnNodes shape
-        rStartb = rStartb.reshape((-1,3))
+        rStartb = rStartb.reshape((-1, 3))
 
         # Accumulate seeds back to the curve object
         self.curve.accumulate_reverseADSeeds(rStartb)
 
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # PROJECTION METHODS
 
     def projection(self, r):
 
-        '''
+        """
         This function will project the nodes defined in r onto the reference geometry
         used by the current mesh object. This function may also store the projection
         dictionaries that should be used in derivative calculation. To avoid
         storing any dictionaries, use storeDict = 0.
-        '''
+        """
 
         numNodes = int(r.shape[0] / 3)
 
@@ -436,21 +485,27 @@ class HypSurfMesh(object):
         self.projDict = self.projDict + [projDict]
 
         # Replace end points if we use curve BCs
-        if self.optionsDict['bc1'].lower().startswith('curve'):
-            rNext[:3], NNextAux, curveProjDict1 = self.ref_geom.project_on_curve(node1.reshape((1, 3)), curveCandidates=[self.ref_curve1])
+        if self.optionsDict["bc1"].lower().startswith("curve"):
+            rNext[:3], NNextAux, curveProjDict1 = self.ref_geom.project_on_curve(
+                node1.reshape((1, 3)), curveCandidates=[self.ref_curve1]
+            )
             NNext[:, 0] = NNextAux.T[:, 0]
             self.curveProjDict1 = self.curveProjDict1 + [curveProjDict1]
 
-        if self.optionsDict['bc2'].lower().startswith('curve'):
-            rNext[-3:], NNextAux, curveProjDict2 = self.ref_geom.project_on_curve(node2.reshape((1, 3)), curveCandidates=[self.ref_curve2])
+        if self.optionsDict["bc2"].lower().startswith("curve"):
+            rNext[-3:], NNextAux, curveProjDict2 = self.ref_geom.project_on_curve(
+                node2.reshape((1, 3)), curveCandidates=[self.ref_curve2]
+            )
             NNext[:, -1] = NNextAux.T[:, 0]
             self.curveProjDict2 = self.curveProjDict2 + [curveProjDict2]
 
         if np.any(self.guideIndices):
             for i, index in enumerate(self.guideIndices):
-                curve = self.optionsDict['guideCurves'][i]
-                node = r[3*index:3*index+3].reshape((1, 3))
-                rNext[3*index:3*index+3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(node, curveCandidates=[curve])
+                curve = self.optionsDict["guideCurves"][i]
+                node = r[3 * index : 3 * index + 3].reshape((1, 3))
+                rNext[3 * index : 3 * index + 3], NNextAux, curveProjDict = self.ref_geom.project_on_curve(
+                    node, curveCandidates=[curve]
+                )
                 NNext[:, index] = NNextAux.T[:, 0]
                 self.curveProjDictGuide[i] = self.curveProjDictGuide[i] + [curveProjDict]
 
@@ -468,39 +523,41 @@ class HypSurfMesh(object):
         projDict = self.projDict[layerID]
 
         # Project onto surface and compute surface normals
-        rNextd, NNextd = self.ref_geom.project_on_surface_d(r.reshape((self.numNodes, 3)),
-                                                            rd.reshape((self.numNodes, 3)),
-                                                            rNext.reshape((self.numNodes, 3)),
-                                                            NNext.T,
-                                                            projDict)
+        rNextd, NNextd = self.ref_geom.project_on_surface_d(
+            r.reshape((self.numNodes, 3)),
+            rd.reshape((self.numNodes, 3)),
+            rNext.reshape((self.numNodes, 3)),
+            NNext.T,
+            projDict,
+        )
         rNextd = rNextd.flatten()
         NNextd = NNextd.T
 
         # Replace end points if we use curve BCs
-        if self.optionsDict['bc1'].lower().startswith('curve'):
+        if self.optionsDict["bc1"].lower().startswith("curve"):
             curveProjDict1 = self.curveProjDict1[layerID]
-            rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(node1, node1d,
-                                                                     rNext[:3], NNext[:,0],
-                                                                     curveProjDict1)
+            rNextd[:3], NNextAuxd = self.ref_geom.project_on_curve_d(
+                node1, node1d, rNext[:3], NNext[:, 0], curveProjDict1
+            )
             NNextd[:, 0] = NNextAuxd.T[:, 0]
 
-        if self.optionsDict['bc2'].lower().startswith('curve'):
+        if self.optionsDict["bc2"].lower().startswith("curve"):
             curveProjDict2 = self.curveProjDict2[layerID]
-            rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(node2, node2d,
-                                                                      rNext[-3:], NNext[:,-1],
-                                                                      curveProjDict2)
+            rNextd[-3:], NNextAuxd = self.ref_geom.project_on_curve_d(
+                node2, node2d, rNext[-3:], NNext[:, -1], curveProjDict2
+            )
             NNextd[:, -1] = NNextAuxd.T[:, 0]
 
         if self.guideIndices.any():
             for i, index in enumerate(self.guideIndices):
 
-                node = r[3*index:3*index+3].reshape((1, 3))
-                noded = rd[3*index:3*index+3].reshape((1, 3))
+                node = r[3 * index : 3 * index + 3].reshape((1, 3))
+                noded = rd[3 * index : 3 * index + 3].reshape((1, 3))
                 curveProjDict = self.curveProjDictGuide[i][layerID]
 
-                rNextd[3*index:3*index+3], NNextAuxd = self.ref_geom.project_on_curve_d(node, noded,
-                                                                                        rNext[3*index:3*index+3], NNext[:,index],
-                                                                                        curveProjDict)
+                rNextd[3 * index : 3 * index + 3], NNextAuxd = self.ref_geom.project_on_curve_d(
+                    node, noded, rNext[3 * index : 3 * index + 3], NNext[:, index], curveProjDict
+                )
                 NNextd[:, index] = NNextAuxd.T[:, 0]
 
         return rNextd, NNextd
@@ -512,87 +569,92 @@ class HypSurfMesh(object):
         node2 = r[-3:].reshape((1, 3))
 
         # Pop the last projection dictionary from the list (since we are propagating derivatives forward)
-        layerID = int(layerID) # For some reason, f2py does not understand that this should be int
+        layerID = int(layerID)  # For some reason, f2py does not understand that this should be int
         projDict = self.projDict[layerID]
 
         # We need to turn off the derivative seeds of the nodes that follow guide curves or curve bcs
         # since they will be replaced later on.
-        rNextb_filtered = np.array(rNextb, order='F')
-        NNextb_filtered = np.array(NNextb, order='F')
+        rNextb_filtered = np.array(rNextb, order="F")
+        NNextb_filtered = np.array(NNextb, order="F")
 
-        if self.optionsDict['bc1'].lower().startswith('curve'):
+        if self.optionsDict["bc1"].lower().startswith("curve"):
             rNextb_filtered[:3] = 0.0
-            NNextb_filtered[:,0] = 0.0
+            NNextb_filtered[:, 0] = 0.0
 
-        if self.optionsDict['bc2'].lower().startswith('curve'):
+        if self.optionsDict["bc2"].lower().startswith("curve"):
             rNextb_filtered[-3:] = 0.0
-            NNextb_filtered[:,-1] = 0.0
+            NNextb_filtered[:, -1] = 0.0
 
         if self.guideIndices.any():
             for index in self.guideIndices:
-                rNextb_filtered[3*index:3*index+3] = 0.0
-                NNextb_filtered[:,index] = 0.0
+                rNextb_filtered[3 * index : 3 * index + 3] = 0.0
+                NNextb_filtered[:, index] = 0.0
 
         # Project onto surface and compute surface normals
-        rb = self.ref_geom.project_on_surface_b(r.reshape((self.numNodes, 3)),
-                                                rNext.reshape((self.numNodes, 3)),
-                                                rNextb_filtered.reshape((self.numNodes, 3)),
-                                                NNext.T,
-                                                NNextb_filtered.T,
-                                                projDict)
+        rb = self.ref_geom.project_on_surface_b(
+            r.reshape((self.numNodes, 3)),
+            rNext.reshape((self.numNodes, 3)),
+            rNextb_filtered.reshape((self.numNodes, 3)),
+            NNext.T,
+            NNextb_filtered.T,
+            projDict,
+        )
 
         # Reshape nodal derivatives
-        rb = np.array(rb.flatten(),order='F')
+        rb = np.array(rb.flatten(), order="F")
 
         # Replace end points if we use curve BCs
-        if self.optionsDict['bc1'].lower().startswith('curve'):
+        if self.optionsDict["bc1"].lower().startswith("curve"):
             curveProjDict1 = self.curveProjDict1[layerID]
-            rb[:3] = self.ref_geom.project_on_curve_b(node1, rNext[:3], rNextb[:3],
-                                                      NNext[:,0], NNextb[:,0],
-                                                      curveProjDict1)
+            rb[:3] = self.ref_geom.project_on_curve_b(
+                node1, rNext[:3], rNextb[:3], NNext[:, 0], NNextb[:, 0], curveProjDict1
+            )
 
-        if self.optionsDict['bc2'].lower().startswith('curve'):
+        if self.optionsDict["bc2"].lower().startswith("curve"):
             curveProjDict2 = self.curveProjDict2[layerID]
-            rb[-3:] = self.ref_geom.project_on_curve_b(node2, rNext[-3:], rNextb[-3:],
-                                                       NNext[:,-1], NNextb[:,-1],
-                                                       curveProjDict2)
+            rb[-3:] = self.ref_geom.project_on_curve_b(
+                node2, rNext[-3:], rNextb[-3:], NNext[:, -1], NNextb[:, -1], curveProjDict2
+            )
 
         if self.guideIndices.any():
             for i, index in enumerate(self.guideIndices):
                 curveProjDict = self.curveProjDictGuide[i][layerID]
-                node = r[3*index:3*index+3].reshape((1, 3))
-                curve = self.optionsDict['guideCurves'][i]
+                node = r[3 * index : 3 * index + 3].reshape((1, 3))
+                curve = self.optionsDict["guideCurves"][i]
 
-
-                rbAux = self.ref_geom.project_on_curve_b(node,
-                                                         rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
-                                                         NNext[:,index], NNextb[:,index],
-                                                         curveProjDict)
-                '''
+                rbAux = self.ref_geom.project_on_curve_b(
+                    node,
+                    rNext[3 * index : 3 * index + 3],
+                    rNextb[3 * index : 3 * index + 3],
+                    NNext[:, index],
+                    NNextb[:, index],
+                    curveProjDict,
+                )
+                """
                 elemIDs = curveProjDict['elemIDs']
                 curveMask = [1]
                 nodeb = np.zeros(node.shape)
                 self.ref_geom.curves[curve].project_b(node, nodeb, rNext[3*index:3*index+3], rNextb[3*index:3*index+3],
                                                       NNext[:,index], NNextb[:,index], elemIDs, curveMask)
                 rbAux = nodeb
-                '''
-                rb[3*index:3*index+3] = rbAux
+                """
+                rb[3 * index : 3 * index + 3] = rbAux
 
         return rb
 
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # EXPORTING METHODS
 
     def export_plot3d(self, fileName):
 
-        '''
+        """
         This function exports the current mesh in plot3d format
-        '''
+        """
 
         self.meshObj.export_plot3d(fileName)
 
-        '''
+        """
         # IMPORTS
         from pysurf import plot3d_interface
 
@@ -626,62 +688,65 @@ class HypSurfMesh(object):
 
         # Export grid
         plot3d_interface.export_plot3d(myGrid, filename)
-        '''
+        """
 
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # OPTIONS METHODS
 
     def _getDefaultOptions(self):
         """ Define default options and pass back a dict. """
 
         self.optionsDict = {
-
-            'bc1' : 'splay',
-            'bc2' : 'splay',
-            'dStart' : 1.e-2,
-            'numLayers' : 17,
-            'epsE0' : 1.0,
-            'theta' : 0.0,
-            'alphaP0' : 0.25,
-            'numSmoothingPasses' : 0,
-            'nuArea' : 0.16,
-            'numAreaPasses' : 0,
-            'sigmaSplay' : 0.3,
-            'cMax' : 3.0,
-            'ratioGuess' : 20,
-            'plotQuality' : False,
-            'guideCurves' : [],
-            'remesh' : False,
-            'nuGuideBlend':0.0, # This blends the marching direction of guide curves
-            }
+            "bc1": "splay",
+            "bc2": "splay",
+            "dStart": 1.0e-2,
+            "numLayers": 17,
+            "epsE0": 1.0,
+            "theta": 0.0,
+            "alphaP0": 0.25,
+            "numSmoothingPasses": 0,
+            "nuArea": 0.16,
+            "numAreaPasses": 0,
+            "sigmaSplay": 0.3,
+            "cMax": 3.0,
+            "ratioGuess": 20,
+            "plotQuality": False,
+            "guideCurves": [],
+            "remesh": False,
+            "nuGuideBlend": 0.0,  # This blends the marching direction of guide curves
+        }
 
     def _applyUserOptions(self, options):
         # Override default options with user options
         for userKey in list(options.keys()):
 
             # Treat special options first
-            if userKey.lower() == 'extension':
+            if userKey.lower() == "extension":
 
                 # Store extension as the relevant marching parameter
-                self.marchParameter = options['extension']
+                self.marchParameter = options["extension"]
 
                 # Check if we did not flag growth ratio as a parameter previously
                 if self.extension_given is None:
                     self.extension_given = True
                 else:
-                    error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
+                    error(
+                        "Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary."
+                    )
 
-            elif userKey.lower() == 'growthratio':
+            elif userKey.lower() == "growthratio":
 
                 # Store extension as the relevant marching parameter
-                self.marchParameter = options['growthratio']
+                self.marchParameter = options["growthratio"]
 
                 # Check if we did not flag growth ratio as a parameter previously
                 if self.extension_given is None:
                     self.extension_given = False
                 else:
-                    error('Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary.')
+                    error(
+                        "Cannot define extension AND growthRatio parameters. Please select only one to include in the options dictionary."
+                    )
 
             # All other options are here
             else:
@@ -696,92 +761,91 @@ class HypSurfMesh(object):
                     message = "{} key not in default options dictionary.".format(userKey)
                     warn(message)
 
-
-    #================================================================
-    #================================================================
+    # ================================================================
+    # ================================================================
     # TESTING METHODS
 
     def test_all(self):
 
-        '''
+        """
         This method executes all possible tests
-        '''
+        """
 
-        print('')
-        print('#===================================================#')
-        print('Initiating hypSurf tests')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("Initiating hypSurf tests")
+        print("")
 
         self.test_internal_fortran_subroutines()
         self.test_python_fortran_consistency(plotError=True)
         self.test_forwardAD_FD(plotError=True)
         self.test_forwardAD_reverseAD()
 
-        print('')
-        print('Finalized hypSurf tests')
-        print('#===================================================#')
-        print('')
+        print("")
+        print("Finalized hypSurf tests")
+        print("#===================================================#")
+        print("")
 
     def test_internal_fortran_subroutines(self, fixedSeed=True):
 
-        '''
+        """
         This method test the underlying Fortran subroutines used by the
         AD code
-        '''
+        """
 
-        print('')
-        print('#===================================================#')
-        print('Checking internal Fortran subroutines')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("Checking internal Fortran subroutines")
+        print("")
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
             np.random.seed(123)
 
         # Make sure variables have the correct type
-        dStart = float(self.optionsDict['dStart'])
-        cMax = float(self.optionsDict['cMax'])
-        ratioGuess = float(self.optionsDict['ratioGuess'])
-        theta = float(self.optionsDict['theta'])
-        bc1 = self.optionsDict['bc1']
-        bc2 = self.optionsDict['bc2']
-        sigmaSplay = float(self.optionsDict['sigmaSplay'])
-        numLayers = int(self.optionsDict['numLayers'])
-        epsE0 = float(self.optionsDict['epsE0'])
-        theta = float(self.optionsDict['theta'])
-        alphaP0 = float(self.optionsDict['alphaP0'])
-        numSmoothingPasses = int(self.optionsDict['numSmoothingPasses'])
-        numAreaPasses = int(self.optionsDict['numAreaPasses'])
-        nuArea = float(self.optionsDict['nuArea'])
-        nuGuideBlend = float(self.optionsDict['nuGuideBlend'])
+        dStart = float(self.optionsDict["dStart"])
+        cMax = float(self.optionsDict["cMax"])
+        ratioGuess = float(self.optionsDict["ratioGuess"])
+        theta = float(self.optionsDict["theta"])
+        bc1 = self.optionsDict["bc1"]
+        bc2 = self.optionsDict["bc2"]
+        sigmaSplay = float(self.optionsDict["sigmaSplay"])
+        numLayers = int(self.optionsDict["numLayers"])
+        epsE0 = float(self.optionsDict["epsE0"])
+        theta = float(self.optionsDict["theta"])
+        alphaP0 = float(self.optionsDict["alphaP0"])
+        numSmoothingPasses = int(self.optionsDict["numSmoothingPasses"])
+        numAreaPasses = int(self.optionsDict["numAreaPasses"])
+        nuArea = float(self.optionsDict["nuArea"])
+        nuGuideBlend = float(self.optionsDict["nuGuideBlend"])
 
         # First we need to solve the current case to get a baseline mesh
         self.createMesh(fortran_flag=True)
 
         # Copy some coordiantes of the baseline mesh
-        R = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R[:,0::3] = self.meshObj.coor['block'][:,:,0].T
-        R[:,1::3] = self.meshObj.coor['block'][:,:,1].T
-        R[:,2::3] = self.meshObj.coor['block'][:,:,2].T
+        R = np.zeros((self.numLayers, 3 * self.numNodes), order="F")
+        R[:, 0::3] = self.meshObj.coor["block"][:, :, 0].T
+        R[:, 1::3] = self.meshObj.coor["block"][:, :, 1].T
+        R[:, 2::3] = self.meshObj.coor["block"][:, :, 2].T
 
         ### DOT PRODUCT TEST FOR SMOOTHING
-        coor = R[3,:]#geom.curves[curve].coor.reshape(-1, order='F')
-        rOut0 = hypsurfAPI.hypsurfapi.smoothing(coor, 5., alphaP0, 1, numLayers)
+        coor = R[3, :]  # geom.curves[curve].coor.reshape(-1, order='F')
+        rOut0 = hypsurfAPI.hypsurfapi.smoothing(coor, 5.0, alphaP0, 1, numLayers)
 
         # FORWARD MODE
         coord = np.random.random_sample(coor.shape)
-        coord = coord/np.sqrt(np.sum(coord**2))
+        coord = coord / np.sqrt(np.sum(coord ** 2))
         coord_copy = coord.copy()
-        rOut, rOutd = hypsurfAPI.hypsurfapi.smoothing_d(coor, coord, 5., alphaP0, 1, numLayers)
+        rOut, rOutd = hypsurfAPI.hypsurfapi.smoothing_d(coor, coord, 5.0, alphaP0, 1, numLayers)
 
         # REVERSE MODE
         rOutb = np.random.random_sample(coor.shape)
         rOutb_copy = rOutb.copy()
-        coorb, rOut = hypsurfAPI.hypsurfapi.smoothing_b(coor, 5., alphaP0, 1, numLayers, rOutb)
+        coorb, rOut = hypsurfAPI.hypsurfapi.smoothing_b(coor, 5.0, alphaP0, 1, numLayers, rOutb)
 
         print()
-        print('Dot product test for Smoothing (this should be around 1e-14):')
-        dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
+        print("Dot product test for Smoothing (this should be around 1e-14):")
+        dotprod = np.sum(coord_copy * coorb) - np.sum(rOutd * rOutb_copy)
         print(dotprod)
         print()
 
@@ -790,26 +854,26 @@ class HypSurfMesh(object):
         stepSize = 1e-7
 
         # Perturb input variables
-        coor = coor + stepSize*coord
+        coor = coor + stepSize * coord
 
         # Run code
-        rOut = hypsurfAPI.hypsurfapi.smoothing(coor, 5., alphaP0, 1, numLayers)
+        rOut = hypsurfAPI.hypsurfapi.smoothing(coor, 5.0, alphaP0, 1, numLayers)
 
         # Compute derivatives
-        rOutd_FD = (rOut - rOut0)/stepSize
+        rOutd_FD = (rOut - rOut0) / stepSize
 
         # Compare derivatives
         FD_check = np.max(np.abs(rOutd - rOutd_FD))
 
         # Print results
-        print('')
-        print('Finite difference test for Smoothing (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for Smoothing (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
         ### DOT PRODUCT TEST FOR PROJECTION
 
-        r0 = R[3,:]
+        r0 = R[3, :]
 
         # Clean all projection dictionaries
         self.projDict = []
@@ -830,18 +894,18 @@ class HypSurfMesh(object):
             curveProjDictGuide.append(self.curveProjDictGuide[index][:])
 
         # FORWARD DERIVATIVES
-        r0d = np.array(np.random.rand(r0.shape[0]),order='F')
-        r0d = r0d/np.sqrt(np.sum(r0d**2))
+        r0d = np.array(np.random.rand(r0.shape[0]), order="F")
+        r0d = r0d / np.sqrt(np.sum(r0d ** 2))
 
         # Set geometry object seeds
-        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode="forward")
 
         # Propagate derivatives
         rNextd, NNextd = self.projection_d(r0, r0d, rNext, NNext, 0)
 
         # REVERSE DERIVATIVES
         rNextb = np.random.rand(rNext.shape[0])
-        NNextb = np.random.rand(NNext.shape[0],NNext.shape[1])
+        NNextb = np.random.rand(NNext.shape[0], NNext.shape[1])
         rNextb_copy = rNextb.copy()
         NNextb_copy = NNextb.copy()
 
@@ -859,106 +923,115 @@ class HypSurfMesh(object):
         coorb, curveCoorb = self.ref_geom.get_reverseADSeeds(clean=True)
 
         dotprod = 0.0
-        dotprod = dotprod + np.sum(r0d*r0b)
-        dotprod = dotprod + np.sum(coord*coorb)
+        dotprod = dotprod + np.sum(r0d * r0b)
+        dotprod = dotprod + np.sum(coord * coorb)
         for curveName in curveCoord:
-            dotprod = dotprod + np.sum(curveCoord[curveName]*curveCoorb[curveName])
-        dotprod = dotprod - np.sum(rNextd*rNextb)
-        dotprod = dotprod - np.sum(NNextd*NNextb)
+            dotprod = dotprod + np.sum(curveCoord[curveName] * curveCoorb[curveName])
+        dotprod = dotprod - np.sum(rNextd * rNextb)
+        dotprod = dotprod - np.sum(NNextd * NNextb)
 
-        print('')
-        print('Dot product test for Projection (this should be around 1e-14):')
+        print("")
+        print("Dot product test for Projection (this should be around 1e-14):")
         print(dotprod)
-        print('')
+        print("")
 
         # FORWARD DERIVATIVES WITH FINITE DIFFERENCING
 
         stepSize = 1e-7
 
-        r0_FD = r0 + r0d*stepSize
-        self.ref_geom.update(self.ref_geom.coor + np.array(coord*stepSize,order='F'))
+        r0_FD = r0 + r0d * stepSize
+        self.ref_geom.update(self.ref_geom.coor + np.array(coord * stepSize, order="F"))
         for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].set_points(self.ref_geom.curves[curveName].get_points() + curveCoord[curveName]*stepSize)
+            self.ref_geom.curves[curveName].set_points(
+                self.ref_geom.curves[curveName].get_points() + curveCoord[curveName] * stepSize
+            )
 
         rNext_FD, NNext_FD = self.projection(r0_FD)
 
-        self.ref_geom.update(self.ref_geom.coor - np.array(coord*stepSize,order='F'))
+        self.ref_geom.update(self.ref_geom.coor - np.array(coord * stepSize, order="F"))
         for curveName in self.ref_geom.curves:
-            self.ref_geom.curves[curveName].set_points(self.ref_geom.curves[curveName].get_points() - curveCoord[curveName]*stepSize)
+            self.ref_geom.curves[curveName].set_points(
+                self.ref_geom.curves[curveName].get_points() - curveCoord[curveName] * stepSize
+            )
 
-        rNextd_FD = (rNext_FD-rNext)/stepSize
-        NNextd_FD = (NNext_FD-NNext)/stepSize
+        rNextd_FD = (rNext_FD - rNext) / stepSize
+        NNextd_FD = (NNext_FD - NNext) / stepSize
 
         FD_check = np.max([np.max(rNextd - rNextd_FD), np.max(NNextd - NNextd_FD)])
 
-        print('')
-        print('Finite difference test for Projection (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for Projection (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
         ### DOT PRODUCT TEST FOR AREAFACTOR
 
         r0 = rNext
-        d = self.optionsDict['dStart']
+        d = self.optionsDict["dStart"]
         layerindex = 1
 
         # FORWARD MODE
         r0_d = np.random.random_sample(r0.shape)
-        r0_d = r0_d/np.sqrt(np.sum(r0_d**2))
+        r0_d = r0_d / np.sqrt(np.sum(r0_d ** 2))
         d_d = 1.0
 
         r0_d_copy = r0_d.copy()
         d_d_copy = d_d
 
-        s0,s_d,maxstretch =  hypsurfAPI.hypsurfapi.areafactor_test_d(r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices)
+        s0, s_d, maxstretch = hypsurfAPI.hypsurfapi.areafactor_test_d(
+            r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices
+        )
 
         # REVERSE MODE
         s_b = np.random.random_sample(s0.shape)
 
         s_b_copy = s_b.copy()
 
-        r0_b,d_b = hypsurfAPI.hypsurfapi.areafactor_test_b(r0, d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices, s0, s_b, maxstretch)
-
+        r0_b, d_b = hypsurfAPI.hypsurfapi.areafactor_test_b(
+            r0, d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices, s0, s_b, maxstretch
+        )
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(r0_d_copy*r0_b)
-        dotProd = dotProd + d_d_copy*d_b
-        dotProd = dotProd - np.sum(s_d*s_b_copy)
+        dotProd = dotProd + np.sum(r0_d_copy * r0_b)
+        dotProd = dotProd + d_d_copy * d_b
+        dotProd = dotProd - np.sum(s_d * s_b_copy)
 
-        print('')
-        print('Dot product test for AreaFactor (this should be around 1e-14):')
+        print("")
+        print("Dot product test for AreaFactor (this should be around 1e-14):")
         print(dotProd)
-        print('')
+        print("")
 
         # FINITE DIFFERENCE
         # Choose step size
         stepSize = 1e-7
 
         # Perturb input variables
-        r0 = r0 + stepSize*r0_d
-        d = d + stepSize*d_d
+        r0 = r0 + stepSize * r0_d
+        d = d + stepSize * d_d
 
         # Run code
-        s,_,maxstretch =  hypsurfAPI.hypsurfapi.areafactor_test_d(r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices)
+        s, _, maxstretch = hypsurfAPI.hypsurfapi.areafactor_test_d(
+            r0, r0_d, d, d_d, nuArea, numAreaPasses, bc1, bc2, self.guideIndices
+        )
 
         # Compute derivatives
-        s_d_FD = (s - s0)/stepSize
+        s_d_FD = (s - s0) / stepSize
 
         # Compare derivatives
         FD_check = np.max(np.abs(s_d - s_d_FD))
 
         # Print results
-        print('')
-        print('Finite difference test for AreaFactor (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for AreaFactor (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
         ### DOT PRODUCT TEST FOR FINDRADIUS
 
         # FORWARD MODE
         r0d = np.random.random_sample(r0d.shape)
-        r0d = r0d/np.sqrt(np.sum(r0d**2))
+        r0d = r0d / np.sqrt(np.sum(r0d ** 2))
         r0d_copy = r0d.copy()
         radius0, radiusd = hypsurfAPI.hypsurfapi.findradius_test_d(r0, r0d)
 
@@ -968,8 +1041,8 @@ class HypSurfMesh(object):
         r0b = hypsurfAPI.hypsurfapi.findradius_test_b(r0, radius0, radiusb)
 
         print()
-        print('Dot product test for FindRadius (this should be around 1e-14):')
-        dotprod = np.sum(r0d_copy*r0b) - np.sum(radiusd*radiusb_copy)
+        print("Dot product test for FindRadius (this should be around 1e-14):")
+        dotprod = np.sum(r0d_copy * r0b) - np.sum(radiusd * radiusb_copy)
         print(dotprod)
         print()
 
@@ -978,60 +1051,60 @@ class HypSurfMesh(object):
         stepSize = 1e-7
 
         # Perturb input variables
-        r0_pert = r0 + stepSize*r0d
+        r0_pert = r0 + stepSize * r0d
 
         # Run code
         radius = hypsurfAPI.hypsurfapi.findradius_test(r0_pert)
 
         # Compute derivatives
-        radiusd_FD = (radius - radius0)/stepSize
+        radiusd_FD = (radius - radius0) / stepSize
 
         # Compare derivatives
         FD_check = np.max(np.abs(radiusd - radiusd_FD))
 
         # Print results
-        print('')
-        print('Finite difference test for FindRadius (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for FindRadius (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
         ### DOT PRODUCT TEST FOR DISSIPATIONCOEFFICIENTS
 
         r0 = rNext
         N0 = NNext
         layerIndex = 1
-        iIndex= 3
+        iIndex = 3
 
-        r0_xi = 0.5*(r0[3*(iIndex+1):3*(iIndex+1)+3] - r0[3*(iIndex-1):3*(iIndex-1)+3])
+        r0_xi = 0.5 * (r0[3 * (iIndex + 1) : 3 * (iIndex + 1) + 3] - r0[3 * (iIndex - 1) : 3 * (iIndex - 1) + 3])
 
         from . import hypsurf_python as hp
-        angle = hp.giveAngle(r0[3*(iIndex-1):3*(iIndex-1)+3],
-                             r0[3*(iIndex+0):3*(iIndex+0)+3],
-                             r0[3*(iIndex+1):3*(iIndex+1)+3],
-                             N0[:,iIndex])
 
-        B0 = np.zeros((3,3))
-        B0[0,:] = r0_xi
-        B0[1,:] = np.cross(N0[:,iIndex], r0_xi)
-        B0[2,:] = N0[:,iIndex]
+        angle = hp.giveAngle(
+            r0[3 * (iIndex - 1) : 3 * (iIndex - 1) + 3],
+            r0[3 * (iIndex + 0) : 3 * (iIndex + 0) + 3],
+            r0[3 * (iIndex + 1) : 3 * (iIndex + 1) + 3],
+            N0[:, iIndex],
+        )
+
+        B0 = np.zeros((3, 3))
+        B0[0, :] = r0_xi
+        B0[1, :] = np.cross(N0[:, iIndex], r0_xi)
+        B0[2, :] = N0[:, iIndex]
         Binv = np.linalg.inv(B0)
-        r0_eta = Binv[:,2]*s0[iIndex]
+        r0_eta = Binv[:, 2] * s0[iIndex]
         d_sensor = 1.0
 
         # FORWARD MODE
-        r0_xid = np.array(np.random.random_sample(r0_xi.shape),order='F')
-        r0_xid = r0_xid/np.sqrt(np.sum(r0_xid**2))
-        r0_etad = np.array(np.random.random_sample(r0_eta.shape),order='F')
-        r0_etad = r0_etad/np.sqrt(np.sum(r0_etad**2))
+        r0_xid = np.array(np.random.random_sample(r0_xi.shape), order="F")
+        r0_xid = r0_xid / np.sqrt(np.sum(r0_xid ** 2))
+        r0_etad = np.array(np.random.random_sample(r0_eta.shape), order="F")
+        r0_etad = r0_etad / np.sqrt(np.sum(r0_etad ** 2))
         d_sensord = 1.0
         angled = 1.0
 
-        epsEstart, epsEd, epsIstart, epsId =  hypsurfAPI.hypsurfapi.dissipationcoefficients_d_test(layerIndex,
-                                                                                                   r0_xi, r0_xid,
-                                                                                                   r0_eta, r0_etad,
-                                                                                                   d_sensor, d_sensord,
-                                                                                                   angle, angled,
-                                                                                                   numLayers, epsE0)
+        epsEstart, epsEd, epsIstart, epsId = hypsurfAPI.hypsurfapi.dissipationcoefficients_d_test(
+            layerIndex, r0_xi, r0_xid, r0_eta, r0_etad, d_sensor, d_sensord, angle, angled, numLayers, epsE0
+        )
 
         # REVERSE MODE
         epsEb = 0.5
@@ -1040,66 +1113,57 @@ class HypSurfMesh(object):
         epsEb_copy = epsEb
         epsIb_copy = epsIb
 
-        r0_xib, r0_etab, d_sensorb, angleb = hypsurfAPI.hypsurfapi.dissipationcoefficients_b_test(layerIndex,
-                                                                                                  r0_xi, r0_eta,
-                                                                                                  d_sensor, angle,
-                                                                                                  numLayers,
-                                                                                                  epsE0,
-                                                                                                  epsEstart, epsEb,
-                                                                                                  epsIstart, epsIb)
-
+        r0_xib, r0_etab, d_sensorb, angleb = hypsurfAPI.hypsurfapi.dissipationcoefficients_b_test(
+            layerIndex, r0_xi, r0_eta, d_sensor, angle, numLayers, epsE0, epsEstart, epsEb, epsIstart, epsIb
+        )
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(r0_xid*r0_xib)
-        dotProd = dotProd + np.sum(r0_etad*r0_etab)
-        dotProd = dotProd + d_sensord*d_sensorb
-        dotProd = dotProd + angled*angleb
-        dotProd = dotProd - epsEd*epsEb_copy
-        dotProd = dotProd - epsId*epsIb_copy
+        dotProd = dotProd + np.sum(r0_xid * r0_xib)
+        dotProd = dotProd + np.sum(r0_etad * r0_etab)
+        dotProd = dotProd + d_sensord * d_sensorb
+        dotProd = dotProd + angled * angleb
+        dotProd = dotProd - epsEd * epsEb_copy
+        dotProd = dotProd - epsId * epsIb_copy
 
-        print('')
-        print('Dot product test for DissipationCoefficients (this should be around 1e-14):')
+        print("")
+        print("Dot product test for DissipationCoefficients (this should be around 1e-14):")
         print(dotProd)
-        print('')
+        print("")
 
         # FINITE DIFFERENCE
         # Choose step size
         stepSize = 1e-7
 
         # Perturb input variables
-        r0_xi = r0_xi + stepSize*r0_xid
-        r0_eta = r0_eta + stepSize*r0_etad
-        d_sensor = d_sensor + stepSize*d_sensord
-        angle = angle + stepSize*angled
+        r0_xi = r0_xi + stepSize * r0_xid
+        r0_eta = r0_eta + stepSize * r0_etad
+        d_sensor = d_sensor + stepSize * d_sensord
+        angle = angle + stepSize * angled
 
         # Run code
-        epsE, epsI =  hypsurfAPI.hypsurfapi.dissipationcoefficients_test(layerIndex,
-                                                                         r0_xi,
-                                                                         r0_eta,
-                                                                         d_sensor,
-                                                                         angle,
-                                                                         numLayers, epsE0)
+        epsE, epsI = hypsurfAPI.hypsurfapi.dissipationcoefficients_test(
+            layerIndex, r0_xi, r0_eta, d_sensor, angle, numLayers, epsE0
+        )
 
         # Compute derivatives
-        epsEd_FD = (epsE - epsEstart)/stepSize
-        epsId_FD = (epsI - epsIstart)/stepSize
+        epsEd_FD = (epsE - epsEstart) / stepSize
+        epsId_FD = (epsI - epsIstart) / stepSize
 
         # Compare derivatives
-        FD_check = np.max(np.abs([epsEd - epsEd_FD,
-                                  epsId - epsId_FD]))
+        FD_check = np.max(np.abs([epsEd - epsEd_FD, epsId - epsId_FD]))
 
         # Print results
-        print('')
-        print('Finite difference test for DissipationCoefficients (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for DissipationCoefficients (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
         ### DOT PRODUCT TEST FOR MATRIXBUILDER
 
         r0 = rNext[:]
         rm1 = rNext[:]
-        n0 = NNext[:,:]
+        n0 = NNext[:, :]
         s0 = s
         sm1 = s
         layerindex = 4
@@ -1111,42 +1175,64 @@ class HypSurfMesh(object):
         theta = 0.0
         numNodes = 5
 
-        K = np.zeros((len(r0),len(r0)),order='F')
-        f = np.zeros(len(r0),order='F')
+        K = np.zeros((len(r0), len(r0)), order="F")
+        f = np.zeros(len(r0), order="F")
 
         # Generate normalized random seeds
         r0_d = np.random.random_sample(r0.shape)
-        r0_d = r0_d/np.sqrt(np.sum(r0_d**2))
+        r0_d = r0_d / np.sqrt(np.sum(r0_d ** 2))
 
         n0_d = np.random.random_sample(n0.shape)
-        n0_d = n0_d/np.sqrt(np.sum(n0_d**2))
+        n0_d = n0_d / np.sqrt(np.sum(n0_d ** 2))
 
         s0_d = np.random.random_sample(s0.shape)
-        s0_d = s0_d/np.sqrt(np.sum(s0_d**2))
+        s0_d = s0_d / np.sqrt(np.sum(s0_d ** 2))
 
         rm1_d = np.random.random_sample(rm1.shape)
-        rm1_d = rm1_d/np.sqrt(np.sum(rm1_d**2))
+        rm1_d = rm1_d / np.sqrt(np.sum(rm1_d ** 2))
 
         sm1_d = np.random.random_sample(sm1.shape)
-        sm1_d = sm1_d/np.sqrt(np.sum(sm1_d**2))
+        sm1_d = sm1_d / np.sqrt(np.sum(sm1_d ** 2))
 
-        K_d = np.zeros((len(r0),len(r0)),order='F')
-        f_d = np.zeros(len(r0),order='F')
+        K_d = np.zeros((len(r0), len(r0)), order="F")
+        f_d = np.zeros(len(r0), order="F")
 
-        hypsurfAPI.hypsurfapi.matrixbuilder_test(iIndex, bc1, bc2, r0, rm1, n0, s0, sm1,
-                                                 numLayers, epsE0, layerIndex, theta, K, f)
+        hypsurfAPI.hypsurfapi.matrixbuilder_test(
+            iIndex, bc1, bc2, r0, rm1, n0, s0, sm1, numLayers, epsE0, layerIndex, theta, K, f
+        )
 
-        K0 = K[:,:]
+        K0 = K[:, :]
         f0 = f[:]
 
-        hypsurfAPI.hypsurfapi.matrixbuilder_d_test(iIndex, bc1, bc2, r0, r0_d, rm1, rm1_d, n0, n0_d, s0, s0_d, sm1, sm1_d,
-                                                   numLayers, epsE0, layerIndex, theta, K, K_d, f, f_d)
+        hypsurfAPI.hypsurfapi.matrixbuilder_d_test(
+            iIndex,
+            bc1,
+            bc2,
+            r0,
+            r0_d,
+            rm1,
+            rm1_d,
+            n0,
+            n0_d,
+            s0,
+            s0_d,
+            sm1,
+            sm1_d,
+            numLayers,
+            epsE0,
+            layerIndex,
+            theta,
+            K,
+            K_d,
+            f,
+            f_d,
+        )
 
-        print('')
-        print('matrixbuilder test')
-        print(np.max(np.abs(K-K0)))
-        print(np.max(np.abs(f-f0)))
-        print('')
+        print("")
+        print("matrixbuilder test")
+        print(np.max(np.abs(K - K0)))
+        print(np.max(np.abs(f - f0)))
+        print("")
 
         ### DOT PRODUCT TEST FOR COMPUTEMATRICES
         r0 = rNext
@@ -1160,19 +1246,19 @@ class HypSurfMesh(object):
 
         # Generate normalized random seeds
         r0_d = np.random.random_sample(r0.shape)
-        r0_d = r0_d/np.sqrt(np.sum(r0_d**2))
+        r0_d = r0_d / np.sqrt(np.sum(r0_d ** 2))
 
         n0_d = np.random.random_sample(n0.shape)
-        n0_d = n0_d/np.sqrt(np.sum(n0_d**2))
+        n0_d = n0_d / np.sqrt(np.sum(n0_d ** 2))
 
         s0_d = np.random.random_sample(s0.shape)
-        s0_d = s0_d/np.sqrt(np.sum(s0_d**2))
+        s0_d = s0_d / np.sqrt(np.sum(s0_d ** 2))
 
         rm1_d = np.random.random_sample(rm1.shape)
-        rm1_d = rm1_d/np.sqrt(np.sum(rm1_d**2))
+        rm1_d = rm1_d / np.sqrt(np.sum(rm1_d ** 2))
 
         sm1_d = np.random.random_sample(sm1.shape)
-        sm1_d = sm1_d/np.sqrt(np.sum(sm1_d**2))
+        sm1_d = sm1_d / np.sqrt(np.sum(sm1_d ** 2))
 
         # Copy values to avoid any modification done in Fortran
         r0_d_copy = r0_d.copy()
@@ -1181,61 +1267,115 @@ class HypSurfMesh(object):
         rm1_d_copy = rm1_d.copy()
         sm1_d_copy = sm1_d.copy()
 
-        retainSpacing = self.optionsDict['remesh']
+        retainSpacing = self.optionsDict["remesh"]
 
         # Run the forward AD
-        rnext0, rnext_d = hypsurfAPI.hypsurfapi.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0, nuGuideBlend)
+        rnext0, rnext_d = hypsurfAPI.hypsurfapi.computematrices_d(
+            r0,
+            r0_d,
+            n0,
+            n0_d,
+            s0,
+            s0_d,
+            rm1,
+            rm1_d,
+            sm1,
+            sm1_d,
+            layerindex,
+            theta,
+            sigmaSplay,
+            bc1,
+            bc2,
+            self.guideIndices,
+            retainSpacing,
+            numLayers,
+            epsE0,
+            nuGuideBlend,
+        )
 
         # REVERSE MODE
         rnext_b = np.random.random_sample(r0.shape)
 
         rnext_b_copy = rnext_b.copy()
 
-        r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hypsurfAPI.hypsurfapi.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, numLayers, epsE0, self.guideIndices, retainSpacing, rnext_b, nuGuideBlend)
+        r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hypsurfAPI.hypsurfapi.computematrices_b(
+            r0,
+            n0,
+            s0,
+            rm1,
+            sm1,
+            layerindex,
+            theta,
+            sigmaSplay,
+            bc1,
+            bc2,
+            numLayers,
+            epsE0,
+            self.guideIndices,
+            retainSpacing,
+            rnext_b,
+            nuGuideBlend,
+        )
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(rnext_d*rnext_b_copy)
-        dotProd = dotProd - np.sum(r0_b*r0_d_copy)
-        dotProd = dotProd - np.sum(n0_b*n0_d_copy)
-        dotProd = dotProd - np.sum(s0_b*s0_d_copy)
-        dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
-        dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
+        dotProd = dotProd + np.sum(rnext_d * rnext_b_copy)
+        dotProd = dotProd - np.sum(r0_b * r0_d_copy)
+        dotProd = dotProd - np.sum(n0_b * n0_d_copy)
+        dotProd = dotProd - np.sum(s0_b * s0_d_copy)
+        dotProd = dotProd - np.sum(rm1_b * rm1_d_copy)
+        dotProd = dotProd - np.sum(sm1_b * sm1_d_copy)
 
-        print('')
-        print('Dot product test for ComputeMatrices (this should be around 1e-14):')
+        print("")
+        print("Dot product test for ComputeMatrices (this should be around 1e-14):")
         print(dotProd)
-        print('')
+        print("")
 
         # FINITE DIFFERENCE
         # Define step size
         stepSize = 1e-7
 
         # Perturb input variables
-        r0 = r0 + r0_d*stepSize
-        n0 = n0 + n0_d*stepSize
-        s0 = s0 + s0_d*stepSize
-        rm1 = rm1 + rm1_d*stepSize
-        sm1 = sm1 + sm1_d*stepSize
+        r0 = r0 + r0_d * stepSize
+        n0 = n0 + n0_d * stepSize
+        s0 = s0 + s0_d * stepSize
+        rm1 = rm1 + rm1_d * stepSize
+        sm1 = sm1 + sm1_d * stepSize
 
         # Run code
-        rnext = hypsurfAPI.hypsurfapi.computematrices(r0, n0, s0, rm1, sm1, layerindex, theta, sigmaSplay, bc1, bc2, self.guideIndices, retainSpacing, numLayers, epsE0, nuGuideBlend)
+        rnext = hypsurfAPI.hypsurfapi.computematrices(
+            r0,
+            n0,
+            s0,
+            rm1,
+            sm1,
+            layerindex,
+            theta,
+            sigmaSplay,
+            bc1,
+            bc2,
+            self.guideIndices,
+            retainSpacing,
+            numLayers,
+            epsE0,
+            nuGuideBlend,
+        )
 
         # Compute derivatives
-        rnext_d_FD = (rnext - rnext0)/stepSize
+        rnext_d_FD = (rnext - rnext0) / stepSize
 
         # Compute maximum error in the FD code
         FD_check = np.max(np.abs(rnext_d - rnext_d_FD))
 
-        print('')
-        print('Finite difference test for ComputeMatrices (this should be around 1e-8):')
+        print("")
+        print("Finite difference test for ComputeMatrices (this should be around 1e-8):")
         print(FD_check)
-        print('')
+        print("")
 
-        print('#===================================================#')
-        print('')
+        print("#===================================================#")
+        print("")
 
-        #quit()
+        # quit()
 
         # Final cleanup
         self.clean()
@@ -1244,41 +1384,41 @@ class HypSurfMesh(object):
 
         from time import time
 
-        print('')
-        print('#===================================================#')
-        print('Checking consistency between the Python and Fortran versions of hypsurf')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("Checking consistency between the Python and Fortran versions of hypsurf")
+        print("")
 
         # Call the Fortran version
         st = time()
         self.createMesh(fortran_flag=True)
-        self.export_plot3d('output_fortran.xyz')
+        self.export_plot3d("output_fortran.xyz")
 
-        R_fortran = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R_fortran[:,0::3] = self.meshObj.coor['block'][:,:,0].T
-        R_fortran[:,1::3] = self.meshObj.coor['block'][:,:,1].T
-        R_fortran[:,2::3] = self.meshObj.coor['block'][:,:,2].T
+        R_fortran = np.zeros((self.numLayers, 3 * self.numNodes), order="F")
+        R_fortran[:, 0::3] = self.meshObj.coor["block"][:, :, 0].T
+        R_fortran[:, 1::3] = self.meshObj.coor["block"][:, :, 1].T
+        R_fortran[:, 2::3] = self.meshObj.coor["block"][:, :, 2].T
 
-        print('Fortran version took: ',time() - st, 'secs')
+        print("Fortran version took: ", time() - st, "secs")
 
         # Call the Python version
         st = time()
         self.createMesh(fortran_flag=False)
-        self.export_plot3d('output_python.xyz')
+        self.export_plot3d("output_python.xyz")
 
-        R_python = np.zeros((self.numLayers, 3*self.numNodes), order='F')
-        R_python[:,0::3] = self.meshObj.coor['block'][:,:,0].T
-        R_python[:,1::3] = self.meshObj.coor['block'][:,:,1].T
-        R_python[:,2::3] = self.meshObj.coor['block'][:,:,2].T
+        R_python = np.zeros((self.numLayers, 3 * self.numNodes), order="F")
+        R_python[:, 0::3] = self.meshObj.coor["block"][:, :, 0].T
+        R_python[:, 1::3] = self.meshObj.coor["block"][:, :, 1].T
+        R_python[:, 2::3] = self.meshObj.coor["block"][:, :, 2].T
 
-        print('Python version took: ',time() - st, 'secs')
+        print("Python version took: ", time() - st, "secs")
 
         # Compare differences
-        differences = np.abs(R_fortran-R_python)
+        differences = np.abs(R_fortran - R_python)
         error = np.max(differences)
 
         print()
-        print('Maximum difference between Fortran and Python (should be around 1e-14):')
+        print("Maximum difference between Fortran and Python (should be around 1e-14):")
         print(error)
         print()
 
@@ -1286,17 +1426,17 @@ class HypSurfMesh(object):
         if plotError or error > 1e-9:
 
             # Reshape 3D array to 2D so we can plot it
-            #differences = differences.T.reshape((self.optionsDict['numLayers'],-1))
+            # differences = differences.T.reshape((self.optionsDict['numLayers'],-1))
 
             # Plot error matrix
             view_mat(differences)
 
-        print('#===================================================#')
-        print('')
+        print("#===================================================#")
+        print("")
 
     def test_forwardAD_FD(self, stepSize=1e-7, fixedSeed=True, plotError=False):
 
-        '''
+        """
         This method compares derivatives computed with automatic differentiation (AD)
         with derivatives computed by finite differencing (FD).
 
@@ -1305,14 +1445,14 @@ class HypSurfMesh(object):
         values will not change every time you run the same code.
 
         Ney Secco 2017-01
-        '''
+        """
 
         # INITIALIZATION
 
-        print('')
-        print('#===================================================#')
-        print('Checking forward AD derivatives with Finite Differences')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("Checking forward AD derivatives with Finite Differences")
+        print("")
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
@@ -1329,10 +1469,10 @@ class HypSurfMesh(object):
         # DERIVATIVE SEEDS
 
         # Triangulated surface nodes seeds
-        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode="forward")
 
         # Initial curve seeds
-        initCurveCoord = self.curve.set_randomADSeeds(mode='forward')
+        initCurveCoord = self.curve.set_randomADSeeds(mode="forward")
         initCurveCoor0 = self.curve.get_points()
 
         # AD VERSION
@@ -1344,21 +1484,21 @@ class HypSurfMesh(object):
         meshd_AD = self.meshObj.get_forwardADSeeds()
 
         # Export original mesh first
-        meshObj0 = pysurf.SurfaceMesh(self.meshObj.name,self.meshObj.coor)
-        meshObj0.export_plot3d('FDtest_original.xyz')
+        meshObj0 = pysurf.SurfaceMesh(self.meshObj.name, self.meshObj.coor)
+        meshObj0.export_plot3d("FDtest_original.xyz")
 
         # FD VERSION
 
         # Perturb nodes based on derivative seeds
-        self.ref_geom.update(self.ref_geom.coor + coord*stepSize)
+        self.ref_geom.update(self.ref_geom.coor + coord * stepSize)
         for curveName in self.ref_geom.curves:
             curve = self.ref_geom.curves[curveName]
             currPts = curve.get_points()
-            newPts = currPts + curveCoord[curveName]*stepSize
+            newPts = currPts + curveCoord[curveName] * stepSize
             curve.set_points(newPts)
 
         # Perturb initial curve
-        self.curve.set_points(initCurveCoor0 + stepSize*initCurveCoord)
+        self.curve.set_points(initCurveCoor0 + stepSize * initCurveCoord)
 
         # Run the perturbed mesh in Fortran
         self.createMesh(fortran_flag=True)
@@ -1367,27 +1507,27 @@ class HypSurfMesh(object):
         mesh = self.meshObj.get_points()
 
         # Restore initial nodes
-        self.ref_geom.update(self.ref_geom.coor - coord*stepSize)
+        self.ref_geom.update(self.ref_geom.coor - coord * stepSize)
         for curveName in self.ref_geom.curves:
             curve = self.ref_geom.curves[curveName]
             currPts = curve.get_points()
-            newPts = currPts - curveCoord[curveName]*stepSize
+            newPts = currPts - curveCoord[curveName] * stepSize
             curve.set_points(newPts)
 
         self.curve.set_points(initCurveCoor0)
 
         # Compute derivatives with Finite Differences
-        meshd_FD = (mesh-mesh0)/stepSize
+        meshd_FD = (mesh - mesh0) / stepSize
 
         # Get differences between both versions
-        differences = (meshd_AD - meshd_FD).reshape((self.numLayers,-1))
+        differences = (meshd_AD - meshd_FD).reshape((self.numLayers, -1))
         error = np.max(np.abs(differences))
 
         # Print result
-        print('')
-        print('Maximum discrepancy between AD and FD derivatives (should be around 1e-7):')
+        print("")
+        print("Maximum discrepancy between AD and FD derivatives (should be around 1e-7):")
         print(error)
-        print('')
+        print("")
 
         # Plot errors if requested by the user or if error is too large
         if plotError or error > 1e-4:
@@ -1397,31 +1537,31 @@ class HypSurfMesh(object):
 
         # Create mesh objects with exagerated trends
         stepp = 1e-1
-        meshObjAD = pysurf.SurfaceMesh(meshObj0.name,meshObj0.coor)
-        meshObjFD = pysurf.SurfaceMesh(meshObj0.name,meshObj0.coor)
-        meshObjAD.set_points(meshObj0.get_points() + stepp*meshd_AD)
-        meshObjFD.set_points(meshObj0.get_points() + stepp*meshd_FD)
-        meshObjAD.export_plot3d('FDtest_AD.xyz')
-        meshObjFD.export_plot3d('FDtest_FD.xyz')
+        meshObjAD = pysurf.SurfaceMesh(meshObj0.name, meshObj0.coor)
+        meshObjFD = pysurf.SurfaceMesh(meshObj0.name, meshObj0.coor)
+        meshObjAD.set_points(meshObj0.get_points() + stepp * meshd_AD)
+        meshObjFD.set_points(meshObj0.get_points() + stepp * meshd_FD)
+        meshObjAD.export_plot3d("FDtest_AD.xyz")
+        meshObjFD.export_plot3d("FDtest_FD.xyz")
 
-        print('#===================================================#')
-        print('')
+        print("#===================================================#")
+        print("")
 
     def test_forwardAD_reverseAD(self, fixedSeed=True):
 
-        '''
+        """
         This method uses the dot product test to verify if the forward and
         reverse AD versions are consistent.
 
         Ney Secco 2017-01
-        '''
+        """
 
         # INITIALIZATION
 
-        print('')
-        print('#===================================================#')
-        print('Checking forward and reverse AD with the dot product test')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("Checking forward and reverse AD with the dot product test")
+        print("")
 
         # See if we should use a fixed seed for the RNG
         if fixedSeed:
@@ -1437,13 +1577,13 @@ class HypSurfMesh(object):
         # Generate a set of random derivative seeds
 
         # Triangulated surface nodes seeds
-        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode='forward')
+        coord, curveCoord = self.ref_geom.set_randomADSeeds(mode="forward")
 
         # Initial curve seeds
-        initCurveCoord = self.curve.set_randomADSeeds(mode='forward')
+        initCurveCoord = self.curve.set_randomADSeeds(mode="forward")
 
         # Surface mesh seeds
-        meshb = self.meshObj.set_randomADSeeds(mode='reverse')
+        meshb = self.meshObj.set_randomADSeeds(mode="reverse")
 
         # FORWARD AD VERSION
 
@@ -1472,30 +1612,31 @@ class HypSurfMesh(object):
         # DOT PRODUCT TEST
 
         dotProduct = 0.0
-        dotProduct = dotProduct + np.sum(coord*coorb)
+        dotProduct = dotProduct + np.sum(coord * coorb)
         for curveName in self.ref_geom.curves:
-            dotProduct = dotProduct + np.sum(curveCoord[curveName]*curveCoorb[curveName])
-        dotProduct = dotProduct + np.sum(initCurveCoord*initCurveCoorb)
-        dotProduct = dotProduct - np.sum(meshd*meshb)
+            dotProduct = dotProduct + np.sum(curveCoord[curveName] * curveCoorb[curveName])
+        dotProduct = dotProduct + np.sum(initCurveCoord * initCurveCoorb)
+        dotProduct = dotProduct - np.sum(meshd * meshb)
 
-        print('')
-        print(' Marching dot product test (this should be around 1e-14):')
+        print("")
+        print(" Marching dot product test (this should be around 1e-14):")
         print(dotProduct)
-        print('')
-        print('#===================================================#')
-        print('')
+        print("")
+        print("#===================================================#")
+        print("")
 
 
-'''
+"""
 ==============================================
 MORE AUXILIARY FUNCTIONS
 ==============================================
-'''
+"""
 
-#=============================================
-#=============================================
+# =============================================
+# =============================================
 
-def plotGrid(X,Y,Z,show=False):
+
+def plotGrid(X, Y, Z, show=False):
 
     # This function plots the grid
 
@@ -1508,25 +1649,25 @@ def plotGrid(X,Y,Z,show=False):
 
     # Initialize figure
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
 
     # Plot eta lines
     for i in range(num_eta):
-        ax.plot(X[:,i], Y[:,i], Z[:,i],'k')
+        ax.plot(X[:, i], Y[:, i], Z[:, i], "k")
 
     # Plot xi lines
     for i in range(num_xi):
-        ax.plot(X[i,:], Y[i,:], Z[i,:],'k')
+        ax.plot(X[i, :], Y[i, :], Z[i, :], "k")
 
     # Plot the initial curve
-    ax.plot(X[0,:],Y[0,:],Z[0,:],'r',linewidth=2)
+    ax.plot(X[0, :], Y[0, :], Z[0, :], "r", linewidth=2)
 
     # Add labels
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.xlabel("x")
+    plt.ylabel("y")
 
     # Adjust axis
-    ax.axis('equal')
+    ax.axis("equal")
     ax.set_axis_off()
 
     if show:
@@ -1536,30 +1677,36 @@ def plotGrid(X,Y,Z,show=False):
     # Return the figure handle
     return fig
 
+
 def warn(message):
-    print('')
-    print('WARNING!:')
+    print("")
+    print("WARNING!:")
     print(message)
-    print('')
+    print("")
+
 
 def error(message):
-    print('')
-    print('ERROR!:')
+    print("")
+    print("ERROR!:")
     print(message)
-    print('')
+    print("")
 
-#=============================================
-#=============================================
+
+# =============================================
+# =============================================
+
 
 def view_mat(mat):
     """ Helper function used to visually examine matrices. """
     import matplotlib.pyplot as plt
+
     if len(mat.shape) > 2:
         mat = np.sum(mat, axis=2)
     # print "Cond #:", np.linalg.cond(mat)
-    im = plt.imshow(mat, interpolation='none')
-    plt.colorbar(im, orientation='horizontal')
+    im = plt.imshow(mat, interpolation="none")
+    plt.colorbar(im, orientation="horizontal")
     plt.show()
+
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
@@ -1569,10 +1716,10 @@ def closest_node(guideCurve, curve):
     nPoints = curve.shape[0]
 
     # Initialize arrays to call projection function
-    dist2 = np.ones(nPoints)*1e10
-    xyzProj = np.zeros((nPoints,3))
-    tangents = np.zeros((nPoints,3))
-    elemIDs = np.zeros((nPoints),dtype='int32')
+    dist2 = np.ones(nPoints) * 1e10
+    xyzProj = np.zeros((nPoints, 3))
+    tangents = np.zeros((nPoints, 3))
+    elemIDs = np.zeros((nPoints), dtype="int32")
 
     # Call projection function to find the distance between every node of the
     # seed curve to the guide curve

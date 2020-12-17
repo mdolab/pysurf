@@ -13,36 +13,31 @@ deriv_check = True
 
 np.random.seed(123)
 
-class TestCreateMesh(unittest.TestCase):
 
+class TestCreateMesh(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestCreateMesh, self).__init__(*args, **kwargs)
-        with open('examples_dict.pickle', 'r') as f:
+        with open("examples_dict.pickle", "r") as f:
             self.master_dict = pickle.load(f)
 
         self.guideIndices = np.array([])
         self.retainSpacing = False
 
     def test_kink_on_plate(self):
-        example = 'kink_on_plate'
+        example = "kink_on_plate"
 
         # Read inputs from CGNS file
-        self.geom = TSurfGeometry('examples/inputs/plate.cgns')
+        self.geom = TSurfGeometry("examples/inputs/plate.cgns")
 
         # Set source self.curve
-        self.curve = np.array([[0.,0,0],
-                       [1,1,0],
-                       [2,2,0],
-                       [3,2,0],
-                       [4,1,0],
-                       [5,0,0]])
+        self.curve = np.array([[0.0, 0, 0], [1, 1, 0], [2, 2, 0], [3, 2, 0], [4, 1, 0], [5, 0, 0]])
 
         # Flip self.curve to change marching direction
-        self.curve = self.curve[::-1,:]
+        self.curve = self.curve[::-1, :]
 
         # Define boundary conditions
-        self.bc1 = 'constX'
-        self.bc2 = 'constX'
+        self.bc1 = "constX"
+        self.bc2 = "constX"
 
         # Set parameters
         self.epsE0 = 1.0
@@ -61,7 +56,7 @@ class TestCreateMesh(unittest.TestCase):
         self.extension = 1.5
 
         # Give layout file
-        self.layout_file = 'layout_plate.lay'
+        self.layout_file = "layout_plate.lay"
 
         self.create_mesh()
 
@@ -308,57 +303,53 @@ class TestCreateMesh(unittest.TestCase):
 
         # Set options
         options = {
-
-            'bc1' : self.bc1,
-            'bc2' : self.bc2,
-            'dStart' : self.sBaseline,
-            'numLayers' : self.numLayers,
-            'extension' : self.extension,
-            'epsE0' : self.epsE0,
-            'theta' : self.theta,
-            'alphaP0' : self.alphaP0,
-            'numSmoothingPasses' : self.numSmoothingPasses,
-            'nuArea' : self.nuArea,
-            'numAreaPasses' : self.numAreaPasses,
-            'sigmaSplay' : self.sigmaSplay,
-            'cMax' : self.cMax,
-            'ratioGuess' : self.ratioGuess,
-
-            }
+            "bc1": self.bc1,
+            "bc2": self.bc2,
+            "dStart": self.sBaseline,
+            "numLayers": self.numLayers,
+            "extension": self.extension,
+            "epsE0": self.epsE0,
+            "theta": self.theta,
+            "alphaP0": self.alphaP0,
+            "numSmoothingPasses": self.numSmoothingPasses,
+            "nuArea": self.nuArea,
+            "numAreaPasses": self.numAreaPasses,
+            "sigmaSplay": self.sigmaSplay,
+            "cMax": self.cMax,
+            "ratioGuess": self.ratioGuess,
+        }
 
         mesh = hypsurf.HypSurfMesh(curve=self.curve, ref_geom=self.geom, options=options)
 
         mesh.createMesh()
 
-
         hs = hypsurf.hypsurfAPI.hypsurfapi
 
         if deriv_check:
             ### DOT PRODUCT TEST FOR SMOOTHING
-            coor = self.curve.reshape(-1, order='F')
-            hs.smoothing(coor, 3., self.alphaP0, 1, self.numLayers)
+            coor = self.curve.reshape(-1, order="F")
+            hs.smoothing(coor, 3.0, self.alphaP0, 1, self.numLayers)
 
             # FORWARD MODE
             coord = np.random.random_sample(coor.shape)
             coord_copy = coord.copy()
-            rOut, rOutd = hs.smoothing_d(coor, coord, 5., self.alphaP0, 1, self.numLayers)
+            rOut, rOutd = hs.smoothing_d(coor, coord, 5.0, self.alphaP0, 1, self.numLayers)
 
             # REVERSE MODE
-            rOutb = np.random.random_sample(coor.shape)**2
+            rOutb = np.random.random_sample(coor.shape) ** 2
             rOutb_copy = rOutb.copy()
-            coorb, rOut = hs.smoothing_b(coor, 5., self.alphaP0, 1, self.numLayers, rOutb)
+            coorb, rOut = hs.smoothing_b(coor, 5.0, self.alphaP0, 1, self.numLayers, rOutb)
 
             print()
-            print('Dot product test for Smoothing. This should be zero:')
-            dotprod = np.sum(coord_copy*coorb) - np.sum(rOutd*rOutb_copy)
+            print("Dot product test for Smoothing. This should be zero:")
+            dotprod = np.sum(coord_copy * coorb) - np.sum(rOutd * rOutb_copy)
             print(dotprod)
             print()
-            np.testing.assert_almost_equal(dotprod, 0.)
-
+            np.testing.assert_almost_equal(dotprod, 0.0)
 
             ### DOT PRODUCT TEST FOR COMPUTEMATRICES
             n = 4
-            r0 = np.random.rand(3*n) * 10
+            r0 = np.random.rand(3 * n) * 10
             rm1 = r0 / 2
             n0 = np.random.rand(3, n)
             s0 = np.random.rand(n) * 4
@@ -378,29 +369,62 @@ class TestCreateMesh(unittest.TestCase):
             rm1_d_copy = rm1_d.copy()
             sm1_d_copy = sm1_d.copy()
 
-            rnext, rnext_d = hs.computematrices_d(r0, r0_d, n0, n0_d, s0, s0_d, rm1, rm1_d, sm1, sm1_d, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, self.numLayers, self.epsE0)
+            rnext, rnext_d = hs.computematrices_d(
+                r0,
+                r0_d,
+                n0,
+                n0_d,
+                s0,
+                s0_d,
+                rm1,
+                rm1_d,
+                sm1,
+                sm1_d,
+                layerindex,
+                self.theta,
+                self.sigmaSplay,
+                self.bc1,
+                self.bc2,
+                self.guideIndices,
+                self.retainSpacing,
+                self.numLayers,
+                self.epsE0,
+            )
 
             # REVERSE MODE
             rnext_b = np.random.random_sample(r0.shape)
 
             rnext_b_copy = rnext_b.copy()
 
-            r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(r0, n0, s0, rm1, sm1, layerindex, self.theta, self.sigmaSplay, self.bc1, self.bc2, self.numLayers, self.epsE0, self.guideIndices, self.retainSpacing, rnext_b)
-
-
+            r0_b, n0_b, s0_b, rm1_b, sm1_b, rnext = hs.computematrices_b(
+                r0,
+                n0,
+                s0,
+                rm1,
+                sm1,
+                layerindex,
+                self.theta,
+                self.sigmaSplay,
+                self.bc1,
+                self.bc2,
+                self.numLayers,
+                self.epsE0,
+                self.guideIndices,
+                self.retainSpacing,
+                rnext_b,
+            )
 
             # Dot product test
             dotProd = 0.0
-            dotProd = dotProd + np.sum(rnext_d*rnext_b_copy)
-            dotProd = dotProd - np.sum(r0_b*r0_d_copy)
-            dotProd = dotProd - np.sum(n0_b*n0_d_copy)
-            dotProd = dotProd - np.sum(s0_b*s0_d_copy)
-            dotProd = dotProd - np.sum(rm1_b*rm1_d_copy)
-            dotProd = dotProd - np.sum(sm1_b*sm1_d_copy)
+            dotProd = dotProd + np.sum(rnext_d * rnext_b_copy)
+            dotProd = dotProd - np.sum(r0_b * r0_d_copy)
+            dotProd = dotProd - np.sum(n0_b * n0_d_copy)
+            dotProd = dotProd - np.sum(s0_b * s0_d_copy)
+            dotProd = dotProd - np.sum(rm1_b * rm1_d_copy)
+            dotProd = dotProd - np.sum(sm1_b * sm1_d_copy)
 
-            print('Dot product test for ComputeMatrices. This should be zero:')
+            print("Dot product test for ComputeMatrices. This should be zero:")
             print(dotProd)
-
 
             ### DOT PRODUCT TEST FOR AREAFACTOR
 
@@ -408,26 +432,28 @@ class TestCreateMesh(unittest.TestCase):
 
             # FORWARD MODE
             n = 4
-            r0 = np.random.rand(3*n) * 10
+            r0 = np.random.rand(3 * n) * 10
             r0d = np.random.random_sample(r0.shape)
             r0d_copy = r0d.copy()
-            S0, S0d, maxstretch = hs.areafactor_test_d(r0, r0d, .2, 0, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing)
+            S0, S0d, maxstretch = hs.areafactor_test_d(
+                r0, r0d, 0.2, 0, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing
+            )
 
             # REVERSE MODE
             S0b = np.random.random_sample(S0.shape)
             S0b_copy = S0b.copy()
-            r0b, db = hs.areafactor_test_b(r0, .2, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, S0, S0b, maxstretch)
+            r0b, db = hs.areafactor_test_b(
+                r0, 0.2, self.nuArea, 5, self.bc1, self.bc2, self.guideIndices, self.retainSpacing, S0, S0b, maxstretch
+            )
 
             print()
-            print('Dot product test for Area Factor. This should be zero:')
-            dotprod = np.sum(r0d_copy*r0b) - np.sum(S0d*S0b_copy)
+            print("Dot product test for Area Factor. This should be zero:")
+            dotprod = np.sum(r0d_copy * r0b) - np.sum(S0d * S0b_copy)
             print(dotprod)
             print()
             # np.testing.assert_almost_equal(dotprod, 0.)
 
-
-
-        mesh.exportPlot3d('output.xyz')
+        mesh.exportPlot3d("output.xyz")
 
         # EXPORT REFERENCE SURFACE
 
@@ -435,7 +461,6 @@ class TestCreateMesh(unittest.TestCase):
         # os.system('tec360 ' + self.layout_file)
 
         self.mesh = mesh
-
 
 
 if __name__ == "__main__":

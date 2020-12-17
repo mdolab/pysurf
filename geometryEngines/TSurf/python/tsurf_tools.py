@@ -1,25 +1,25 @@
-
 import numpy as np
 from . import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI
 from mpi4py import MPI
 from . import tsurf_component
 
-'''
+"""
 TODO:
 - Add variable angle threshold to curve feature extraction and curve split
-'''
+"""
 
-#===========================================
+# ===========================================
 # AUXILIARY READING FUNCTIONS
-#===========================================
+# ===========================================
+
 
 def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
-    '''
+    """
     This function opens a CGNS file, reads its sections, and returns a
     dictionary with selected sections. This code also initializes ADT
     for each section.
-    '''
+    """
 
     ### Read CGNS file in Fortran
 
@@ -74,11 +74,11 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
     # Transform flagged arrays back to empty ones
     if arraySizes[1] == -1:
-        triaConnF = np.zeros((0,3))
+        triaConnF = np.zeros((0, 3))
     if arraySizes[2] == -1:
-        quadsConnF = np.zeros((0,4))
+        quadsConnF = np.zeros((0, 4))
     if arraySizes[3] == -1:
-        barsConnF = np.zeros((0,2))
+        barsConnF = np.zeros((0, 2))
     if arraySizes[4] == -1:
         surfTriaPtr = np.zeros(0)
     if arraySizes[5] == -1:
@@ -86,9 +86,9 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     if arraySizes[6] == -1:
         curveBarsPtr = np.zeros(0)
     if arraySizes[7] == -1:
-        surfNames = np.zeros((0,32))
+        surfNames = np.zeros((0, 32))
     if arraySizes[8] == -1:
-        curveNames = np.zeros((0,32))
+        curveNames = np.zeros((0, 32))
 
     # Now we deallocate variables on the Fortran side
     cgnsAPI.cgnsapi.releasememory()
@@ -106,17 +106,16 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
         # Get indices to slice connectivity array.
         iTriaStart = surfTriaPtr[iSurf]
-        iTriaEnd = surfTriaPtr[iSurf+1]
+        iTriaEnd = surfTriaPtr[iSurf + 1]
         iQuadsStart = surfQuadsPtr[iSurf]
-        iQuadsEnd = surfQuadsPtr[iSurf+1]
+        iQuadsEnd = surfQuadsPtr[iSurf + 1]
 
         # Slice connectivities
-        currTriaConnF = triaConnF[iTriaStart:iTriaEnd,:]
-        currQuadsConnF = quadsConnF[iQuadsStart:iQuadsEnd,:]
+        currTriaConnF = triaConnF[iTriaStart:iTriaEnd, :]
+        currQuadsConnF = quadsConnF[iQuadsStart:iQuadsEnd, :]
 
         # Initialize surface dictionary
-        currSurf = {'triaConnF':currTriaConnF,
-                    'quadsConnF':currQuadsConnF}
+        currSurf = {"triaConnF": currTriaConnF, "quadsConnF": currQuadsConnF}
 
         # Add this section to the dictionary
         sectionDict[surf] = currSurf
@@ -129,13 +128,13 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
 
         # Get indices to slice connectivity array.
         iBarsStart = curveBarsPtr[iCurve]
-        iBarsEnd = curveBarsPtr[iCurve+1]
+        iBarsEnd = curveBarsPtr[iCurve + 1]
 
         # Slice barsConn to get current curve elements
         slicedConn = barsConn[iBarsStart:iBarsEnd, :]
 
         # Initialize curve dictionary
-        currCurve = {'barsConn':slicedConn}
+        currCurve = {"barsConn": slicedConn}
 
         # Add this entry to the dictionary
         sectionDict[curve] = currCurve
@@ -146,17 +145,19 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
     # Return sections dictionary
     return coor, sectionDict
 
-#========================================
+
+# ========================================
+
 
 def read_tecplot_curves(fileName, mergeTol=1e-7):
 
-    '''
+    """
     This function reads curve described in tecplot format.
 
     mergeTol: float -> Tolerance used to merge nearby nodes after reading tecplot data.
 
     Ney Secco 2016-11
-    '''
+    """
 
     # IMPORTS
     from ....utilities import plot3d_interface as p3d
@@ -182,30 +183,34 @@ def read_tecplot_curves(fileName, mergeTol=1e-7):
     # Return dictionary with TSurf curves
     return curves
 
-#=================================================================
+
+# =================================================================
 # AUXILIARY COMPONENT FUNCTIONS
-#=================================================================
+# =================================================================
+
 
 def initialize_surface(TSurfGeometry):
 
-    '''
+    """
     This function receives a TSurf component and initializes its surface based
     on the initial connectivity and coordinates
-    '''
+    """
 
-    print('My ID is',TSurfGeometry.name)
+    print("My ID is", TSurfGeometry.name)
 
     # Now call general function that sets ADT
     update_surface(TSurfGeometry)
 
-#=================================================================
+
+# =================================================================
+
 
 def update_surface(TSurfGeometry):
 
-    '''
+    """
     This function receives a TSurf component and initializes its surface
     ADT based on the current connectivity and coordinates.
-    '''
+    """
 
     # Deallocate previous tree
     adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
@@ -217,24 +222,29 @@ def update_surface(TSurfGeometry):
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(TSurfGeometry.coor.T,
-                                                         TSurfGeometry.triaConnF.T,
-                                                         TSurfGeometry.quadsConnF.T)
+    nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(
+        TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
+    )
     TSurfGeometry.nodal_normals = nodal_normals.T
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(TSurfGeometry.coor.T,
-                                     TSurfGeometry.triaConnF.T,
-                                     TSurfGeometry.quadsConnF.T,
-                                     BBox.T, useBBox,
-                                     TSurfGeometry.comm.py2f(),
-                                     TSurfGeometry.name)
+    adtAPI.adtapi.adtbuildsurfaceadt(
+        TSurfGeometry.coor.T,
+        TSurfGeometry.triaConnF.T,
+        TSurfGeometry.quadsConnF.T,
+        BBox.T,
+        useBBox,
+        TSurfGeometry.comm.py2f(),
+        TSurfGeometry.name,
+    )
 
-#=================================================================
+
+# =================================================================
+
 
 def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
 
-    '''
+    """
     This function initializes all curves given in sectionDict that are
     shown in selectedSections.
 
@@ -248,7 +258,7 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
     This function has no explicit outputs. It assigns TSurfGeometry.curves
 
     Ney Secco 2016-08
-    '''
+    """
 
     # CURVE OBJECTS
     # A DiscreteSurf component may have multiple curve objects
@@ -259,11 +269,12 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
     # Now we will initialize curve objects
     for sectionName in sectionDict:
 
-        if ('barsConn' in list(sectionDict[sectionName].keys())) and \
-           (sectionName in selectedSections): # Then we have a curve section that should be stored
+        if ("barsConn" in list(sectionDict[sectionName].keys())) and (
+            sectionName in selectedSections
+        ):  # Then we have a curve section that should be stored
 
             # Get data from current section
-            barsConn = sectionDict[sectionName]['barsConn']
+            barsConn = sectionDict[sectionName]["barsConn"]
 
             # Create Curve object and append entry to the dictionary
             curveObjDict[sectionName] = tsurf_component.TSurfCurve(TSurfGeometry.coor, barsConn, sectionName)
@@ -271,11 +282,13 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
     # Assign curve objects to ADT component
     TSurfGeometry.curves = curveObjDict
 
-#=================================================================
 
-def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
+# =================================================================
 
-    '''
+
+def extract_curves_from_surface(TSurfGeometry, feature="sharpness"):
+
+    """
     This function will extract features from the surface of TSurfGeometry and
     return Curve objects.
 
@@ -283,7 +296,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     called during an optimization as it might be slow.
 
     Ney Secco 2016-08
-    '''
+    """
 
     # Get points and connectivities
     coor = TSurfGeometry.coor
@@ -313,7 +326,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     #                        36 (second element ID)]
 
     initSize = 10000
-    sharedBarInfo = np.zeros((initSize,4))
+    sharedBarInfo = np.zeros((initSize, 4))
 
     # Create function to reallocate sharedBarInfo if necessary
     def reallocate_sharedBarInfo(sharedBarInfo):
@@ -322,10 +335,10 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         oldSize = sharedBarInfo.shape[0]
 
         # Allocate new array
-        newSharedBarInfo = np.zeros((oldSize+initSize,4),dtype=int)
+        newSharedBarInfo = np.zeros((oldSize + initSize, 4), dtype=int)
 
         # Copy values from the old array
-        newSharedBarInfo[:oldSize,:] = sharedBarInfo
+        newSharedBarInfo[:oldSize, :] = sharedBarInfo
 
         # Overwrite the old array
         sharedBarInfo = newSharedBarInfo
@@ -356,19 +369,21 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     # Loop over all trias
     for triaID in range(nTria):
 
-        if np.mod(triaID,200) == 0:
-            print('Checking tria',triaID+1,'of',nTria)
+        if np.mod(triaID, 200) == 0:
+            print("Checking tria", triaID + 1, "of", nTria)
 
         # Get current element connectivity
         # The minus 1 is due to Fortran indexing present in triaConnF
-        currConn = triaConnF[triaID,:] - 1
+        currConn = triaConnF[triaID, :] - 1
 
         # Determine the bars that define the element.
         # We sort the node order so that they will point to the same
         # place in the dictionary.
-        bars = [tuple(np.sort([currConn[0], currConn[1]])),
-                tuple(np.sort([currConn[1], currConn[2]])),
-                tuple(np.sort([currConn[2], currConn[0]]))]
+        bars = [
+            tuple(np.sort([currConn[0], currConn[1]])),
+            tuple(np.sort([currConn[1], currConn[2]])),
+            tuple(np.sort([currConn[2], currConn[0]])),
+        ]
 
         # Check each bar
         for bar in bars:
@@ -394,7 +409,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
                     sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
 
                 # Assign new data
-                sharedBarInfo[nEdge,:] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+                sharedBarInfo[nEdge, :] = [bar[0], bar[1], edge2Elem[bar][0], edge2Elem[bar][1]]
 
                 # Increment number of edges detected
                 nEdge = nEdge + 1
@@ -405,22 +420,24 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     # Loop over all quads
     for quadID in range(nQuads):
 
-        if np.mod(quadID,200) == 0:
-            print('Checking quad',quadID+1,'of',nQuads)
+        if np.mod(quadID, 200) == 0:
+            print("Checking quad", quadID + 1, "of", nQuads)
 
         # Get current element connectivity
         # The minus 1 is due to Fortran indexing present in quadsConnF
-        currConn = quadsConnF[quadID,:] - 1
+        currConn = quadsConnF[quadID, :] - 1
 
         # Determine the bars that define the element.
         # We sort the node order so that they will point to the same
         # place in the dictionary.
         # We need to use tuples so that the connectivity can be used as
         # a dictionary key. Lists are not accepted.
-        bars = [tuple(np.sort([currConn[0], currConn[1]])),
-                tuple(np.sort([currConn[1], currConn[2]])),
-                tuple(np.sort([currConn[2], currConn[3]])),
-                tuple(np.sort([currConn[3], currConn[0]]))]
+        bars = [
+            tuple(np.sort([currConn[0], currConn[1]])),
+            tuple(np.sort([currConn[1], currConn[2]])),
+            tuple(np.sort([currConn[2], currConn[3]])),
+            tuple(np.sort([currConn[3], currConn[0]])),
+        ]
 
         # Check each bar
         for bar in bars:
@@ -447,7 +464,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
                     sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
 
                 # Assign new data
-                sharedBarInfo[nEdge,:] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+                sharedBarInfo[nEdge, :] = [bar[0], bar[1], edge2Elem[bar][0], edge2Elem[bar][1]]
 
                 # Increment number of edges detected
                 nEdge = nEdge + 1
@@ -464,7 +481,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
             sharedBarInfo = reallocate_sharedBarInfo(sharedBarInfo)
 
         # Copy bar to sharedBarInfo
-        sharedBarInfo[nEdge,:] = [bar[0],bar[1],edge2Elem[bar][0],edge2Elem[bar][1]]
+        sharedBarInfo[nEdge, :] = [bar[0], bar[1], edge2Elem[bar][0], edge2Elem[bar][1]]
 
         # Increment number of edges detected
         nEdge = nEdge + 1
@@ -473,8 +490,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         edge2Elem.pop(bar)
 
     # Now we crop sharedBarInfo to have the exact number of edges
-    sharedBarInfo = sharedBarInfo[:nEdge,:]
-
+    sharedBarInfo = sharedBarInfo[:nEdge, :]
 
     # CURVE DETECTION
 
@@ -498,19 +514,17 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
     for barID in range(sharedBarInfo.shape[0]):
 
         # Gather data from sharedBarInfo
-        node1 = sharedBarInfo[barID,0]
-        node2 = sharedBarInfo[barID,1]
-        element1 = sharedBarInfo[barID,2]
-        element2 = sharedBarInfo[barID,3]
+        node1 = sharedBarInfo[barID, 0]
+        node2 = sharedBarInfo[barID, 1]
+        element1 = sharedBarInfo[barID, 2]
+        element2 = sharedBarInfo[barID, 3]
 
         # Run function to detect a given feature
-        featureIsPresent = detect_feature(node1, node2, element1, element2,
-                                          coor, triaConnF, quadsConnF,
-                                          feature)
+        featureIsPresent = detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF, feature)
 
         # Store bar if feature is present
         if featureIsPresent:
-            selectedBarsConn.append([node1,node2])
+            selectedBarsConn.append([node1, node2])
 
     # Run sorting algorithm on the detected bars
     # Remember that selectedBarsConn now will be a list containing
@@ -532,7 +546,7 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         curveID = curveID + 1
 
         # Create name for this curve
-        curveName = 'extracted_' + feature + '_%03d'%curveID
+        curveName = "extracted_" + feature + "_%03d" % curveID
 
         # Create new curve object
         newCurve = tsurf_component.TSurfCurve(coor, currCurveConn, curveName)
@@ -541,19 +555,21 @@ def extract_curves_from_surface(TSurfGeometry, feature='sharpness'):
         TSurfGeometry.add_curve(newCurve)
 
     # Print log
-    print('Number of extracted curves: ',len(selectedBarsConn))
+    print("Number of extracted curves: ", len(selectedBarsConn))
 
-#=================================================================
 
-#=================================================================
+# =================================================================
+
+# =================================================================
 # AUXILIARY SURFACE FUNCTIONS
-#=================================================================
+# =================================================================
 
-#=================================================================
+# =================================================================
+
 
 def merge_surface_sections(sectionDict, selectedSections):
 
-    '''
+    """
     This function merges the connectivity data of all surface sections
     specified in selectedSections.
 
@@ -562,7 +578,7 @@ def merge_surface_sections(sectionDict, selectedSections):
                   keys are section names, while the values are also dictionaries with the
                   following fields:'quadsConnF','triaConnF' for surface sections and 'barsConn'
                   for curve sections.
-    '''
+    """
 
     # Initialize global connectivities
     triaConnF = None
@@ -574,39 +590,41 @@ def merge_surface_sections(sectionDict, selectedSections):
         if sectionName not in list(sectionDict.keys()):
 
             # User wants a section that is not defined. Print a warning message:
-            print('ERROR: Surface',sectionName,'is not defined. Check surface names in your CGNS file.')
+            print("ERROR: Surface", sectionName, "is not defined. Check surface names in your CGNS file.")
             quit()
 
-        elif 'triaConnF' in list(sectionDict[sectionName].keys()): # Then we have a surface section
+        elif "triaConnF" in list(sectionDict[sectionName].keys()):  # Then we have a surface section
 
             # Assign connectivities
             if triaConnF is None:
                 # Start new connectivities if we have none
-                triaConnF = sectionDict[sectionName]['triaConnF']
-                quadsConnF = sectionDict[sectionName]['quadsConnF']
+                triaConnF = sectionDict[sectionName]["triaConnF"]
+                quadsConnF = sectionDict[sectionName]["quadsConnF"]
             else:
                 # Append new connectivities
-                triaConnF = np.vstack([triaConnF, sectionDict[sectionName]['triaConnF']])
-                quadsConnF = np.vstack([quadsConnF, sectionDict[sectionName]['quadsConnF']])
+                triaConnF = np.vstack([triaConnF, sectionDict[sectionName]["triaConnF"]])
+                quadsConnF = np.vstack([quadsConnF, sectionDict[sectionName]["quadsConnF"]])
 
         else:
 
             # The user provided a name that is not a surface section
-            print(sectionName,'is not a surface section.')
+            print(sectionName, "is not a surface section.")
 
     return triaConnF, quadsConnF
 
-#=================================================================
 
-#=================================================================
+# =================================================================
+
+# =================================================================
 # AUXILIARY CURVE FUNCTIONS
-#=================================================================
+# =================================================================
 
-#=================================================================
+# =================================================================
 
-def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
 
-    '''
+def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
+
+    """
     This function will generate a curve object from a list
     of points provided by the user.
     This function automatically generate the bar element connectivity
@@ -628,23 +646,23 @@ def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
     curve -> TSurfCurve object : curve object defined by the given nodes.
 
     Ney Secco 2017-02
-    '''
+    """
 
     # Check if we have 3D data
     if coor.shape[1] != 3:
-        raise ValueError('coor should be of shape [numNodes,3]')
+        raise ValueError("coor should be of shape [numNodes,3]")
 
     # Determine the number of nodes
     numNodes = coor.shape[0]
 
     # Create bar element connectivity
-    barsConn = np.zeros((numNodes-1, 2))
-    barsConn[:, 0] = list(range(numNodes-1))
+    barsConn = np.zeros((numNodes - 1, 2))
+    barsConn[:, 0] = list(range(numNodes - 1))
     barsConn[:, 1] = barsConn[:, 0] + 1
 
     # Add an extra element if the curve is periodic
     if periodic:
-        newBar = np.array([[barsConn[-1,-1],0]])
+        newBar = np.array([[barsConn[-1, -1], 0]])
         np.vstack([barsConn, newBar])
 
     # Create curve object
@@ -653,21 +671,23 @@ def create_curve_from_points(coor,curveName,periodic=False,mergeTol=1e-7):
     # Return curve object
     return curve
 
-#=================================================================
+
+# =================================================================
+
 
 def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
 
-    '''
+    """
     This function will merge curves in the curveDict dictonary whose
     name is included in curveNames.
     If curvesToMerge=None, we will merge all curves in curveDict
 
     Ney Secco 2016-11
-    '''
+    """
 
     # Initialize set of coordinates and connectivities
-    mergedCoor = np.zeros((0,3))
-    mergedBarsConn = np.zeros((0,2),dtype='int32')
+    mergedCoor = np.zeros((0, 3))
+    mergedBarsConn = np.zeros((0, 2), dtype="int32")
 
     # Merge all curves if user provided none
     if curvesToMerge == None:
@@ -701,11 +721,13 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
     # Return merged curve
     return mergedCurve
 
-#=================================================================
 
-def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='sharpness'):
+# =================================================================
 
-    '''
+
+def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria="sharpness"):
+
+    """
     This function will loop over all curves in curveDict and split
     them based on a given criteria. The available criteria are:
     criteria=['sharpness', 'curve']
@@ -720,17 +742,17 @@ def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='shar
 
     Ney Secco 2016-08
     John Jasa 2016-11
-    '''
+    """
 
     # Split all curves in the dictionary if the user provided None as input
     if curvesToBeSplit is None:
         curvesToBeSplit = list(curveDict.keys())
 
-    '''
+    """
     # Set the default curvesToBeSplit; useful if criteria = 'sharpness'
     options = {'curvesToBeSplit' : []}
     options.update(optionsDict)
-    '''
+    """
 
     # Loop over every curve to check for splits
     for curveName in list(curveDict.keys()):
@@ -741,18 +763,18 @@ def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria='shar
             curve = curveDict.pop(curveName)
 
             # Now we run the split function for this single curve
-            splitcurves = split_curve_single(curve, curveName,
-                optionsDict=optionsDict, criteria=criteria)
+            splitcurves = split_curve_single(curve, curveName, optionsDict=optionsDict, criteria=criteria)
 
             # Now we add the split curves to the original curves dictionary
             curveDict.update(splitcurves)
 
 
-#=============================================================
+# =============================================================
+
 
 def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
-    '''
+    """
     This function receives a single curve object, splits it according to a criteria,
     and then return a new dictionary with split curves.
 
@@ -780,10 +802,10 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
     splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
 
     Ney Secco 2016-08
-    '''
+    """
 
     # PARAMETERS
-    sharpAngle = 60*np.pi/180.0
+    sharpAngle = 60 * np.pi / 180.0
 
     # READING INPUTS
 
@@ -804,30 +826,30 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
     # The next step will depend on the criteria
 
-    if criteria == 'sharpness':
+    if criteria == "sharpness":
 
         # This criteria will split the curve if its sharpness (defined here
         # as the change in tangential direction) is beyond a given threshold.
 
         # Get the split angle from the options
-        if 'angle' in list(optionsDict.keys()):
-            sharpAngle = optionsDict['angle']*np.pi/180.0
+        if "angle" in list(optionsDict.keys()):
+            sharpAngle = optionsDict["angle"] * np.pi / 180.0
         else:
-            sharpAngle = 60*np.pi/180.0
+            sharpAngle = 60 * np.pi / 180.0
 
         # Get the tangent direction of the first bar element
         prevTan = coor[barsConn[0, 1], :] - coor[barsConn[0, 0], :]
-        prevTan = prevTan/np.linalg.norm(prevTan)
+        prevTan = prevTan / np.linalg.norm(prevTan)
 
         # Loop over the remaining bars to find sharp kinks
-        for elemID in range(1,nElem):
+        for elemID in range(1, nElem):
 
             # Compute tangent direction of the current element
             currTan = coor[barsConn[elemID, 1], :] - coor[barsConn[elemID, 0], :]
-            currTan = currTan/np.linalg.norm(currTan)
+            currTan = currTan / np.linalg.norm(currTan)
 
             # Compute change in direction between consecutive tangents
-            angle = np.arccos(np.min([np.max([prevTan.dot(currTan),-1.0]),1.0]))
+            angle = np.arccos(np.min([np.max([prevTan.dot(currTan), -1.0]), 1.0]))
 
             # Check if the angle is beyond a certain threshold
             if angle > sharpAngle:
@@ -840,18 +862,18 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
             prevTan = currTan.copy()
 
     # If the curve is periodic, we need to check for breaks between the first and last elements.
-    if barsConn[0,0] == barsConn[-1, 1]:
+    if barsConn[0, 0] == barsConn[-1, 1]:
 
         # Compute tangent direction of the current element
         prevTan = coor[barsConn[-1, 1], :] - coor[barsConn[-1, 0], :]
-        prevTan = prevTan/np.linalg.norm(prevTan)
+        prevTan = prevTan / np.linalg.norm(prevTan)
 
         # Get the tangent direction of the first bar element
         currTan = coor[barsConn[0, 1], :] - coor[barsConn[0, 0], :]
-        currTan = currTan/np.linalg.norm(currTan)
+        currTan = currTan / np.linalg.norm(currTan)
 
         # Compute change in direction between consecutive tangents
-        angle = np.arccos(np.min([np.max([prevTan.dot(currTan),-1.0]),1.0]))
+        angle = np.arccos(np.min([np.max([prevTan.dot(currTan), -1.0]), 1.0]))
 
         # Check if the angle is beyond a certain threshold
         if angle > sharpAngle:
@@ -863,9 +885,9 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         else:
             isPeriodic = True
 
-    if criteria == 'curve':
-        if 'splittingCurves' in list(optionsDict.keys()):
-            for guideCurve in optionsDict['splittingCurves']:
+    if criteria == "curve":
+        if "splittingCurves" in list(optionsDict.keys()):
+            for guideCurve in optionsDict["splittingCurves"]:
                 split_index = closest_node(guideCurve, coor)
 
                 elemID = np.where(barsConn[:, 0] == split_index)[0]
@@ -873,12 +895,12 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
                 # Store the current element as a break position
                 breakList.append(elemID[0])
 
-    elif criteria == 'node':
-        if 'splittingNodes' in list(optionsDict.keys()):
-            for node in optionsDict['splittingNodes']:
+    elif criteria == "node":
+        if "splittingNodes" in list(optionsDict.keys()):
+            for node in optionsDict["splittingNodes"]:
                 breakList.append(node)
         else:
-            raise ValueError('node IDs are not provided. Cannot split curve.')
+            raise ValueError("node IDs are not provided. Cannot split curve.")
 
     # Make sure that the obtained breakList is in order so that we get
     # the correct split curves
@@ -900,10 +922,10 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # Slice the original connectivity matrix
-        splitBarsConn = barsConn[:,:]
+        splitBarsConn = barsConn[:, :]
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_split'
+        splitCurveName = curveName + "_split"
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -914,20 +936,19 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         # Return dictionary with the single curve
         return splitcurvesDict
 
-
     # CREATE SPLIT CURVE OBJECTS
 
     # Now that we have the list of break points (given in breakList), we can create multiple
     # curve objects.
 
     # Count the number of curves that should be between the first and last break point
-    nInnercurves = len(breakList)-1
+    nInnercurves = len(breakList) - 1
 
     # Initialize dictionary that will contain the split curves
     splitcurvesDict = {}
 
     # Initialize dictionary that will hold split information
-    curve.extra_data['splitCurves'] = {}
+    curve.extra_data["splitCurves"] = {}
 
     # First we will define all curves that are between the first and the last
     # break point. The remaining part of the curve will be determined depending
@@ -938,10 +959,10 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # Slice the original connectivity matrix
-        splitBarsConn = barsConn[breakList[splitID]:breakList[splitID+1], :]
+        splitBarsConn = barsConn[breakList[splitID] : breakList[splitID + 1], :]
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_' + '%02d'%(splitID+1)
+        splitCurveName = curveName + "_" + "%02d" % (splitID + 1)
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -950,24 +971,23 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [breakList[splitID],breakList[splitID+1]]
+        curve.extra_data["splitCurves"][splitCurveName] = [breakList[splitID], breakList[splitID + 1]]
 
     # Now we need to create curves with elements that come before the first break point and after
     # the last break point.
     # We need to treat periodic curves differently. We use the same check to determine
     # the number of split curves. The periodic case will have minus one curve compared
     # to a non-periodic one.
-    if isPeriodic: # Curve is periodic, so we need to define one curve
+    if isPeriodic:  # Curve is periodic, so we need to define one curve
 
         # For now copy the original set of nodes
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = np.vstack([barsConn[breakList[-1]:, :],
-                                   barsConn[:breakList[0], :]])
+        splitBarsConn = np.vstack([barsConn[breakList[-1] :, :], barsConn[: breakList[0], :]])
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_' + '%02d'%0
+        splitCurveName = curveName + "_" + "%02d" % 0
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -976,9 +996,9 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1],breakList[0]]
+        curve.extra_data["splitCurves"][splitCurveName] = [breakList[-1], breakList[0]]
 
-    else: # Curve is not periodic, so we need to define two curves
+    else:  # Curve is not periodic, so we need to define two curves
 
         # CURVE 0 : before the first break point
 
@@ -986,10 +1006,10 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = barsConn[:breakList[0], :]
+        splitBarsConn = barsConn[: breakList[0], :]
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_' + '%02d'%0
+        splitCurveName = curveName + "_" + "%02d" % 0
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -998,7 +1018,7 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [0, breakList[0]]
+        curve.extra_data["splitCurves"][splitCurveName] = [0, breakList[0]]
 
         # CURVE 1 : after the first break point
 
@@ -1006,10 +1026,10 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitCoor = coor.copy()
 
         # We need to wrap around connectivities
-        splitBarsConn = barsConn[breakList[-1]:, :]
+        splitBarsConn = barsConn[breakList[-1] :, :]
 
         # Generate a name for this new curve
-        splitCurveName = curveName + '_' + '%02d'%(nInnercurves+1)
+        splitCurveName = curveName + "_" + "%02d" % (nInnercurves + 1)
 
         # Create curve object
         splitCurve = tsurf_component.TSurfCurve(splitCoor, splitBarsConn, splitCurveName)
@@ -1018,34 +1038,35 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
         splitcurvesDict[splitCurveName] = splitCurve
 
         # Store split information in the parent curve
-        curve.extra_data['splitCurves'][splitCurveName] = [breakList[-1], barsConn.shape[0]]
+        curve.extra_data["splitCurves"][splitCurveName] = [breakList[-1], barsConn.shape[0]]
 
     # Return the dictionary of new curves and the list of breaking elements
     return splitcurvesDict
 
-#=================================================================
 
-#===================================
+# =================================================================
+
+# ===================================
 # INTERSECTION FUNCTIONS
-#===================================
+# ===================================
 
 
-def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
+def compute_intersections(TSurfGeometryList, distTol=1e-7, comm=MPI.COMM_WORLD):
 
-    '''
+    """
     This function will just compute pair-wise intersections
     for all components given in TSurfGeometryList.
 
     distTol is a distance tolerance used to merge nearby nodes when
     generating the intersection finite element data.
-    '''
+    """
 
     # Get number of components
     numGeometries = len(TSurfGeometryList)
 
     # Stop if user gives only one component
     if numGeometries < 2:
-        print('ERROR: Cannot compute intersections with just one component')
+        print("ERROR: Cannot compute intersections with just one component")
         quit()
 
     # Initialize dictionary of intersections
@@ -1053,32 +1074,31 @@ def compute_intersections(TSurfGeometryList,distTol=1e-7,comm=MPI.COMM_WORLD):
 
     # Call intersection function for each pair
     for ii in range(numGeometries):
-        for jj in range(ii+1,numGeometries):
+        for jj in range(ii + 1, numGeometries):
 
             # Compute new intersections for the current pair
-            newIntersections = _compute_pair_intersection(TSurfGeometryList[ii],
-                                                          TSurfGeometryList[jj],
-                                                          distTol, comm)
+            newIntersections = _compute_pair_intersection(TSurfGeometryList[ii], TSurfGeometryList[jj], distTol, comm)
 
             # Append new curve objects to the dictionary
             for curve in newIntersections:
                 Intersections[curve.name] = curve
 
     # Print log
-    print('Computed',len(Intersections),'intersection curves.')
+    print("Computed", len(Intersections), "intersection curves.")
 
     # Return all intersections
     return Intersections
 
 
-#=================================================================
+# =================================================================
+
 
 def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
 
-    '''
+    """
     This function finds intersection curves between components A and B
     and returns a list of curve objects corresponding to these intersections.
-    '''
+    """
 
     # Get communicator from the first object
     comm = TSurfGeometryA.comm
@@ -1092,14 +1112,16 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
 
-    arraySizes = intersectionAPI.intersectionapi.computeintersection(TSurfGeometryA.coor.T,
-                                                                     TSurfGeometryA.triaConnF.T,
-                                                                     TSurfGeometryA.quadsConnF.T,
-                                                                     TSurfGeometryB.coor.T,
-                                                                     TSurfGeometryB.triaConnF.T,
-                                                                     TSurfGeometryB.quadsConnF.T,
-                                                                     distTol,
-                                                                     comm.py2f())
+    arraySizes = intersectionAPI.intersectionapi.computeintersection(
+        TSurfGeometryA.coor.T,
+        TSurfGeometryA.triaConnF.T,
+        TSurfGeometryA.quadsConnF.T,
+        TSurfGeometryB.coor.T,
+        TSurfGeometryB.triaConnF.T,
+        TSurfGeometryB.quadsConnF.T,
+        distTol,
+        comm.py2f(),
+    )
 
     # Retrieve results from Fortran if we have an intersection
     if np.max(arraySizes[1:]) > 0:
@@ -1119,9 +1141,9 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     else:
 
         # Assign empty arrays
-        coor = np.zeros((0,3))
-        barsConn = np.zeros((0,2))
-        parentTria = np.zeros((0,2))
+        coor = np.zeros((0, 3))
+        barsConn = np.zeros((0, 2))
+        parentTria = np.zeros((0, 2))
 
     # Release memory used by Fortran so we can run another intersection in the future
     intersectionAPI.intersectionapi.releasememory()
@@ -1155,17 +1177,17 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
             name2 = TSurfGeometryB.name
 
             # Create a name for the curve
-            curveName = 'int_'+name1+'_'+name2+'_%03d'%intCounter
+            curveName = "int_" + name1 + "_" + name2 + "_%03d" % intCounter
 
             # Slice the parent triangles array using the sorted mapping
-            currParents = parentTria[currMap,:]
+            currParents = parentTria[currMap, :]
 
             # Create new curve object
             newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
 
             # Store parent triangles as extra data
-            newCurve.extra_data['parentTria'] = currParents
-            newCurve.extra_data['parentGeoms'] = [name1, name2] # This will also be done by the manager
+            newCurve.extra_data["parentTria"] = currParents
+            newCurve.extra_data["parentGeoms"] = [name1, name2]  # This will also be done by the manager
 
             # Initialize curve object and append it to the list
             Intersections.append(newCurve)
@@ -1173,11 +1195,13 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Return intersection FE data
     return Intersections
 
-#=================================================================
+
+# =================================================================
+
 
 def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorAd, coorBd, distTol):
 
-    '''
+    """
     This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
 
@@ -1201,32 +1225,36 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     coorIntd: float(nNodesInt,3) -> Derivative seeds of the intersection curve nodal coordinates
 
     Ney Secco 2016-09
-    '''
+    """
 
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(TSurfGeometryA.coor.T,
-                                                                     coorAd.T,
-                                                                     TSurfGeometryA.triaConnF.T,
-                                                                     TSurfGeometryA.quadsConnF.T,
-                                                                     TSurfGeometryB.coor.T,
-                                                                     coorBd.T,
-                                                                     TSurfGeometryB.triaConnF.T,
-                                                                     TSurfGeometryB.quadsConnF.T,
-                                                                     intCurve.coor.T,
-                                                                     intCurve.barsConn.T + 1,
-                                                                     intCurve.extra_data['parentTria'].T + 1,
-                                                                     distTol)
+    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(
+        TSurfGeometryA.coor.T,
+        coorAd.T,
+        TSurfGeometryA.triaConnF.T,
+        TSurfGeometryA.quadsConnF.T,
+        TSurfGeometryB.coor.T,
+        coorBd.T,
+        TSurfGeometryB.triaConnF.T,
+        TSurfGeometryB.quadsConnF.T,
+        intCurve.coor.T,
+        intCurve.barsConn.T + 1,
+        intCurve.extra_data["parentTria"].T + 1,
+        distTol,
+    )
 
     # Return derivatives
     return coorIntd.T
 
-#=================================================================
+
+# =================================================================
+
 
 def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorIntb, distTol):
 
-    '''
+    """
     This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
 
@@ -1250,37 +1278,42 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     coorBb: float(nNodesB,3) -> Derivative seeds of the component B nodal coordinates
 
     Ney Secco 2016-09
-    '''
+    """
 
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(TSurfGeometryA.coor.T,
-                                                                           TSurfGeometryA.triaConnF.T,
-                                                                           TSurfGeometryA.quadsConnF.T,
-                                                                           TSurfGeometryB.coor.T,
-                                                                           TSurfGeometryB.triaConnF.T,
-                                                                           TSurfGeometryB.quadsConnF.T,
-                                                                           intCurve.coor.T,
-                                                                           coorIntb.T,
-                                                                           intCurve.barsConn.T + 1,
-                                                                           intCurve.extra_data['parentTria'].T + 1,
-                                                                           distTol)
+    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(
+        TSurfGeometryA.coor.T,
+        TSurfGeometryA.triaConnF.T,
+        TSurfGeometryA.quadsConnF.T,
+        TSurfGeometryB.coor.T,
+        TSurfGeometryB.triaConnF.T,
+        TSurfGeometryB.quadsConnF.T,
+        intCurve.coor.T,
+        coorIntb.T,
+        intCurve.barsConn.T + 1,
+        intCurve.extra_data["parentTria"].T + 1,
+        distTol,
+    )
 
     # Return derivatives
     return coorAb.T, coorBb.T
-#=================================================================
 
-#===================================
+
+# =================================================================
+
+# ===================================
 # GENERAL AUXILIARY FUNCTIONS
-#===================================
+# ===================================
+
 
 def formatStringArray(fortranArray):
 
-    '''
+    """
     This functions receives a numpy array of characters coming from Fortran
     and returns a list of formatted data.
-    '''
+    """
 
     # Get array size
     shape = fortranArray.shape
@@ -1295,7 +1328,7 @@ def formatStringArray(fortranArray):
     for index in range(shape[0]):
 
         # format string
-        newString = ''.join(str(fortranArray[:,index],'utf-8')).strip().lower()
+        newString = "".join(str(fortranArray[:, index], "utf-8")).strip().lower()
 
         # Add formatted string to the list
         pythonArray.append(newString)
@@ -1303,17 +1336,19 @@ def formatStringArray(fortranArray):
     # Return formatted array
     return pythonArray
 
-#=============================================================
+
+# =============================================================
+
 
 def FEsort(barsConn):
 
-    '''
+    """
     This function can be used to sort connectivities coming from the CGNS file
 
     barsConn should be a list of integers [[2,3],[5,6],[3,4],[5,4],...]
 
     newConn will be set to None if the sorting algorithm fails.
-    '''
+    """
 
     # We will solve this in an iterative process until the connectivities do not change
     # anymore
@@ -1361,7 +1396,7 @@ def FEsort(barsConn):
 
             # Now we check if we can fit this element into any new connectivity
             newElemCounter = 0
-            for (newElement,newElemMap) in zip(newConn,newMap):
+            for (newElement, newElemMap) in zip(newConn, newMap):
 
                 if oldElement[0] == newElement[0]:
 
@@ -1435,15 +1470,13 @@ def FEsort(barsConn):
                 # Increment element counter
                 newElemCounter = newElemCounter + 1
 
-            if not linked_element: # We have an element that is not connected to anyone
+            if not linked_element:  # We have an element that is not connected to anyone
 
-                    # Define a new curve in newConn
-                    newConn.append(oldElement)
+                # Define a new curve in newConn
+                newConn.append(oldElement)
 
-                    # Define a new mapping in newMap
-                    newMap.append(oldElemMap)
-
-
+                # Define a new mapping in newMap
+                newMap.append(oldElemMap)
 
     # Right now, newConn represent each line by an 1D array of point IDs.
     # e.g. [[2,3,4,5],[1,7,8]]
@@ -1451,7 +1484,7 @@ def FEsort(barsConn):
     # e.g. [[[2,3,4],[3,4,5]],[[1,7],[7,8]]]
 
     # Initialize FE array for each curve
-    newConnFE = [np.zeros((len(curve)-1,2),dtype=int) for curve in newConn]
+    newConnFE = [np.zeros((len(curve) - 1, 2), dtype=int) for curve in newConn]
 
     # Fill FE data for each curve
     for curveID in range(len(newConn)):
@@ -1463,19 +1496,18 @@ def FEsort(barsConn):
         FEcurve = newConnFE[curveID]
 
         # Assign FE connectivity
-        for pointID in range(1,len(curve)):
+        for pointID in range(1, len(curve)):
 
             # Get point indices
-            prevPoint = curve[pointID-1]
+            prevPoint = curve[pointID - 1]
             currPoint = curve[pointID]
 
             # Assign bar FE
-            FEcurve[pointID-1,0] = prevPoint
-            FEcurve[pointID-1,1] = currPoint
+            FEcurve[pointID - 1, 0] = prevPoint
+            FEcurve[pointID - 1, 1] = currPoint
 
     # We just need to crop the last index of the mapping arrays because it has a repeated
     # number
-
 
     # Now we do a final check to remove degenerate bars (bars that begin and end at the same point)
     # Take every disconnect curve in newConnFE:
@@ -1531,14 +1563,13 @@ def FEsort(barsConn):
     # Return the sorted array and the mapping
     return newConnFE, newMap
 
-#=============================================================
 
-def remove_unused_points(coor,
-                         triaConnF=np.zeros((0,0)),
-                         quadsConnF=np.zeros((0,0)),
-                         barsConn=np.zeros((0,0))):
+# =============================================================
 
-    '''
+
+def remove_unused_points(coor, triaConnF=np.zeros((0, 0)), quadsConnF=np.zeros((0, 0)), barsConn=np.zeros((0, 0))):
+
+    """
     This function will removed unused points from coor and
     also update all connectivities.
 
@@ -1549,7 +1580,7 @@ def remove_unused_points(coor,
     OUTPUTS:
     This function returns cropCoor, which is the cropped set of nodes.
     This function also updates triaConn, quadsConn and barsConn.
-    '''
+    """
 
     # Get total number of points and elements
     nPoints = coor.shape[0]
@@ -1565,18 +1596,18 @@ def remove_unused_points(coor,
         # Flag used points
         # Remember that triaConnF is in Fortran indexing (starting at 1)
         # So we need to subtract 1 to get correct values
-        usedPtsMask[triaConnF[triaID,0]-1] = 1
-        usedPtsMask[triaConnF[triaID,1]-1] = 1
-        usedPtsMask[triaConnF[triaID,2]-1] = 1
+        usedPtsMask[triaConnF[triaID, 0] - 1] = 1
+        usedPtsMask[triaConnF[triaID, 1] - 1] = 1
+        usedPtsMask[triaConnF[triaID, 2] - 1] = 1
 
     for quadID in range(nQuads):
         # Flag used points
         # Remember that quadsConnF is in Fortran indexing (starting at 1)
         # So we need to subtract 1 to get correct values
-        usedPtsMask[quadsConnF[quadID,0]-1] = 1
-        usedPtsMask[quadsConnF[quadID,1]-1] = 1
-        usedPtsMask[quadsConnF[quadID,2]-1] = 1
-        usedPtsMask[quadsConnF[quadID,3]-1] = 1
+        usedPtsMask[quadsConnF[quadID, 0] - 1] = 1
+        usedPtsMask[quadsConnF[quadID, 1] - 1] = 1
+        usedPtsMask[quadsConnF[quadID, 2] - 1] = 1
+        usedPtsMask[quadsConnF[quadID, 3] - 1] = 1
 
     for barID in range(nBars):
         # Flag used points
@@ -1614,25 +1645,24 @@ def remove_unused_points(coor,
             # Unused points receive a negative flag
             usedPtsMask[pointID] = -1
 
-
     # Now we need to update connectivities so that they point to the the correct
     # indices of the cropped array
     for triaID in range(nTria):
         # Use pointer to update connectivity
         # Remember that triaConnF is in Fortran indexing (starting at 1)
         # So we need to subtract 1 to get correct values.
-        triaConnF[triaID,0] = usedPtsMask[triaConnF[triaID,0]-1] + 1
-        triaConnF[triaID,1] = usedPtsMask[triaConnF[triaID,1]-1] + 1
-        triaConnF[triaID,2] = usedPtsMask[triaConnF[triaID,2]-1] + 1
+        triaConnF[triaID, 0] = usedPtsMask[triaConnF[triaID, 0] - 1] + 1
+        triaConnF[triaID, 1] = usedPtsMask[triaConnF[triaID, 1] - 1] + 1
+        triaConnF[triaID, 2] = usedPtsMask[triaConnF[triaID, 2] - 1] + 1
 
     for quadID in range(nQuads):
         # Use pointer to update connectivity
         # Remember that quadsConnF is in Fortran indexing (starting at 1)
         # So we need to subtract 1 to get correct values
-        quadsConnF[quadID,0] = usedPtsMask[quadsConnF[quadID,0]-1] + 1
-        quadsConnF[quadID,1] = usedPtsMask[quadsConnF[quadID,1]-1] + 1
-        quadsConnF[quadID,2] = usedPtsMask[quadsConnF[quadID,2]-1] + 1
-        quadsConnF[quadID,3] = usedPtsMask[quadsConnF[quadID,3]-1] + 1
+        quadsConnF[quadID, 0] = usedPtsMask[quadsConnF[quadID, 0] - 1] + 1
+        quadsConnF[quadID, 1] = usedPtsMask[quadsConnF[quadID, 1] - 1] + 1
+        quadsConnF[quadID, 2] = usedPtsMask[quadsConnF[quadID, 2] - 1] + 1
+        quadsConnF[quadID, 3] = usedPtsMask[quadsConnF[quadID, 3] - 1] + 1
 
     for barID in range(nBars):
         # Use pointer to update connectivity
@@ -1642,13 +1672,13 @@ def remove_unused_points(coor,
     # Return the new set of nodes and the mask used to map nodes
     return cropCoor, usedPtsMask
 
-#=============================================================
 
-def detect_feature(node1, node2, element1, element2,
-                   coor, triaConnF, quadsConnF,
-                   feature):
+# =============================================================
 
-    '''
+
+def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF, feature):
+
+    """
     This function checks if the bar that connects node1 and node2, and
     is shared between element1 and element2 has a desired feature. This is
     used by extract_curves_from_surface function.
@@ -1681,11 +1711,11 @@ def detect_feature(node1, node2, element1, element2,
     featureIsDetected: logical -> True if feature is detected in this edge. Otherwise it is False.
 
     Ney Secco 2016-08
-    '''
+    """
 
     # Check the criteria
 
-    if feature == 'sharpness':
+    if feature == "sharpness":
 
         # We need to compute the angle between the normals that share the bar
 
@@ -1704,48 +1734,48 @@ def detect_feature(node1, node2, element1, element2,
             featureIsDetected = False
             return featureIsDetected
 
-        elif element2 > 0: # We have a tria
+        elif element2 > 0:  # We have a tria
 
             # Get element nodes
-            node1Coor = coor[triaConnF[element2,0]-1, :]
-            node2Coor = coor[triaConnF[element2,1]-1, :]
-            node3Coor = coor[triaConnF[element2,2]-1, :]
+            node1Coor = coor[triaConnF[element2, 0] - 1, :]
+            node2Coor = coor[triaConnF[element2, 1] - 1, :]
+            node3Coor = coor[triaConnF[element2, 2] - 1, :]
 
             # Get inplane vectors so that the normal points outside
             v12 = node2Coor - node1Coor
             v22 = node3Coor - node1Coor
 
-        elif element2 < 0: # We have a quad
+        elif element2 < 0:  # We have a quad
 
             # Get element nodes
-            node1Coor = coor[quadsConnF[-element2,0]-1, :]
-            node2Coor = coor[quadsConnF[-element2,1]-1, :]
-            node3Coor = coor[quadsConnF[-element2,2]-1, :]
-            node4Coor = coor[quadsConnF[-element2,3]-1, :]
+            node1Coor = coor[quadsConnF[-element2, 0] - 1, :]
+            node2Coor = coor[quadsConnF[-element2, 1] - 1, :]
+            node3Coor = coor[quadsConnF[-element2, 2] - 1, :]
+            node4Coor = coor[quadsConnF[-element2, 3] - 1, :]
 
             # Get inplane vectors so that the normal points outside
             v12 = node3Coor - node1Coor
             v22 = node4Coor - node2Coor
 
         # ELEMENT 1
-        if element1 > 0: # We have a tria
+        if element1 > 0:  # We have a tria
 
             # Get element nodes
-            node1Coor = coor[triaConnF[element1,0]-1, :]
-            node2Coor = coor[triaConnF[element1,1]-1, :]
-            node3Coor = coor[triaConnF[element1,2]-1, :]
+            node1Coor = coor[triaConnF[element1, 0] - 1, :]
+            node2Coor = coor[triaConnF[element1, 1] - 1, :]
+            node3Coor = coor[triaConnF[element1, 2] - 1, :]
 
             # Get inplane vectors so that the normal points outside
             v11 = node2Coor - node1Coor
             v21 = node3Coor - node1Coor
 
-        elif element1 < 0: # We have a quad
+        elif element1 < 0:  # We have a quad
 
             # Get element nodes
-            node1Coor = coor[quadsConnF[-element1,0]-1, :]
-            node2Coor = coor[quadsConnF[-element1,1]-1, :]
-            node3Coor = coor[quadsConnF[-element1,2]-1, :]
-            node4Coor = coor[quadsConnF[-element1,3]-1, :]
+            node1Coor = coor[quadsConnF[-element1, 0] - 1, :]
+            node2Coor = coor[quadsConnF[-element1, 1] - 1, :]
+            node3Coor = coor[quadsConnF[-element1, 2] - 1, :]
+            node4Coor = coor[quadsConnF[-element1, 3] - 1, :]
 
             # Get inplane vectors so that the normal points outside
             v11 = node3Coor - node1Coor
@@ -1753,24 +1783,24 @@ def detect_feature(node1, node2, element1, element2,
 
         # Take the cross products to get normals and normalize the normals =P
         # Element 1
-        n1 = np.cross(v11,v21)
-        n1 = n1/np.linalg.norm(n1)
+        n1 = np.cross(v11, v21)
+        n1 = n1 / np.linalg.norm(n1)
         # Element 2
-        n2 = np.cross(v12,v22)
-        n2 = n2/np.linalg.norm(n2)
+        n2 = np.cross(v12, v22)
+        n2 = n2 / np.linalg.norm(n2)
 
         # Use dot product to find the angle between the normals
         angle = np.arccos(n1.dot(n2))
 
         # We have a "sharp" edge if this angle is beyond a certain threshold
-        if angle > 60*np.pi/180:
+        if angle > 60 * np.pi / 180:
             featureIsDetected = True
             return featureIsDetected
         else:
             featureIsDetected = False
             return featureIsDetected
 
-    elif feature == 'open_ends':
+    elif feature == "open_ends":
 
         # In this case we check if an edge is shared by a single element only,
         # as this characterizes an open end.
@@ -1788,17 +1818,16 @@ def detect_feature(node1, node2, element1, element2,
 
     else:
 
-        print('ERROR: Feature',feature,'cannot be detected as it is not an option.')
+        print("ERROR: Feature", feature, "cannot be detected as it is not an option.")
         quit()
 
 
-
-#===================================
+# ===================================
 # CURVE MESHING FUNCTIONS
-#===================================
+# ===================================
 
 # Define hyperbolic tangent generator
-def hypTanDist(Sp1,Sp2,N):
+def hypTanDist(Sp1, Sp2, N):
 
     # This is the hyperbolic tangential spacing developed by ICEMCFD
     # I got the equations from the ICEM manual
@@ -1817,13 +1846,14 @@ def hypTanDist(Sp1,Sp2,N):
     from scipy.optimize import broyden1
 
     # Check existence of result
-    if (N-1)*sqrt(Sp1*Sp2) < 1:
-        print('Hyperbolic distribution not possible')
-        #exit()
+    if (N - 1) * sqrt(Sp1 * Sp2) < 1:
+        print("Hyperbolic distribution not possible")
+        # exit()
 
     # First find b
     def findRootb(b):
-        return sinh(b) - b/(N-1)/sqrt(Sp1*Sp2)
+        return sinh(b) - b / (N - 1) / sqrt(Sp1 * Sp2)
+
     b = broyden1(findRootb, 20, f_tol=1e-10)
 
     # # Manually created secant method for the above solve
@@ -1837,29 +1867,30 @@ def hypTanDist(Sp1,Sp2,N):
     #         break
 
     # Compute parameter A
-    A = sqrt(Sp1/Sp2)
+    A = sqrt(Sp1 / Sp2)
 
     # Create nodes indices
-    index = arange(N)+1
+    index = arange(N) + 1
 
     # Compute parameter R
-    R = (index-1)/(N-1)-1/2
+    R = (index - 1) / (N - 1) - 1 / 2
 
     # Compute parameter U
-    U = 1 + tanh(b*R)/tanh(b/2)
+    U = 1 + tanh(b * R) / tanh(b / 2)
 
     # Compute spacings
-    S = U/(2*A + (1-A)*U)
+    S = U / (2 * A + (1 - A) * U)
 
     # Return spacings
     return S
+
 
 ####################################################
 ####################################################
 ####################################################
 
 # Define tangent generator
-def tanDist(Sp1,Sp2,N):
+def tanDist(Sp1, Sp2, N):
 
     # This is the tangential spacing developed by Ney Secco
     # This bunching law is coarser at the ends and finer at the middle
@@ -1874,13 +1905,14 @@ def tanDist(Sp1,Sp2,N):
 
     # IMPORTS
     from numpy import tan, arange, pi
+
     try:
         from scipy.optimize import minimize
     except:
-        print('ERROR: Scipy not available')
+        print("ERROR: Scipy not available")
 
     # Convert number of nodes to number of cells
-    N = N-1
+    N = N - 1
 
     # Define objective function
     def func(P):
@@ -1891,29 +1923,30 @@ def tanDist(Sp1,Sp2,N):
         # Find b
         b = e - c
         # Equations
-        Eq1 = a*(tan(b+c) - tan(c)) - 1
-        Eq2 = a*(tan(b/N+c) - tan(c)) - Sp1
-        Eq3 = a*(tan(b+c) - tan(b*(1-1/N)+c)) - Sp2
+        Eq1 = a * (tan(b + c) - tan(c)) - 1
+        Eq2 = a * (tan(b / N + c) - tan(c)) - Sp1
+        Eq3 = a * (tan(b + c) - tan(b * (1 - 1 / N) + c)) - Sp2
         # Cost function
-        J = Eq1**2 + Eq2**2 + Eq3**2
+        J = Eq1 ** 2 + Eq2 ** 2 + Eq3 ** 2
         # Return
         return J
 
     # Define bounds for the problem
     a_bounds = [(0, None)]
-    e_bounds = [(0, pi/2)]
-    c_bounds = [(-pi/2 , 0)]
+    e_bounds = [(0, pi / 2)]
+    c_bounds = [(-pi / 2, 0)]
     bounds = a_bounds + e_bounds + c_bounds
 
     # Define initial guess
     a_start = 1.0
-    e_start = pi/4
-    c_start = -pi/4
+    e_start = pi / 4
+    c_start = -pi / 4
     x_start = [a_start, e_start, c_start]
 
     # Optimize
-    res = minimize(func, x_start, method='SLSQP', bounds=bounds, \
-                   options={'maxiter':1000,'disp':False,'ftol':1e-12})
+    res = minimize(
+        func, x_start, method="SLSQP", bounds=bounds, options={"maxiter": 1000, "disp": False, "ftol": 1e-12}
+    )
 
     # Split variables
     a = res.x[0]
@@ -1922,21 +1955,22 @@ def tanDist(Sp1,Sp2,N):
 
     # Find other parameters
     b = e - c
-    d = -a*tan(c)
+    d = -a * tan(c)
 
     # Generate spacing
-    index = arange(N+1)
-    S = a*tan(b*index/N+c)+d
+    index = arange(N + 1)
+    S = a * tan(b * index / N + c) + d
 
     # Return spacing
     return S
+
 
 ####################################################
 ####################################################
 ####################################################
 
 # Define cubic generator
-def cubicDist(Sp1,Sp2,N):
+def cubicDist(Sp1, Sp2, N):
 
     # Sp1: initial spacing (within the [0,1] interval)
     # Sp2: final spacing (within the [0,1] interval)
@@ -1949,13 +1983,11 @@ def cubicDist(Sp1,Sp2,N):
     from numpy.linalg import inv
 
     # Convert number of nodes to number of cells
-    N = N-1
+    N = N - 1
 
     # Assemble linear system matrix
-    A = array([[1, 1, 1],
-               [(1/N)**3, (1/N)**2, (1/N)],
-               [(1-1/N)**3, (1-1/N)**2, (1-1/N)]])
-    b = array([1, Sp1, 1-Sp2])
+    A = array([[1, 1, 1], [(1 / N) ** 3, (1 / N) ** 2, (1 / N)], [(1 - 1 / N) ** 3, (1 - 1 / N) ** 2, (1 - 1 / N)]])
+    b = array([1, Sp1, 1 - Sp2])
 
     # Solve the linear system
     x = inv(A).dot(b)
@@ -1964,33 +1996,34 @@ def cubicDist(Sp1,Sp2,N):
     c = x[2]
 
     # Generate spacing
-    index = arange(N+1)/N
-    S = a*index**3 + b*index**2 + c*index
+    index = arange(N + 1) / N
+    S = a * index ** 3 + b * index ** 2 + c * index
 
     # Return spacing
     return S
 
 
-#============================================================
+# ============================================================
 
-#============================================================
-#============================================================
-#============================================================
+# ============================================================
+# ============================================================
+# ============================================================
 
 
 def translate(Geometry, x, y, z):
-    '''
+    """
     Translate coor based on given x, y, and z values.
     John Jasa 2016-08
-    '''
+    """
 
     Geometry.coor = Geometry.coor[:, :] + np.atleast_2d(np.array([x, y, z]))
 
+
 def scale(Geometry, factor, point=None):
-    '''
+    """
     Scale coor about a defined point or the center.
     John Jasa 2016-08
-    '''
+    """
 
     # Get the points
     coor = Geometry.coor
@@ -2008,17 +2041,18 @@ def scale(Geometry, factor, point=None):
     # Scale the relative coordinates and add them back to the central point
     # to obtain the new coor
     relCoor *= factor
-    coor[:,:] = relCoor + point
+    coor[:, :] = relCoor + point
 
     Geometry.coor = coor
 
+
 def rotate(Geometry, angle, axis, point=None):
-    '''
+    """
     Rotate coor about an axis at a defined angle (in degrees).
     Axis should be either 0 for x, 1 for y, or 2 for z.
 
     John Jasa 2016-08
-    '''
+    """
 
     # Get the points
     coor = Geometry.coor
@@ -2031,7 +2065,7 @@ def rotate(Geometry, angle, axis, point=None):
     point = np.atleast_2d(point)
 
     # Define the rotation angle in radians
-    angle = angle * np.pi / 180.
+    angle = angle * np.pi / 180.0
     rotationMat = np.zeros((3, 3))
 
     # Depending on the axis selected, define the indices of the matrix
@@ -2057,23 +2091,24 @@ def rotate(Geometry, angle, axis, point=None):
     relCoor = coor - point
 
     # Compute the rotation around the selected axis of the relative coordinates
-    relCoor[:,:] = (rotationMat.dot(relCoor.T)).T
+    relCoor[:, :] = (rotationMat.dot(relCoor.T)).T
 
     # Obtain and output the rotated coordinates
     coor = relCoor + point
 
     Geometry.coor = coor
 
-#============================================================
-#============================================================
-#============================================================
+
+# ============================================================
+# ============================================================
+# ============================================================
 
 # NORMALIZATION FUNCTION
 
 # ORIGINAL FUNCTION
 def normalize(vec):
 
-    '''
+    """
     This is a simple function to normalize an array of vectors.
     Each row of vec will be treated as a vector that should be normalized.
 
@@ -2084,73 +2119,77 @@ def normalize(vec):
     normalVec: array[n x m] -> Array of n normalized vectors
 
     Ney Secco 2016-10
-    '''
+    """
 
     # STEP 1: compute sum of squares
-    vecNorms = np.array([np.sum(vec**2,axis=1)]).T
+    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
 
     # STEP 2: compute norms
     vecNorms = np.sqrt(vecNorms)
 
     # STEP 3: normalize vec
-    normalVec = vec/vecNorms
+    normalVec = vec / vecNorms
 
     return normalVec
+
 
 # FORWARD MODE
 def normalize_d(vec, vecd):
 
-    '''
+    """
     This is the forward differentiation of the normalize routine
 
     Ney Secco 2016-10
-    '''
+    """
 
     # STEP 1_d
-    vecNorms = np.array([np.sum(vec**2,axis=1)]).T
-    vecNormsd = np.array([np.sum(2*vec*vecd,axis=1)]).T
+    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNormsd = np.array([np.sum(2 * vec * vecd, axis=1)]).T
 
     # STEP 2_d
     vecNorms = np.sqrt(vecNorms)
-    vecNormsd = 0.5*vecNormsd/vecNorms
+    vecNormsd = 0.5 * vecNormsd / vecNorms
 
     # STEP 3_d
-    normalVec = vec/vecNorms
-    normalVecd = vecd/vecNorms - vec*vecNormsd/vecNorms**2
+    normalVec = vec / vecNorms
+    normalVecd = vecd / vecNorms - vec * vecNormsd / vecNorms ** 2
 
     return normalVec, normalVecd
+
 
 # REVERSE MODE
 def normalize_b(vec, normalVecb):
 
-    '''
+    """
     This is the backward differentiation of the normalize routine
 
     Ney Secco 2016-10
-    '''
+    """
 
     # STEP 1
-    vecNorms1 = np.array([np.sum(vec**2,axis=1)]).T
+    vecNorms1 = np.array([np.sum(vec ** 2, axis=1)]).T
 
     # STEP 2
     vecNorms2 = np.sqrt(vecNorms1)
 
     # STEP 3
-    normalVec = vec/vecNorms2
+    normalVec = vec / vecNorms2
 
     # STEP 3_b
-    vecNorms2b = np.array([np.sum(-vec/vecNorms2**2*normalVecb,axis=1)]).T
-    vecb = normalVecb/vecNorms2
+    vecNorms2b = np.array([np.sum(-vec / vecNorms2 ** 2 * normalVecb, axis=1)]).T
+    vecb = normalVecb / vecNorms2
 
     # STEP 2_b
-    vecNorms1b = vecNorms2b/2.0/vecNorms2
+    vecNorms1b = vecNorms2b / 2.0 / vecNorms2
 
     # STEP 1_b
-    vecb = vecb + 2.0*vec*vecNorms1b
+    vecb = vecb + 2.0 * vec * vecNorms1b
 
     return vecb
 
+
 ### HELPER FUNCTIONS ###
+
 
 def closest_node(guideCurve, curve):
     """ Find closest node from a list of node coordinates. """
@@ -2160,10 +2199,10 @@ def closest_node(guideCurve, curve):
     nPoints = curve.shape[0]
 
     # Initialize arrays to call projection function
-    dist2 = np.ones(nPoints)*1e10
-    xyzProj = np.zeros((nPoints,3))
-    tangents = np.zeros((nPoints,3))
-    elemIDs = np.zeros((nPoints),dtype='int32')
+    dist2 = np.ones(nPoints) * 1e10
+    xyzProj = np.zeros((nPoints, 3))
+    tangents = np.zeros((nPoints, 3))
+    elemIDs = np.zeros((nPoints), dtype="int32")
 
     # Call projection function to find the distance between every node of the
     # seed curve to the guide curve
@@ -2174,26 +2213,36 @@ def closest_node(guideCurve, curve):
 
     return ind
 
-#===================================
+
+# ===================================
 # INTERSECTION COMPOSITION FUNCTIONS
-#===================================
-'''
+# ===================================
+"""
 The next set of functions can be used to expedite the intersection treatment of
 common types of intersections. They already comprise a series of operations such as
 splits and remeshes.
-'''
+"""
 
-def airfoil_intersection(manager, intCurveName,
-                         LECurve, UpperTECurve, LowerTECurve,
-                         vertDir,
-                         numTENodes, numSkinNodes,
-                         TESpacing, LESpacing,
-                         mergedCurveName,
-                         optionsBodyMesh, optionsWingMesh,
-                         wingGeomName,
-                         exportFeatures = False):
 
-    '''
+def airfoil_intersection(
+    manager,
+    intCurveName,
+    LECurve,
+    UpperTECurve,
+    LowerTECurve,
+    vertDir,
+    numTENodes,
+    numSkinNodes,
+    TESpacing,
+    LESpacing,
+    mergedCurveName,
+    optionsBodyMesh,
+    optionsWingMesh,
+    wingGeomName,
+    exportFeatures=False,
+):
+
+    """
     This script works for blunt traling edges
 
     intCurveName: string -> Name of the intersection curve that should be
@@ -2254,10 +2303,10 @@ def airfoil_intersection(manager, intCurveName,
                             the wing or the body as the first marching side for the
                             collar mesh generation.
 
-    '''
+    """
 
     # Get the names of the components that share the intersection
-    parentGeomNames = manager.intCurves[intCurveName].extra_data['parentGeoms']
+    parentGeomNames = manager.intCurves[intCurveName].extra_data["parentGeoms"]
 
     # Check if the wing component is the first one that will be marched on
     if parentGeomNames[0] == wingGeomName:
@@ -2270,13 +2319,9 @@ def airfoil_intersection(manager, intCurveName,
     # SPLIT
 
     # Split curves based on TE and LE curves
-    optionsDict = {'splittingCurves' : [LECurve,
-                                        UpperTECurve,
-                                        LowerTECurve]}
+    optionsDict = {"splittingCurves": [LECurve, UpperTECurve, LowerTECurve]}
 
-    splitCurveNames = manager.split_intCurve(intCurveName,
-                                             optionsDict,
-                                             criteria='curve')
+    splitCurveNames = manager.split_intCurve(intCurveName, optionsDict, criteria="curve")
 
     # REMESH
 
@@ -2295,7 +2340,7 @@ def airfoil_intersection(manager, intCurveName,
         curve = manager.intCurves[curveName]
 
         # Check maximum vertical position
-        curr_maxCoor = np.max(curve.coor[:,vertDir])
+        curr_maxCoor = np.max(curve.coor[:, vertDir])
 
         # Compare against the maximum found so far
         maxCoor = max(maxCoor, curr_maxCoor)
@@ -2317,8 +2362,8 @@ def airfoil_intersection(manager, intCurveName,
 
             # This is the trailing edge curve.
             # Just apply an uniform spacing
-            optionsDict = {'nNewNodes':int(numTENodes)}
-            TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
+            optionsDict = {"nNewNodes": int(numTENodes)}
+            TE_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
         else:
 
@@ -2326,7 +2371,7 @@ def airfoil_intersection(manager, intCurveName,
             # First let's identify if the curve is defined from
             # LE to TE or vice-versa
             curveCoor = curve.get_points()
-            deltaX = curveCoor[-1,0] - curveCoor[0,0]
+            deltaX = curveCoor[-1, 0] - curveCoor[0, 0]
 
             if deltaX > 0:
                 LE_to_TE = True
@@ -2334,7 +2379,7 @@ def airfoil_intersection(manager, intCurveName,
                 LE_to_TE = False
 
             # Compute the highest vertical coordinate of the curve
-            curr_maxCoor = np.max(curve.coor[:,vertDir])
+            curr_maxCoor = np.max(curve.coor[:, vertDir])
 
             # Now we can determine if we have upper or lower skin
             if curr_maxCoor < maxCoor:
@@ -2343,19 +2388,23 @@ def airfoil_intersection(manager, intCurveName,
 
                 if LE_to_TE:
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':TESpacing,
-                                   'finalSpacing':LESpacing}
+                    optionsDict = {
+                        "nNewNodes": numSkinNodes,
+                        "spacing": "hypTan",
+                        "initialSpacing": TESpacing,
+                        "finalSpacing": LESpacing,
+                    }
 
                     LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
                 else:
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':LESpacing,
-                                   'finalSpacing':TESpacing}
+                    optionsDict = {
+                        "nNewNodes": numSkinNodes,
+                        "spacing": "hypTan",
+                        "initialSpacing": LESpacing,
+                        "finalSpacing": TESpacing,
+                    }
 
                     LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
@@ -2365,19 +2414,23 @@ def airfoil_intersection(manager, intCurveName,
 
                 if LE_to_TE:
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':TESpacing,
-                                   'finalSpacing':LESpacing}
+                    optionsDict = {
+                        "nNewNodes": numSkinNodes,
+                        "spacing": "hypTan",
+                        "initialSpacing": TESpacing,
+                        "finalSpacing": LESpacing,
+                    }
 
                     US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
                 else:
 
-                    optionsDict = {'nNewNodes':numSkinNodes,
-                                   'spacing':'hypTan',
-                                   'initialSpacing':LESpacing,
-                                   'finalSpacing':TESpacing}
+                    optionsDict = {
+                        "nNewNodes": numSkinNodes,
+                        "spacing": "hypTan",
+                        "initialSpacing": LESpacing,
+                        "finalSpacing": TESpacing,
+                    }
 
                     US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
@@ -2387,8 +2440,7 @@ def airfoil_intersection(manager, intCurveName,
 
     # REORDER
     # The first node should be the leading edge node
-    manager.intCurves[mergedCurveName].shift_end_nodes(criteria='curve',
-                                                       curveObject=LECurve)
+    manager.intCurves[mergedCurveName].shift_end_nodes(criteria="curve", curveObject=LECurve)
 
     # Flip the curve for marching if necessary
     # Here we verify if the first two points (which are on the leading edge)
@@ -2396,11 +2448,11 @@ def airfoil_intersection(manager, intCurveName,
     # marhcing direction points towards the wing tip.
     mergedCurveCoor = manager.intCurves[mergedCurveName].get_points()
 
-    deltaCoor = mergedCurveCoor[1,:] - mergedCurveCoor[0,:]
+    deltaCoor = mergedCurveCoor[1, :] - mergedCurveCoor[0, :]
 
-    _, bodyNormal, _ = manager.geoms[bodyGeomName].project_on_surface(np.array([mergedCurveCoor[0,:]]))
+    _, bodyNormal, _ = manager.geoms[bodyGeomName].project_on_surface(np.array([mergedCurveCoor[0, :]]))
 
-    bodyMarchDir = np.cross(bodyNormal[0,:], deltaCoor)
+    bodyMarchDir = np.cross(bodyNormal[0, :], deltaCoor)
 
     # Make sure that the marching direction points to the wing tip if the wing
     # is the first body to be marched on.
@@ -2418,13 +2470,13 @@ def airfoil_intersection(manager, intCurveName,
     # MARCH SURFACE MESHES
 
     # Add approriate boundary conditions
-    optionsBodyMesh['bc1'] = 'continuous'
-    optionsBodyMesh['bc2'] = 'continuous'
+    optionsBodyMesh["bc1"] = "continuous"
+    optionsBodyMesh["bc2"] = "continuous"
 
-    optionsWingMesh['bc1'] = 'curve:'+LECurve.name
-    optionsWingMesh['bc2'] = 'curve:'+LECurve.name
-    optionsWingMesh['guideCurves'] = [LowerTECurve.name, UpperTECurve.name]
-    optionsWingMesh['remesh'] = True
+    optionsWingMesh["bc1"] = "curve:" + LECurve.name
+    optionsWingMesh["bc2"] = "curve:" + LECurve.name
+    optionsWingMesh["guideCurves"] = [LowerTECurve.name, UpperTECurve.name]
+    optionsWingMesh["remesh"] = True
 
     # Now we need to verify which side of the collar mesh is marched first
     # to assign the correct options.
@@ -2436,12 +2488,11 @@ def airfoil_intersection(manager, intCurveName,
         options1 = optionsWingMesh
 
     # Extrude mesh
-    meshNames = manager.march_intCurve_surfaceMesh(mergedCurveName,
-                                                   options0=options0,
-                                                   options1=options1,
-                                                   meshName=mergedCurveName)
+    meshNames = manager.march_intCurve_surfaceMesh(
+        mergedCurveName, options0=options0, options1=options1, meshName=mergedCurveName
+    )
 
     # Export meshes if requested by the user
     if exportFeatures:
         for meshName in meshNames:
-            manager.meshGenerators[meshName].export_plot3d(meshName+'.xyz')
+            manager.meshGenerators[meshName].export_plot3d(meshName + ".xyz")

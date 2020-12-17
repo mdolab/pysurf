@@ -9,27 +9,28 @@ G. Kenway
 import os, sys
 import string
 import re
+
 # Specify file extension
-EXT = '_b.f90'
+EXT = "_b.f90"
 
 DIR_ORI = sys.argv[1]
 DIR_MOD = sys.argv[2]
 
 # Specifiy the list of LINE ID's to find, what to replace and with what
-patt_modules = re.compile(r'(\s*use\s*\w*)(_b)\s*')
-patt_module = re.compile(r'\s*module\s\w*')
-patt_subroutine = re.compile(r'\s*subroutine\s\w*')
-patt_comment = re.compile(r'\s*!.*')
+patt_modules = re.compile(r"(\s*use\s*\w*)(_b)\s*")
+patt_module = re.compile(r"\s*module\s\w*")
+patt_subroutine = re.compile(r"\s*subroutine\s\w*")
+patt_comment = re.compile(r"\s*!.*")
 print("Directory of input source files  :", DIR_ORI)
 print("Directory of output source files :", DIR_MOD)
 
-#useful_modules = ['solve_b']
+# useful_modules = ['solve_b']
 useful_modules = []
 
 for f in os.listdir(DIR_ORI):
     if f.endswith(EXT):
         # open original file in read mode
-        file_object_ori = open(os.path.join(DIR_ORI,f),'r')
+        file_object_ori = open(os.path.join(DIR_ORI, f), "r")
         print("\nParsing input file", file_object_ori.name)
 
         # read to whole file to string and reposition the pointer
@@ -55,7 +56,7 @@ for f in os.listdir(DIR_ORI):
             continue
 
         # open modified file in write mode
-        file_object_mod = open(os.path.join(DIR_MOD,f), 'w')
+        file_object_mod = open(os.path.join(DIR_MOD, f), "w")
 
         # Go back to the beginning
         file_object_ori.seek(0)
@@ -70,40 +71,40 @@ for f in os.listdir(DIR_ORI):
             # Just deal with lower case string
             line = line.lower()
 
-            if 'computematrices_main_b(' in line:
+            if "computematrices_main_b(" in line:
                 computematrices_main_b_flag = True
-            if 'computematrices_main_b' in line and 'end' in line:
+            if "computematrices_main_b" in line and "end" in line:
                 computematrices_main_b_flag = False
 
-            if 'findradius_b(' in line:
+            if "findradius_b(" in line:
                 findradius_b_flag = True
-            if 'findradius_b' in line and 'end' in line:
+            if "findradius_b" in line and "end" in line:
                 findradius_b_flag = False
 
-            if 'areafactor_b(' in line:
+            if "areafactor_b(" in line:
                 areafactor_b_flag = True
-            if 'areafactor_b' in line and 'end' in line:
+            if "areafactor_b" in line and "end" in line:
                 areafactor_b_flag = False
 
-            if 'redistribute_nodes_by_arc_length_b(' in line:
+            if "redistribute_nodes_by_arc_length_b(" in line:
                 redistribute_nodes_by_arc_length_b_flag = True
-            if 'redistribute_nodes_by_arc_length_b' in line and 'end' in line:
+            if "redistribute_nodes_by_arc_length_b" in line and "end" in line:
                 redistribute_nodes_by_arc_length_b_flag = False
 
             # Keep the differentiated routine for the solve_b command
-            if 'subroutine' in line and 'end' not in line:
-                if '_b' in line:
+            if "subroutine" in line and "end" not in line:
+                if "_b" in line:
                     flag_b = True
                 else:
                     flag_b = False
 
-            if 'use' in line and 'only' in line:
+            if "use" in line and "only" in line:
                 if flag_b:
-                    line = line[:-1] + '_b' + '\n'
+                    line = line[:-1] + "_b" + "\n"
 
             # Replace _cb on calls
-            if '_cb' in line:
-                line = line.replace('_cb', '')
+            if "_cb" in line:
+                line = line.replace("_cb", "")
 
             # Replace _b modules with normal -- except for the useful
             # ones.
@@ -114,34 +115,34 @@ for f in os.listdir(DIR_ORI):
                     if m in line:
                         found = True
                 if not found:
-                    line = line.replace('_b', '', 2)
+                    line = line.replace("_b", "", 2)
 
             # Hard-coded checks because Tapenade is not differentiating correctly
 
             # computematrices_main_b checks and replacements
             if computematrices_main_b_flag:
-                if 'fb = 0.' in line:
-                    line = '    call popreal8array(f, realtype*3*numnodes/8)\n' + line
-                if 'f(:) = zero' in line:
-                    line = '    call pushreal8array(f, realtype*3*numnodes/8)\n' + line
-                if 'r0b = fb' in line:
-                    line = '    r0b = r0b + fb\n'
-                if 's0b = 0.0_8' in line:
-                    line = ''
+                if "fb = 0." in line:
+                    line = "    call popreal8array(f, realtype*3*numnodes/8)\n" + line
+                if "f(:) = zero" in line:
+                    line = "    call pushreal8array(f, realtype*3*numnodes/8)\n" + line
+                if "r0b = fb" in line:
+                    line = "    r0b = r0b + fb\n"
+                if "s0b = 0.0_8" in line:
+                    line = ""
 
             # areafactor_b checks and replacements
             if areafactor_b_flag:
-                if 'db = 0.0_8' in line:
-                    line = ''
-                if 'r0b = 0.0_8' in line:
-                    line = ''
+                if "db = 0.0_8" in line:
+                    line = ""
+                if "r0b = 0.0_8" in line:
+                    line = ""
 
             # findradius_b replacement
-            if (findradius_b_flag or redistribute_nodes_by_arc_length_b_flag):
-                if ' rb = 0.0_8' in line:
-                    line = ''
+            if findradius_b_flag or redistribute_nodes_by_arc_length_b_flag:
+                if " rb = 0.0_8" in line:
+                    line = ""
 
-            if 'external solve' not in line:
+            if "external solve" not in line:
                 # write the modified line to new file
                 file_object_mod.write(line)
 

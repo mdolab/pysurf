@@ -7,33 +7,30 @@ import os
 import pickle
 import unittest
 
-class SplitTest(unittest.TestCase):
 
+class SplitTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SplitTest, self).__init__(*args, **kwargs)
 
     def test_split(self):
 
-        os.system('rm *.plt')
+        os.system("rm *.plt")
 
         # Create one curve
-        initCurveName = 'test_curve'
-        coor = np.array([[0.0, 0.0, 0.0],
-                         [0.3, 0.0, 0.0],
-                         [0.7, 0.0, 0.0],
-                         [1.0, 0.0, 0.0],
-                         [1.0, 0.3, 0.0],
-                         [1.0, 0.7, 0.0],
-                         [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]])
-        barsConn = np.array([[1,2],
-                             [2,3],
-                             [3,4],
-                             [4,5],
-                             [5,6],
-                             [6,7],
-                             [7,8],
-                             [8,1]],dtype='int32')-1
+        initCurveName = "test_curve"
+        coor = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.3, 0.0, 0.0],
+                [0.7, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.3, 0.0],
+                [1.0, 0.7, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.5, 0.5, 0.0],
+            ]
+        )
+        barsConn = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 1]], dtype="int32") - 1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
 
         # Create a manager and add the test curve to it
@@ -53,9 +50,9 @@ class SplitTest(unittest.TestCase):
         # DERIVATIVE SEEDS
 
         # Generate random seeds
-        manager.intCurves[initCurveName].set_randomADSeeds(mode='forward')
+        manager.intCurves[initCurveName].set_randomADSeeds(mode="forward")
         for curve in newCurveNames:
-            manager.intCurves[curve].set_randomADSeeds(mode='reverse')
+            manager.intCurves[curve].set_randomADSeeds(mode="reverse")
 
         # Store relevant seeds
         initCurveCoord = manager.intCurves[initCurveName].get_forwardADSeeds()
@@ -85,13 +82,13 @@ class SplitTest(unittest.TestCase):
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(initCurveCoorb*initCurveCoord)
+        dotProd = dotProd + np.sum(initCurveCoorb * initCurveCoord)
         for ii in range(len(newCurveNames)):
-            dotProd = dotProd - np.sum(splitCurvesCoorb[ii]*splitCurvesCoord[ii])
+            dotProd = dotProd - np.sum(splitCurvesCoorb[ii] * splitCurvesCoord[ii])
 
-        print('dotProd test')
+        print("dotProd test")
         print(dotProd)
-        #np.testing.assert_almost_equal(dotProd, 0., decimal=15)
+        # np.testing.assert_almost_equal(dotProd, 0., decimal=15)
 
         # FINITE DIFFERENCE TEST
 
@@ -99,7 +96,7 @@ class SplitTest(unittest.TestCase):
         stepSize = 1e-7
 
         # Perturb the initial curve
-        initCurve.set_points(initCurve.get_points() + stepSize*initCurveCoord)
+        initCurve.set_points(initCurve.get_points() + stepSize * initCurveCoord)
 
         # Create new manager
         manager2 = pysurf.Manager()
@@ -114,7 +111,7 @@ class SplitTest(unittest.TestCase):
             coor0 = manager.intCurves[curve].get_points()
             coor = manager2.intCurves[curve].get_points()
 
-            curr_FD = (coor - coor0)/stepSize
+            curr_FD = (coor - coor0) / stepSize
             splitCurvesCoord_FD.append(curr_FD)
 
         # Finite difference test
@@ -122,9 +119,10 @@ class SplitTest(unittest.TestCase):
         for ii in range(len(newCurveNames)):
             curr_error = np.max(np.abs(splitCurvesCoord[ii] - splitCurvesCoord_FD[ii]))
             FD_error = max(curr_error, FD_error)
-        print('FD test')
+        print("FD test")
         print(FD_error)
-        np.testing.assert_almost_equal(FD_error, 0., decimal=8)
+        np.testing.assert_almost_equal(FD_error, 0.0, decimal=8)
+
 
 if __name__ == "__main__":
     unittest.main()

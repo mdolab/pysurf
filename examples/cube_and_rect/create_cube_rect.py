@@ -31,6 +31,7 @@ from pywarpustruct import USMesh
 from scipy.spatial import cKDTree
 import subprocess
 
+
 def extrude_cube_volume_mesh():
     """
     First we need to create a primary volume mesh for the cube.
@@ -40,48 +41,45 @@ def extrude_cube_volume_mesh():
     """
 
     # Input filename for pyHyp
-    fileName = '../inputs/cube_struct.cgns'
+    fileName = "../inputs/cube_struct.cgns"
 
-    options= {
+    options = {
         # ---------------------------
         #        Input Parameters
         # ---------------------------
-        'inputFile':fileName,
-        'fileType':'CGNS',
-        'unattachedEdgesAreSymmetry':True,
-        'outerFaceBC':'overset',
-        'autoConnect':True,
-        'families':'wall',
-
+        "inputFile": fileName,
+        "fileType": "CGNS",
+        "unattachedEdgesAreSymmetry": True,
+        "outerFaceBC": "overset",
+        "autoConnect": True,
+        "families": "wall",
         # ---------------------------
         #        Grid Parameters
         # ---------------------------
-        'N': 9,
-        's0': 1.e-1,
-        'marchDist':1.2,
-        'splay':0.2,
-
+        "N": 9,
+        "s0": 1.0e-1,
+        "marchDist": 1.2,
+        "splay": 0.2,
         # ---------------------------
         #   Pseudo Grid Parameters
         # ---------------------------
-        'ps0': -1,
-        'pGridRatio': -1,
-        'cMax': 50,
-
+        "ps0": -1,
+        "pGridRatio": -1,
+        "cMax": 50,
         # ---------------------------
         #   Smoothing parameters
         # ---------------------------
-        'epsE': 0.10,
-        'epsI': 2.0,
-        'theta': 3.0,
-        'volCoef': 0.25,
-        'volBlend': 0.01,
-        'volSmoothIter': 400,
-        }
+        "epsE": 0.10,
+        "epsI": 2.0,
+        "theta": 3.0,
+        "volCoef": 0.25,
+        "volBlend": 0.01,
+        "volSmoothIter": 400,
+    }
 
     hyp = pyHyp(options=options)
     hyp.run()
-    hyp.writeCGNS('cube_vol.cgns')
+    hyp.writeCGNS("cube_vol.cgns")
 
 
 def extrude_rect_volume_mesh():
@@ -91,54 +89,58 @@ def extrude_rect_volume_mesh():
     Next, we use pyHyp to hyperbollicaly extrude a volume mesh.
     Note that we need to set the symmetry boundary condition in the options.
     """
-    fileName = '../inputs/rect_struct.cgns'
+    fileName = "../inputs/rect_struct.cgns"
 
-    options= {
+    options = {
         # ---------------------------
         #        Input Parameters
         # ---------------------------
-        'inputFile':fileName,
-        'fileType':'CGNS',
-        'unattachedEdgesAreSymmetry':True,
-        'outerFaceBC':'overset',
-        'autoConnect':True,
-        'BC':{},
-        'families':'wall',
-
+        "inputFile": fileName,
+        "fileType": "CGNS",
+        "unattachedEdgesAreSymmetry": True,
+        "outerFaceBC": "overset",
+        "autoConnect": True,
+        "BC": {},
+        "families": "wall",
         # ---------------------------
         #        Grid Parameters
         # ---------------------------
-        'N': 9,
-        's0': 1.e-1,
-        'marchDist':1.2,
-        'splay':0.2,
-
+        "N": 9,
+        "s0": 1.0e-1,
+        "marchDist": 1.2,
+        "splay": 0.2,
         # ---------------------------
         #   Pseudo Grid Parameters
         # ---------------------------
-        'ps0': -1,
-        'pGridRatio': -1,
-        'cMax': 50,
-
+        "ps0": -1,
+        "pGridRatio": -1,
+        "cMax": 50,
         # ---------------------------
         #   Smoothing parameters
         # ---------------------------
-        'epsE': .10,
-        'epsI': 1.0,
-        'theta': 3.0,
-        'volCoef': 0.25,
-        'volBlend': 0.01,
-        'volSmoothIter': 400,
-        }
+        "epsE": 0.10,
+        "epsI": 1.0,
+        "theta": 3.0,
+        "volCoef": 0.25,
+        "volBlend": 0.01,
+        "volSmoothIter": 400,
+    }
 
     hyp = pyHyp(options=options)
     hyp.run()
-    hyp.writeCGNS('rect_vol.cgns')
+    hyp.writeCGNS("rect_vol.cgns")
 
     print(rectTranslation)
     # Translate wing primary mesh
     subprocess.call(["cp rect_vol.cgns rect_vol_temp.cgns"], shell=True)
-    subprocess.call(["cgns_utils translate rect_vol_temp.cgns {} {} {}".format(rectTranslation[0], rectTranslation[1], rectTranslation[2])], shell=True)
+    subprocess.call(
+        [
+            "cgns_utils translate rect_vol_temp.cgns {} {} {}".format(
+                rectTranslation[0], rectTranslation[1], rectTranslation[2]
+            )
+        ],
+        shell=True,
+    )
 
 
 def march_surface_meshes():
@@ -149,8 +151,8 @@ def march_surface_meshes():
     """
 
     # Load components
-    comp1 = pysurf.TSurfGeometry('../inputs/cube_uns.cgns',['geom'])
-    comp2 = pysurf.TSurfGeometry('../inputs/rect_uns.cgns',['geom'])
+    comp1 = pysurf.TSurfGeometry("../inputs/cube_uns.cgns", ["geom"])
+    comp2 = pysurf.TSurfGeometry("../inputs/rect_uns.cgns", ["geom"])
 
     name1 = comp1.name
     name2 = comp2.name
@@ -159,10 +161,10 @@ def march_surface_meshes():
     # Create curve dictionary based on imported curves
     # !!! Make sure to call `extract_curves.py` before running this script
     curves = []
-    curves.append(pysurf.tsurf_tools.read_tecplot_curves('extracted_curve_000.plt'))
-    curves.append(pysurf.tsurf_tools.read_tecplot_curves('extracted_curve_001.plt'))
-    curves.append(pysurf.tsurf_tools.read_tecplot_curves('extracted_curve_002.plt'))
-    curves.append(pysurf.tsurf_tools.read_tecplot_curves('extracted_curve_003.plt'))
+    curves.append(pysurf.tsurf_tools.read_tecplot_curves("extracted_curve_000.plt"))
+    curves.append(pysurf.tsurf_tools.read_tecplot_curves("extracted_curve_001.plt"))
+    curves.append(pysurf.tsurf_tools.read_tecplot_curves("extracted_curve_002.plt"))
+    curves.append(pysurf.tsurf_tools.read_tecplot_curves("extracted_curve_003.plt"))
 
     # Create an empty list in which we'll store the long (longitudinal) edges of
     # the rect
@@ -173,13 +175,13 @@ def march_surface_meshes():
     for ext_curve in curves:
 
         # Split these curves based on sharpness to get all edges of the rect
-        split_curve = pysurf.tsurf_tools.split_curve_single(ext_curve[ext_curve.keys()[0]], 'int', criteria='sharpness')
+        split_curve = pysurf.tsurf_tools.split_curve_single(ext_curve[ext_curve.keys()[0]], "int", criteria="sharpness")
 
         # Loop over these split curves
         for name in split_curve:
 
             # Give the curves new names so they do not conflict with each other
-            split_curve[name].name = 'int_'+'{}'.format(counter).zfill(3)
+            split_curve[name].name = "int_" + "{}".format(counter).zfill(3)
             counter += 1
 
             # Extract the curve points and compute the length
@@ -219,14 +221,14 @@ def march_surface_meshes():
     # Set up integer to export different meshes
     mesh_pass = 0
 
-    #======================================================
+    # ======================================================
     # FORWARD PASS
 
     def forward_pass(manager):
 
-        '''
+        """
         This function will apply all geometry operations to the given manager.
-        '''
+        """
 
         # INTERSECT
 
@@ -238,8 +240,7 @@ def march_surface_meshes():
         curveNames = manager.split_intCurve(intCurveName)
 
         # Set the remesh options
-        optionsDict = {'nNewNodes':21,
-                       'spacing':'linear'}
+        optionsDict = {"nNewNodes": 21, "spacing": "linear"}
 
         # Remesh each side of the intersection curve
         remeshed_curves = []
@@ -247,64 +248,66 @@ def march_surface_meshes():
             remeshed_curves.append(manager.remesh_intCurve(curveName, optionsDict))
 
         # Merge the four split curves back into one intersection curve
-        manager.merge_intCurves(remeshed_curves, 'intersection')
+        manager.merge_intCurves(remeshed_curves, "intersection")
 
         # This isn't the most elegant way to shift the nodes, but this allows
         # us to use all four of the extracted curves as guide curves
-        manager.intCurves['intersection'].shift_end_nodes(criteria='startPoint', startPoint=np.array([1.5, 1.5, 1.5]))
+        manager.intCurves["intersection"].shift_end_nodes(criteria="startPoint", startPoint=np.array([1.5, 1.5, 1.5]))
 
-        manager.intCurves['intersection'].export_tecplot('intersection')
+        manager.intCurves["intersection"].export_tecplot("intersection")
 
         # MARCH SURFACE MESHES
-        meshName = 'mesh'
+        meshName = "mesh"
 
         options_rect = {
-            'bc1' : 'continuous',
-            'bc2' : 'continuous',
-            'dStart' : 0.03,
-            'numLayers' : 17,
-            'extension' : 3.5,
-            'epsE0' : 4.5,
-            'theta' : -0.5,
-            'alphaP0' : 0.25,
-            'numSmoothingPasses' : 0,
-            'nuArea' : 0.16,
-            'numAreaPasses' : 20,
-            'sigmaSplay' : 0.3,
-            'cMax' : 10000.0,
-            'ratioGuess' : 1.5,
-            'guideCurves':guideCurves,
+            "bc1": "continuous",
+            "bc2": "continuous",
+            "dStart": 0.03,
+            "numLayers": 17,
+            "extension": 3.5,
+            "epsE0": 4.5,
+            "theta": -0.5,
+            "alphaP0": 0.25,
+            "numSmoothingPasses": 0,
+            "nuArea": 0.16,
+            "numAreaPasses": 20,
+            "sigmaSplay": 0.3,
+            "cMax": 10000.0,
+            "ratioGuess": 1.5,
+            "guideCurves": guideCurves,
         }
 
         options_cube = {
-            'bc1' : 'continuous',
-            'bc2' : 'continuous',
-            'dStart' : 0.02,
-            'numLayers' : 17,
-            'extension' : 2.5,
-            'epsE0' : 4.5,
-            'theta' : -0.5,
-            'alphaP0' : 0.25,
-            'numSmoothingPasses' : 0,
-            'nuArea' : 0.16,
-            'numAreaPasses' : 20,
-            'sigmaSplay' : 0.3,
-            'cMax' : 10000.0,
-            'ratioGuess' : 1.5,
+            "bc1": "continuous",
+            "bc2": "continuous",
+            "dStart": 0.02,
+            "numLayers": 17,
+            "extension": 2.5,
+            "epsE0": 4.5,
+            "theta": -0.5,
+            "alphaP0": 0.25,
+            "numSmoothingPasses": 0,
+            "nuArea": 0.16,
+            "numAreaPasses": 20,
+            "sigmaSplay": 0.3,
+            "cMax": 10000.0,
+            "ratioGuess": 1.5,
         }
 
-        meshName = 'mesh'
-        meshNames = manager.march_intCurve_surfaceMesh('intersection', options0=options_cube, options1=options_rect, meshName=meshName)
+        meshName = "mesh"
+        meshNames = manager.march_intCurve_surfaceMesh(
+            "intersection", options0=options_cube, options1=options_rect, meshName=meshName
+        )
 
         # EXPORT
         for meshName in meshNames:
-            print(meshName + '.xyz')
-            manager.meshes[meshName].exportPlot3d(meshName + '.xyz')
+            print(meshName + ".xyz")
+            manager.meshes[meshName].exportPlot3d(meshName + ".xyz")
 
         return meshNames
 
     # END OF forward_pass
-    #======================================================
+    # ======================================================
 
     # Call the forward pass function to the original manager
     meshNames = forward_pass(manager0)
@@ -318,10 +321,9 @@ def march_surface_meshes():
     manager0.merge_meshes(meshNames, [[1, 0, 0], [0, 1, 0]])
     # manager0.merge_meshes(meshNames, [[0, 0, 0], [0, 0, 0]])
 
-
     # Copy the numpy array containing coordinate info from the surface mesh
     # of the collar so we can access it later without recreating the mesh.
-    subprocess.call(["cp merged.npy merged_"+str(i).zfill(2)+".npy"], shell=True)
+    subprocess.call(["cp merged.npy merged_" + str(i).zfill(2) + ".npy"], shell=True)
 
     return name1, name2, manager0
 
@@ -333,73 +335,70 @@ def run_pyhyp_for_collar():
     """
 
     print()
-    print('Now running pyHyp on the merged mesh')
+    print("Now running pyHyp on the merged mesh")
     print()
 
-    fileName = 'merged.xyz'
-    fileType = 'plot3d'
+    fileName = "merged.xyz"
+    fileType = "plot3d"
 
-    options= {
-
+    options = {
         # ---------------------------
         #        Input Parameters
         # ---------------------------
-        'inputFile':fileName,
-        'fileType':fileType,
-        'unattachedEdgesAreSymmetry':False,
-        'outerFaceBC':'overset',
-        'autoConnect':True,
-        'BC':{},
-        'families':'wall',
-
+        "inputFile": fileName,
+        "fileType": fileType,
+        "unattachedEdgesAreSymmetry": False,
+        "outerFaceBC": "overset",
+        "autoConnect": True,
+        "BC": {},
+        "families": "wall",
         # ---------------------------
         #        Grid Parameters
         # ---------------------------
-        'N': 35,
-        's0': 1e-2,
-        'marchDist':1.3,
-        'splay':0.7,
+        "N": 35,
+        "s0": 1e-2,
+        "marchDist": 1.3,
+        "splay": 0.7,
         # ---------------------------
         #   Pseudo Grid Parameters
         # ---------------------------
-        'ps0': -1,
-        'pGridRatio': -1,
-        'cMax': 5,
-
+        "ps0": -1,
+        "pGridRatio": -1,
+        "cMax": 5,
         # ---------------------------
         #   Smoothing parameters
         # ---------------------------
-        'epsE': 5.0,
-        'epsI': 10.0,
-        'theta': 3.0,
-        'volCoef': 0.25,
-        'volBlend': 0.01,
-        'volSmoothIter': 400,
+        "epsE": 5.0,
+        "epsI": 10.0,
+        "theta": 3.0,
+        "volCoef": 0.25,
+        "volBlend": 0.01,
+        "volSmoothIter": 400,
     }
 
     hyp = pyHyp(options=options)
     hyp.run()
-    hyp.writeCGNS('collar.cgns')
+    hyp.writeCGNS("collar.cgns")
 
     subprocess.call(["cp collar.cgns collar_master.cgns"], shell=True)
 
     # Set options for the pywarpustruct instance
     options = {
-      'gridFile':'collar_master.cgns',
-      'fileType':'CGNS',
-      'specifiedSurfaces':None,
-      'symmetrySurfaces':None,
-      'symmetryPlanes':[],
-      'aExp': 3.0,
-      'bExp': 5.0,
-      'LdefFact':100.0,
-      'alpha':0.25,
-      'errTol':0.0001,
-      'evalMode':'fast',
-      'useRotations':True,
-      'zeroCornerRotations':True,
-      'cornerAngle':30.0,
-      'bucketSize':8,
+        "gridFile": "collar_master.cgns",
+        "fileType": "CGNS",
+        "specifiedSurfaces": None,
+        "symmetrySurfaces": None,
+        "symmetryPlanes": [],
+        "aExp": 3.0,
+        "bExp": 5.0,
+        "LdefFact": 100.0,
+        "alpha": 0.25,
+        "errTol": 0.0001,
+        "evalMode": "fast",
+        "useRotations": True,
+        "zeroCornerRotations": True,
+        "cornerAngle": 30.0,
+        "bucketSize": 8,
     }
 
     # Create the mesh object using pywarpustruct
@@ -417,7 +416,7 @@ def run_pyhyp_for_collar():
     # coordinate points and save the indices so that we can reorder
     # our future surface marched points into the order that
     # pywarpustruct expects.
-    march_coords = np.load('merged.npy')
+    march_coords = np.load("merged.npy")
 
     # To do this, we set up a KDTree using the pySurf generated
     # surface mesh coordinates.
@@ -432,10 +431,11 @@ def run_pyhyp_for_collar():
 
     return mesh, pySurf2pyWarp, pyWarp2pySurf
 
+
 def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
 
-    print('Using previously created volume mesh and warping it to the new surface.\n')
-    coords = np.load('merged.npy')
+    print("Using previously created volume mesh and warping it to the new surface.\n")
+    coords = np.load("merged.npy")
 
     # Here we use the remapped coordinate points to pass in to
     # pywarpustruct.
@@ -443,7 +443,7 @@ def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
 
     # Actually warp the mesh and then write out the new volume mesh.
     mesh.warpMesh()
-    mesh.writeGrid('collar.cgns')
+    mesh.writeGrid("collar.cgns")
 
     np.random.seed(314)
 
@@ -457,7 +457,7 @@ def run_pywarp_for_collar(mesh, pySurf2pyWarp, pyWarp2pySurf):
     dotProd = 0.0
     dotProd += np.sum(dXvWarpd * dXvWarpb)
     dotProd -= np.sum(dXsb * dXsd)
-    print('pyWarp dot-product:', dotProd)
+    print("pyWarp dot-product:", dotProd)
     print()
 
 
@@ -519,50 +519,48 @@ def run_ADflow_to_check_connections():
     #         Input Information
     # ======================================================================
 
-    outputDirectory = './'
+    outputDirectory = "./"
     saveRepositoryInfo(outputDirectory)
 
     # Default to comm world
     comm = MPI.COMM_WORLD
 
     # Common aerodynamic problem description and design variables
-    ap = AeroProblem(name='fc', alpha=1.4, mach=0.1, altitude=10000,
-                     areaRef=45.5, chordRef=3.25, evalFuncs=['cl','cd'])
+    ap = AeroProblem(
+        name="fc", alpha=1.4, mach=0.1, altitude=10000, areaRef=45.5, chordRef=3.25, evalFuncs=["cl", "cd"]
+    )
 
     AEROSOLVER = ADFLOW
 
     CFL = 1.0
-    MGCYCLE = 'sg'
+    MGCYCLE = "sg"
     MGSTART = 1
     useNK = False
 
     aeroOptions = {
         # Common Parameters
-        'gridFile':'full.cgns',
-        'outputDirectory':outputDirectory,
-
+        "gridFile": "full.cgns",
+        "outputDirectory": outputDirectory,
         # Physics Parameters
-        'equationType':'rans',
-        'smoother':'dadi',
-        'liftIndex':2,
-
+        "equationType": "rans",
+        "smoother": "dadi",
+        "liftIndex": 2,
         # Common Parameters
-        'CFL':CFL,
-        'CFLCoarse':CFL,
-        'MGCycle':MGCYCLE,
-        'MGStartLevel':MGSTART,
-        'nCyclesCoarse':250,
-        'nCycles':1000,
-        'monitorvariables':['resrho','cl','cd'],
-        'volumevariables':['resrho','blank'],
-        'surfacevariables':['cp','vx', 'vy','vz', 'mach','blank'],
-        'nearWallDist':0.1,
-        'nsubiterturb':3,
-        'useNKSolver':useNK,
-
+        "CFL": CFL,
+        "CFLCoarse": CFL,
+        "MGCycle": MGCYCLE,
+        "MGStartLevel": MGSTART,
+        "nCyclesCoarse": 250,
+        "nCycles": 1000,
+        "monitorvariables": ["resrho", "cl", "cd"],
+        "volumevariables": ["resrho", "blank"],
+        "surfacevariables": ["cp", "vx", "vy", "vz", "mach", "blank"],
+        "nearWallDist": 0.1,
+        "nsubiterturb": 3,
+        "useNKSolver": useNK,
         # Debugging parameters
-        'debugzipper':True,
-        'writeTecplotSurfaceSolution':True,
+        "debugzipper": True,
+        "writeTecplotSurfaceSolution": True,
     }
 
     # Create solver
@@ -572,7 +570,8 @@ def run_ADflow_to_check_connections():
     CFDSolver.setAeroProblem(ap)
     CFDSolver.writeSolution()
 
-    subprocess.call(["cp fc_-001_surf.plt fc_surf_"+str(i).zfill(2)+".plt"], shell=True)
+    subprocess.call(["cp fc_-001_surf.plt fc_surf_" + str(i).zfill(2) + ".plt"], shell=True)
+
 
 n = 3
 for i in range(1):
@@ -599,18 +598,18 @@ for i in range(1):
     run_ADflow_to_check_connections()
 
     # Generate random seeds
-    coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
-    coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
+    coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode="forward")
+    coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode="forward")
     meshb = []
     for mesh in manager0.meshes.itervalues():
-        meshb.append(mesh.set_randomADSeeds(mode='reverse'))
+        meshb.append(mesh.set_randomADSeeds(mode="reverse"))
 
-    mergedDerivs_b = np.random.random((manager0.mergedMeshes['collar'].n, 3))
+    mergedDerivs_b = np.random.random((manager0.mergedMeshes["collar"].n, 3))
 
     # Need to convert pywarpustruct input
     # mergedDerivs_b = mergedDerivs_b[pyWarp2pySurf]
 
-    manager0.mergedMeshes['collar'].set_reverseADSeeds(mergedDerivs_b)
+    manager0.mergedMeshes["collar"].set_reverseADSeeds(mergedDerivs_b)
 
     # FORWARD AD
 
@@ -621,7 +620,7 @@ for i in range(1):
     meshd = []
     for mesh in manager0.meshes.itervalues():
         meshd.append(mesh.get_forwardADSeeds())
-    mergedDerivs_d = manager0.mergedMeshes['collar'].mergedDerivs_d
+    mergedDerivs_d = manager0.mergedMeshes["collar"].mergedDerivs_d
 
     # REVERSE AD
 
@@ -635,15 +634,15 @@ for i in range(1):
     # Dot product test
     dotProd = 0.0
     for ii in range(len(meshd)):
-        dotProd = dotProd + np.sum(meshd[ii]*meshb[ii])
-    dotProd = dotProd - np.sum(coor1b*coor1d)
-    dotProd = dotProd - np.sum(coor2b*coor2d)
+        dotProd = dotProd + np.sum(meshd[ii] * meshb[ii])
+    dotProd = dotProd - np.sum(coor1b * coor1d)
+    dotProd = dotProd - np.sum(coor2b * coor2d)
     for curveName in curveCoor1b:
-        dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
+        dotProd = dotProd - np.sum(curveCoor1d[curveName] * curveCoor1b[curveName])
     for curveName in curveCoor2b:
-        dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+        dotProd = dotProd - np.sum(curveCoor2d[curveName] * curveCoor2b[curveName])
 
-    print('no merged dot-product here')
+    print("no merged dot-product here")
     print(dotProd)
     print()
 
@@ -651,23 +650,23 @@ for i in range(1):
     dotProd = 0.0
     for ii in range(len(meshd)):
         dotProd = dotProd + np.sum(mergedDerivs_d * mergedDerivs_b)
-    dotProd = dotProd - np.sum(coor1b*coor1d)
-    dotProd = dotProd - np.sum(coor2b*coor2d)
+    dotProd = dotProd - np.sum(coor1b * coor1d)
+    dotProd = dotProd - np.sum(coor2b * coor2d)
     for curveName in curveCoor1b:
-        dotProd = dotProd - np.sum(curveCoor1d[curveName]*curveCoor1b[curveName])
+        dotProd = dotProd - np.sum(curveCoor1d[curveName] * curveCoor1b[curveName])
     for curveName in curveCoor2b:
-        dotProd = dotProd - np.sum(curveCoor2d[curveName]*curveCoor2b[curveName])
+        dotProd = dotProd - np.sum(curveCoor2d[curveName] * curveCoor2b[curveName])
 
-    print('Full dot-product here')
+    print("Full dot-product here")
     print(dotProd)
     print()
 
-    print('fwd seeds pysurf ordering')
-    print(manager0.mergedMeshes['collar'].mergedDerivs_d)
+    print("fwd seeds pysurf ordering")
+    print(manager0.mergedMeshes["collar"].mergedDerivs_d)
 
     # This is what we'd give to pywarpustruct
-    meshd = manager0.mergedMeshes['collar'].mergedDerivs_d[pySurf2pyWarp]
-    print('fwd seeds pywarp ordering')
+    meshd = manager0.mergedMeshes["collar"].mergedDerivs_d[pySurf2pyWarp]
+    print("fwd seeds pywarp ordering")
     print(meshd)
 
     for entry in sorted(pySurf2pyWarp):

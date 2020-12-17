@@ -1,26 +1,27 @@
-'''
+"""
 This script contains general functions to operate on
 Mesh objects.
-'''
+"""
 
 # IMPORTS
 import numpy as np
 import pysurf
 from collections import OrderedDict
 
-#=====================================
+# =====================================
 # MERGING FUNCTIONS
+
 
 def merge_meshes(mergedMeshName, meshList):
 
-    '''
+    """
     This function will combine all blocks from all meshes in
     meshList into a single mesh object.
 
     We rename all blocks using a new standard to avoid any duplicate issues.
 
     Ney Secco 2017-02
-    '''
+    """
 
     # Initialize domain counter
     domainID = 1
@@ -34,7 +35,7 @@ def merge_meshes(mergedMeshName, meshList):
         for blockName in mesh.coor:
 
             # Generate name of the new block
-            mergedBlockName = 'domain.%05d'%domainID
+            mergedBlockName = "domain.%05d" % domainID
 
             # Copy coordinates
             coor[mergedBlockName] = mesh.coor[blockName].copy()

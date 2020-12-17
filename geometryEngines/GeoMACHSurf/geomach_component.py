@@ -3,16 +3,17 @@ from mpi4py import MPI
 from ..baseClasses import Geometry
 from geomach_geometry import Surface, Curve
 
+
 class GeoMACHGeometry(Geometry):
 
-    '''
+    """
     This GeoMACHGeometry class inherits from the base Geometry
     class defined in classes.py, at the top level pysurf directory
-    '''
+    """
 
     def _initialize(self, *arg, **kwargs):
 
-        '''
+        """
         The expected arguments for a GeoMACHGeometry initialization are:
 
         GeoMACHGeometry(comm, pointsDict)
@@ -22,7 +23,7 @@ class GeoMACHGeometry(Geometry):
                     pts is an array of floats that defines the
                     sum-component. It is of size [nu,nv,3] for surfaces
                     and size [nu,3] for curves.
-        '''
+        """
 
         comm = arg[0]
         pointsDict = arg[1]
@@ -39,7 +40,7 @@ class GeoMACHGeometry(Geometry):
 
     def project_on_surface(self, xyz, surfCandidates=None):
 
-        '''
+        """
         This function will compute projections and surface Normals
 
         INPUTS:
@@ -49,9 +50,9 @@ class GeoMACHGeometry(Geometry):
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         normProj -> float[numPts,3] : Surface normal at projected points
-        '''
+        """
 
-        '''
+        """
         Explanation of reference values:
 
         componentsList -> list of strings : Names of the surfaces components on which we should
@@ -73,7 +74,7 @@ class GeoMACHGeometry(Geometry):
                                  then replace values in xyzProj, and normProj acordingly. If no previous
                                  candidates are available, set all elements to a large number (1e10) so that
                                  all information in xyzProj and normProj is replaced.
-        '''
+        """
 
         # Use all surfaces if None is provided by the user
         if surfCandidates is None:
@@ -81,9 +82,9 @@ class GeoMACHGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts)*1e10
-        xyzProj = np.zeros((numPts,3))
-        normProj = np.zeros((numPts,3))
+        dist2 = np.ones(numPts) * 1e10
+        xyzProj = np.zeros((numPts, 3))
+        normProj = np.zeros((numPts, 3))
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
@@ -96,7 +97,7 @@ class GeoMACHGeometry(Geometry):
 
     def project_on_curve(self, xyz, curveCandidates=None):
 
-        '''
+        """
         This function will compute projections and surface Normals
 
         INPUTS:
@@ -106,9 +107,9 @@ class GeoMACHGeometry(Geometry):
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         tanProj -> float[numPts,3] : Curve tangent at projected points
-        '''
+        """
 
-        '''
+        """
         Explanation of reference values:
 
         componentsList -> list of strings : Names of the surfaces components on which we should
@@ -130,7 +131,7 @@ class GeoMACHGeometry(Geometry):
                                  then replace values in xyzProj, and normProj acordingly. If no previous
                                  candidates are available, set all elements to a large number (1e10) so that
                                  all information in xyzProj and normProj is replaced.
-        '''
+        """
 
         # Use all curves if None is provided by the user
         if curveCandidates is None:
@@ -138,9 +139,9 @@ class GeoMACHGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts)*1e10
-        xyzProj = np.zeros((numPts,3))
-        tanProj = np.zeros((numPts,3))
+        dist2 = np.ones(numPts) * 1e10
+        xyzProj = np.zeros((numPts, 3))
+        tanProj = np.zeros((numPts, 3))
 
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj

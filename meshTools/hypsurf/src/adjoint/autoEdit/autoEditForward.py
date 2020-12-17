@@ -9,27 +9,28 @@ G. Kenway
 import os, sys
 import string
 import re
+
 # Specify file extension
-EXT = '_d.f90'
+EXT = "_d.f90"
 
 DIR_ORI = sys.argv[1]
 DIR_MOD = sys.argv[2]
 
 # Specifiy the list of LINE ID's to find, what to replace and with what
-patt_modules = re.compile(r'(\s*use\s*\w*)(_d)\s*')
-patt_module = re.compile(r'\s*module\s\w*')
-patt_subroutine = re.compile(r'\s*subroutine\s\w*')
-patt_comment = re.compile(r'\s*!.*')
+patt_modules = re.compile(r"(\s*use\s*\w*)(_d)\s*")
+patt_module = re.compile(r"\s*module\s\w*")
+patt_subroutine = re.compile(r"\s*subroutine\s\w*")
+patt_comment = re.compile(r"\s*!.*")
 print("Directory of input source files  :", DIR_ORI)
 print("Directory of output source files :", DIR_MOD)
 
-#useful_modules = ['solve_d']
+# useful_modules = ['solve_d']
 useful_modules = []
 
 for f in os.listdir(DIR_ORI):
     if f.endswith(EXT):
         # open original file in read mode
-        file_object_ori = open(os.path.join(DIR_ORI,f),'r')
+        file_object_ori = open(os.path.join(DIR_ORI, f), "r")
         print("\nParsing input file", file_object_ori.name)
 
         # read to whole file to string and reposition the pointer
@@ -55,7 +56,7 @@ for f in os.listdir(DIR_ORI):
             continue
 
         # open modified file in write mode
-        file_object_mod = open(os.path.join(DIR_MOD,f), 'w')
+        file_object_mod = open(os.path.join(DIR_MOD, f), "w")
 
         # Go back to the beginning
         file_object_ori.seek(0)
@@ -64,19 +65,19 @@ for f in os.listdir(DIR_ORI):
             line = line.lower()
 
             # Keep the differentiated routine for the solve_d command
-            if 'subroutine' in line and 'end' not in line:
-                if '_d' in line:
+            if "subroutine" in line and "end" not in line:
+                if "_d" in line:
                     flag_d = True
                 else:
                     flag_d = False
 
-            if 'use' in line and 'only' in line:
+            if "use" in line and "only" in line:
                 if flag_d:
-                    line = line[:-1] + '_d' + '\n'
+                    line = line[:-1] + "_d" + "\n"
 
             # Replace _cd on calls
-            if '_cd' in line:
-                line = line.replace('_cd', '')
+            if "_cd" in line:
+                line = line.replace("_cd", "")
 
             # Replace _d modules with normal -- except for the useful
             # ones.
@@ -87,9 +88,9 @@ for f in os.listdir(DIR_ORI):
                     if m in line:
                         found = True
                 if not found:
-                    line = line.replace('_d', '', 2)
+                    line = line.replace("_d", "", 2)
 
-            if 'external solve' not in line:
+            if "external solve" not in line:
                 # write the modified line to new file
                 file_object_mod.write(line)
 

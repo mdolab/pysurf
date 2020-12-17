@@ -1,4 +1,4 @@
-'''
+"""
 tfiLib.py
 
 Ney Secco
@@ -18,15 +18,16 @@ The TFI geometry used in this work is as follows:
      +-------------------+
 
 
-'''
+"""
 
 # IMPORTS
 
 import numpy as np
 
+
 class tfi(object):
 
-    '''
+    """
     This is the main tfi object
 
     The TFI creates an interpolant g for function f based on the
@@ -36,14 +37,13 @@ class tfi(object):
            + f(u,v0)*beta0(v)  + f(u,v1)*beta1(v)  -
            - f(u0,v0)*alpha0(u)*beta0(v) - f(u1,v0)*alpha1(u)*beta0(v) -
            - f(u0,v1)*alpha0(u)*beta1(v) - f(u1,v1)*alpha1(u)*beta1(v)
-    '''
+    """
 
-    def __init__(self, nu, nv,
-                 alpha00, alpha01, alpha10, alpha11, 
-                 beta00,  beta01,  beta10,  beta11,
-                 u='uniform',  v='uniform'):
+    def __init__(
+        self, nu, nv, alpha00, alpha01, alpha10, alpha11, beta00, beta01, beta10, beta11, u="uniform", v="uniform"
+    ):
 
-        '''
+        """
         INPUTS
         nu:     integer --> number of nodes in u direction (including end points)
         nv:     integer --> number of nodes in v direction (including end points)
@@ -62,23 +62,31 @@ class tfi(object):
 
         CHANGES
         what self.setTFI changes
-        '''
+        """
 
         # Store the function handles
         # but do not compute matrices yet because we did not set the size
-        self.setTFI(nu,      nv,
-                    alpha00, alpha01, alpha10, alpha11,
-                    beta00,  beta01,  beta10,  beta11,
-                    u,       v)
+        self.setTFI(nu, nv, alpha00, alpha01, alpha10, alpha11, beta00, beta01, beta10, beta11, u, v)
 
-    #===============================================
+    # ===============================================
 
-    def setTFI(self, nu=None, nv=None,
-               alpha00=None, alpha01=None, alpha10=None, alpha11=None,
-               beta00=None,  beta01=None,  beta10=None,  beta11=None,
-               u=None,       v=None):
+    def setTFI(
+        self,
+        nu=None,
+        nv=None,
+        alpha00=None,
+        alpha01=None,
+        alpha10=None,
+        alpha11=None,
+        beta00=None,
+        beta01=None,
+        beta10=None,
+        beta11=None,
+        u=None,
+        v=None,
+    ):
 
-        '''
+        """
         This function will update the TFI size and interpolation functions.
         The interpolation matrices will also be computed.
 
@@ -127,7 +135,7 @@ class tfi(object):
         self.__baseFuncs.beta10
         self.__baseFuncs.beta11
         what self.__computeInterpolationArrays changes
-        '''
+        """
 
         # Values that have None will not be updated
 
@@ -165,11 +173,11 @@ class tfi(object):
         # Update interpolation arrays
         self.__computeInterpolationArrays()
 
-    #===============================================
+    # ===============================================
 
     def interpolate(self, F, dFdu, dFdv, ddFdudv):
 
-        '''
+        """
         This function will perform the interpolation
 
         INPUTS
@@ -213,28 +221,28 @@ class tfi(object):
 
         ATTENTION: F cannot be an array of integers because when we assign float to
                    an integer array, the floats becomes an integer as well!
-        '''
+        """
 
         # First check if the given array and the current TFI object have compatible sizes
         if F.shape != (self.__nu, self.__nv):
 
             # Print warnings
-            print('WARNING:')
-            print('The TFI object is set to a size different from the given matrix.')
-            print('Reinitializing TFI with the correct size.')
-            print('You can also do this using the tfi.setTFI function.')
+            print("WARNING:")
+            print("The TFI object is set to a size different from the given matrix.")
+            print("Reinitializing TFI with the correct size.")
+            print("You can also do this using the tfi.setTFI function.")
 
             # Update tfi
             self.setTFI(nu=F.shape[0], nv=F.shape[1])
 
         # Now check if F is an array of integers. If this is the case, we must
         # stop the program because Python will transform floats back to integers...
-        if type(F[0,0]) == np.int64:
+        if type(F[0, 0]) == np.int64:
 
             # Print error message
-            print('ERROR:')
-            print('F should be an array of floats. Check if you are providing')
-            print('integer values to be interpolated and convert them to floats.')
+            print("ERROR:")
+            print("F should be an array of floats. Check if you are providing")
+            print("integer values to be interpolated and convert them to floats.")
 
             # Finish program
             quit()
@@ -243,14 +251,13 @@ class tfi(object):
         Fu, Fv, Fuv = self.__computeReferenceArrays(F, dFdu, dFdv, ddFdudv)
 
         # Do the interpolation
-        F[:,:] = (1.0*self.__A.T.dot(Fu) + 1.0*Fv.T.dot(self.__B) -
-                  1.0*self.__A.T.dot(Fuv.dot(self.__B)))
+        F[:, :] = 1.0 * self.__A.T.dot(Fu) + 1.0 * Fv.T.dot(self.__B) - 1.0 * self.__A.T.dot(Fuv.dot(self.__B))
 
-    #===============================================
+    # ===============================================
 
     def __computeInterpolationArrays(self):
 
-        '''
+        """
         This function will compute arrays of size (4 x nu) and (4 x nv) that will store
         the interpolation function values throughout the domain.
         This way, we can use the the same arrays to interpolate multiple functions.
@@ -261,7 +268,7 @@ class tfi(object):
         CHANGES
         self.__A
         self.__B
-        '''
+        """
 
         # Get TFI size
         nu = self.__nu
@@ -273,25 +280,25 @@ class tfi(object):
 
         # Initialize parametric coordinates (if None is provided) or check
         # their size
-        if u == 'uniform':
-            u = np.linspace(0,1,nu)
+        if u == "uniform":
+            u = np.linspace(0, 1, nu)
         else:
             if len(u) is not nu:
-                print('')
-                print('TFI error: __computeInterpolation Arrays')
-                print(' The number of parametric coordinates provided does not match')
-                print(' the number of points.')
-                print('')
+                print("")
+                print("TFI error: __computeInterpolation Arrays")
+                print(" The number of parametric coordinates provided does not match")
+                print(" the number of points.")
+                print("")
 
-        if v == 'uniform':
-            v = np.linspace(0,1,nv)
+        if v == "uniform":
+            v = np.linspace(0, 1, nv)
         else:
             if len(v) is not nv:
-                print('')
-                print('TFI error: __computeInterpolation Arrays')
-                print(' The number of parametric coordinates provided does not match')
-                print(' the number of points.')
-                print('')
+                print("")
+                print("TFI error: __computeInterpolation Arrays")
+                print(" The number of parametric coordinates provided does not match")
+                print(" the number of points.")
+                print("")
 
         # Initialize matrices
         self.__A = np.zeros((4, nu))
@@ -305,16 +312,16 @@ class tfi(object):
             self.__A[3, ii] = self.__alpha11(u[ii])
 
         for jj in range(nv):
-            self.__B[0,jj] = self.__beta00(v[jj])
-            self.__B[1,jj] = self.__beta01(v[jj])
-            self.__B[2,jj] = self.__beta10(v[jj])
-            self.__B[3,jj] = self.__beta11(v[jj])
-        
-    #===============================================
+            self.__B[0, jj] = self.__beta00(v[jj])
+            self.__B[1, jj] = self.__beta01(v[jj])
+            self.__B[2, jj] = self.__beta10(v[jj])
+            self.__B[3, jj] = self.__beta11(v[jj])
+
+    # ===============================================
 
     def __computeReferenceArrays(self, F, dFdu, dFdv, ddFdudv):
 
-        '''
+        """
         This function will create arrays with the function reference values
         so that the entire interpolation computation is vectorized
 
@@ -344,57 +351,57 @@ class tfi(object):
         Fu0v1: float --> float with corner values
         Fu1v0: float --> float with corner values
         Fu1v1: float --> float with corner values
-        '''
+        """
 
         # Get TFI size
         nu = self.__nu
         nv = self.__nv
 
         # Initialize matrices
-        Fu = np.zeros((4, nv)) # Values of constant u: [f(u0,v), f'(u0,v), f(u1,v), f'(u1,v)] 
-        Fv = np.zeros((4, nu)) # Values of constant v: [f(u,v0), f'(u,v0), f(u,v1), f'(u,v1)]
+        Fu = np.zeros((4, nv))  # Values of constant u: [f(u0,v), f'(u0,v), f(u1,v), f'(u1,v)]
+        Fv = np.zeros((4, nu))  # Values of constant v: [f(u,v0), f'(u,v0), f(u,v1), f'(u,v1)]
         Fuv = np.zeros((4, 4))
 
         # Fill matrices
         for ii in range(nu):
-            Fv[0, ii] = F[ii,0]
-            Fv[1, ii] = dFdv[ii,0]
-            Fv[2, ii] = F[ii,-1]
-            Fv[3, ii] = dFdv[ii,-1]
+            Fv[0, ii] = F[ii, 0]
+            Fv[1, ii] = dFdv[ii, 0]
+            Fv[2, ii] = F[ii, -1]
+            Fv[3, ii] = dFdv[ii, -1]
 
         for jj in range(nv):
-            Fu[0, jj] = F[0,jj]
-            Fu[1, jj] = dFdu[0,jj]
-            Fu[2, jj] = F[-1,jj]
-            Fu[3, jj] = dFdu[-1,jj]        
+            Fu[0, jj] = F[0, jj]
+            Fu[1, jj] = dFdu[0, jj]
+            Fu[2, jj] = F[-1, jj]
+            Fu[3, jj] = dFdu[-1, jj]
 
         # Get corner values to assemble Fuv
-        Fuv[0,0] = F[0,0]
-        Fuv[1,0] = dFdu[0,0]
-        Fuv[2,0] = F[-1,0]
-        Fuv[3,0] = dFdu[-1,0]
+        Fuv[0, 0] = F[0, 0]
+        Fuv[1, 0] = dFdu[0, 0]
+        Fuv[2, 0] = F[-1, 0]
+        Fuv[3, 0] = dFdu[-1, 0]
 
-        Fuv[0,1] = dFdv[0,0]
-        Fuv[1,1] = ddFdudv[0,0]
-        Fuv[2,1] = dFdv[-1,0]
-        Fuv[3,1] = ddFdudv[-1,0]
+        Fuv[0, 1] = dFdv[0, 0]
+        Fuv[1, 1] = ddFdudv[0, 0]
+        Fuv[2, 1] = dFdv[-1, 0]
+        Fuv[3, 1] = ddFdudv[-1, 0]
 
-        Fuv[0,2] = F[0,-1]
-        Fuv[1,2] = dFdu[0,-1]
-        Fuv[2,2] = F[-1,-1]
-        Fuv[3,2] = dFdu[-1,-1]
+        Fuv[0, 2] = F[0, -1]
+        Fuv[1, 2] = dFdu[0, -1]
+        Fuv[2, 2] = F[-1, -1]
+        Fuv[3, 2] = dFdu[-1, -1]
 
-        Fuv[0,3] = dFdv[0,-1]
-        Fuv[1,3] = ddFdudv[0,-1]
-        Fuv[2,3] = dFdv[-1,-1]
-        Fuv[3,3] = ddFdudv[-1,-1]
+        Fuv[0, 3] = dFdv[0, -1]
+        Fuv[1, 3] = ddFdudv[0, -1]
+        Fuv[2, 3] = dFdv[-1, -1]
+        Fuv[3, 3] = ddFdudv[-1, -1]
 
         # RETURNS
         return Fu, Fv, Fuv
 
-#===============================================
-#===============================================
-#===============================================
+
+# ===============================================
+# ===============================================
+# ===============================================
 
 # AUXILIARY FUNCTIONS
-

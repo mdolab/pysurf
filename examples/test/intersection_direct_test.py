@@ -19,34 +19,26 @@ comm = MPI.COMM_WORLD
 distTol = 1e-7
 
 # Load dummy components. Its data will be replaced later on
-comp1 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
-comp2 = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', comm)
+comp1 = pysurf.TSurfGeometry("../inputs/simpleCube.cgns", comm)
+comp2 = pysurf.TSurfGeometry("../inputs/simpleCube.cgns", comm)
 
 # Define component A
-comp1.coor = np.array([[-0.1, 0.0, 0.0],
-                       [3.0, 0.0, 0.0],
-                       [0.0, 1.0, 0.0],
-                       [3.0, 1.0, 0.0]])
-comp1.triaConnF = np.array([[1,2,3],
-                            [2,4,3]])
-comp1.quadsConnF = np.zeros((0,4))
+comp1.coor = np.array([[-0.1, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 1.0, 0.0], [3.0, 1.0, 0.0]])
+comp1.triaConnF = np.array([[1, 2, 3], [2, 4, 3]])
+comp1.quadsConnF = np.zeros((0, 4))
 
 # Update ADT
 comp1.update()
 
 # Define component B
-comp2.coor = np.array([[0.0, 0.2, -0.2],
-                       [3.5, 0.2, -0.2],
-                       [0.0, 0.2, 0.2],
-                       [3.5, 0.2, 0.2]])
-comp2.triaConnF = np.array([[1,2,3],
-                            [2,4,3]])
-comp2.quadsConnF = np.zeros((0,4))
+comp2.coor = np.array([[0.0, 0.2, -0.2], [3.5, 0.2, -0.2], [0.0, 0.2, 0.2], [3.5, 0.2, 0.2]])
+comp2.triaConnF = np.array([[1, 2, 3], [2, 4, 3]])
+comp2.quadsConnF = np.zeros((0, 4))
 
 # Update ADT
 comp2.update()
 
-#===========================
+# ===========================
 
 # FORWARD PASS
 
@@ -61,9 +53,9 @@ intCoor0 = intCurve.get_points()
 # SETTING DERIVATIVE SEEDS
 
 # Set seeds
-coor1d, curveCoor1d = comp1.set_randomADSeeds(mode='forward')
-coor2d, curveCoor2d = comp2.set_randomADSeeds(mode='forward')
-intCoorb = intCurve.set_randomADSeeds(mode='reverse')
+coor1d, curveCoor1d = comp1.set_randomADSeeds(mode="forward")
+coor2d, curveCoor2d = comp2.set_randomADSeeds(mode="forward")
+intCoorb = intCurve.set_randomADSeeds(mode="reverse")
 
 # FORWARD AD
 
@@ -76,8 +68,8 @@ intCoord = intCurve.get_forwardADSeeds()
 # REVERSE AD
 
 # Make sure the curve has the same seeds on both sides
-#comp1.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
-#comp2.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
+# comp1.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
+# comp2.set_reverseADSeeds(curveCoorb={intNames[0]:intCoorb})
 
 # Compute derivatives in reverse mode
 comp1.intersect_b(comp2, intCurve, distTol, accumulateSeeds=False)
@@ -92,12 +84,12 @@ coor2b, curveCoor2b = comp2.get_reverseADSeeds()
 stepSize = 1e-7
 
 # Change the geometry
-comp1.update(comp1.coor + stepSize*coor1d)
+comp1.update(comp1.coor + stepSize * coor1d)
 for curveName in curveCoor1d:
-    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
-comp2.update(comp2.coor + stepSize*coor2d)
+    comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize * curveCoor1d[curveName])
+comp2.update(comp2.coor + stepSize * coor2d)
 for curveName in curveCoor2d:
-    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
+    comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize * curveCoor2d[curveName])
 
 # Run the intersection code once again
 intCurves = comp1.intersect(comp2, distTol)
@@ -107,44 +99,47 @@ intCurve = intCurves[0]
 intCoor = intCurve.get_points()
 
 # Compute derivatives with finite differences
-intCoord_FD = (intCoor - intCoor0)/stepSize
+intCoord_FD = (intCoor - intCoor0) / stepSize
 
 # FINITE DIFFERENCE TEST
 
 # Compute the maximum difference between derivatives
 maxError = np.max(np.abs(intCoord - intCoord_FD))
 
-print('')
-print('FD test (this should be around',stepSize,'):')
+print("")
+print("FD test (this should be around", stepSize, "):")
 print(maxError)
-print('')
+print("")
 
 # DOT PRODUCT TEST
 dotProd = 0.0
-dotProd = dotProd + np.sum(coor1d*coor1b)
-dotProd = dotProd + np.sum(coor2d*coor2b)
-dotProd = dotProd - np.sum(intCoord*intCoorb)
+dotProd = dotProd + np.sum(coor1d * coor1b)
+dotProd = dotProd + np.sum(coor2d * coor2b)
+dotProd = dotProd - np.sum(intCoord * intCoorb)
 for curveName in curveCoor1d:
-    dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+    dotProd = dotProd - np.sum(curveCoor1b[curveName] * curveCoor1d[curveName])
 for curveName in curveCoor2d:
-    dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
+    dotProd = dotProd - np.sum(curveCoor2b[curveName] * curveCoor2d[curveName])
 
-print('')
-print('dot product test (this should be around 1e-14):')
+print("")
+print("dot product test (this should be around 1e-14):")
 print(dotProd)
-print('')
+print("")
 
 
 def view_mat(mat):
     """ Helper function used to visually examine matrices. """
     import matplotlib.pyplot as plt
+
     if len(mat.shape) > 2:
         mat = np.sum(mat, axis=2)
     # print "Cond #:", np.linalg.cond(mat)
-    im = plt.imshow(mat, interpolation='none')
-    plt.colorbar(im, orientation='horizontal')
+    im = plt.imshow(mat, interpolation="none")
+    plt.colorbar(im, orientation="horizontal")
     plt.show()
-'''
+
+
+"""
 # BUILDING THE JACOBIAN
 
 nNodes1 = comp1.coor.shape[1]
@@ -238,4 +233,4 @@ view_mat(Jac_fwd)
 view_mat(Jac_rev)
 
 view_mat(Jac_fwd-Jac_rev)
-'''
+"""

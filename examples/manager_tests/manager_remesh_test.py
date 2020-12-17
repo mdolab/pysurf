@@ -6,17 +6,17 @@ import unittest
 import os
 import pickle
 
-class MergeTest(unittest.TestCase):
 
+class MergeTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MergeTest, self).__init__(*args, **kwargs)
 
     def test_merge(self):
 
-        os.system('rm *.plt')
+        os.system("rm *.plt")
 
         # Create one curve
-        '''
+        """
         # Remember to shift_end_nodes with maxY for these curves
 
         initCurveName = 'test_curve'
@@ -48,10 +48,10 @@ class MergeTest(unittest.TestCase):
                              [8,1]],dtype='int32',order='F').T
 
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
-        '''
+        """
 
         # Remember to shift_end_nodes with maxX for this curve
-        initCurveDict = pysurf.tsurf_tools.read_tecplot_curves('int_body_wing_000.plt_')
+        initCurveDict = pysurf.tsurf_tools.read_tecplot_curves("int_body_wing_000.plt_")
         initCurveName = initCurveDict.keys()[0]
         initCurve = initCurveDict[initCurveName]
 
@@ -63,10 +63,10 @@ class MergeTest(unittest.TestCase):
         manager.intCurves[initCurveName].export_tecplot(initCurveName)
 
         # REORDER
-        manager.intCurves[initCurveName].shift_end_nodes(criteria='maxX')
+        manager.intCurves[initCurveName].shift_end_nodes(criteria="maxX")
 
         # Now let's remesh this curve
-        remeshOptions = {'nNewNodes':100, 'spacing':'linear'}
+        remeshOptions = {"nNewNodes": 100, "spacing": "linear"}
         newCurveName = manager.remesh_intCurve(initCurveName, remeshOptions)
 
         # Save the remeshed curves
@@ -78,8 +78,8 @@ class MergeTest(unittest.TestCase):
         # DERIVATIVE SEEDS
 
         # Generate random seeds
-        manager.intCurves[initCurveName].set_randomADSeeds(mode='forward')
-        manager.intCurves[newCurveName].set_randomADSeeds(mode='reverse')
+        manager.intCurves[initCurveName].set_randomADSeeds(mode="forward")
+        manager.intCurves[newCurveName].set_randomADSeeds(mode="reverse")
 
         # Store relevant seeds
         initCurveCoord = manager.intCurves[initCurveName].get_forwardADSeeds()
@@ -103,12 +103,12 @@ class MergeTest(unittest.TestCase):
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(initCurveCoorb*initCurveCoord)
-        dotProd = dotProd - np.sum(newCurveCoorb*newCurveCoord)
+        dotProd = dotProd + np.sum(initCurveCoorb * initCurveCoord)
+        dotProd = dotProd - np.sum(newCurveCoorb * newCurveCoord)
 
-        print('dotProd test')
+        print("dotProd test")
         print(dotProd)
-        np.testing.assert_almost_equal(dotProd, 0., decimal=14)
+        np.testing.assert_almost_equal(dotProd, 0.0, decimal=14)
 
         # FINITE DIFFERENCE TEST
 
@@ -116,32 +116,32 @@ class MergeTest(unittest.TestCase):
         stepSize = 1e-8
 
         # Perturb the initial curve
-        initCurve.set_points(initCurve.get_points() + stepSize*initCurveCoord)
+        initCurve.set_points(initCurve.get_points() + stepSize * initCurveCoord)
 
         # Create new manager
         manager2 = pysurf.Manager()
         manager2.add_curve(initCurve)
 
         # REORDER
-        manager2.intCurves[initCurveName].shift_end_nodes(criteria='maxX')
+        manager2.intCurves[initCurveName].shift_end_nodes(criteria="maxX")
 
         # Now let's split this curve
         newCurveName = manager2.remesh_intCurve(initCurveName, remeshOptions)
 
         # Export the remeshed curve
-        manager.intCurves[newCurveName].export_tecplot(newCurveName+'_FD')
+        manager.intCurves[newCurveName].export_tecplot(newCurveName + "_FD")
 
         # Compute derivatives with finite differencing
         coor = manager2.intCurves[newCurveName].get_points()
 
-        newCurveCoord_FD = (coor - coor0)/stepSize
+        newCurveCoord_FD = (coor - coor0) / stepSize
 
         # Finite difference test
         FD_error = np.max(np.abs(newCurveCoord - newCurveCoord_FD))
-        print('FD test')
+        print("FD test")
         print(FD_error)
         # Extremely loose tolerance here
-        np.testing.assert_almost_equal(FD_error, 0., decimal=3)
+        np.testing.assert_almost_equal(FD_error, 0.0, decimal=3)
 
         # import matplotlib.pyplot as plt
         #
@@ -152,6 +152,7 @@ class MergeTest(unittest.TestCase):
         # plt.semilogy()
         # plt.legend()
         # plt.show()
+
 
 if __name__ == "__main__":
     unittest.main()

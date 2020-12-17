@@ -7,8 +7,8 @@ import os
 import pickle
 import unittest
 
-class CRMDerivTest(unittest.TestCase):
 
+class CRMDerivTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(CRMDerivTest, self).__init__(*args, **kwargs)
 
@@ -21,13 +21,13 @@ class CRMDerivTest(unittest.TestCase):
 
         # TESTING FUNCTION
 
-        os.system('rm *.plt')
+        os.system("rm *.plt")
 
         # Load components
-        comp1 = pysurf.TSurfGeometry('../../inputs/initial_full_wing_crm4.cgns',['wing','curve_le'])
-        comp2 = pysurf.TSurfGeometry('../../inputs/fuselage_crm4.cgns',['fuse'])
+        comp1 = pysurf.TSurfGeometry("../../inputs/initial_full_wing_crm4.cgns", ["wing", "curve_le"])
+        comp2 = pysurf.TSurfGeometry("../../inputs/fuselage_crm4.cgns", ["fuse"])
 
-        '''
+        """
         # I do not know why the rename is not working. It is flipping the elements of both components.
         # I.e.: elements of component 1 go to component 2 and vice-versa.
         name1 = 'wing'
@@ -35,14 +35,14 @@ class CRMDerivTest(unittest.TestCase):
 
         comp1.rename(name1)
         comp2.rename(name2)
-        '''
+        """
 
         name1 = comp1.name
         name2 = comp2.name
 
         # Load TE curves and append them to the wing component
-        curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves('curve_te_upp.plt_')
-        curve_te_low = pysurf.tsurf_tools.read_tecplot_curves('curve_te_low.plt_')
+        curve_te_upp = pysurf.tsurf_tools.read_tecplot_curves("curve_te_upp.plt_")
+        curve_te_low = pysurf.tsurf_tools.read_tecplot_curves("curve_te_low.plt_")
         curveName = curve_te_upp.keys()[0]
         comp1.add_curve(curve_te_upp[curveName])
         curveName = curve_te_low.keys()[0]
@@ -58,14 +58,14 @@ class CRMDerivTest(unittest.TestCase):
 
         distTol = 1e-7
 
-        #======================================================
+        # ======================================================
         # FORWARD PASS
 
         def forward_pass(manager):
 
-            '''
+            """
             This function will apply all geometry operations to the given manager.
-            '''
+            """
 
             # INTERSECT
 
@@ -76,20 +76,22 @@ class CRMDerivTest(unittest.TestCase):
             # SPLIT
 
             # Split curves based on TE and LE curves
-            optionsDict = {'splittingCurves' : [comp1.curves['curve_le'],
-                                                comp1.curves['curve_te_upp'],
-                                                comp1.curves['curve_te_low']]}
+            optionsDict = {
+                "splittingCurves": [
+                    comp1.curves["curve_le"],
+                    comp1.curves["curve_te_upp"],
+                    comp1.curves["curve_te_low"],
+                ]
+            }
 
-            splitCurveNames = manager.split_intCurve(intCurveName,
-                                                     optionsDict,
-                                                     criteria='curve')
+            splitCurveNames = manager.split_intCurve(intCurveName, optionsDict, criteria="curve")
 
             # REMESH
 
             # Find the highest z-coordinate of the entire intersection (vertical position)
             maxZ = -99999
             for curve in splitCurveNames:
-                curr_maxZ = np.max(manager.intCurves[curve].coor[:,2])
+                curr_maxZ = np.max(manager.intCurves[curve].coor[:, 2])
                 maxZ = max(maxZ, curr_maxZ)
 
             # Now we can identify and remesh each curve properly
@@ -103,8 +105,8 @@ class CRMDerivTest(unittest.TestCase):
 
                     # This is the trailing edge curve.
                     # Just apply an uniform spacing
-                    optionsDict = {'nNewNodes':9}
-                    TE_curveName = manager.remesh_intCurve(curveName,optionsDict)
+                    optionsDict = {"nNewNodes": 9}
+                    TE_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
                 else:
 
@@ -112,7 +114,7 @@ class CRMDerivTest(unittest.TestCase):
                     # First let's identify if the curve is defined from
                     # LE to TE or vice-versa
 
-                    deltaX = curve.coor[curve.barsConn[0,0],0] - curve.coor[curve.barsConn[-1,-1],0]
+                    deltaX = curve.coor[curve.barsConn[0, 0], 0] - curve.coor[curve.barsConn[-1, -1], 0]
 
                     if deltaX > 0:
                         LE_to_TE = True
@@ -120,7 +122,7 @@ class CRMDerivTest(unittest.TestCase):
                         LE_to_TE = False
 
                     # Compute the highest vertical coordinate of the curve
-                    curr_maxZ = np.max(curve.coor[:,2])
+                    curr_maxZ = np.max(curve.coor[:, 2])
 
                     # Now we can determine if we have upper or lower skin
                     if curr_maxZ < maxZ:
@@ -129,19 +131,23 @@ class CRMDerivTest(unittest.TestCase):
 
                         if LE_to_TE:
 
-                            optionsDict = {'nNewNodes':numSkinNodes,
-                                           'spacing':'hypTan',
-                                           'initialSpacing':LE_spacing,
-                                           'finalSpacing':TE_spacing}
+                            optionsDict = {
+                                "nNewNodes": numSkinNodes,
+                                "spacing": "hypTan",
+                                "initialSpacing": LE_spacing,
+                                "finalSpacing": TE_spacing,
+                            }
 
                             LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
                         else:
 
-                            optionsDict = {'nNewNodes':numSkinNodes,
-                                           'spacing':'hypTan',
-                                           'initialSpacing':TE_spacing,
-                                           'finalSpacing':LE_spacing}
+                            optionsDict = {
+                                "nNewNodes": numSkinNodes,
+                                "spacing": "hypTan",
+                                "initialSpacing": TE_spacing,
+                                "finalSpacing": LE_spacing,
+                            }
 
                             LS_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
@@ -151,33 +157,37 @@ class CRMDerivTest(unittest.TestCase):
 
                         if LE_to_TE:
 
-                            optionsDict = {'nNewNodes':numSkinNodes,
-                                           'spacing':'hypTan',
-                                           'initialSpacing':LE_spacing,
-                                           'finalSpacing':TE_spacing}
+                            optionsDict = {
+                                "nNewNodes": numSkinNodes,
+                                "spacing": "hypTan",
+                                "initialSpacing": LE_spacing,
+                                "finalSpacing": TE_spacing,
+                            }
 
                             US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
                         else:
 
-                            optionsDict = {'nNewNodes':numSkinNodes,
-                                           'spacing':'hypTan',
-                                           'initialSpacing':TE_spacing,
-                                           'finalSpacing':LE_spacing}
+                            optionsDict = {
+                                "nNewNodes": numSkinNodes,
+                                "spacing": "hypTan",
+                                "initialSpacing": TE_spacing,
+                                "finalSpacing": LE_spacing,
+                            }
 
                             US_curveName = manager.remesh_intCurve(curveName, optionsDict)
 
             # Now we can merge the new curves
             curveNames = [TE_curveName, LS_curveName, US_curveName]
-            mergedCurveName = 'intersection'
+            mergedCurveName = "intersection"
             manager.merge_intCurves(curveNames, mergedCurveName)
 
-            manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName+'_%03d'%current_pass)
+            manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName + "_%03d" % current_pass)
 
             return mergedCurveName
 
         # END OF forward_pass
-        #======================================================
+        # ======================================================
 
         current_pass = 0
 
@@ -188,10 +198,9 @@ class CRMDerivTest(unittest.TestCase):
         # DERIVATIVE SEEDS
 
         # Generate random seeds
-        coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode='forward')
-        coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode='forward')
-        intCoorb = manager0.intCurves[mergedCurveName].set_randomADSeeds(mode='reverse')
-
+        coor1d, curveCoor1d = manager0.geoms[name1].set_randomADSeeds(mode="forward")
+        coor2d, curveCoor2d = manager0.geoms[name2].set_randomADSeeds(mode="forward")
+        intCoorb = manager0.intCurves[mergedCurveName].set_randomADSeeds(mode="reverse")
 
         # FORWARD AD
 
@@ -212,28 +221,28 @@ class CRMDerivTest(unittest.TestCase):
 
         # Dot product test
         dotProd = 0.0
-        dotProd = dotProd + np.sum(intCoorb*intCoord)
-        dotProd = dotProd - np.sum(coor1b*coor1d)
-        dotProd = dotProd - np.sum(coor2b*coor2d)
+        dotProd = dotProd + np.sum(intCoorb * intCoord)
+        dotProd = dotProd - np.sum(coor1b * coor1d)
+        dotProd = dotProd - np.sum(coor2b * coor2d)
         for curveName in curveCoor1d:
-            dotProd = dotProd - np.sum(curveCoor1b[curveName]*curveCoor1d[curveName])
+            dotProd = dotProd - np.sum(curveCoor1b[curveName] * curveCoor1d[curveName])
         for curveName in curveCoor2d:
-            dotProd = dotProd - np.sum(curveCoor2b[curveName]*curveCoor2d[curveName])
+            dotProd = dotProd - np.sum(curveCoor2b[curveName] * curveCoor2d[curveName])
 
-        print('dotProd test (this will be repeated at the end as well)')
+        print("dotProd test (this will be repeated at the end as well)")
         print(dotProd)
-        np.testing.assert_almost_equal(dotProd, 0., decimal=13)
+        np.testing.assert_almost_equal(dotProd, 0.0, decimal=13)
 
         # FINITE DIFFERENCE
         stepSize = 1e-8
 
         # Apply perturbations to the geometries
-        comp1.update(comp1.coor + stepSize*coor1d)
+        comp1.update(comp1.coor + stepSize * coor1d)
         for curveName in curveCoor1d:
-            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize*curveCoor1d[curveName])
-        comp2.update(comp2.coor + stepSize*coor2d)
+            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize * curveCoor1d[curveName])
+        comp2.update(comp2.coor + stepSize * coor2d)
         for curveName in curveCoor2d:
-            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize*curveCoor2d[curveName])
+            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize * curveCoor2d[curveName])
 
         # Create new manager with perturbed components
         manager1 = pysurf.Manager()
@@ -248,30 +257,30 @@ class CRMDerivTest(unittest.TestCase):
         coor1 = manager1.intCurves[mergedCurveName].get_points()
 
         # Compute derivatives with FD
-        intCoord_FD = (coor1 - coor0)/stepSize
+        intCoord_FD = (coor1 - coor0) / stepSize
 
         # Compute difference in derivatives
-        FD_error = np.abs(intCoord-intCoord_FD)
+        FD_error = np.abs(intCoord - intCoord_FD)
         max_FD_error = np.max(FD_error)
 
         # Export predicted position of the new points
         intCurve = manager0.intCurves[mergedCurveName]
-        intCoor = intCurve.get_points() + stepSize*intCoord
+        intCoor = intCurve.get_points() + stepSize * intCoord
         print(np.max(intCoor - coor0))
-        np.testing.assert_almost_equal(np.max(intCoor - coor0), 0., decimal=10)
+        np.testing.assert_almost_equal(np.max(intCoor - coor0), 0.0, decimal=10)
         print(np.max(coor1 - coor0))
-        np.testing.assert_almost_equal(np.max(coor1 - coor0), 0., decimal=10)
+        np.testing.assert_almost_equal(np.max(coor1 - coor0), 0.0, decimal=10)
         intCurve.set_points(intCoor)
-        intCurve.export_tecplot(mergedCurveName+'_predicted')
+        intCurve.export_tecplot(mergedCurveName + "_predicted")
 
         # Print results
-        print('dotProd test')
+        print("dotProd test")
         print(dotProd)
-        np.testing.assert_almost_equal(dotProd, 0., decimal=13)
-        print('FD test')
+        np.testing.assert_almost_equal(dotProd, 0.0, decimal=13)
+        print("FD test")
         print(max_FD_error)
         # Pretty loose tolerance here
-        np.testing.assert_almost_equal(max_FD_error, 0., decimal=5)
+        np.testing.assert_almost_equal(max_FD_error, 0.0, decimal=5)
 
         # import matplotlib.pyplot as plt
 
@@ -282,7 +291,6 @@ class CRMDerivTest(unittest.TestCase):
         # plt.semilogy()
         # plt.legend()
         # plt.show()
-
 
 
 if __name__ == "__main__":
