@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 from GeoMACH.BSE import BSEmodel
 from scipy.sparse.linalg import bicgstab
 import numpy
@@ -140,8 +140,8 @@ if __name__ == '__main__':
     normProj = numpy.zeros((xyz.shape[0],3))
 
     s.project(xyz, dist2, xyzProj, normProj)
-    print xyzProj
-    print normProj
+    print(xyzProj)
+    print(normProj)
 
     # Define surface points
     s0 = 100
@@ -161,5 +161,5 @@ if __name__ == '__main__':
     normProj = numpy.zeros((xyz.shape[0],3))
 
     s.project(xyz, dist2, xyzProj, normProj)
-    print xyzProj
-    print normProj
+    print(xyzProj)
+    print(normProj)
