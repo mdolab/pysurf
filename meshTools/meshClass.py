@@ -65,7 +65,7 @@ class SurfaceMesh(object):
 
                 dim = arg[block].shape[-1]
 
-                if dim is not 3:
+                if dim != 3:
                     raise ValueError('The coordinate array should be [imax,jmax,3]')
 
             # We can assign the data if it passes the test

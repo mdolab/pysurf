@@ -273,7 +273,7 @@ class tfi(object):
 
         # Initialize parametric coordinates (if None is provided) or check
         # their size
-        if u is 'uniform':
+        if u == 'uniform':
             u = np.linspace(0,1,nu)
         else:
             if len(u) is not nu:
@@ -283,7 +283,7 @@ class tfi(object):
                 print(' the number of points.')
                 print('')
 
-        if v is 'uniform':
+        if v == 'uniform':
             v = np.linspace(0,1,nv)
         else:
             if len(v) is not nv:
