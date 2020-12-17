@@ -4,7 +4,7 @@ from mpi4py import MPI
 import pysurf
 from collections import OrderedDict
 import os
-from cgnsutilities import cgns_utils as cs
+from cgnsutilities import cgnsutilities as cs
 
 class Manager(object):
 
