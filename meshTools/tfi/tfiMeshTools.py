@@ -104,32 +104,39 @@ def computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v, blendingFactor=0.6):
     This functions computes derivatives necessary for cubic Hermite TFI based on surface normals
     and user-provided grid spacings.
 
-    INPUTS:
-    X, Y, Z: array[nu,nv] --> Mesh nodal coordinates. Just the external values should be filled. The
-                              interior values in these matrices do not matter.
+    Parameters
+    ----------
+    X, Y, Z: array[nu,nv]
+        Mesh nodal coordinates. Just the external values should be filled. The
+        interior values in these matrices do not matter.
 
-    s0u: array[nu,3] --> Desired marching distance for the nodes on the left (s0u[:,0]) and on the
-                         right (s0u[:,1]) curves. The marching distance is the desired distance between
-                         the boundary node and the first interior node.
+    s0u: array[nu,3]
+        Desired marching distance for the nodes on the left (s0u[:,0]) and on the
+        right (s0u[:,1]) curves. The marching distance is the desired distance between
+        the boundary node and the first interior node.
 
-    s0u: array[3,nv] --> Desired marching distance for the nodes on the top (s0v[0,:]) and on the
-                         bottom (s0v[1,:]) curves. The marching distance is the desired distance between
-                         the boundary node and the first interior node.
+    s0u: array[3,nv]
+        Desired marching distance for the nodes on the top (s0v[0,:]) and on the
+        bottom (s0v[1,:]) curves. The marching distance is the desired distance between
+        the boundary node and the first interior node.
 
-    N0u: array[nu,6] --> Reference surface normals (nx,ny,nz) computed at the nodes on the left (N0u[:,0:3])
-                         and on the right (N0u[:,3:6]) curves.
-                         N0u = [nx(0,0)  ny(0,0)  nz(0,0)  |  nx(0,-1)  ny(0,-1)  nz(0,-1)]
-                               [nx(1,0)  ny(1,0)  nz(1,0)  |  nx(1,-1)  ny(1,-1)  nz(1,-1)]
-                               [nx(2,0)  ny(2,0)  nz(2,0)  |  nx(2,-1)  ny(2,-1)  nz(2,-1)]
-                                   :        :        :            :        :          :
-                               [nx(nu,0) ny(nu,0) nz(nu,0) |  nx(nu,-1) ny(nu,-1) nz(nu,-1)]
+    N0u: array[nu,6]
+        Reference surface normals (nx,ny,nz) computed at the nodes on the left (N0u[:,0:3])
+        and on the right (N0u[:,3:6]) curves::
 
+            N0u = [nx(0,0)  ny(0,0)  nz(0,0)  |  nx(0,-1)  ny(0,-1)  nz(0,-1)]
+                [nx(1,0)  ny(1,0)  nz(1,0)  |  nx(1,-1)  ny(1,-1)  nz(1,-1)]
+                [nx(2,0)  ny(2,0)  nz(2,0)  |  nx(2,-1)  ny(2,-1)  nz(2,-1)]
+                    :        :        :            :        :          :
+                [nx(nu,0) ny(nu,0) nz(nu,0) |  nx(nu,-1) ny(nu,-1) nz(nu,-1)]
 
-    N0v: array[6,nv] --> Reference surface normals (nx,ny,nz) computed at the nodes on the top (N0v[0:3,:])
-                         and on the bottom (N0v[3:6,:]) curves. It structure is similar to N0u, but transposed.
+    N0v: array[6,nv]
+        Reference surface normals (nx,ny,nz) computed at the nodes on the top (N0v[0:3,:])
+        and on the bottom (N0v[3:6,:]) curves. It structure is similar to N0u, but transposed.
 
-    blendingFactor: float (0<float<1) --> 0 -- Do not blend any information from the boundaries.
-                                          1 -- Only boundary values will be used.
+    blendingFactor: float (0<float<1)
+        0 -- Do not blend any information from the boundaries.
+        1 -- Only boundary values will be used.
 
     """
 
@@ -160,26 +167,35 @@ def computeDerivatives(X, Y, Z, s0u, s0v, N0u, N0v, blendingFactor=0.6):
         l0--l1--l2--l3--...--ln -> This is the current curve (Xl, Yl, Zl)
 
 
-        INPUTS:
+        Parameters
+        ----------
 
-        Xl, Yl, Zl: array[nl] --> Coordinates at the nodes along the line. We assume
-                                  that the nodes are linearly spaced in parametric coordinates.
+        Xl, Yl, Zl: array[nl]
+            Coordinates at the nodes along the line. We assume
+            that the nodes are linearly spaced in parametric coordinates.
 
-        Xm0, Ym0, Zm0: float --> X,Y, and Z coordinates of the first node of the boundary curve that starts at l=0.
+        Xm0, Ym0, Zm0: float
+            X,Y, and Z coordinates of the first node of the boundary curve that starts at l=0.
 
-        Xm1, Ym1, Zm1: float --> X,Y, and Z coordinates of the first node of the boundary curve that starts at l=-1.
+        Xm1, Ym1, Zm1: float
+            X,Y, and Z coordinates of the first node of the boundary curve that starts at l=-1.
 
-        nm: integer --> number of nodes on the perpendicular curve
+        nm: integer
+            number of nodes on the perpendicular curve
 
-        s0l: array[nl] --> Desired marching distance for the first nodes along the line
+        s0l: array[nl]
+            Desired marching distance for the first nodes along the line
 
-        N0l: array[nl,3] --> Surface normals computed on each node of the line
+        N0l: array[nl,3]
+            Surface normals computed on each node of the line
 
-        blendingFactor: float (0<float<1) --> 0 -- Do not blend any information from the boundaries.
-                                              1 -- Only boundary values will be used.
+        blendingFactor: float (0<float<1)
+            0 -- Do not blend any information from the boundaries.
+            1 -- Only boundary values will be used.
 
-        flipBCdir: logical --> should be True for bottom and right curves, so we can flip the BC derivative sign
-                               when computing delta(X)/delta(m).
+        flipBCdir: logical
+            should be True for bottom and right curves, so we can flip the BC derivative sign
+            when computing delta(X)/delta(m).
         """
 
         # PRE-PROCESSING

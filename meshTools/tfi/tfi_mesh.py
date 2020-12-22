@@ -23,16 +23,16 @@ class TFIMesh(object):
         This function will receive four curve objects/array and
         one component object to initilize the TFI mesh.
 
-        The curves should be ordered and directed as shown in the scheme below:
+        The curves should be ordered and directed as shown in the scheme below::
 
-        +--> j,v
-        |   +-----------<-------+
-        V   |1       top       4|
-        i,u |                   ^
-            |left          right|
-            V                   |
-            |2      bottom     3|
-            +------->-----------+
+            +--> j,v
+            |   +-----------<-------+
+            V   |1       top       4|
+            i,u |                   ^
+                |left          right|
+                V                   |
+                |2      bottom     3|
+                +------->-----------+
 
         You can also use the function linkcurves defind in this same file to automatically
         order any set of curves acording to this criteria. Note however that you will not be able
@@ -74,7 +74,8 @@ class TFIMesh(object):
         """
         This function actually computes the mesh.
 
-        OUTPUTS:
+        Returns
+        -------
         This function has no explicit outputs. It updates self.coor instead.
         """
 
@@ -235,7 +236,8 @@ class TFIMesh(object):
         """
         This function will project the mesh coordinates into refComp.
 
-        OUTPUTS:
+        Returns
+        -------
         This function has no explicit outputs. It modifies X, Y, and Z instead.
 
         Ney Secco 2016-08
@@ -276,11 +278,13 @@ def link_curves(curveList):
     Instead of Curve objects, the user can also provide
     arrays of size [numNodes,3] for each curve.
 
-    INPUTS:
+    Parameters
+    ----------
     curveList: list[4] -> List that should contain exactly for curve objects.
             Each element can also be an array[numNodes,3] specifying nodal coordinates.
 
-    OUTPUTS:
+    Returns
+    -------
     leftCurve: array[numNodes,3] -> coordinates of the left curve according to
                the TFIMesh Class orientation.
     bottomCurve: array[numNodes,3] -> coordinates of the bottom curve according to

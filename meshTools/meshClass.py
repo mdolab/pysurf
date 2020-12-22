@@ -14,7 +14,8 @@ class SurfaceMesh(object):
         """
         This function initializes a multi-block surface mesh object.
 
-        INPUTS:
+        Parameters
+        ----------
 
         meshName: string with name of the new mesh object
 

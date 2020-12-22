@@ -17,12 +17,12 @@ class GeoMACHGeometry(Geometry):
         The expected arguments for a GeoMACHGeometry initialization are:
 
         GeoMACHGeometry(comm, pointsDict)
-        INPUTS:
-        pointsDict: dictionary(name,pts) --> name is a string that
-                    defines the subcomponent (curve or surface) name.
-                    pts is an array of floats that defines the
-                    sum-component. It is of size [nu,nv,3] for surfaces
-                    and size [nu,3] for curves.
+        Parameters
+        ----------
+        pointsDict: dictionary(name,pts)
+            name is a string that defines the subcomponent (curve or surface) name.
+            pts is an array of floats that defines the sum-component.
+            It is of size [nu,nv,3] for surfaces and size [nu,3] for curves.
         """
 
         comm = arg[0]
@@ -43,10 +43,12 @@ class GeoMACHGeometry(Geometry):
         """
         This function will compute projections and surface Normals
 
-        INPUTS:
+        Parameters
+        ----------
         xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
 
-        OUTPUTS:
+        Returns
+        -------
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         normProj -> float[numPts,3] : Surface normal at projected points
@@ -100,10 +102,12 @@ class GeoMACHGeometry(Geometry):
         """
         This function will compute projections and surface Normals
 
-        INPUTS:
+        Parameters
+        ----------
         xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
 
-        OUTPUTS:
+        Returns
+        -------
         xyzProj -> float[numPts,3] : Coordinates of the projected points
 
         tanProj -> float[numPts,3] : Curve tangent at projected points

@@ -248,13 +248,15 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
     This function initializes all curves given in sectionDict that are
     shown in selectedSections.
 
-    INPUTS:
+    Parameters
+    ----------
     sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
                  keys are section names, while the values are also dictionaries with the
                  following fields:'quadsConn','triaConn' for surface sections and 'barsConn'
                  for curve sections.
 
-    OUTPUTS:
+    Returns
+    -------
     This function has no explicit outputs. It assigns TSurfGeometry.curves
 
     Ney Secco 2016-08
@@ -573,7 +575,8 @@ def merge_surface_sections(sectionDict, selectedSections):
     This function merges the connectivity data of all surface sections
     specified in selectedSections.
 
-    INPUTS:
+    Parameters
+    ----------
     sectionDict: dictionary{sectionName,sDict} -> Dictionary that contains surface info. The
                   keys are section names, while the values are also dictionaries with the
                   following fields:'quadsConnF','triaConnF' for surface sections and 'barsConn'
@@ -630,7 +633,8 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
     This function automatically generate the bar element connectivity
     assuming that the points in coor are ordered.
 
-    INPUTS:
+    Parameters
+    ----------
 
     coor -> float[numNodes,3] : coordinates (X,Y,Z) of the curve nodes.
 
@@ -641,7 +645,8 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
 
     mergeTol -> float : threshold used to merge nearby nodes.
 
-    OUTPUTS:
+    Returns
+    -------
 
     curve -> TSurfCurve object : curve object defined by the given nodes.
 
@@ -780,7 +785,8 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
     ATTENTION: This function assumes that the FE data is sorted.
 
-    INPUTS:
+    Parameters
+    ----------
     curve: Curve object -> Curve that will be split
 
     curveName: string -> Name of the original curve. This name will be used
@@ -798,7 +804,8 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
     criteria: string -> Criteria that will be used to split curves. The options
               available for now are: ['sharpness', 'curve', 'node']
 
-    OUTPUTS:
+    Returns
+    -------
     splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
 
     Ney Secco 2016-08
@@ -1205,7 +1212,8 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
 
-    INPUTS:
+    Parameters
+    ----------
 
     TSurfGeometryA: TSurfGeometry object
 
@@ -1220,7 +1228,8 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     distTol: float -> Distance used to check if the bar elements were flipped. Used the
                       same distTol used to merge nearby nodes.
 
-    OUTPUTS:
+    Returns
+    -------
 
     coorIntd: float(nNodesInt,3) -> Derivative seeds of the intersection curve nodal coordinates
 
@@ -1258,7 +1267,8 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     This function is the backward mode of the intersection computation.
     This can only be called when we already have the intersection curve.
 
-    INPUTS:
+    Parameters
+    ----------
 
     TSurfGeometryA: TSurfGeometry object
 
@@ -1271,7 +1281,8 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     distTol: float -> Distance used to check if the bar elements were flipped. Used the
                       same distTol used to merge nearby nodes.
 
-    OUTPUTS:
+    Returns
+    -------
 
     coorAb: float(nNodesA,3) -> Derivative seeds of the component A nodal coordinates
 
@@ -1577,7 +1588,8 @@ def remove_unused_points(coor, triaConnF=np.zeros((0, 0)), quadsConnF=np.zeros((
     All inputs must be arrays. The user does not need to provide all inputs, only
     the connectivities that matter to select used points.
 
-    OUTPUTS:
+    Returns
+    -------
     This function returns cropCoor, which is the cropped set of nodes.
     This function also updates triaConn, quadsConn and barsConn.
     """
@@ -1683,7 +1695,8 @@ def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF
     is shared between element1 and element2 has a desired feature. This is
     used by extract_curves_from_surface function.
 
-    INPUTS:
+    Parameters
+    ----------
 
     node1: integer -> node1 index in coor
 
@@ -1706,7 +1719,8 @@ def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF
     feature: string -> feature that should be detected. Available options are:
              ['sharpness','open_ends']
 
-    OUTPUTS:
+    Returns
+    -------
 
     featureIsDetected: logical -> True if feature is detected in this edge. Otherwise it is False.
 
@@ -2115,7 +2129,8 @@ def normalize(vec):
     INPUTS
     vec: array[n x m] -> Array of n vectors of size m that should be normalized
 
-    OUTPUTS:
+    Returns
+    -------
     normalVec: array[n x m] -> Array of n normalized vectors
 
     Ney Secco 2016-10

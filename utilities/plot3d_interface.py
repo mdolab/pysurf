@@ -297,7 +297,8 @@ def merge_plot3d(files, flips, outputFile="merged.xyz"):
     flip the orientation of some meshes so that the final block remains
     structured.
 
-    INPUTS:
+    Parameters
+    ----------
 
     files: list of strings -> Name of one plot3d file to be merged.
 

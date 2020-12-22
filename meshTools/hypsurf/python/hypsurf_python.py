@@ -345,7 +345,8 @@ def areaFactor(r0, d, nuArea, numAreaPasses, bc1, bc2, guideIndices):
     (ratio between marching distance and the neighbor distance), so that we can avoid
     large steps
 
-    INPUTS:
+    Parameters
+    ----------
     r0 -> 1d array (1 x 3*numNodes) : coordinates of all points in a layer:
     r0 = [x1, y1, z1, x2, y2, z2, x3, y3, z3, ... ]
 

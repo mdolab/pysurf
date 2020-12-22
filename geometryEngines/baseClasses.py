@@ -79,7 +79,8 @@ class Geometry(object):
         This function should be overwritten by the derived class, but please
         keep the same inputs, as other parts of the code may depend on it.
 
-        INPUTS:
+        Parameters
+        ----------
         angle: float -> Rotation angle, in degrees.
 
         axis: integer -> Rotation axis [0 for x, 1 for y, 2 for z]
@@ -239,7 +240,8 @@ class Geometry(object):
         This function receives a geometry manipulator object and then embed the points of
         the current geometry object into this manipulator
 
-        INPUTS:
+        Parameters
+        ----------
 
         GMObj: Geometry Manipulation Object
 
@@ -530,7 +532,8 @@ class Curve(object):
         This function should be overwritten by the derived class, but please
         keep the same inputs, as other parts of the code may depend on it.
 
-        INPUTS:
+        Parameters
+        ----------
         angle: float -> Rotation angle, in degrees.
 
         axis: integer -> Rotation axis [0 for x, 1 for y, 2 for z]

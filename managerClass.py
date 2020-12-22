@@ -29,22 +29,20 @@ class Manager(object):
 
         # Save ID of the current proc
         self.myID = self.comm.Get_rank()
-        """
-        # SERIALIZATION
-        # Here we create a new communicator just for the root proc because TSurf currently runs in
-        # a single proc.
-        comm = MPI.COMM_WORLD
 
-        # Create colors so that only the root proc is the worker
-        if comm.Get_rank() == 0:
-            color = 0
-        else:
-            color = MPI.UNDEFINED
+        # # SERIALIZATION
+        # # Here we create a new communicator just for the root proc because TSurf currently runs in
+        # # a single proc.
+        # comm = MPI.COMM_WORLD
 
-        newComm = comm.Split(color)
+        # # Create colors so that only the root proc is the worker
+        # if comm.Get_rank() == 0:
+        #     color = 0
+        # else:
+        #     color = MPI.UNDEFINED
+        # newComm = comm.Split(color)
+        # self.commSingle = newComm
 
-        self.commSingle = newComm
-        """
         # Define dictionary that will hold all geometries
         self.geoms = OrderedDict()
 
@@ -187,16 +185,17 @@ class Manager(object):
         baseFunction(manager)
         This function should receive a manager object and then conduct all necessary
         operations to generate the collar surface meshes using this object. This includes all
-        itersection, split, merge, and mesh marching calls.
+        intersection, split, merge, and mesh marching calls.
         ATTENTION: The user should NOT call any mesh extrusion operation (volume mesh generation)
         within baseFunction. We only need the surface nodes of the collar meshes.
 
         This function will be used throughout the optimization to update the nodal
         coordinates of the collar meshes.
 
-        INPUTS:
-
-        baseFunction : function handle -> Handle to the function that performs the geometry operations.
+        Parameters
+        ----------
+        baseFunction : function handle
+            Handle to the function that performs the geometry operations.
 
         Ney Secco 2017-02
         """
@@ -209,7 +208,9 @@ class Manager(object):
         """
         This method will execute the base function to update the collar mesh coordiantes.
 
-        ASSUMPTIONS:
+        Notes
+        -----
+        Assumptions:
         - We assume that the triangulated surfaces are up to date with respect to the design variables.
         This is usually guaranteed since this method is called from self.update.
         """
@@ -1036,11 +1037,13 @@ class Manager(object):
         plot3d files. The files will be separated by primary geometries and
         also by collar meshes.
 
-        INPUTS:
+        Parameters
+        ----------
+        directory: string
+            Directory where will place all mesh files.
 
-        directory: string -> Directory where will place all mesh files.
-
-        fileNameTag: string -> Optional tag to append to the file names.
+        fileNameTag: string
+            Optional tag to append to the file names.
         """
 
         # Only the root proc will work here
@@ -1204,9 +1207,10 @@ class Manager(object):
 
         ATTENTION: These points are in Solver ordering, so this can only be used after self.addPointSet
 
-        INPUTS:
-
-        ptSetName: string -> Name of the point set we want points from. This is the same used for self.addPointSet.
+        Parameters
+        ----------
+        ptSetName: string
+            Name of the point set we want points from. This is the same used for self.addPointSet.
         """
 
         # Loop over all primary meshes to gather their surface mesh coordinates.
@@ -1264,13 +1268,15 @@ class Manager(object):
         This function returns the forward AD seeds of all meshes contained
         in the manager object (including both primary and collar meshes).
 
-        INPUTS:
+        Parameters
+        ----------
+        ptSetName: string
+            Name of the point set we want points from. THis is the same used for self.addPointSet.
 
-        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
-
-        RETURNS:
-
-        ptsd: float[nPts,3] -> Forward derivative seeds of all surface points, following the solver ordering.
+        Returns
+        -------
+        ptsd: float[nPts,3]
+            Forward derivative seeds of all surface points, following the solver ordering.
         """
 
         # Initialize array of derivatives
@@ -1331,11 +1337,13 @@ class Manager(object):
         This function sets the reverse AD seeds of all meshes contained
         in the manager object (including both primary and collar meshes).
 
-        INPUTS:
+        Parameters
+        ----------
+        ptsb: float[nPts,3]
+            Reverse derivative seeds of all surface points, following the solver ordering.
 
-        ptsb: float[nPts,3] -> Reverse derivative seeds of all surface points, following the solver ordering.
-
-        ptSetName: string -> Name of the point set we want points from. THis is the same used for self.addPointSet.
+        ptSetName: string
+            Name of the point set we want points from. THis is the same used for self.addPointSet.
         """
 
         # Loop over all primary meshes to gather their surface mesh coordinates.
@@ -1763,18 +1771,21 @@ class Manager(object):
         This method executes the forward AD to compute the derivatives of the
         surface mesh with respect to the design variables.
 
-        INPUTS:
+        Parameters
+        ----------
+        xDvDot: dictionary
+            Dictionary containing derivative seeds of the design variables.
+            It should follow the same structure as dvDict. You can use self.getValues to get
+            a baseline dictionary and them change seeds.
 
-        xDvDot: dictionary -> Dictionary containing derivative seeds of the design variables.
-        It should follow the same structure as dvDict. You can use self.getValues to get
-        a baseline dictionary and them change seeds.
+        ptSetName: string
+            Name of the point set that should be used to propagate derivatives
 
-        ptSetName: string -> Name of the point set that should be used to propagate derivatives
-
-        OUTPUTS:
-
-        xsDot: float[nPts,3] -> Derivative seeds of the surface mesh points. NOTE: This function
-        will also update all derivative seeds stored throughout the manager.
+        Returns
+        -------
+        xsDot: float[nPts,3]
+            Derivative seeds of the surface mesh points. NOTE: This function
+            will also update all derivative seeds stored throughout the manager.
 
         Ney Secco 2017-02
         """
@@ -1817,20 +1828,26 @@ class Manager(object):
         This code will change the values in xsBar. So make sure you make a copy if you
         need the original values later on!
 
-        INPUTS:
+        Parameters
+        ----------
+        xsBar: float[nPts,3]
+            Dictionary containing derivative seeds of the design variables.
+            It should follow the same structure as dvDict. You can use self.getValues to get
+            a baseline dictionary and them change seeds.
 
-        xsBar: float[nPts,3] -> Dictionary containing derivative seeds of the design variables.
-        It should follow the same structure as dvDict. You can use self.getValues to get
-        a baseline dictionary and them change seeds.
+        ptSetName: string
+            Name of the point set that should be used to propagate derivatives
 
-        ptSetName: string -> Name of the point set that should be used to propagate derivatives
+        Returns
+        -------
+        xDvBar: dictionary
+            Dictionary containing derivative seeds of the design variables.
+            It will follow the same structure as dvDict.
 
-        OUTPUTS:
-
-        xDvBar: dictionary -> Dictionary containing derivative seeds of the design variables.
-        It will follow the same structure as dvDict.
-        ATTENTION: If comm is provided, the derivatives should be reduced at the end.
-                   That is, all procs should receive the sum of all seeds.
+        Warnings
+        --------
+        If comm is provided, the derivatives should be reduced at the end.
+        That is, all procs should receive the sum of all seeds.
 
         Ney Secco 2017-02
         """
@@ -1979,28 +1996,31 @@ class Manager(object):
         This method creates a mapping between the solver-provided surface mesh coordinates, and
         the surface mesh coordinates currently stored in the manager object.
 
-        INPUTS:
+        Parameters
+        ----------
+        solverPts: array[numSolverPtsx3]
+            Local array containing the coordinates given by the solver,
+            in the current proc.
 
-        solverPts: array[numSolverPtsx3] -> Local array containing the coordinates given by the solver,
-        in the current proc.
-
-        managerPts: array[numManagerPtsx3] -> Local array containing the coordinates given by the manager,
-        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
-        from the root proc to all other procs.
+        managerPts: array[numManagerPtsx3]
+            Local array containing the coordinates given by the manager,
+            in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+            from the root proc to all other procs.
 
         distTol: Distance tolerance to flag that a given surface node does not
                  belong to the current Manager surface definition.
 
-        OUTPUTS:
+        Returns
+        -------
+        indexSolverPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
 
-        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
-                                         linked to managerPts nodes.
+        indexManagerPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
+            That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
 
-        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
-                                          linked to managerPts nodes.
-                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
-
-        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
+        numSurfRepetitions: int[nMapping]
+            Number of times a given solverPts is repeated in managerPts.
 
         Ney Secco 2018-01
         """
@@ -2148,26 +2168,29 @@ class Manager(object):
         the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
 
-        INPUTS:
+        Parameters
+        ----------
 
-        solverPts: array[numSolverPtsx3] -> Local array containing the coordinates given by the solver,
-        in the current proc.
+        solverPts: array[numSolverPtsx3]
+            Local array containing the coordinates given by the solver, in the current proc.
 
-        managerPts: array[numManagerPtsx3] -> Local array containing the coordinates given by the manager,
-        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
-        from the root proc to all other procs.
+        managerPts: array[numManagerPtsx3]
+            Local array containing the coordinates given by the manager,
+            in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+            from the root proc to all other procs.
 
-        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
-                                         linked to managerPts nodes.
+        indexSolverPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
 
-        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
-                                          linked to managerPts nodes.
-                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
+        indexManagerPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
+            That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
 
-        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
+        numSurfRepetitions: int[nMapping]
+            Number of times a given solverPts is repeated in managerPts.
 
-        OUTPUTS:
-
+        Returns
+        -------
         This function modifies solverPts.
 
         Ney Secco 2018-01
@@ -2191,26 +2214,28 @@ class Manager(object):
         the manager vector.
         You need to run self._setSolverToManagerMapping() first to establish the mapping.
 
-        INPUTS:
+        Parameters
+        ----------
+        solverPtsb: array[numSolverPtsx3]
+            Local array containing the derivative seeds given by the solver, in the current proc.
 
-        solverPtsb: array[numSolverPtsx3] -> Local array containing the derivative seeds given by the solver,
-        in the current proc.
+        managerPtsb: array[numManagerPtsx3]
+            Local array containing the derivative seeds given by the manager,
+            in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
+            from the root proc to all other procs.
 
-        managerPtsb: array[numManagerPtsx3] -> Local array containing the derivative seeds given by the manager,
-        in the current proc. If you using this for collar meshes, remember to broadcast the coordinates
-        from the root proc to all other procs.
+        indexSolverPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
 
-        indexSolverPts: int[nMapping] -> Array containing indices of solverPts that are
-                                         linked to managerPts nodes.
+        indexManagerPts: int[nMapping]
+            Array containing indices of solverPts that are linked to managerPts nodes.
+            That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
 
-        indexManagerPts: int[nMapping] -> Array containing indices of solverPts that are
-                                          linked to managerPts nodes.
-                                          That is solverPts[indexSolverPts[ii]] = managerPts[indexManagerPts[ii]]
+        numSurfRepetitions: int[nMapping]
+            Number of times a given solverPts is repeated in managerPts.
 
-        numSurfRepetitions: int[nMapping] -> Number of times a given solverPts is repeated in managerPts.
-
-        OUTPUTS:
-
+        Returns
+        -------
         This function modifies managerPtsb and deletes the used seeds from solverPtsb.
 
         Ney Secco 2018-01

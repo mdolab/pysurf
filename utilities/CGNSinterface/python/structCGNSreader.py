@@ -21,11 +21,13 @@ def readFile(fileName):
     This function reads a CGNS file and outputs a mesh object
     with the nodal coordinates of all blocks.
 
-    INPUTS:
+    Parameters
+    ----------
 
     fileName: string -> Name of the CGNS file to be read
 
-    OUTPUTS:
+    Returns
+    -------
 
     Blocks: dictionary -> Dictionary whose keys are block names, and
     whose fields are the nodal coordinates. If the function read a
