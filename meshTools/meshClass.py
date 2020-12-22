@@ -17,38 +17,42 @@ class SurfaceMesh(object):
         Parameters
         ----------
 
-        meshName: string with name of the new mesh object
+        meshName: string
+            Name of the new mesh object
 
-        arg: could be a dictionary or a string
+        arg: dictionary or a string
+            In case it is a dictionary, the keys should be block names of
+            the structured surface mesh, and the values should be 3D arrays
+            of size [imax,jmax,3] containing the nodal coordinates of the
+            corresponding blocks.
 
-        In case it is a dictionary, the keys should be block names of
-        the structured surface mesh, and the values should be 3D arrays
-        of size [imax,jmax,3] containing the nodal coordinates of the
-        corresponding blocks.
+            In case it is a string, it should specify the file name that
+            contains the surface coordinates. If the file extension is
+            ".cgns" we will use the CGNS reader. Otherwise, we will treat it
+            as a formatted Plot3D file.
 
-        In case it is a string, it should specify the file name that
-        contains the surface coordinates. If the file extension is
-        ".cgns" we will use the CGNS reader. Otherwise, we will treat it
-        as a formatted Plot3D file.
+        Attributes
+        ----------
+        self.coor : dictionary
+            the keys are block names of
+            the structured surface mesh, and the values are 3D arrays
+            of size [imax,jmax,3] containing the nodal coordinates of the
+            corresponding blocks.
 
-        CLASS ATTRIBUTES:
+        self.coord : dictionary
+            the keys are block names of
+            the structured surface mesh, and the values are 3D arrays
+            of size [imax,jmax,3] containing the forward AD seeds of the
+            corresponding nodal coordinates.
 
-        self.coor : dictionary -> the keys are block names of
-        the structured surface mesh, and the values are 3D arrays
-        of size [imax,jmax,3] containing the nodal coordinates of the
-        corresponding blocks.
+        self.coorb : dictionary
+            the keys are block names of
+            the structured surface mesh, and the values are 3D arrays
+            of size [imax,jmax,3] containing the forward AD seeds of the
+            corresponding nodal coordinates.
 
-        self.coord : dictionary -> the keys are block names of
-        the structured surface mesh, and the values are 3D arrays
-        of size [imax,jmax,3] containing the forward AD seeds of the
-        corresponding nodal coordinates.
-
-        self.coorb : dictionary -> the keys are block names of
-        the structured surface mesh, and the values are 3D arrays
-        of size [imax,jmax,3] containing the forward AD seeds of the
-        corresponding nodal coordinates.
-
-        self.numPts : integer -> Total number of points in this mesh
+        self.numPts : integer
+            Total number of points in this mesh
         """
 
         # Assing name
