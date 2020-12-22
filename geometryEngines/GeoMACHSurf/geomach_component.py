@@ -45,37 +45,44 @@ class GeoMACHGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
         Returns
         -------
-        xyzProj -> float[numPts,3] : Coordinates of the projected points
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points
 
-        normProj -> float[numPts,3] : Surface normal at projected points
+        normProj: float[numPts,3]
+            Surface normal at projected points
         """
 
         """
         Explanation of reference values:
 
-        componentsList -> list of strings : Names of the surfaces components on which we should
-                                            look for projections. If nothing is provided, the
-                                            code will use all available surfaces.
+        componentsList: list of strings
+            Names of the surfaces components on which we should
+            look for projections. If nothing is provided, the
+            code will use all available surfaces.
 
-        xyzProj -> float[numPts, 3] : If the user already have previous projection candidates, they
-                                      should be provided in this array. The code will only replace
-                                      values if it finds a better candidade. If the user has no
-                                      previous candidate, initialize all elements to zero and also
-                                      set large values to dist2.
+        xyzProj: float[numPts, 3]
+            If the user already have previous projection candidates, they
+            should be provided in this array. The code will only replace
+            values if it finds a better candidade. If the user has no
+            previous candidate, initialize all elements to zero and also
+            set large values to dist2.
 
-        normProj -> float[numPts, 3] : Surface normals computed at the user-provided projection candidates.
-                                       If the user has no previous candidate, initialize all elements
-                                       to zero and also set large values to dist2.
+        normProj: float[numPts, 3]
+            Surface normals computed at the user-provided projection candidates.
+            If the user has no previous candidate, initialize all elements
+            to zero and also set large values to dist2.
 
-        dist2 -> float[numPts] : distance**2 of the user-provided projection candidates. The code
-                                 will use this distance value to check for the best candidate and
-                                 then replace values in xyzProj, and normProj acordingly. If no previous
-                                 candidates are available, set all elements to a large number (1e10) so that
-                                 all information in xyzProj and normProj is replaced.
+        dist2: float[numPts]
+            distance**2 of the user-provided projection candidates. The code
+            will use this distance value to check for the best candidate and
+            then replace values in xyzProj, and normProj acordingly. If no previous
+            candidates are available, set all elements to a large number (1e10) so that
+            all information in xyzProj and normProj is replaced.
         """
 
         # Use all surfaces if None is provided by the user
@@ -104,37 +111,44 @@ class GeoMACHGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
         Returns
         -------
-        xyzProj -> float[numPts,3] : Coordinates of the projected points
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points
 
-        tanProj -> float[numPts,3] : Curve tangent at projected points
+        tanProj: float[numPts,3]
+            Curve tangent at projected points
         """
 
         """
         Explanation of reference values:
 
-        componentsList -> list of strings : Names of the surfaces components on which we should
-                                            look for projections. If nothing is provided, the
-                                            code will use all available surfaces.
+        componentsList: list of strings
+            Names of the surfaces components on which we should
+            look for projections. If nothing is provided, the
+            code will use all available surfaces.
 
-        xyzProj -> float[numPts, 3] : If the user already have previous projection candidates, they
-                                      should be provided in this array. The code will only replace
-                                      values if it finds a better candidade. If the user has no
-                                      previous candidate, initialize all elements to zero and also
-                                      set large values to dist2.
+        xyzProj: float[numPts, 3]
+            If the user already have previous projection candidates, they
+            should be provided in this array. The code will only replace
+            values if it finds a better candidade. If the user has no
+            previous candidate, initialize all elements to zero and also
+            set large values to dist2.
 
-        tanProj -> float[numPts, 3] : Curve tangent computed at the user-provided projection candidates.
-                                      If the user has no previous candidate, initialize all elements
-                                      to zero and also set large values to dist2.
+        tanProj: float[numPts, 3]
+            Curve tangent computed at the user-provided projection candidates.
+            If the user has no previous candidate, initialize all elements
+            to zero and also set large values to dist2.
 
-        dist2 -> float[numPts] : distance**2 of the user-provided projection candidates. The code
-                                 will use this distance value to check for the best candidate and
-                                 then replace values in xyzProj, and normProj acordingly. If no previous
-                                 candidates are available, set all elements to a large number (1e10) so that
-                                 all information in xyzProj and normProj is replaced.
+        dist2: float[numPts]
+            distance**2 of the user-provided projection candidates. The code
+            will use this distance value to check for the best candidate and
+            then replace values in xyzProj, and normProj acordingly. If no previous
+            candidates are available, set all elements to a large number (1e10) so that
+            all information in xyzProj and normProj is replaced.
         """
 
         # Use all curves if None is provided by the user

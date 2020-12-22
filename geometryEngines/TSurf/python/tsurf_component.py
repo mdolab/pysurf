@@ -22,22 +22,25 @@ class TSurfGeometry(Geometry):
         The expected arguments for the initialization function are:
         TSurfGeometry(fileName, sectionsList, comm, name=name)
 
-        REQUIRED INPUTS:
-        fileName: string -> Name of the CGNS file that contains the
-                  triangulated surface definition.
+        Parameters
+        ----------
+        fileName: string, optional
+            Name of the CGNS file that contains the
+            triangulated surface definition.
 
-        OPTIONAL INPUTS:
-        sectionsList: list of strings -> List of strings containing
-                  the names of the sections in the CGNS file that
-                  should be included in the current ADTGeometry.
-                  If nothing is provided, or if sectionList is None
-                  or an empty list, then all sections will be included.
+        sectionsList: list of strings, optional
+            List of strings containing
+            the names of the sections in the CGNS file that
+            should be included in the current ADTGeometry.
+            If nothing is provided, or if sectionList is None
+            or an empty list, then all sections will be included.
 
-        comm: MPI communicator -> An MPI communicator, such as
-              MPI.COMM_WORLD
+        comm: MPI communicator, optional
+            An MPI communicator, such as MPI.COMM_WORLD
 
-        name: string -> Name that can be assigned to the geometry. This name
-              should match the wall boundary condition family names used by the solver.
+        name: string, optional
+            Name that can be assigned to the geometry. This name
+            should match the wall boundary condition family names used by the solver.
         """
 
         # Set dummy value to filename, so we can check later on if
@@ -263,16 +266,19 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
         Returns
         -------
-        xyzProj -> float[numPts,3] : Coordinates of the projected points
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points
 
-        normProj -> float[numPts,3] : Surface normal at projected points
+        normProj: float[numPts,3]
+            Surface normal at projected points
 
-        projDict -> dictionary : Dictionary containing intermediate values that are
-                                 required by the differentiation routines.
+        projDict: dictionary
+            Dictionary containing intermediate values that are required by the differentiation routines.
         """
 
         """
@@ -334,26 +340,33 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
-        xyzd -> float[numPts, 3] : Derivative seeds for coordinates of the points
+        xyzd: float[numPts, 3]
+            Derivative seeds for coordinates of the points
                                    that should be projected.
 
-        xyzProj -> float[numPts,3] : Coordinates of the projected points (can be obtained
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points (can be obtained
                                      with the original projection function)
 
-        normProj -> float[numPts,3] : Surface normal at projected points (can be obtained
+        normProj: float[numPts,3]
+            Surface normal at projected points (can be obtained
                                       with the original projection function)
 
-        projDict -> dictionary : Dictionary containing intermediate values that are
-                                 required by the differentiation routines.  (can be obtained
-                                 with the original projection function)
+        projDict: dictionary
+            Dictionary containing intermediate values that are
+            required by the differentiation routines.  (can be obtained
+            with the original projection function)
 
         Returns
         -------
-        xyzProjd -> float[numPts,3] : Derivative seeds of the coordinates of the projected points
+        xyzProjd: float[numPts,3]
+            Derivative seeds of the coordinates of the projected points
 
-        normProjd -> float[numPts,3] : Derivative seeds of the surface normal at projected points
+        normProjd: float[numPts,3]
+            Derivative seeds of the surface normal at projected points
 
 
         ATTENTION:
@@ -420,30 +433,36 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
-        xyzProj -> float[numPts,3] : Coordinates of the projected points (can be obtained
-                                     with the original projection function)
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points (can be obtained
+            with the original projection function)
 
-        xyzProjb -> float[numPts,3] : Derivative seeds of the coordinates of the projected points
+        xyzProjb: float[numPts,3]
+            Derivative seeds of the coordinates of the projected points
 
-        normProj -> float[numPts,3] : Surface normal at projected points (can be obtained
-                                      with the original projection function)
+        normProj: float[numPts,3]
+            Surface normal at projected points (can be obtained
+            with the original projection function)
 
-        normProjb -> float[numPts,3] : Derivative seeds of the surface normal at projected points
+        normProjb: float[numPts,3]
+            Derivative seeds of the surface normal at projected points
 
-        projDict -> dictionary : Dictionary containing intermediate values that are
-                                 required by the differentiation routines. (can be obtained
-                                 with the original projection function)
+        projDict: dictionary
+            Dictionary containing intermediate values that are
+            required by the differentiation routines. (can be obtained
+            with the original projection function)
 
         Returns
         -------
 
-        xyzb -> float[numPts, 3] : Derivative seeds for coordinates of the points
-                                   that should be projected.
+        xyzb: float[numPts, 3]
+            Derivative seeds for coordinates of the points that should be projected.
 
-        coorb -> float[numNodes,3] : Derivative seeds of the nodal coordinates of the baseline
-                                     surface.
+        coorb: float[numNodes,3]
+            Derivative seeds of the nodal coordinates of the baseline surface.
 
         ATTENTION:
         This function just returns the derivate seeds of the points to be projected.
@@ -515,13 +534,16 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
         Returns
         -------
-        xyzProj -> float[numPts,3] : Coordinates of the projected points
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points
 
-        tanProj -> float[numPts,3] : Curve tangent at projected points
+        tanProj: float[numPts,3]
+            Curve tangent at projected points
         """
 
         """
@@ -600,11 +622,14 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz -> float[numPts, 3] : Coordinates of the points that should be projected.
+        xyz: float[numPts, 3]
+            Coordinates of the points that should be projected.
 
-        xyzProj -> float[numPts,3] : Coordinates of the projected points
+        xyzProj: float[numPts,3]
+            Coordinates of the projected points
 
-        tanProj -> float[numPts,3] : Curve tangent at projected points
+        tanProj: float[numPts,3]
+            Curve tangent at projected points
 
 
         ATTENTION:
@@ -706,10 +731,11 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        otherGeometry: Geometry object -> Other object that we want to intersect with.
+        otherGeometry: Geometry object
+            Other object that we want to intersect with.
 
-        distTol: float -> Tolerance used to merge close nodes when joining bar elements generated
-                 by the intersection.
+        distTol: float
+            Tolerance used to merge close nodes when joining bar elements generated by the intersection.
 
         Returns
         -------
@@ -807,7 +833,10 @@ class TSurfGeometry(Geometry):
         """
         This will replace the nodal coordinates that define the surface.
 
-        coor: float[nPts,3] -> Nodal coordinates (X,Y,Z)
+        Parameters
+        ----------
+        coor: float[nPts,3]
+            Nodal coordinates (X,Y,Z)
         """
 
         self.update(np.array(coor))
@@ -828,13 +857,17 @@ class TSurfGeometry(Geometry):
         This will apply derivative seeds to the surface design variables (coor)
         and the curve design variables (curve.coor).
 
-        coord: float[numSurfNodes, 3] -> Derivative seeds of the nodal coordinates of the reference
-                                        surface. It should have the same shape as self.coor.
+        Parameters
+        ----------
+        coord: float[numSurfNodes, 3]
+            Derivative seeds of the nodal coordinates of the reference
+            surface. It should have the same shape as self.coor.
 
-        curveCoord : [curveName]{float[numCurveNodes, 3]} -> Dictionary containing derivative seeds
-                                                            of the nodal coordinates of each curve
-                                                            present in the current object. The dictionary keys
-                                                            are the names of the curves.
+        curveCoord : [curveName]{float[numCurveNodes, 3]}
+            Dictionary containing derivative seeds
+            of the nodal coordinates of each curve
+            present in the current object. The dictionary keys
+            are the names of the curves.
         """
 
         if coord is not None:
@@ -1028,15 +1061,19 @@ class TSurfCurve(Curve):
         data to represent curves.
         This method will be called by the __init__ method of the parent Curve class
 
-        REQUIRED INPUTS:
-        name: string -> Curve name
+        Parameters
+        ----------
+        name: string
+            Curve name
 
-        coor : array[nNodes,3],dtype='float' -> Nodal X,Y,Z coordinates.
+        coor : array[nNodes,3],dtype='float'
+            Nodal X,Y,Z coordinates.
 
-        barsConn : array[nBars,2],dtype='int32' -> Element connectivity matrix.
+        barsConn : array[nBars,2],dtype='int32'
+            Element connectivity matrix.
 
-        OPTIONAL INPUTS:
-        mergeTol: float -> Tolerance to merge nodes.
+        mergeTol: float, optional
+            Tolerance to merge nodes.
 
         John Jasa 2016-08
         Ney Secco 2016-08
@@ -1175,24 +1212,29 @@ class TSurfCurve(Curve):
 
         Parameters
         ----------
-        xyz -> float[nPoints,3] : coordinates of the points that should be projected
+        xyz: float[nPoints,3]
+            coordinates of the points that should be projected
 
-        dist2 -> float[nPoints] : values of best distance**2 found so far. If the distance of the projected
-                                  point is less than dist2, then we will take the projected point. This allows us to find the best
-                                  projection even with multiple surfaces.
-                                  If you don't have previous values to dist2, just initialize all elements to
-                                  a huge number (1e10).
+        dist2: float[nPoints]
+            values of best distance**2 found so far. If the distance of the projected
+            point is less than dist2, then we will take the projected point. This allows us to find the best
+            projection even with multiple surfaces.
+            If you don't have previous values to dist2, just initialize all elements to
+            a huge number (1e10).
 
-        xyzProj -> float[nPoints,3] : coordinates of projected points found so far. These projections could be on other
-                                      curves as well. This function will only replace projections whose dist2 are smaller
-                                      than previous dist2. This allows us to use the same array while working with multiple curves.
-                                      If you don't have previous values, just initialize all elements to zero. Also
-                                      remember to set dist2 to a huge number so that all values are replaced.
+        xyzProj: float[nPoints,3]
+            coordinates of projected points found so far. These projections could be on other
+            curves as well. This function will only replace projections whose dist2 are smaller
+            than previous dist2. This allows us to use the same array while working with multiple curves.
+            If you don't have previous values, just initialize all elements to zero. Also
+            remember to set dist2 to a huge number so that all values are replaced.
 
-        tanProj -> float[nPoints,3] : tangent directions for the curve at the projected points.
+        tanProj: float[nPoints,3]
+            tangent directions for the curve at the projected points.
 
-        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
-                                  the execution of the primal routine.
+        elemIDs: int[nPoints]
+            ID of the bar elements that received projections. This is also given by
+            the execution of the primal routine.
 
         This function has no explicit outputs. It will just update dist2, xyzProj, tangents, and elemIDs
         """
@@ -1233,26 +1275,32 @@ class TSurfCurve(Curve):
 
         Parameters
         ----------
-        xyz -> float[nPoints,3] : coordinates of the points that should be projected.
+        xyz: float[nPoints,3]
+            coordinates of the points that should be projected.
 
-        xyzd -> float[nPoints,3] : derivatives seeds of the coordinates.
+        xyzd: float[nPoints,3]
+            derivatives seeds of the coordinates.
 
-        coord -> float[nNodes, 3] : derivative seeds of the nodes that constitutes the bar elements.
+        coord: float[nNodes, 3]
+            derivative seeds of the nodes that constitutes the bar elements.
 
-        xyzProj -> float[nPoints,3] : coordinates of projected points found with the primal routine.
+        xyzProj: float[nPoints,3]
+            coordinates of projected points found with the primal routine.
 
-        xyzProjd -> float[nPoints,3] : Derivative seeds of the projected points.
+        xyzProjd: float[nPoints,3]
+            Derivative seeds of the projected points.
 
-        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
-                                  the execution of the primal routine.
+        elemIDs: int[nPoints]
+            ID of the bar elements that received projections. This is also given by
+            the execution of the primal routine.
 
-        curveMask -> int[nPoints] : curveMask[ii] should be 1 if the ii-th point was actually projected onto
-                                    this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
-                                    derivatives for this point.
+        curveMask: int[nPoints]
+            curveMask[ii] should be 1 if the ii-th point was actually projected onto
+            this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
+            derivatives for this point.
 
         Returns
         -------
-
         This function has no explicit outputs. It will just update xyzProjd.
 
         Ney Secco 2016-11
@@ -1288,26 +1336,32 @@ class TSurfCurve(Curve):
 
         Parameters
         ----------
-        xyz -> float[nPoints,3] : coordinates of the points that should be projected.
+        xyz: float[nPoints,3]
+            coordinates of the points that should be projected.
 
-        xyzb -> float[nPoints,3] : derivatives seeds of the coordinates.
+        xyzb: float[nPoints,3]
+            derivatives seeds of the coordinates.
 
-        coorb -> float[nNodes, 3] : derivative seeds of the nodes that constitutes the bar elements.
+        coorb: float[nNodes, 3]
+            derivative seeds of the nodes that constitutes the bar elements.
 
-        xyzProj -> float[nPoints,3] : coordinates of projected points found with the primal routine.
+        xyzProj: float[nPoints,3]
+            coordinates of projected points found with the primal routine.
 
-        xyzProjb -> float[nPoints,3] : Derivative seeds of the projected points.
+        xyzProjb: float[nPoints,3]
+            Derivative seeds of the projected points.
 
-        elemIDs -> int[nPoints] : ID of the bar elements that received projections. This is also given by
-                                  the execution of the primal routine.
+        elemIDs: int[nPoints]
+            ID of the bar elements that received projections. This is also given by
+            the execution of the primal routine.
 
-        curveMask -> int[nPoints] : curveMask[ii] should be 1 if the ii-th point was actually projected onto
-                                    this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
-                                    derivatives for this point.
+        curveMask: int[nPoints]
+            curveMask[ii] should be 1 if the ii-th point was actually projected onto
+            this curve. Otherwise, curveMaks[ii] = 0, then the code will not compute
+            derivatives for this point.
 
         Returns
         -------
-
         This function has no explicit outputs. It will just update xyzb and coorb.
 
         Ney Secco 2016-11
@@ -1357,26 +1411,33 @@ class TSurfCurve(Curve):
         Parameters
         ----------
 
-        nNewNodes: integer -> Number of new nodes desired in the new curve definition.
+        nNewNodes: integer
+            Number of new nodes desired in the new curve definition.
 
-        method: string -> Method used to interpolate new nodes with respect to
-                existing ones. Check scipy.interpolate.interp1d for options.
+        method: string
+            Method used to interpolate new nodes with respect to
+            existing ones. Check scipy.interpolate.interp1d for options.
 
-        spacing: string -> Desired spacing criteria for new nodes. Current options are:
-                 ['linear', 'cosine', 'hypTan', 'tangent']
+        spacing: string
+            Desired spacing criteria for new nodes.
+            Current options are:['linear', 'cosine', 'hypTan', 'tangent']
 
-        initialSpacing: float -> Desired distance between the first and second nodes. Only
-                                 used by 'hypTan' and 'tangent'.
-        finalSpacing: float -> Desired distance between the last two nodes. Only
-                               used by 'hypTan' and 'tangent'.
-        guideCurves: list of strings -> Curves to snap nodes to. Especially
-                                        useful for blunt trailing edges. (removed since it was not differentiated)
-        ref_geom: geometry object -> Container with the data for each curve
-                                     used in guideCurves. (removed since it was not differentiated)
+        initialSpacing: float
+            Desired distance between the first and second nodes. Only
+            used by 'hypTan' and 'tangent'.
+        finalSpacing: float
+            Desired distance between the last two nodes. Only
+            used by 'hypTan' and 'tangent'.
+        guideCurves: list of strings
+            Curves to snap nodes to.
+            Especially useful for blunt trailing edges. (removed since it was not differentiated)
+        ref_geom: geometry object
+            Container with the data for each curve used in guideCurves. (removed since it was not differentiated)
 
         Returns
         -------
-        newCurve: curve object -> This is the remeshed curve object.
+        newCurve: curve object
+            This is the remeshed curve object.
 
         Ney Secco 2016-08
         """
@@ -2047,9 +2108,9 @@ class TSurfCurve(Curve):
 
         Parameters
         ----------
-
-        criteria: string -> criteria used to reorder FE data. Available options are:
-                  ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ', 'startPoint', 'curve']
+        criteria: string
+            criteria used to reorder FE data. Available options are:
+            ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ', 'startPoint', 'curve']
 
         Returns
         -------

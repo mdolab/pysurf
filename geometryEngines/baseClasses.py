@@ -81,12 +81,14 @@ class Geometry(object):
 
         Parameters
         ----------
-        angle: float -> Rotation angle, in degrees.
+        angle: float
+            Rotation angle, in degrees.
 
-        axis: integer -> Rotation axis [0 for x, 1 for y, 2 for z]
+        axis: integer
+            Rotation axis [0 for x, 1 for y, 2 for z]
 
-        point: array[3] -> Coordinates of the rotation center. If point=None,
-                           the origin should be used.
+        point: array[3]
+            Coordinates of the rotation center. If point=None, the origin should be used.
         """
         pass
 
@@ -534,12 +536,14 @@ class Curve(object):
 
         Parameters
         ----------
-        angle: float -> Rotation angle, in degrees.
+        angle: float
+            Rotation angle, in degrees.
 
-        axis: integer -> Rotation axis [0 for x, 1 for y, 2 for z]
+        axis: integer
+            Rotation axis [0 for x, 1 for y, 2 for z]
 
-        point: array[3] -> Coordinates of the rotation center. If point=None,
-                           the origin should be used.
+        point: array[3]
+            Coordinates of the rotation center. If point=None, the origin should be used.
         """
         pass
 
