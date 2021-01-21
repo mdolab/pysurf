@@ -1,12 +1,11 @@
 # IMPORTS
-from __future__ import division
 import pysurf
 from mpi4py import MPI
 import numpy as np
 import unittest
 
-class TestReorder(unittest.TestCase):
 
+class TestReorder(unittest.TestCase):
     def test_reorder(self):
 
         # TESTING FUNCTION
@@ -18,7 +17,7 @@ class TestReorder(unittest.TestCase):
         coor = np.zeros((nNodes, 3))
 
         # Initialize angles
-        theta = np.linspace(0, 2.0*np.pi, nNodes+1)
+        theta = np.linspace(0, 2.0 * np.pi, nNodes + 1)
 
         # Compute coordinates
         for ii in range(nNodes):
@@ -28,23 +27,19 @@ class TestReorder(unittest.TestCase):
         # Generate connectivity
         nNodes = coor.shape[0]
         barsConn = np.zeros((nNodes, 2))
-        barsConn[:, 0] = range(0,nNodes)
-        barsConn[:, 1] = range(1,nNodes+1)
+        barsConn[:, 0] = range(0, nNodes)
+        barsConn[:, 1] = range(1, nNodes + 1)
 
         # Make it periodic
-        barsConn[-1, 1] = barsConn[0,0]
+        barsConn[-1, 1] = barsConn[0, 0]
 
         # Create curve object
-        curve = pysurf.TSurfCurve(coor, barsConn, 'test')
+        curve = pysurf.TSurfCurve(coor, barsConn, "test")
 
         # Reorder curve
-        curve.shift_end_nodes(criteria='maxY')
+        curve.shift_end_nodes(criteria="maxY")
 
-        np.testing.assert_almost_equal(curve.barsConn, np.array([[1, 2],
-                                                                 [2, 3],
-                                                                 [3, 4],
-                                                                 [4, 0],
-                                                                 [0, 1]]))
+        np.testing.assert_almost_equal(curve.barsConn, np.array([[1, 2], [2, 3], [3, 4], [4, 0], [0, 1]]))
 
 
 if __name__ == "__main__":

@@ -12,43 +12,44 @@ from time import time
 
 # Set options for the pywarpustruct instance
 options = {
-  'gridFile':'collar_master.cgns',
-  'fileType':'CGNS',
-  'specifiedSurfaces':None,
-  'symmetrySurfaces':None,
-  'symmetryPlanes':[],
-  'aExp': 3.0,
-  'bExp': 5.0,
-  'LdefFact':100.0,
-  'alpha':0.25,
-  'errTol':0.0001,
-  'evalMode':'fast',
-  'useRotations':True,
-  'zeroCornerRotations':True,
-  'cornerAngle':30.0,
-  'bucketSize':8,
+    "gridFile": "collar_master.cgns",
+    "fileType": "CGNS",
+    "specifiedSurfaces": None,
+    "symmetrySurfaces": None,
+    "symmetryPlanes": [],
+    "aExp": 3.0,
+    "bExp": 5.0,
+    "LdefFact": 100.0,
+    "alpha": 0.25,
+    "errTol": 0.0001,
+    "evalMode": "fast",
+    "useRotations": True,
+    "zeroCornerRotations": True,
+    "cornerAngle": 30.0,
+    "bucketSize": 8,
 }
 
 # Create a dictionary to store timing information
 times = {}
-times['intersections'] = []
-times['mergeCollar'] = []
-times['pyhyp'] = []
-times['pywarp'] = []
-times['mergeMeshes'] = []
-times['ADflow'] = []
+times["intersections"] = []
+times["mergeCollar"] = []
+times["pyhyp"] = []
+times["pywarp"] = []
+times["mergeMeshes"] = []
+times["ADflow"] = []
 
 # Function to print time formatted info
-def print_line_time(name, time_list, string=''):
+def print_line_time(name, time_list, string=""):
     sumlist = np.sum(time_list)
-    print '   %-14s : %10.7f : %10.7f' % (name, sumlist, sumlist / len(time_list)), string
+    print("   %-14s : %10.7f : %10.7f" % (name, sumlist, sumlist / len(time_list)), string)
+
 
 if __name__ == "__main__":
 
     nStates = 2
 
-    wingTranslation = np.zeros((nStates,3))
-    wingTranslation[:,2] = np.linspace(0., 3., nStates)
+    wingTranslation = np.zeros((nStates, 3))
+    wingTranslation[:, 2] = np.linspace(0.0, 3.0, nStates)
 
     for i, wingT in enumerate(wingTranslation):
         # print "Extracting curves.\n"
@@ -57,43 +58,53 @@ if __name__ == "__main__":
         # print "Fixing trailing edge.\n"
         # subprocess.call(["python script02_fix_trailing_edge.py"], shell=True)
 
-        print "Replacing values in scripts with desired translation.\n"
-        python_string_replacement = "sed -i -e 's/wingTranslation =.*/wingTranslation = [{}, {}, {}]/g' script03_example_crm_fullInt.py".format(wingT[0], wingT[1], wingT[2])
+        print("Replacing values in scripts with desired translation.\n")
+        python_string_replacement = (
+            "sed -i -e 's/wingTranslation =.*/wingTranslation = [{}, {}, {}]/g' script03_example_crm_fullInt.py".format(
+                wingT[0], wingT[1], wingT[2]
+            )
+        )
         subprocess.call([python_string_replacement], shell=True)
 
-        cgns_string_replacement = "sed -i -e 's/cgns_utils translate wing_L1_temp.cgns .*/cgns_utils translate wing_L1_temp.cgns {} {} {}/g' script06_mergeMeshes.sh".format(wingT[0], wingT[1], wingT[2])
+        cgns_string_replacement = "sed -i -e 's/cgns_utils translate wing_L1_temp.cgns .*/cgns_utils translate wing_L1_temp.cgns {} {} {}/g' script06_mergeMeshes.sh".format(
+            wingT[0], wingT[1], wingT[2]
+        )
         subprocess.call([cgns_string_replacement], shell=True)
 
-        cgns_string_replacement = "sed -i -e 's/cgns_utils coarsen crm_wb.cgns .*/cgns_utils coarsen crm_wb.cgns crm_wb_L2_" + str(i).zfill(2) + ".cgns/g' script06_mergeMeshes.sh"
+        cgns_string_replacement = (
+            "sed -i -e 's/cgns_utils coarsen crm_wb.cgns .*/cgns_utils coarsen crm_wb.cgns crm_wb_L2_"
+            + str(i).zfill(2)
+            + ".cgns/g' script06_mergeMeshes.sh"
+        )
         subprocess.call([cgns_string_replacement], shell=True)
 
         t1 = time()
 
-        print "Computing intersections and marching collar mesh.\n"
+        print("Computing intersections and marching collar mesh.\n")
         subprocess.call(["python script03_example_crm_fullInt.py"], shell=True)
 
         t2 = time()
-        times['intersections'].append(t2 - t1)
+        times["intersections"].append(t2 - t1)
 
-        print "Merging collar meshes.\n"
+        print("Merging collar meshes.\n")
         subprocess.call(["python script04_mergeCollar.py"], shell=True)
 
         t3 = time()
-        times['mergeCollar'].append(t3 - t2)
+        times["mergeCollar"].append(t3 - t2)
 
         # Copy the numpy array containing coordinate info from the surface mesh
         # of the collar so we can access it later without recreating the mesh.
-        subprocess.call(["cp merged.npy merged_"+str(i).zfill(2)+".npy"], shell=True)
+        subprocess.call(["cp merged.npy merged_" + str(i).zfill(2) + ".npy"], shell=True)
 
         # In the first iteration, save the first mesh that is produced by
         # pyHyp so we can later warp it
         if i == 0:
 
-            print "Extruding collar mesh using pyHyp.\n"
+            print("Extruding collar mesh using pyHyp.\n")
             subprocess.call(["python script05_runPyhyp.py"], shell=True)
 
             t4 = time()
-            times['pyhyp'].append(t4 - t3)
+            times["pyhyp"].append(t4 - t3)
 
             subprocess.call(["cp collar.cgns collar_master.cgns"], shell=True)
 
@@ -112,7 +123,7 @@ if __name__ == "__main__":
             # coordinate points and save the indices so that we can reorder
             # our future surface marched points into the order that
             # pywarpustruct expects.
-            march_coords = np.load('merged.npy')
+            march_coords = np.load("merged.npy")
 
             # To do this, we setup a KDTree using the pySurf generated
             # surface mesh coordinates.
@@ -123,12 +134,12 @@ if __name__ == "__main__":
             d, index = tree.query(warp_coords)
 
             t5 = time()
-            times['pywarp'].append(t5 - t4)
+            times["pywarp"].append(t5 - t4)
 
         else:
 
-            print 'Using previously created volume mesh and warping it to the new surface.\n'
-            coords = np.load('merged.npy')
+            print("Using previously created volume mesh and warping it to the new surface.\n")
+            coords = np.load("merged.npy")
 
             # Here we use the remapped coordinate points to pass in to
             # pywarpustruct.
@@ -136,33 +147,33 @@ if __name__ == "__main__":
 
             # Actually warp the mesh and then write out the new volume mesh.
             collar_mesh.warpMesh()
-            collar_mesh.writeGrid('collar.cgns')
+            collar_mesh.writeGrid("collar.cgns")
 
             t5 = time()
-            times['pywarp'].append(t5 - t3)
+            times["pywarp"].append(t5 - t3)
 
-        print "Merging meshes into single .cgns file.\n"
+        print("Merging meshes into single .cgns file.\n")
         subprocess.call(["sh script06_mergeMeshes.sh"], shell=True)
 
         t6 = time()
-        times['mergeMeshes'].append(t6 - t5)
+        times["mergeMeshes"].append(t6 - t5)
 
-        print "Renaming and copying meshes.\n"
-        subprocess.call(["cp crm_wb_L1.cgns grids/crm_wb_L1_"+str(i).zfill(2)+".cgns"], shell=True)
-        subprocess.call(["cp crm_wb_L2.cgns grids/crm_wb_L2_"+str(i).zfill(2)+".cgns"], shell=True)
+        print("Renaming and copying meshes.\n")
+        subprocess.call(["cp crm_wb_L1.cgns grids/crm_wb_L1_" + str(i).zfill(2) + ".cgns"], shell=True)
+        subprocess.call(["cp crm_wb_L2.cgns grids/crm_wb_L2_" + str(i).zfill(2) + ".cgns"], shell=True)
 
-        print "Running ADflow using the combined meshes.\n"
+        print("Running ADflow using the combined meshes.\n")
         subprocess.call(["cd ADflow; sh run_check.sh"], shell=True)
-        subprocess.call(["cd ADflow; cp fc_-001_surf.plt fc_surf_"+str(i).zfill(2)+".plt"], shell=True)
+        subprocess.call(["cd ADflow; cp fc_-001_surf.plt fc_surf_" + str(i).zfill(2) + ".plt"], shell=True)
 
         t7 = time()
-        times['ADflow'].append(t7 - t6)
+        times["ADflow"].append(t7 - t6)
 
-    print '           Timings summary (sec)      '
-    print '   ========================================  '
-    print '                       Total       Average'
-    print '                                          '
+    print("           Timings summary (sec)      ")
+    print("   ========================================  ")
+    print("                       Total       Average")
+    print("                                          ")
 
     for key, value in times.iteritems():
         print_line_time(key, value)
-    print
+    print()

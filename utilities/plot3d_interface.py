@@ -4,13 +4,13 @@
 # neysecco@umich.edu
 # Jan 2016
 
-from __future__ import division
+
 import numpy as np
 
 # DEFINING CLASSES
 
-class Block():
 
+class Block:
     def __init__(self, X, Y, Z):
 
         # X, Y, and Z should be 3D arrays
@@ -31,8 +31,8 @@ class Block():
         self.Y = Y
         self.Z = Z
 
-class Grid():
 
+class Grid:
     def __init__(self):
         self.blocks = []
         self.num_blocks = 0
@@ -51,33 +51,33 @@ class Grid():
         # Decrease number of blocks
         self.num_blocks = self.num_blocks - 1
 
-    def convert_2dto3d(self,zSpan=1,num_i=2):
+    def convert_2dto3d(self, zSpan=1, num_i=2):
 
-        '''
+        """
         If the size of the blocks are 1 x num_j x num_k (which is the case if you use the read_plot3d
         function for dimension = 2) then this function will convert these blocks to num_i x num_j x num_k
         by creating multiple identical slices of the 2D coordinates. The expansion will be done in
         the Z coordinate.
-        '''
+        """
 
         # EXECUTION
         for iblock in range(self.num_blocks):
 
             # Expand the coordinate matrices
-            X3d = np.array([np.copy(self.blocks[iblock].X[0,:,:]) for dummy in range(num_i)])
-            Y3d = np.array([np.copy(self.blocks[iblock].Y[0,:,:]) for dummy in range(num_i)])
+            X3d = np.array([np.copy(self.blocks[iblock].X[0, :, :]) for dummy in range(num_i)])
+            Y3d = np.array([np.copy(self.blocks[iblock].Y[0, :, :]) for dummy in range(num_i)])
 
             # Create the span-wise coordinates
-            Z3d = np.array([z*np.ones((self.blocks[iblock].shape[1:])) for z in np.linspace(0,zSpan,num_i)])
+            Z3d = np.array([z * np.ones((self.blocks[iblock].shape[1:])) for z in np.linspace(0, zSpan, num_i)])
 
             # Update coordinates
             self.blocks[iblock].update(X3d, Y3d, Z3d)
 
     def flip_YZ(self):
 
-        '''
+        """
         This function will flip the Y and Z coordinates
-        '''
+        """
 
         for iblock in range(self.num_blocks):
 
@@ -87,16 +87,16 @@ class Grid():
             Z = self.blocks[iblock].Z
 
             # Update values with flipped order
-            self.blocks[iblock].update(X,Z,Y)
+            self.blocks[iblock].update(X, Z, Y)
 
     def remove_curves(self):
 
-        '''
+        """
         This method will remove unidimensional blocks.
         This is useful when preparing Plot3D inputs for pyHyp
 
         Ney Secco 2016-10
-        '''
+        """
 
         # Initialize block counter
         blockID = 0
@@ -111,47 +111,49 @@ class Grid():
             # we have in its shape
             numDim = shape.count(1)
 
-            if numDim > 1: # Block is unidimensional if we have more than 1 "1"
+            if numDim > 1:  # Block is unidimensional if we have more than 1 "1"
                 # Remove block
                 self.remove_block(blockID)
             else:
                 # Check next block
                 blockID = blockID + 1
 
-class Curve():
 
+class Curve:
     def __init__(self, coor, barsConn, curveName):
         self.coor = coor
         self.barsConn = barsConn
         self.name = curveName
 
-    def export_tecplot(self, fileName='curve'):
+    def export_tecplot(self, fileName="curve"):
 
-        import tecplot_interface as ti
+        from . import tecplot_interface as ti
 
         ti.writeTecplotFEdata(self.coor, self.barsConn, self.name, fileName)
 
-#===========================================
+
+# ===========================================
 
 # DEFINE FUNCTIONS
 
-#===========================================
+# ===========================================
 
-def read_plot3d(fileName,dimension):
 
-    '''
+def read_plot3d(fileName, dimension):
+
+    """
     The function will return a Grid object containg the coordinates.
     dimension should be 2 or 3 depending on the dimension of the plot3d file.
-    '''
+    """
 
     # EXECUTION
 
     # Open file
-    fid = open(fileName,'r')
+    fid = open(fileName, "r")
 
     # Read all numbers and oppend to the same list
     data_list = []
-    for line in fid:  #Line is a string
+    for line in fid:  # Line is a string
         # Split the string on whitespace, return a list of numbers (as strings)
         numbers_str = line.split()
         # Convert numbers to floats and append them to the list
@@ -165,14 +167,17 @@ def read_plot3d(fileName,dimension):
     num_blocks = int(data_list[0])
 
     # Read dimensions of each block. Each entry will have I,J,K sizes for each block
-    shape_block = [map(int, data_list[dimension*(block_id)+1:dimension*(block_id+1)+1]) for block_id in range(num_blocks)]
+    shape_block = [
+        list(map(int, data_list[dimension * (block_id) + 1 : dimension * (block_id + 1) + 1]))
+        for block_id in range(num_blocks)
+    ]
 
     # Define index position from where we will start reading coordinates
     # NOTE: I define it as a list so I can change it inside the read_coord function
-    reading_index = [dimension*(num_blocks)+1]
+    reading_index = [dimension * (num_blocks) + 1]
 
     # Define coordinate reader function
-    def read_coord(num_i,num_j,num_k):
+    def read_coord(num_i, num_j, num_k):
         # Initialize array with coordinates
         coord = np.zeros((num_i, num_j, num_k))
         # k is the outermost variable that should change
@@ -182,7 +187,7 @@ def read_plot3d(fileName,dimension):
                 # The last one that should change is i
                 for ind_i in range(num_i):
                     # Read coordinate
-                    coord[ind_i,ind_j,ind_k] = data_list[reading_index[0]]
+                    coord[ind_i, ind_j, ind_k] = data_list[reading_index[0]]
                     # Shift index
                     reading_index[0] = reading_index[0] + 1
         # Return coordinates
@@ -196,42 +201,44 @@ def read_plot3d(fileName,dimension):
 
         # Read coordinates
         if dimension == 2:
-            X = read_coord(shape_block[iblock][0],shape_block[iblock][1],1)
-            Y = read_coord(shape_block[iblock][0],shape_block[iblock][1],1)
+            X = read_coord(shape_block[iblock][0], shape_block[iblock][1], 1)
+            Y = read_coord(shape_block[iblock][0], shape_block[iblock][1], 1)
             Z = np.zeros(Y.shape)
         elif dimension == 3:
-            X = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
-            Y = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
-            Z = read_coord(shape_block[iblock][0],shape_block[iblock][1],shape_block[iblock][2])
+            X = read_coord(shape_block[iblock][0], shape_block[iblock][1], shape_block[iblock][2])
+            Y = read_coord(shape_block[iblock][0], shape_block[iblock][1], shape_block[iblock][2])
+            Z = read_coord(shape_block[iblock][0], shape_block[iblock][1], shape_block[iblock][2])
 
         # Store new block
-        newGrid.add_block(X,Y,Z)
+        newGrid.add_block(X, Y, Z)
 
     # RETURNS
     return newGrid
 
-#===========================================
-#===========================================
-#===========================================
+
+# ===========================================
+# ===========================================
+# ===========================================
+
 
 def export_plot3d(grid, fileName, saveNumpy=False):
 
-    '''
+    """
     grid should be a Grid object
-    '''
+    """
 
     # Open file
-    fid = open(fileName,'w')
+    fid = open(fileName, "w")
 
     # Write number of blocks
-    fid.write('%d\n'% grid.num_blocks)
+    fid.write("%d\n" % grid.num_blocks)
 
     # Write dimensions of each block
     for iblock in range(grid.num_blocks):
         # Get the number of points
         block_shape = grid.blocks[iblock].X.shape
         # Write 3 integers corresponding to each of the block dimensions
-        fid.write('%d %d %d\n'% (block_shape[0], block_shape[1], block_shape[2]))
+        fid.write("%d %d %d\n" % (block_shape[0], block_shape[1], block_shape[2]))
 
     # Define coordinate writer function
     def write_coord(Coord):
@@ -241,7 +248,7 @@ def export_plot3d(grid, fileName, saveNumpy=False):
             for ind_j in range(Coord.shape[1]):
                 # The last one that should change is i
                 for ind_i in range(Coord.shape[0]):
-                    fid.write('%20.15g\n'% Coord[ind_i, ind_j, ind_k])
+                    fid.write("%20.15g\n" % Coord[ind_i, ind_j, ind_k])
 
     # Initialize empty array of shape (0, 3). We will add coordinates of each
     # block to this array.
@@ -260,12 +267,14 @@ def export_plot3d(grid, fileName, saveNumpy=False):
         write_coord(block.Z)
 
         # Line break to start another block
-        fid.write('\n')
+        fid.write("\n")
 
         # Save this current block's coordinates in an array then update the
         # fullCoords with all information up to and including the current block.
         if saveNumpy:
-            blockCoords = np.array([block.X.flatten(order='F'), block.Y.flatten(order='F'), block.Z.flatten(order='F')]).T
+            blockCoords = np.array(
+                [block.X.flatten(order="F"), block.Y.flatten(order="F"), block.Z.flatten(order="F")]
+            ).T
             fullCoords = np.vstack((fullCoords, blockCoords))
 
     # Actually save the file that contains all of the coordinate info.
@@ -275,18 +284,21 @@ def export_plot3d(grid, fileName, saveNumpy=False):
     # Close file
     fid.close()
 
-#===========================================
-#===========================================
-#===========================================
 
-def merge_plot3d(files, flips, outputFile='merged.xyz'):
+# ===========================================
+# ===========================================
+# ===========================================
 
-    '''
+
+def merge_plot3d(files, flips, outputFile="merged.xyz"):
+
+    """
     This subroutine will merge two plot3d files into one. It may also
     flip the orientation of some meshes so that the final block remains
     structured.
 
-    INPUTS:
+    Parameters
+    ----------
 
     files: list of strings -> Name of one plot3d file to be merged.
 
@@ -305,10 +317,10 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
     direction.
 
     Ney Secco 2016-10
-    '''
+    """
 
     # Print log
-    print 'Merging Plot3D files'
+    print("Merging Plot3D files")
 
     # Initialize list of grids and number of blocks
     Grids = []
@@ -320,15 +332,15 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
     # Read grids
     for ii in range(len(files)):
         # Read input files and append to grid list
-        Grids.append(read_plot3d(files[ii],3))
+        Grids.append(read_plot3d(files[ii], 3))
 
         # Print log
-        print 'Block dimensions from '+files[ii]
+        print("Block dimensions from " + files[ii])
         for jj in range(Grids[ii].num_blocks):
-            print Grids[ii].blocks[jj].shape
+            print(Grids[ii].blocks[jj].shape)
 
     # Flip coordinates along each dimension if necessary
-    for problem in zip(Grids,flips):
+    for problem in zip(Grids, flips):
 
         # Split Grid and flip from the tuple given by zip
         curGrid = problem[0]
@@ -338,13 +350,13 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
 
             # Generate flip command as a string
             if dim == 0:
-                flipCommand = '[::-1,:,:]'
+                flipCommand = "[::-1,:,:]"
             elif dim == 1:
-                flipCommand = '[:,::-1,:]'
+                flipCommand = "[:,::-1,:]"
             elif dim == 2:
-                flipCommand = '[:,:,::-1]'
+                flipCommand = "[:,:,::-1]"
 
-            if curFlip[dim]: # Check if user requested to flip current dimension
+            if curFlip[dim]:  # Check if user requested to flip current dimension
 
                 for ii in range(curGrid.num_blocks):
 
@@ -354,9 +366,9 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
                     Z = curGrid.blocks[ii].Z
 
                     # Flip each coordinate
-                    X[:,:,:] = eval('X'+flipCommand)
-                    Y[:,:,:] = eval('Y'+flipCommand)
-                    Z[:,:,:] = eval('Z'+flipCommand)
+                    X[:, :, :] = eval("X" + flipCommand)
+                    Y[:, :, :] = eval("Y" + flipCommand)
+                    Z[:, :, :] = eval("Z" + flipCommand)
 
         # Now add blocks to the merged grid
         for ii in range(curGrid.num_blocks):
@@ -372,21 +384,23 @@ def merge_plot3d(files, flips, outputFile='merged.xyz'):
     # Now we can finally export the new grid
     export_plot3d(mergedGrid, outputFile)
 
-#===========================================
-#===========================================
-#===========================================
+
+# ===========================================
+# ===========================================
+# ===========================================
+
 
 def read_tecplot_curves(fileName):
 
-    '''
+    """
     This function will read a curve definition from a Tecplot FE data file
     and assign coor and barsConn.
 
     Written by Ney Secco 2016-11
-    '''
+    """
 
     # IMPORTS
-    import tecplot_interface as ti
+    from . import tecplot_interface as ti
 
     # Read information from file
     sectionName, sectionData, sectionConn = ti.readTecplotFEdata(fileName)
@@ -398,7 +412,7 @@ def read_tecplot_curves(fileName):
         # Gather data
         # The -1 is to adjust connectivities to Python indexing, which starts at zero.
         coor = np.array(sectionData[secID])
-        barsConn = np.array(sectionConn[secID],dtype='int32') - 1
+        barsConn = np.array(sectionConn[secID], dtype="int32") - 1
         curveName = sectionName[secID]
 
         # Create curve object

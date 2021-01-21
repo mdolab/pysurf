@@ -9,20 +9,19 @@ import pickle
 
 
 class TestCurveExtraction(unittest.TestCase):
-
     def test_curve_extraction(self):
 
         # TESTING FUNCTION
 
-        os.system('rm curve*')
+        os.system("rm curve*")
 
-        cube = pysurf.TSurfGeometry('../inputs/wingBody.cgns', ['wing'], MPI.COMM_WORLD)
-        #cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
-        #cube = pysurf.TSurfGeometry('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
+        cube = pysurf.TSurfGeometry("../inputs/wingBody.cgns", ["wing"], MPI.COMM_WORLD)
+        # cube = pysurf.TSurfGeometry('../inputs/simpleCube.cgns', MPI.COMM_WORLD)
+        # cube = pysurf.TSurfGeometry('../inputs/crm.cgns', ['w_upp','w_low','w_ted'], MPI.COMM_WORLD)
 
         cube.extract_curves()
 
-        with open('extraction_dict.pickle', 'r') as f:
+        with open("extraction_dict.pickle", "r") as f:
             master_dict = pickle.load(f)
 
         curveID = 0
@@ -39,7 +38,8 @@ class TestCurveExtraction(unittest.TestCase):
         # with open('extraction_dict.pickle', 'w') as f:
         #     pickle.dump(master_dict, f)
 
-        #os.system('tec360 layout_cube.lay')
+        # os.system('tec360 layout_cube.lay')
+
 
 if __name__ == "__main__":
     unittest.main()

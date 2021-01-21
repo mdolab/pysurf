@@ -1,5 +1,4 @@
 # IMPORTS
-from __future__ import division
 import pysurf
 from mpi4py import MPI
 import numpy as np
@@ -8,62 +7,69 @@ import os
 import pickle
 import unittest
 
-class MergeTest(unittest.TestCase):
 
+class MergeTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MergeTest, self).__init__(*args, **kwargs)
 
     def test_merge(self):
 
-        os.system('rm *.plt')
+        os.system("rm *.plt")
 
         # Create a list of curves to be merged
         initCurveList = []
         initCurveNames = []
 
-        initCurveName = 'test_curve1'
-        coor = np.array([[0.0, 0.0, 0.0],
-                         [0.3, 0.0, 0.0],
-                         [0.7, 0.0, 0.0],
-                         [1.0, 0.0, 0.0],
-                         [1.0, 0.3, 0.0],
-                         [1.0, 0.7, 0.0],
-                         [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]])
-        barsConn = np.array([[1,2],
-                             [2,3],
-                             [3,4]],dtype='int32')-1
+        initCurveName = "test_curve1"
+        coor = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.3, 0.0, 0.0],
+                [0.7, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.3, 0.0],
+                [1.0, 0.7, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.5, 0.5, 0.0],
+            ]
+        )
+        barsConn = np.array([[1, 2], [2, 3], [3, 4]], dtype="int32") - 1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)
 
-        initCurveName = 'test_curve2'
-        coor = np.array([[0.0, 0.0, 0.0],
-                         [0.3, 0.0, 0.0],
-                         [0.7, 0.0, 0.0],
-                         [1.0, 0.0, 0.0],
-                         [1.0, 0.3, 0.0],
-                         [1.0, 0.7, 0.0],
-                         [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]])
-        barsConn = np.array([[4,5],
-                             [5,6],
-                             [6,7]],dtype='int32')-1
+        initCurveName = "test_curve2"
+        coor = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.3, 0.0, 0.0],
+                [0.7, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.3, 0.0],
+                [1.0, 0.7, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.5, 0.5, 0.0],
+            ]
+        )
+        barsConn = np.array([[4, 5], [5, 6], [6, 7]], dtype="int32") - 1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)
 
-        initCurveName = 'test_curve3'
-        coor = np.array([[0.0, 0.0, 0.0],
-                         [0.3, 0.0, 0.0],
-                         [0.7, 0.0, 0.0],
-                         [1.0, 0.0, 0.0],
-                         [1.0, 0.3, 0.0],
-                         [1.0, 0.7, 0.0],
-                         [1.0, 1.0, 0.0],
-                         [0.5, 0.5, 0.0]])
-        barsConn = np.array([[7,8],
-                             [8,1]],dtype='int32')-1
+        initCurveName = "test_curve3"
+        coor = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.3, 0.0, 0.0],
+                [0.7, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.3, 0.0],
+                [1.0, 0.7, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.5, 0.5, 0.0],
+            ]
+        )
+        barsConn = np.array([[7, 8], [8, 1]], dtype="int32") - 1
         initCurve = pysurf.TSurfCurve(initCurveName, coor, barsConn)
         initCurveList.append(initCurve)
         initCurveNames.append(initCurveName)
@@ -78,8 +84,8 @@ class MergeTest(unittest.TestCase):
             manager.intCurves[curve].export_tecplot(curve)
 
         # Now let's merge these curves
-        mergedCurveName = 'merged_curve'
-        manager.merge_intCurves(initCurveNames,mergedCurveName)
+        mergedCurveName = "merged_curve"
+        manager.merge_intCurves(initCurveNames, mergedCurveName)
 
         # Save the merged curve
         manager.intCurves[mergedCurveName].export_tecplot(mergedCurveName)
@@ -88,8 +94,8 @@ class MergeTest(unittest.TestCase):
 
         # Generate random seeds
         for curve in initCurveNames:
-            manager.intCurves[curve].set_randomADSeeds(mode='forward')
-        manager.intCurves[mergedCurveName].set_randomADSeeds(mode='reverse')
+            manager.intCurves[curve].set_randomADSeeds(mode="forward")
+        manager.intCurves[mergedCurveName].set_randomADSeeds(mode="reverse")
 
         # Store relevant seeds
         initCurveCoord = []
@@ -97,7 +103,6 @@ class MergeTest(unittest.TestCase):
             coord = manager.intCurves[curve].get_forwardADSeeds()
             initCurveCoord.append(coord)
         mergedCurveCoorb = manager.intCurves[mergedCurveName].get_reverseADSeeds(clean=False)
-
 
         # FORWARD AD
 
@@ -121,12 +126,12 @@ class MergeTest(unittest.TestCase):
         # Dot product test
         dotProd = 0.0
         for ii in range(len(initCurveNames)):
-            dotProd = dotProd + np.sum(initCurveCoorb[ii]*initCurveCoord[ii])
-        dotProd = dotProd - np.sum(mergedCurveCoorb*mergedCurveCoord)
+            dotProd = dotProd + np.sum(initCurveCoorb[ii] * initCurveCoord[ii])
+        dotProd = dotProd - np.sum(mergedCurveCoorb * mergedCurveCoord)
 
-        print 'dotProd test'
-        print dotProd
-        np.testing.assert_almost_equal(dotProd, 0., decimal=15)
+        print("dotProd test")
+        print(dotProd)
+        np.testing.assert_almost_equal(dotProd, 0.0, decimal=15)
 
         # FINITE DIFFERENCE TEST
         # Define step size
@@ -134,7 +139,7 @@ class MergeTest(unittest.TestCase):
 
         # Perturb the initial curves
         for ii in range(len(initCurveList)):
-            initCurveList[ii].set_points(initCurveList[ii].get_points() + stepSize*initCurveCoord[ii])
+            initCurveList[ii].set_points(initCurveList[ii].get_points() + stepSize * initCurveCoord[ii])
 
         # Create new manager
         manager2 = pysurf.Manager()
@@ -142,23 +147,23 @@ class MergeTest(unittest.TestCase):
             manager2.add_curve(curve)
 
         # Now let's merge these curves
-        mergedCurveName = 'merged_curve'
-        manager2.merge_intCurves(initCurveNames,mergedCurveName)
+        mergedCurveName = "merged_curve"
+        manager2.merge_intCurves(initCurveNames, mergedCurveName)
 
         # Get coordinates of the merged curve on the original and perturbed case
         mergedCurveCoor0 = manager.intCurves[mergedCurveName].get_points()
         mergedCurveCoor = manager2.intCurves[mergedCurveName].get_points()
 
         # Compute derivatives with finite differencing
-        mergedCurveCoord_FD = (mergedCurveCoor - mergedCurveCoor0)/stepSize
+        mergedCurveCoord_FD = (mergedCurveCoor - mergedCurveCoor0) / stepSize
 
         # Finite difference test
         FD_error = np.max(np.abs(mergedCurveCoord - mergedCurveCoord_FD))
-        print 'FD test'
-        print FD_error
-        np.testing.assert_almost_equal(FD_error, 0., decimal=8)
+        print("FD test")
+        print(FD_error)
+        np.testing.assert_almost_equal(FD_error, 0.0, decimal=8)
 
-        '''
+        """
         # Define step size
         stepSize = 1e-7
 
@@ -186,7 +191,8 @@ class MergeTest(unittest.TestCase):
         FD_error = np.max(np.abs(mergedCurveCoord - mergedCurveCoord_FD))
         print 'FD test'
         print FD_error
-        '''
+        """
+
 
 if __name__ == "__main__":
     unittest.main()
