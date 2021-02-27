@@ -17,5 +17,5 @@ extends:
     REPO_NAME: pysurf
     IGNORE_STYLE: true
     GCC_CONFIG: config/defaults/config_LINUX_GFORTRAN.mk
-    INTEL_CONFIG: config/defaults/config.LINUX_INTEL.mk
+    INTEL_CONFIG: config/defaults/config_LINUX_INTEL.mk
     IMAGE: private
