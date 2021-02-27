@@ -18,4 +18,5 @@ extends:
     IGNORE_STYLE: true
     GCC_CONFIG: config/defaults/config_LINUX_GFORTRAN.mk
     INTEL_CONFIG: config/defaults/config_LINUX_INTEL.mk
+    TEST_REAL: None
     IMAGE: private
