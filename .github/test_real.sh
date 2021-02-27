@@ -1,3 +1,3 @@
 #!/bin/bash
 set -e 
-testflo -v examples/test/tsurf_curve_test.py
+python examples/test/tsurf_curve_test.py
