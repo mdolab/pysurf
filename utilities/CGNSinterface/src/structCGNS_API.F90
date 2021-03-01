@@ -6,14 +6,8 @@
 
 ! This file was adapted from Gaetan Kenway's cgnsUtils module
 module utils
+use cgns
 
-#ifdef USECGNSMODULE
-  use cgns
-#else
-  include 'cgnslib_f.h'
-  integer(kind=4), private :: dummyInt
-  integer, parameter :: cgsize_t=kind(dummyInt)
-#endif
 contains
 
   subroutine openFile(fileName, mode, cg)

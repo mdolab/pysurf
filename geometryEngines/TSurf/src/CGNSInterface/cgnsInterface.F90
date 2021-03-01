@@ -1,12 +1,5 @@
 module CGNSinterface
-
-#ifdef USECGNSMODULE
-   use cgns
-#else
-   include 'cgnslib_f.h'
-   integer(kind=4), private :: dummyInt
-   integer, parameter :: cgsize_t=kind(dummyInt)
-#endif
+use cgns
 
 contains
 

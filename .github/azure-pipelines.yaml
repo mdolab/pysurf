@@ -1,0 +1,22 @@
+trigger:
+- master
+
+pr:
+- master
+
+resources:
+  repositories:
+  - repository: azure_template
+    type: github
+    name: mdolab/.github
+    endpoint: mdolab
+
+extends:
+  template: azure/azure_template.yaml@azure_template
+  parameters:
+    REPO_NAME: pysurf
+    IGNORE_STYLE: true
+    GCC_CONFIG: config/defaults/config_LINUX_GFORTRAN.mk
+    INTEL_CONFIG: config/defaults/config_LINUX_INTEL.mk
+    TEST_REAL: None
+    IMAGE: private
