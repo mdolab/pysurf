@@ -1,9 +1,8 @@
 # gitignore for pysurf
 
-# config files
-geometryEngines/TSurf/config/config.mk
-meshTools/hypsurf/config/config.mk
-utilities/CGNSinterface/config/config.mk
+# config file
+config/config.mk
+config.mk
 
 # for mac users
 *.DS_Store
