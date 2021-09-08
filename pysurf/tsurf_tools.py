@@ -1,5 +1,5 @@
 import numpy as np
-from . import cgnsAPI, adtAPI, utilitiesAPI, intersectionAPI
+from . import cgnsAPI, adtAPI, intersectionAPI
 from mpi4py import MPI
 from . import tsurf_component
 
@@ -77,8 +77,8 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
         triaConnF = np.zeros((0, 3))
     if arraySizes[2] == -1:
         quadsConnF = np.zeros((0, 4))
-    if arraySizes[3] == -1:
-        barsConnF = np.zeros((0, 2))
+    # if arraySizes[3] == -1:
+    # barsConnF = np.zeros((0, 2))
     if arraySizes[4] == -1:
         surfTriaPtr = np.zeros(0)
     if arraySizes[5] == -1:
@@ -306,8 +306,8 @@ def extract_curves_from_surface(TSurfGeometry, feature="sharpness"):
     quadsConnF = TSurfGeometry.quadsConnF
 
     # Get number of elements
-    nTria = triaConn.shape[0]
-    nQuads = quadsConn.shape[0]
+    nTria = triaConnF.shape[0]
+    nQuads = quadsConnF.shape[0]
 
     # BUILDING EDGE-TO-ELEMENT CONNECTIVITY
 
@@ -535,9 +535,6 @@ def extract_curves_from_surface(TSurfGeometry, feature="sharpness"):
 
     # GENERATE CURVE OBJECTS
 
-    # Initialize list of curve objects
-    featurecurves = []
-
     # Initialize curve counter
     curveID = -1
 
@@ -695,7 +692,7 @@ def merge_curves(curveDict, mergedCurveName, curvesToMerge=None):
     mergedBarsConn = np.zeros((0, 2), dtype="int32")
 
     # Merge all curves if user provided none
-    if curvesToMerge == None:
+    if curvesToMerge is None:
         curvesToMerge = list(curveDict.keys())
 
     # Initialize index offset. The new curves cannot reference
@@ -1578,7 +1575,7 @@ def FEsort(barsConn):
 # =============================================================
 
 
-def remove_unused_points(coor, triaConnF=np.zeros((0, 0)), quadsConnF=np.zeros((0, 0)), barsConn=np.zeros((0, 0))):
+def remove_unused_points(coor, triaConnF=None, quadsConnF=None, barsConn=None):
 
     """
     This function will removed unused points from coor and
@@ -1593,6 +1590,14 @@ def remove_unused_points(coor, triaConnF=np.zeros((0, 0)), quadsConnF=np.zeros((
     This function returns cropCoor, which is the cropped set of nodes.
     This function also updates triaConn, quadsConn and barsConn.
     """
+
+    # Initialize connectivities if necessary
+    if triaConnF is None:
+        triaConnF = np.zeros((0, 0))
+    if quadsConnF is None:
+        quadsConnF = np.zeros((0, 0))
+    if barsConn is None:
+        barsConn = np.zeros((0, 0))
 
     # Get total number of points and elements
     nPoints = coor.shape[0]
@@ -1744,7 +1749,7 @@ def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF
         # it for sharpness detection.
 
         # ELEMENT 2
-        if element2 == None:
+        if element2 is None:
             featureIsDetected = False
             return featureIsDetected
 
@@ -1922,7 +1927,7 @@ def tanDist(Sp1, Sp2, N):
 
     try:
         from scipy.optimize import minimize
-    except:
+    except ImportError:
         print("ERROR: Scipy not available")
 
     # Convert number of nodes to number of cells
@@ -2188,7 +2193,7 @@ def normalize_b(vec, normalVecb):
     vecNorms2 = np.sqrt(vecNorms1)
 
     # STEP 3
-    normalVec = vec / vecNorms2
+    # normalVec = vec / vecNorms2
 
     # STEP 3_b
     vecNorms2b = np.array([np.sum(-vec / vecNorms2 ** 2 * normalVecb, axis=1)]).T
@@ -2207,7 +2212,7 @@ def normalize_b(vec, normalVecb):
 
 
 def closest_node(guideCurve, curve):
-    """ Find closest node from a list of node coordinates. """
+    """Find closest node from a list of node coordinates."""
     curve = np.asarray(curve)
 
     # Get number of points in the seed curve

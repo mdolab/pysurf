@@ -187,7 +187,7 @@ class Geometry(object):
         # in the new geometry class definition
         self.coorb = coorb
         for curveName in self.curves:
-            self.curves[curveName].coorb = curveCoord[curveName]
+            self.curves[curveName].coorb = curveCoorb[curveName]
 
     def get_reverseADSeeds(self, clean=True):
         """
@@ -227,7 +227,7 @@ class Geometry(object):
         # in the new geometry class definition
         self.coorb = self.coorb + coorb
         for curveName in self.curves:
-            self.curves[curveName].coorb = self.curves[curveName].coorb + curveCoord[curveName]
+            self.curves[curveName].coorb = self.curves[curveName].coorb + curveCoorb[curveName]
 
     # ===========================================================#
     # MANIPULATOR INTERFACE METHODS

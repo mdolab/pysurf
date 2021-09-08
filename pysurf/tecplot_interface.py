@@ -61,8 +61,8 @@ def readTecplotFEdata(fileName):
         # Split data
         data = line.split()
 
-        # Assing something to data if we got an empty list so that the
-        # rest of the code does no break.
+        # Adding something to data if we got an empty list so that the
+        # rest of the code does not break
         if len(data) == 0:
             data = [None]
 
@@ -77,8 +77,8 @@ def readTecplotFEdata(fileName):
 
             # Save data from previous section
             if sectionID >= 0:  # Only if we have a previous section...
-                sectionData.append(array(currData))
-                sectionConn.append(array(currConn))
+                sectionData.append(array(currData))  # noqa
+                sectionConn.append(array(currConn))  # noqa
 
             # Increment section counter
             sectionID = sectionID + 1
@@ -94,7 +94,7 @@ def readTecplotFEdata(fileName):
             # If this doesn't work, it means we do not have a data line.
             try:
                 currData.append(list(map(float, data)))
-            except:
+            except Exception:
                 pass
 
         # Check if we have a connectivity line
@@ -104,7 +104,7 @@ def readTecplotFEdata(fileName):
             # If this doesn't work, it means we do not have a connectivity line.
             try:
                 currConn.append(list(map(int, data)))
-            except:
+            except Exception:
                 pass
 
     # Append the last section
@@ -124,9 +124,6 @@ def readTecplotFEdataSurf(fileName):
     # Written by Ney Secco
     # This script will read sections from a Tecplot FE file with quads written by pysurf.
     # The Tecplot file should have a single zone
-
-    # IMPORTS
-    from numpy import array
 
     # Initialize arrays
     coor = []
@@ -155,7 +152,7 @@ def readTecplotFEdataSurf(fileName):
             # If this doesn't work, it means we do not have a data line.
             try:
                 coor.append(list(map(float, data)))
-            except:
+            except Exception:
                 pass
 
         # Check if we have a quad connectivity line
@@ -172,7 +169,7 @@ def readTecplotFEdataSurf(fileName):
                     triaConn.append(currConn)
                 elif len(currConn) == 4:
                     quadsConn.append(currConn)
-            except:
+            except Exception:
                 pass
 
     # Transform everything to numpy arrays
@@ -305,8 +302,6 @@ def convert(oldData, oldConn):
     import numpy
     import pygeo
     import sys
-    import os
-    import re
 
     X = numpy.zeros((len(oldData), 3))
     X = oldData[:, 0:3]

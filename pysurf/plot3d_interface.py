@@ -324,7 +324,6 @@ def merge_plot3d(files, flips, outputFile="merged.xyz"):
 
     # Initialize list of grids and number of blocks
     Grids = []
-    numBlocks = []
 
     # Initialize merged grid
     mergedGrid = Grid()

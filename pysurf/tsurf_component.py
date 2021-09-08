@@ -96,7 +96,7 @@ class TSurfGeometry(Geometry):
         if self.myID == 0:
 
             # Check if the user provided no input file
-            if filename == None:
+            if filename is None:
                 print(" ERROR: Cannot initialize TSurf Geometry as no input file")
                 print(" was specified.")
                 quit()
@@ -1306,9 +1306,6 @@ class TSurfCurve(Curve):
         Ney Secco 2016-11
         """
 
-        # Get number of points
-        nPoints = xyz.shape[0]
-
         if self.coor.shape != self.coord.shape:
             print("ERROR: Derivative seeds should have the same dimension of the original")
             print("variable. The number of derivatives for the bar element nodes does not match")
@@ -1366,9 +1363,6 @@ class TSurfCurve(Curve):
 
         Ney Secco 2016-11
         """
-
-        # Get number of points
-        nPoints = xyz.shape[0]
 
         if xyzProj.shape != xyzProjb.shape:
             print("ERROR: Derivative seeds should have the same dimension of the original")
@@ -1850,7 +1844,7 @@ class TSurfCurve(Curve):
             curveDict[self.name] = self
 
         # Merge all curves if user provided none
-        if curvesToMerge == None:
+        if curvesToMerge is None:
             curvesToMerge = list(curveDict.keys())
 
         # Check if the current curve is in the curvesToMerge list
@@ -1864,7 +1858,6 @@ class TSurfCurve(Curve):
         # propagate derivatives.
 
         # Add list of parents to the merged curve
-        parentList = curvesToMerge
         mergedCurve.extra_data["parentCurves"] = curvesToMerge
 
         # Return the new curve
@@ -2010,7 +2003,7 @@ class TSurfCurve(Curve):
         numCurves = len(sortedConn)
 
         # Check the number of connected FE sets
-        if False:  # numCurves == 1:
+        if numCurves == 1:
             # The sorting works just fine and it found a single curve!
             # There is no need to condense nodes
             print("")
@@ -2094,7 +2087,7 @@ class TSurfCurve(Curve):
             self.coor = newCoor
             self.barsConn = newBarsConn
 
-    def shift_end_nodes(self, criteria="maxX", startPoint=np.zeros((3)), curveObject=None):
+    def shift_end_nodes(self, criteria="maxX", startPoint=None, curveObject=None):
 
         """
         This method will shift the finite element ordering of
@@ -2118,6 +2111,10 @@ class TSurfCurve(Curve):
 
         Ney Secco 2016-08
         """
+
+        # Initialize startPoint if necessary
+        if startPoint is None:
+            startPoint = np.zeros((3))
 
         # Get current coordinates and connectivities
         coor = self.coor
@@ -2507,7 +2504,7 @@ class TSurfCurve(Curve):
 
 
 def closest_node(guideCurveNodes, points):
-    """ Find which point in points is the closest to the set of nodes in guideCurveNodes. """
+    """Find which point in points is the closest to the set of nodes in guideCurveNodes."""
     minDist = 1e9
     points = np.asarray(points)
     for refNode in guideCurveNodes:
