@@ -5,15 +5,12 @@ modules = ["cgnsAPI", "adtAPI", "curveSearchAPI", "intersectionAPI", "utilitiesA
 
 for name in modules:
     print("")
-    print("Testing if module %s can be imported..." % name)
-    import_cmd = "import %s" % name
+    print(f"Testing if module {name} can be imported...")
+    import_cmd = f"import {name}"
     try:
         exec(import_cmd)
-    except (Exception, inst):
-        print("Error: %s." % inst)
+    except ImportError:
+        print(f"Error importing {name}")
         sys.exit(1)
-    # end try
 
-    print("OK! Module %s was successfully imported." % name)
-
-print("")
+    print(f"Module {name} was successfully imported.")
