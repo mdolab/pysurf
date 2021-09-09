@@ -128,7 +128,7 @@ all:
 	$(PYTHON) importTest.py
 
 # Move python modules to the main python folder
-	mv *.so ../../tsurf
+	mv *.so ../../pysurf
 # Clean up temporary files
 	-rm *.o
 	-rm *.f90 *.c
