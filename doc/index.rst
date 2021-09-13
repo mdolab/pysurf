@@ -9,4 +9,3 @@ pySurf
    
    installation
    triangulated_meshes
-   plot3d_interface

@@ -115,6 +115,49 @@ def readTecplotFEdata(fileName):
     return sectionName, sectionData, sectionConn
 
 
+def readTecplotCurves(fileName):
+
+    """
+    This function will read a curve definition from a Tecplot FE data file
+    and assign coor and barsConn.
+
+    Written by Ney Secco 2016-11
+    """
+
+    # Read information from file
+    sectionName, sectionData, sectionConn = readTecplotFEdata(fileName)
+
+    # Create curves for every section
+    curves = []
+    for secID in range(len(sectionName)):
+
+        # Gather data
+        # The -1 is to adjust connectivities to Python indexing, which starts at zero.
+        coor = np.array(sectionData[secID])
+        barsConn = np.array(sectionConn[secID], dtype="int32") - 1
+        curveName = sectionName[secID]
+
+        # Create curve object
+        currCurve = Curve(coor, barsConn, curveName)
+
+        # Append new curve to the dictionary
+        curves.append(currCurve)
+
+    # Return curves
+    return curves
+
+
+class Curve:
+    def __init__(self, coor, barsConn, curveName):
+        self.coor = coor
+        self.barsConn = barsConn
+        self.name = curveName
+
+    def export_tecplot(self, fileName="curve"):
+
+        writeTecplotFEdata(self.coor, self.barsConn, self.name, fileName)
+
+
 # ==================================================================
 # ==================================================================
 

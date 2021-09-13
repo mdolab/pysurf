@@ -1,7 +1,7 @@
 import numpy as np
 from . import cgnsAPI, adtAPI, intersectionAPI
 from mpi4py import MPI
-from . import tsurf_component
+from . import tsurf_component, tecplot_interface
 
 """
 TODO:
@@ -159,11 +159,8 @@ def read_tecplot_curves(fileName, mergeTol=1e-7):
     Ney Secco 2016-11
     """
 
-    # IMPORTS
-    from ....utilities import plot3d_interface as p3d
-
     # Get curve data
-    tecCurves = p3d.read_tecplot_curves(fileName)
+    tecCurves = tecplot_interface.readTecplotCurves(fileName)
 
     # Create curve objects and append them to a dictionary
     curves = {}

@@ -2,7 +2,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from .baseClasses import Geometry, Curve
-from . import plot3d_interface, tecplot_interface
+from . import tecplot_interface
 from . import utilitiesAPI, curveSearchAPI
 from . import tsurf_tools as tst
 from . import adtAPI
@@ -2213,7 +2213,7 @@ class TSurfCurve(Curve):
         """
 
         # Create tecplot curve object and export
-        tecCurve = plot3d_interface.Curve(self.coor, self.barsConn, self.name)
+        tecCurve = tecplot_interface.Curve(self.coor, self.barsConn, self.name)
         tecCurve.export_tecplot(outputName)
 
     # ===========================================================#
