@@ -6,8 +6,8 @@
 PMAKE = make -j 4
 
 # ------- Define the MPI Compilers--------------------------------------
-FF90 = mpif90
-CC   = mpicc
+FF90 = mpiifort
+CC   = mpiicc
 
 # ----------- CGNS ------------------
 CGNS_INCLUDE_FLAGS=-I$(CGNS_HOME)/include

@@ -40,3 +40,5 @@ callgrind*
 *.tin
 */revisionInfo/*
 *.zipper
+*.egg-info
+.coverage
