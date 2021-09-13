@@ -1,14 +1,13 @@
-# IMPORTS
 import pysurf
-from mpi4py import MPI
 import numpy as np
 import unittest
 
 
 class TestReorder(unittest.TestCase):
-    def test_reorder(self):
 
-        # TESTING FUNCTION
+    N_PROCS = 2
+
+    def test_reorder(self):
 
         # Define number of nodes in the circle
         nNodes = 5
@@ -39,7 +38,7 @@ class TestReorder(unittest.TestCase):
         # Reorder curve
         curve.shift_end_nodes(criteria="maxY")
 
-        np.testing.assert_almost_equal(curve.barsConn, np.array([[1, 2], [2, 3], [3, 4], [4, 0], [0, 1]]))
+        np.testing.assert_allclose(curve.barsConn, np.array([[1, 2], [2, 3], [3, 4], [4, 0], [0, 1]]))
 
 
 if __name__ == "__main__":
