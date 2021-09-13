@@ -43,7 +43,7 @@ clean:
 		done
 	rm -f *~ config.mk;
 	rm -f lib/lib* mod/* obj/*
-	(cd tsurf && rm *.so) || exit 1;
+	(cd pysurf && rm *.so) || exit 1;
 
 discretesurf:
 	mkdir -p obj
