@@ -9,7 +9,4 @@ pySurf
    
    installation
    triangulated_meshes
-   GeoMACHSurf
-   Manager
-   meshTools
    plot3d_interface

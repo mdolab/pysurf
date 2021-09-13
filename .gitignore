@@ -42,3 +42,4 @@ callgrind*
 *.zipper
 *.egg-info
 .coverage
+doc/_build

@@ -3,7 +3,7 @@
 PLOT3D Interface
 ----------------
 
-.. currentmodule:: utilities.plot3d_interface
+.. currentmodule:: pysurf.plot3d_interface
 
 .. autoclass:: Block
     :members:
