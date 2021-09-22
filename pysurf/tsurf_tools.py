@@ -2193,7 +2193,7 @@ def normalize_b(vec, normalVecb):
     normalVec = vec / vecNorms2
 
     # STEP 3_b
-    vecNorms2b = np.array([np.sum(-(normalVec ** 2) * normalVecb, axis=1)]).T
+    vecNorms2b = np.array([np.sum(-normalVec / vecNorms2 * normalVecb, axis=1)]).T
     vecb = normalVecb / vecNorms2
 
     # STEP 2_b
