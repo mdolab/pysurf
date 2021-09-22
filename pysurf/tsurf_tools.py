@@ -77,8 +77,8 @@ def getCGNSsections(inputFile, comm=MPI.COMM_WORLD):
         triaConnF = np.zeros((0, 3))
     if arraySizes[2] == -1:
         quadsConnF = np.zeros((0, 4))
-    # if arraySizes[3] == -1:
-    # barsConnF = np.zeros((0, 2))
+    if arraySizes[3] == -1:
+        barsConn = np.zeros((0, 2))
     if arraySizes[4] == -1:
         surfTriaPtr = np.zeros(0)
     if arraySizes[5] == -1:
@@ -2190,10 +2190,10 @@ def normalize_b(vec, normalVecb):
     vecNorms2 = np.sqrt(vecNorms1)
 
     # STEP 3
-    # normalVec = vec / vecNorms2
+    normalVec = vec / vecNorms2
 
     # STEP 3_b
-    vecNorms2b = np.array([np.sum(-vec / vecNorms2 ** 2 * normalVecb, axis=1)]).T
+    vecNorms2b = np.array([np.sum(-(normalVec ** 2) * normalVecb, axis=1)]).T
     vecb = normalVecb / vecNorms2
 
     # STEP 2_b

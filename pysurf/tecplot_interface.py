@@ -77,8 +77,8 @@ def readTecplotFEdata(fileName):
 
             # Save data from previous section
             if sectionID >= 0:  # Only if we have a previous section...
-                sectionData.append(array(currData))  # noqa
-                sectionConn.append(array(currConn))  # noqa
+                sectionData.append(array(currData))  # noqa: F821
+                sectionConn.append(array(currConn))  # noqa: F821
 
             # Increment section counter
             sectionID = sectionID + 1
