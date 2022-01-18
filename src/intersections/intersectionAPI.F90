@@ -511,7 +511,7 @@ contains
     if (.not. overlap) then
       ! print *,'Geometry objects do not overlap.'
       return
-    else
+    ! else
       ! print *,'Geometry objects overlap.'
     end if
 
@@ -787,7 +787,7 @@ contains
     if (.not. overlap) then
       ! print *,'Geometry objects do not overlap.'
       return
-    else
+    ! else
       ! print *,'Geometry objects overlap.'
     end if
 
