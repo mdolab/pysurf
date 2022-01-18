@@ -139,7 +139,7 @@ contains
 
     ! We can stop if there is no bounding box intersection
     if (.not. overlap) then
-      ! print *,'Geometry objects do not overlap.'
+      print *,'Geometry objects do not overlap.'
       allocate(barsConn(0, 0), coor(0, 0))
       return
     ! else
@@ -509,7 +509,7 @@ contains
 
     ! We can stop if there is no bounding box intersection
     if (.not. overlap) then
-      ! print *,'Geometry objects do not overlap.'
+      print *,'Geometry objects do not overlap.'
       return
     ! else
       ! print *,'Geometry objects overlap.'
@@ -785,7 +785,7 @@ contains
 
     ! We can stop if there is no bounding box intersection
     if (.not. overlap) then
-      ! print *,'Geometry objects do not overlap.'
+      print *,'Geometry objects do not overlap.'
       return
     ! else
       ! print *,'Geometry objects overlap.'
