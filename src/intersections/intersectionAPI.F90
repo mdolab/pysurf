@@ -139,7 +139,7 @@ contains
 
     ! We can stop if there is no bounding box intersection
     if (.not. overlap) then
-      ! print *,'Geometry objects do not overlap.'
+      print *,'Geometry objects do not overlap.'
       allocate(barsConn(0, 0), coor(0, 0))
       return
     ! else
@@ -511,8 +511,8 @@ contains
     if (.not. overlap) then
       print *,'Geometry objects do not overlap.'
       return
-    else
-      print *,'Geometry objects overlap.'
+    ! else
+      ! print *,'Geometry objects overlap.'
     end if
 
     ! Filter elements that are inside the intersected bounding box
@@ -528,10 +528,10 @@ contains
     nInnerQuadsB = size(innerQuadsID_B)
 
     ! Print log
-    print *,'Number of interior elements in A:'
-    print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
-    print *,'Number of interior elements in B:'
-    print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
+    ! print *,'Number of interior elements in A:'
+    ! print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
+    ! print *,'Number of interior elements in B:'
+    ! print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
 
     ! Split quads into triangles
     call getAllTrias(triaConnA, quadsConnA, innerTriaID_A, innerQuadsID_A, allTriaConnA)
@@ -787,8 +787,8 @@ contains
     if (.not. overlap) then
       print *,'Geometry objects do not overlap.'
       return
-    else
-      print *,'Geometry objects overlap.'
+    ! else
+      ! print *,'Geometry objects overlap.'
     end if
 
     ! Filter elements that are inside the intersected bounding box
@@ -804,10 +804,10 @@ contains
     nInnerQuadsB = size(innerQuadsID_B)
 
     ! Print log
-    print *,'Number of interior elements in A:'
-    print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
-    print *,'Number of interior elements in B:'
-    print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
+    ! print *,'Number of interior elements in A:'
+    ! print *,nInnerTriaA + nInnerQuadsA,'of',nTriaA + nQuadsA
+    ! print *,'Number of interior elements in B:'
+    ! print *,nInnerTriaB + nInnerQuadsB,'of',nTriaB + nQuadsB
 
     ! Split quads into triangles
     call getAllTrias(triaConnA, quadsConnA, innerTriaID_A, innerQuadsID_A, allTriaConnA)
