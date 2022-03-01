@@ -19,3 +19,4 @@ extends:
     INTEL_CONFIG: config/defaults/config_LINUX_INTEL.mk
     IMAGE: private
     COVERAGE: true
+    TAPENADE: true
