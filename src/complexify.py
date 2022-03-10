@@ -56,7 +56,7 @@ Mon Aug 14 19:53:53 PDT 2000:
 """
 
 import sys, os, glob
-import string, re
+import re
 from stat import *
 
 err = sys.stderr.write
@@ -69,7 +69,7 @@ fudge_format_statement = 0
 def main():
     global fix_relationals, fudge_format_statement
     bad = 0
-    # print header_string
+    # print(header_string)
     if not sys.argv[1:]:  # No arguments
         err(
             "usage: \n\t"
@@ -99,19 +99,22 @@ def main():
         else:
             for file in glob.glob(arg):
                 fix_file(file)
-    filename = "c_" + file
+    #    filename = 'c_modifiedFile'
     # write_module()
     sys.exit(bad)
 
 
 # Compile all regular expressions
 patt_real = re.compile(r"^\s*real\b", re.IGNORECASE)
+patt_always_real = re.compile("^\s*real\(kind=alwaysRealType", re.IGNORECASE)
+patt_cgns_real = re.compile("^\s*real\(kind=cgnsRealType", re.IGNORECASE)
+
 patt_real_s = re.compile(r"real\b(?:\s*\*\s*)?([48])?", re.IGNORECASE)
 patt_double_s = re.compile(r"double\s*precision", re.IGNORECASE)
 patt_double = re.compile("(^\s*)double\s*precision(\s+.*)", re.IGNORECASE)
 patt_mpi_stuff = re.compile(r"mpi_double_precision|mpi_real8|mpi_real4|mpi_real", re.IGNORECASE)
 patt_implicit = re.compile(r"^\s*implicit\b", re.IGNORECASE)
-patt_comment = re.compile("^[^0-9\s]|^\s*!", re.IGNORECASE)
+patt_comment = re.compile("^\s*!.*", re.IGNORECASE)
 patt_inc = re.compile(r'(\s*\d*\s*)include\s*("|\')(\w+.?\w*)(?:"|\')(.*)', re.IGNORECASE)
 
 patt_ge = re.compile(r"(?:>=)|(?:\.\s*ge\s*\.)", re.IGNORECASE)
@@ -128,9 +131,9 @@ patt_logic_ass = re.compile("([^=]*)(\s*=[ \t]*)((?:.|\n)*\.\s*(?:and|or|not|eqv
 patt_subroutine = re.compile(r"\s*(?!end)\w*\s*subroutine\b", re.IGNORECASE)
 patt_program = re.compile(r"^\s*program\b", re.IGNORECASE)
 patt_function = re.compile(r"^\s*(?!end)\w*\s*function\b\s*\w+\s*\(", re.IGNORECASE)
-
+patt_module_procedure = re.compile(r"^\s*module procedure", re.IGNORECASE)
 patt_real_cast = re.compile(r"([^a-zA-z]\s*)real\s*\(", re.IGNORECASE)
-patt_module = re.compile(r"\s*(?!end)\s*module\b", re.IGNORECASE)
+patt_module = re.compile(r"^\s*(?!end)\s*module\b", re.IGNORECASE)
 
 patt_usemebaby = re.compile(r"^\s*use\s*\w+", re.IGNORECASE)
 patt_intrinsic = re.compile(
@@ -155,7 +158,7 @@ def is_fortran(name, root):
     # Do not process SU_MPI stuff
     if patt_sumpi.match(root):
         return 0
-    # Hack for SUmb: do not process 'precision.F90'
+    # Hack for ADflow: do not process 'precision.F90'
     if name == "precision.F90":
         return 0
     if name == "dummy_mpi.f90":
@@ -188,12 +191,13 @@ def is_fortran(name, root):
 def fix_file(file):
     try:
         f = open(file, "r")
-    except IOError, msg:
-        err(file + ": cannot open: " + ` msg ` + "\n")
+    except IOError as err:
+        print("{} could not be opened: {}".format(file, err))
         return 1
-    # rep(file + ':\n')
+
     # Read file to memory
     lines = f.readlines()
+
     # Process lines
     i_line = 0
     routine_found = 0
@@ -202,12 +206,11 @@ def fix_file(file):
         if i_line >= len(lines):
             break
         if is_routine(lines[i_line]):
-            # print i_line, 'Routine found in file'
             routine_found = 1
             break
         i_line = i_line + 1
+
     if not routine_found:  # include file
-        # print i_line, 'Routine not found in file, must be include file'
         i_line = 0
         i_line, is_EOF = fix_routine(i_line, lines)
         if is_EOF:
@@ -216,7 +219,6 @@ def fix_file(file):
         while 1:
             if i_line >= len(lines):
                 break
-            # print '*****', i_line,len(lines), lines[i_line]
             if is_routine(lines[i_line]):
                 i_line, is_EOF = fix_routine(i_line, lines)
                 if is_EOF:
@@ -228,21 +230,18 @@ def fix_file(file):
 
 def fix_routine(i_line, lines):
     # process one routine (until another routine is found)
+
     is_EOF = 0
     implicit_found = 0
     # fix type declaration of functions
     newline, implicit_found = fix_line(lines[i_line], implicit_found)
     if newline != lines[i_line]:
-        # rep(`i_line-1` + '\n')
-        # rep('< ' + lines[i_line])
-        # rep('> ' + newline)
         lines[i_line] = newline
+
     i_line = i_line + 1
-    print("before cont:", i_line)
     i_line = skip_continuation(i_line, lines)
-    print("after cont:", i_line)
     lines.insert(i_line, use_module_line)
-    # rep(`i_line+1`+'\n'+'>'+use_module_line)
+
     i_line_use = i_line
     i_line = i_line + 1
     lines = join_lines(i_line, lines)
@@ -256,14 +255,14 @@ def fix_routine(i_line, lines):
         newline, implicit_found = fix_line(lines[i_line], implicit_found)
         # newline=lines[i_line]
         if newline != lines[i_line]:
-            # rep(`i_line-1` + '\n')
+            # rep(str(i_line-1) + '\n')
             # rep('< ' + lines[i_line])
             # rep('> ' + newline)
             lines[i_line] = newline
         i_line = i_line + 1
     if not implicit_found:
         lines.insert(i_line_use + 1, implicit_complex_line)
-        # rep(`i_line_use+1`+'\n'+'>'+implicit_complex_line)
+        # rep(str(i_line_use+1)+'\n'+'>'+implicit_complex_line)
         i_line = i_line + 1
     return i_line, is_EOF
 
@@ -271,12 +270,14 @@ def fix_routine(i_line, lines):
 def write_output(filename, lines):
     # Write to output file
     head, tail = os.path.split(filename)
+    # newname = "newFile"
     newname = os.path.join(head, "c_" + tail)
+
     try:
         g = open(newname, "w")
-    except IOError, msg:
+    except IOError as err:
         f.close()
-        err(newname + ": cannot create: " + ` msg ` + "\n")
+        print("{} could not be opened: {}".format(newname, err))
         return 1
     for line in lines:
         g.write(line)
@@ -287,6 +288,8 @@ def write_output(filename, lines):
 def is_routine(line):
     if patt_program.match(line):
         return 1
+    elif patt_module_procedure.match(line):
+        return 0
     elif patt_subroutine.match(line):
         return 1
     elif patt_function.search(line):
@@ -319,41 +322,57 @@ def join_lines(i, lines):
 
 
 def fix_line(line, implicit_found):
-    # print 'line=' +  line
+
     # skip commented lines
     if patt_comment.search(line) != None:
         return (line, implicit_found)
+
+    # CHeck if we should keep the line.
+    if patt_always_real.match(line):
+        return (line, implicit_found)
+
+    # CHeck if we should keep the line.
+    if patt_cgns_real.match(line):
+        return (line, implicit_found)
+
     # check if other lines need to be fixed
     if patt_real.match(line) != None:
         line = fix_real(line)
 
     ######################
     # if patt_realtype_s.search(line) != None: line = fix_realtype(line)
-    # else: print  patt_realtype_s.search(line)
+    # else: print( patt_realtype_s.search(line))
     ######################
 
     if patt_double.match(line) != None:
         line = fix_double(line)
+
     if patt_implicit.match(line) != None:
         implicit_found = 1
         line = fix_implicit(line)
+
     ###if patt_inc.match(line) != None: line = fix_inc(line)
     if fix_relationals:
         if patt_eq.search(line) != None:
             line = patt_eq.sub(r".ceq.", line)
         if patt_ne.search(line) != None:
             line = patt_ne.sub(r".cne.", line)
+
     if fix_relationals == 2:  # only for MIPS Pro compiler
         if patt_ge.search(line) != None:
             line = patt_ge.sub(r".cge.", line)
+
     if patt_if.match(line) != None:
         line = fix_if(line)
     elif patt_logic_ass.match(line) != None:
         line = fix_logic_assignment(line)
+
     if patt_intrinsic.match(line) != None:
         line = fix_intrinsics(line)
+
     if patt_mpi_stuff.search(line) != None:
         line = fix_mpi_stuff(line)
+
     # Assume that this is not needed: CHECK
     # if patt_real_cast.search(line) != None: line = fix_real_cast(line)
     if fudge_format_statement:
@@ -361,24 +380,20 @@ def fix_line(line, implicit_found):
             line = fudge_format(line)
         if patt_write.search(line) != None:
             line = fudge_format(line)
+
     return (line, implicit_found)
 
 
 def fudge_format(line):
     patt_format_F = re.compile(r"(([0-9]*[ \t]*)((?:F|E)[0-9]+\.[0-9]+))", re.IGNORECASE)
     huh = patt_format_F.findall(line)
-    # dbg(line)
-    # dbg("HUH?: \n")
     for i in range(len(huh)):
         try:
             rep = str(2 * int(huh[i][1]))
         except ValueError:
             rep = huh[i][1] + "2"
         line = re.sub(huh[i][0], rep + huh[i][2], line)
-        # dbg(" (%d) " % i)
-        # dbg(huh[i][0] + "->" + rep + huh[i][2])
-    # dbg("\n" + line + "\n")
-    # dbg("END###############\n")
+
     return line
 
 
@@ -413,24 +428,15 @@ def fix_implicit(line):
     return line
 
 
-# No need to fix include anymore
-# def fix_inc(line):
-#    space, quote, file, tail = patt_inc.match(line).group(1,2,3,4)
-#    if file != 'mpif.h': # do not change mpi include file
-#        line = space + 'include ' + quote + 'c_' + file + quote + tail +'\n'
-#    # end if
-#    return line
-
-
 def fix_if(line):
     # fixes the logical expression inside the if assertion
-    # print "_________________________________"
-    # print "Fixing if:"
-    # print '['+line+']'
-    # print "_________________________________"
+    # print("_________________________________")
+    # print("Fixing if:")
+    # print('['+line+']')
+    # print("_________________________________")
 
     preif, ifitself, tmptail = patt_if.match(line).group(1, 2, 3)
-    # print 'tmptail = ' + tmptail
+    # print('tmptail = ' + tmptail)
     tail = tmptail
     assertion = ""
     count = 1
@@ -454,8 +460,7 @@ def fix_logic_assignment(line):
     lhs, equals, rhs = patt_logic_ass.search(line).group(1, 2, 3)
     rhs = re.sub(r"!.*\n", "\n", rhs)  # take out ! style comments
     rhs = fix_logic_expression(rhs[0:-1])  # strip off trailing '\n'
-    # print 'lhs: ' + lhs + '\nequals: ' + equals
-    # print 'rhs: ' + rhs
+
     return lhs + equals + rhs + "\n"
 
 
@@ -472,10 +477,10 @@ def fix_logic_expression(expression):
     # for .eq., .ne., .ge. or ==, /=, >= as necessary.
     #
 
-    # print "_________________________________"
-    # print "\tFixing logic expression:"
-    # print "\t["+expression+"]"
-    # print "_________________________________"
+    # print("_________________________________")
+    # print("\tFixing logic expression:")
+    # print("\t["+expression+"]")
+    # print("_________________________________")
 
     # patt_connective = re.compile('(\s*\.\s*(?:and|or|not|eqv|neqv)\s*\.[ \t]*)', re.IGNORECASE) # ORIGINAL
     patt_connective = re.compile("(\s*\.\s*(?:and|or|not|eqv|neqv)\s*\.\s*(?:&|)\s*(?:\n|))", re.IGNORECASE)
@@ -483,7 +488,7 @@ def fix_logic_expression(expression):
     split_expression = patt_connective.split(expression)
     if len(split_expression) > 1:
         for i in range(len(split_expression)):
-            # print i, "\t["+split_expression[i]+']'
+            # print(i, "\t["+split_expression[i]+']')
             strings = patt_operator.split(split_expression[i])
             if len(strings) == 1:
                 continue  # no operator, no change
@@ -494,12 +499,12 @@ def fix_logic_expression(expression):
             rhs = fix_logic_rhs(rhs)
             split_expression[i] = lhs + operator + rhs
             # end for
-        expression = string.join(split_expression, "")  # don't add spaces
+        expression = "".join(split_expression)  # don't add spaces
     return expression
 
 
 def fix_logic_lhs(lhs):
-    # print 'lhs=' + lhs
+    # print('lhs=' + lhs)
     count = 0
     for i in range(len(lhs)):
         j = len(lhs) - (i + 1)  # start from end
@@ -513,12 +518,12 @@ def fix_logic_lhs(lhs):
             break
     head = lhs[:j]
     expr = lhs[j:]
-    # print 'head=' + head + '\t expr=' + expr
+    # print('head=' + head + '\t expr=' + expr)
     return head + "(" + expr
 
 
 def fix_logic_rhs(rhs):
-    # print 'rhs=' + rhs
+    # print('rhs=' + rhs)
     count = 0
     for i in range(len(rhs)):
         char = rhs[i]
@@ -529,10 +534,8 @@ def fix_logic_rhs(rhs):
         if count == -1:
             i = i - 1
             break
-    # print range(len(rhs)), i
     expr = rhs[: i + 1]
     tail = rhs[i + 1 :]
-    # print 'expr=' + expr + '\t tail=' + tail
     return expr + ")" + tail
 
 
@@ -549,7 +552,7 @@ def fix_intrinsics(line):
     # this next part works only for fixed format files
     patt_char6colB = re.compile(r"\n\s{5,5}\S")
     tmpline = patt_char6colB.sub("", line)  # join lines
-    tmpline = string.strip(tmpline)  # strip away white space
+    tmpline = tmpline.strip()  # strip away white space
     patt_intrinsicB = re.compile(r"^.*intrinsic\b(?:\s*:\s*:)?$", re.IGNORECASE)
     if patt_intrinsicB.match(tmpline):  # then return empty line
         line = "!     Complexify removed intrinsic line here\n"
@@ -573,9 +576,8 @@ def skip_continuation(i, lines):
     is_continuation = 1
     while is_continuation:
         if i >= len(lines):
-            # is_EOF = 1
             break
-        # print 'line',i,len(lines),lines[i]
+
         if patt_comment.match(lines[i]):
             is_continuation = 1  # can delete these
         elif patt_char6col.match(lines[i]):
@@ -590,12 +592,13 @@ def skip_continuation(i, lines):
             is_continuation = 1
         else:
             is_continuation = 0
-        i = i + 1  # i += 1
-    i = i - 1  # i -= 1
+        i = i + 1
+    i = i - 1
     return i
 
 
 use_module_line = "       use complexify \n"
-implicit_complex_line = "\timplicit complex(a-h, o-z) \n"
 
+# use_module_line = " "
+implicit_complex_line = " "
 main()
