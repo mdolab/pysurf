@@ -44,3 +44,4 @@ callgrind*
 *.egg-info
 .coverage
 doc/_build
+src_cs

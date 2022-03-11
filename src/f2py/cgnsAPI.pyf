@@ -1,7 +1,11 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module cgnsAPI ! in 
+#ifdef USE_COMPLEX
+python module cgnsAPI_cs ! in
+#else
+python module cgnsAPI ! in
+#endif
     interface  ! in :cgnsAPI
         module cgnsapi ! in :cgnsAPI:cgnsAPI.F90
             use precision

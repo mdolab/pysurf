@@ -1,7 +1,11 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module utilitiesAPI ! in 
+#ifdef USE_COMPLEX
+python module utilitiesAPI_cs ! in
+#else
+python module utilitiesAPI ! in
+#endif
     interface  ! in :utilitiesAPI
         module utilitiesapi ! in :utilitiesAPI:utilitiesAPI.F90
             use utilities
@@ -28,6 +32,8 @@ python module utilitiesAPI ! in
                 real(kind=realtype) dimension(3,nnewnodes),intent(out),depend(nnewnodes) :: newcoor
                 integer(kind=inttype) dimension(2,nnewnodes - 1),intent(out),depend(nnewnodes) :: newbarsconn
             end subroutine remesh
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
             subroutine remesh_b(nnodes,nelem,nnewnodes,nnewelems,coor,newcoorb,barsconn,method,spacing,initialspacing,finalspacing,newcoor,newbarsconn,coorb) ! in :utilitiesAPI:utilitiesAPI.F90:utilitiesapi
                 use utilities_b, only: remesh_main_b
                 integer(kind=inttype), optional,intent(in),check(shape(coor,1)==nnodes),depend(coor) :: nnodes=shape(coor,1)
@@ -62,6 +68,7 @@ python module utilitiesAPI ! in
                 real(kind=realtype) dimension(3,nnewnodes),intent(out),depend(nnewnodes) :: newcoord
                 integer(kind=inttype) dimension(2,nnewelems),intent(out),depend(nnewelems) :: newbarsconn
             end subroutine remesh_d
+#endif
         end module utilitiesapi
     end interface 
 end python module utilitiesAPI

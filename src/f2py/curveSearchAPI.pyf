@@ -1,7 +1,11 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module curveSearchAPI ! in 
+#ifdef USE_COMPLEX
+python module curveSearchAPI_cs ! in
+#else
+python module curveSearchAPI ! in
+#endif
     interface  ! in :curveSearchAPI
         module curvesearchapi ! in :curveSearchAPI:curveSearchAPI.F90
             use precision
@@ -19,6 +23,8 @@ python module curveSearchAPI ! in
                 integer(kind=inttype) dimension(nxyz),intent(inout),depend(nxyz) :: allelemids
                 integer(kind=inttype) dimension(nxyz),intent(out),depend(nxyz) :: curvemask
             end subroutine mindistancecurve
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
             subroutine mindistancecurve_d(nxyz,ncoor,nbars,xyz,xyzd,coor,coord,barsconn,allprojpoints,allprojpointsd,alltangents,alltangentsd,allelemids,curvemask) ! in :curveSearchAPI:curveSearchAPI.F90:curvesearchapi
                 use curveutils_d
                 integer(kind=inttype), optional,intent(in),check(shape(xyz,1)==nxyz),depend(xyz) :: nxyz=shape(xyz,1)
@@ -53,6 +59,7 @@ python module curveSearchAPI ! in
                 integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: allelemids
                 integer(kind=inttype) dimension(nxyz),intent(in),depend(nxyz) :: curvemask
             end subroutine mindistancecurve_b
+#endif
         end module curvesearchapi
     end interface 
 end python module curveSearchAPI

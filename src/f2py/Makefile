@@ -15,7 +15,7 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 
 LINKER_ALL_FLAGS = -L$(LIBDIR) -ldiscretesurf $(CGNS_LINKER_FLAGS) \
-		    $(PETSC_LINKER_FLAGS) $(LINKER_FLAGS) $(CGNS_LINKER_FLAGS)
+                   $(LINKER_FLAGS) $(CGNS_LINKER_FLAGS)
 
 CGNS_OBJECTS = fortranobject.o \
                cgnsAPImodule.o \
@@ -38,6 +38,15 @@ UTILITIES_OBJECTS = fortranobject.o \
                     utilitiesAPI-f2pywrappers2.o
 
 default: all
+
+complexify:
+	cp get_f2py.py ../../src_cs/f2py
+	python pyf_preprocessor.py complex adtAPI.pyf
+	python pyf_preprocessor.py complex cgnsAPI.pyf
+	python pyf_preprocessor.py complex curveSearchAPI.pyf
+	python pyf_preprocessor.py complex intersectionAPI.pyf
+	python pyf_preprocessor.py complex utilitiesAPI.pyf
+	mv *.pyf.autogen ../../src_cs/f2py
 
 all:
 
