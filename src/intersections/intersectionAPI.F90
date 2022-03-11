@@ -380,6 +380,9 @@ contains
 
   !=============================================
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
   subroutine computeIntersection_b(nNodesA, nTriaA, nQuadsA, &
     nNodesB, nTriaB, nQuadsB, &
     nNodesInt, nBarsInt, &
@@ -908,6 +911,8 @@ contains
 
   !=============================================
 
+#endif
+
   subroutine retrieveData(numCoor, numBarsConn, numParentTria, &
                           coorData, barsConnData, parentTriaData)
 
@@ -978,6 +983,9 @@ contains
   end subroutine releaseMemory
 
   !=============================================
+
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
 
   subroutine testTri(V0, V1, V2, U0, U1, U2, intersect, vecStart, vecEnd)
 
@@ -1068,5 +1076,7 @@ contains
     print *,dotProd
 
   end subroutine testTri
+
+#endif
 
 end module intersectionAPI

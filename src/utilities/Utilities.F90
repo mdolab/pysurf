@@ -665,8 +665,8 @@ subroutine computeBBox(coor, BBox)
   ! EXECUTION
 
   ! Get bounding values
-  BBox(:, 1) = minval(coor, 2)
-  BBox(:, 2) = maxval(coor, 2)
+  BBox(:, 1) = minval(real(coor), 2)
+  BBox(:, 2) = maxval(real(coor), 2)
 
 end subroutine computeBBox
 

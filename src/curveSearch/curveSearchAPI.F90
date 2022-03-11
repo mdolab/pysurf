@@ -128,6 +128,9 @@ contains
   !===========================================================
   !===========================================================
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
   subroutine minDistanceCurve_d(nxyz, nCoor, nBars, &
                                 xyz, xyzd, coor, coord, barsConn, &
                                 allProjPoints, allProjPointsd, &
@@ -317,6 +320,8 @@ contains
     end do
 
   end subroutine minDistanceCurve_b
+
+#endif
 
     !===============================================================
 
