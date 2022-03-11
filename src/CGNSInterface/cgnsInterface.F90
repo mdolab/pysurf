@@ -303,15 +303,9 @@ subroutine readUnstructuredCGNS(cg,allNodes)
   integer(kind=intType) :: elementDataSize, curElement, eCount, nPnts
   real(kind=realType), dimension(:), allocatable :: coorX, coorY, coorZ
   integer(kind=intType), dimension(:), allocatable :: tmpConn
-#ifdef USE_COMPLEX
-  complex(kind=realType), intent(out), dimension(:, :), allocatable, target :: allNodes
-  complex(kind=realType), intent(out), dimension(:, :), allocatable :: localNodes
-  complex(kind=realType), dimension(:,:), pointer :: elemNodes
-#else
   real(kind=realType), dimension(:, :), allocatable, target :: allNodes
   real(kind=realType), dimension(:, :), allocatable :: localNodes
   real(kind=realType), dimension(:,:), pointer :: elemNodes
-#endif
   integer(kind=intType), dimension(:), allocatable :: surfaceNodes, localSurfaceNodes
   integer(kind=intType), dimension(:, :), allocatable :: sizes
 
@@ -394,15 +388,9 @@ subroutine readUnstructuredCGNS(cg,allNodes)
 
         ! Now stack all of the zones in one array
         do i=1, dims(1)
-#ifdef USE_COMPLEX
-           allNodes(1, i+zoneStart) = cmplx(coorX(i), 0.0)
-           allNodes(2, i+zoneStart) = cmplx(coorY(i), 0.0)
-           allNodes(3, i+zoneStart) = cmplx(coorZ(i), 0.0)
-#else
            allNodes(1, i+zoneStart) = coorX(i)
            allNodes(2, i+zoneStart) = coorY(i)
            allNodes(3, i+zoneStart) = coorZ(i)
-#endif
         end do
 
         ! Now loop over the sections in the unstructured file and
