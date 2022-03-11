@@ -32,6 +32,18 @@ FF90_OBJECTS_4 = adtSearch.o
 
 FF90_OBJECTS_5 = adtAPI.o
 
+FILES_TO_COMPLEXIFY = adtData.F90 \
+                      gradD2Hexa.F90 \
+                      hessD2Hexa.F90 \
+                      minD2Hexa.F90 \
+                      newtonStep.F90 \
+                      quadProjDiff.F90 \
+                      adtUtils.F90 \
+                      adtProjections.F90 \
+                      adtBuild.F90 \
+                      adtLocalSearch.F90 \
+                      adtSearch.F90 \
+                      adtAPI.F90
 
 default: all
 
@@ -46,3 +58,13 @@ all:
 clean:
 	@echo "        Making clean in ADT... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
+
+complexify:
+	@for file in $(FILES_TO_COMPLEXIFY); do \
+		if [ $$file -nt ../../src_cs/ADT/$$file -o ! -e ../../src_cs/ADT/$$file ]; then \
+			echo complexifying file $$file; \
+			python ../complexify.py $$file; \
+			mv c_$$file ../../src_cs/ADT/$$file; \
+		fi;\
+		done
+	cp Makefile ../../src_cs/ADT

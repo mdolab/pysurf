@@ -20,6 +20,9 @@ FF90_OBJECTS_1 = Intersection.o \
 FF90_OBJECTS_2 = intersectionAPI.o \
                  test.o
 
+FILES_TO_COMPLEXIFY = Intersection.F90 \
+                      intersectionAPI.F90
+
 default: all
 
 all:
@@ -28,5 +31,15 @@ all:
 	cp -f *.mod $(MODDIR)
 
 clean:
-	@echo "        Making clean in Intersections... "
+	@echo "        Making clean in intersections... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
+
+complexify:
+	@for file in $(FILES_TO_COMPLEXIFY); do \
+		if [ $$file -nt ../../src_cs/intersections/$$file -o ! -e ../../src_cs/intersections/$$file ]; then \
+			echo complexifying file $$file; \
+			python ../complexify.py $$file; \
+			mv c_$$file ../../src_cs/intersections/$$file; \
+		fi;\
+		done
+	cp Makefile ../../src_cs/intersections

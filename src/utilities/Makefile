@@ -15,23 +15,18 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_1 = complexify.o
+FF90_OBJECTS_1 = Utilities.o
 
-FF90_OBJECTS_2 = Utilities.o
+FF90_OBJECTS_2 = utilitiesAPI.o
 
-FF90_OBJECTS_3 = utilitiesAPI.o
-
-FILES_TO_COMPLEXIFY =	Utilities.F90\
-			utilitiesAPI.F90\
-
-FILES_TO_COPY = complexify.f90\
+FILES_TO_COMPLEXIFY = Utilities.F90 \
+                      utilitiesAPI.F90
 
 default: all
 
 all:
 	$(PMAKE) $(FF90_OBJECTS_1)
 	$(PMAKE) $(FF90_OBJECTS_2)
-	$(PMAKE) $(FF90_OBJECTS_3)
 	cp -f *.mod $(MODDIR)
 
 clean:
@@ -44,12 +39,6 @@ complexify:
 			echo complexifying file $$file; \
 			python ../complexify.py $$file; \
 			mv c_$$file ../../src_cs/utilities/$$file; \
-		fi;\
-		done
-	@for file in $(FILES_TO_COPY); do \
-		if [ $$file -nt ../../src_cs/utilities/$$file -o ! -e ../../src_cs/utilities/$$file ]; then \
-			echo copying file $$file; \
-			cp $$file ../../src_cs/utilities/$$file; \
 		fi;\
 		done
 	cp Makefile ../../src_cs/utilities
