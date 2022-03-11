@@ -1,8 +1,9 @@
 # gitignore for pysurf
 
-# config file
+# config files
 config/config.mk
 config.mk
+common.mk
 
 # for mac users
 *.DS_Store

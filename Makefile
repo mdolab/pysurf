@@ -49,6 +49,7 @@ discretesurf:
 	mkdir -p obj
 	mkdir -p mod
 	ln -sf config/config.mk config.mk
+	ln -sf common_real.mk common.mk
 	@for subdir in $(SUBDIR_SRC) ; \
 		do \
 			echo "making $@ in $$subdir"; \

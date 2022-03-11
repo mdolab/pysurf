@@ -18,20 +18,16 @@ vpath %.o $(OBJDIR)
 FF90_OBJECTS_1 = precision.o
 
 FF90_OBJECTS_2 = communication.o \
-	         constants.o
+                 constants.o
 
 
 default: all
 
 all:
-	$(PMAKE)  src1
-	$(PMAKE)  src2
+	$(PMAKE) $(FF90_OBJECTS_1)
+	$(PMAKE) $(FF90_OBJECTS_2)
 	cp -f *.mod $(MODDIR)
 
 clean:
 	@echo "        Making clean in common... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
-
-src1:	$(FF90_OBJECTS_1)
-
-src2:	$(FF90_OBJECTS_2)

@@ -25,17 +25,11 @@ FF90_OBJECTS_3 = cgnsAPI.o
 default: all
 
 all:
-	$(PMAKE)  src1
-	$(PMAKE)  src2
-	$(PMAKE)  src3
+	$(PMAKE) $(FF90_OBJECTS_1)
+	$(PMAKE) $(FF90_OBJECTS_2)
+	$(PMAKE) $(FF90_OBJECTS_3)
 	cp -f *.mod $(MODDIR)
 
 clean:
 	@echo "        Making clean in CGNSInterface... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
-
-src1:	$(FF90_OBJECTS_1)
-
-src2:	$(FF90_OBJECTS_2)
-
-src3:	$(FF90_OBJECTS_3)

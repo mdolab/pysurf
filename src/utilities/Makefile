@@ -15,11 +15,11 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_0 = complexify.o \
+FF90_OBJECTS_1 = complexify.o
 
-FF90_OBJECTS_1 = Utilities.o \
+FF90_OBJECTS_2 = Utilities.o
 
-FF90_OBJECTS_2 = utilitiesAPI.o \
+FF90_OBJECTS_3 = utilitiesAPI.o
 
 FILES_TO_COMPLEXIFY =	Utilities.F90\
 			utilitiesAPI.F90\
@@ -29,9 +29,9 @@ FILES_TO_COPY = complexify.f90\
 default: all
 
 all:
-	$(PMAKE)  src0
-	$(PMAKE)  src1
-	$(PMAKE)  src2
+	$(PMAKE) $(FF90_OBJECTS_1)
+	$(PMAKE) $(FF90_OBJECTS_2)
+	$(PMAKE) $(FF90_OBJECTS_3)
 	cp -f *.mod $(MODDIR)
 
 clean:
@@ -53,8 +53,3 @@ complexify:
 		fi;\
 		done
 	cp Makefile ../../src_cs/utilities
-
-
-src0: $(FF90_OBJECTS_0)
-src1:	$(FF90_OBJECTS_1)
-src2:	$(FF90_OBJECTS_2)

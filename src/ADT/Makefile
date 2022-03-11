@@ -16,17 +16,17 @@ include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
 FF90_OBJECTS_1 = adtData.o\
-	         gradD2Hexa.o\
-	         hessD2Hexa.o\
-	         minD2Hexa.o\
-	         newtonStep.o\
-		 quadProjDiff.o
+                 gradD2Hexa.o\
+                 hessD2Hexa.o\
+                 minD2Hexa.o\
+                 newtonStep.o\
+                 quadProjDiff.o
 
 FF90_OBJECTS_2 = adtUtils.o \
                  adtProjections.o
 
 FF90_OBJECTS_3 = adtBuild.o\
-	         adtLocalSearch.o
+                 adtLocalSearch.o
 
 FF90_OBJECTS_4 = adtSearch.o
 
@@ -36,23 +36,13 @@ FF90_OBJECTS_5 = adtAPI.o
 default: all
 
 all:
-	$(PMAKE)  src1
-	$(PMAKE)  src2
-	$(PMAKE)  src3
-	$(PMAKE)  src4
-	$(PMAKE)  src5
+	$(PMAKE) $(FF90_OBJECTS_1)
+	$(PMAKE) $(FF90_OBJECTS_2)
+	$(PMAKE) $(FF90_OBJECTS_3)
+	$(PMAKE) $(FF90_OBJECTS_4)
+	$(PMAKE) $(FF90_OBJECTS_5)
 	cp -f *.mod $(MODDIR)
 
 clean:
 	@echo "        Making clean in ADT... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
-
-src1:	$(FF90_OBJECTS_1)
-
-src2:	$(FF90_OBJECTS_2)
-
-src3:	$(FF90_OBJECTS_3)
-
-src4:	$(FF90_OBJECTS_4)
-
-src5:	$(FF90_OBJECTS_5)

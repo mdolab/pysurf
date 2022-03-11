@@ -22,14 +22,11 @@ FF90_OBJECTS_2 = curveSearchAPI.o
 default: all
 
 all:
-	$(PMAKE)  src1
-	$(PMAKE)  src2
+	$(PMAKE) $(FF90_OBJECTS_1)
+	$(PMAKE) $(FF90_OBJECTS_2)
 	cp -f *.mod $(MODDIR)
 
 clean:
 	@echo "        Making clean in curveSearch... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
 
-src1:	$(FF90_OBJECTS_1)
-
-src2:	$(FF90_OBJECTS_2)
