@@ -1,7 +1,7 @@
-import numpy as np
-from . import cgnsAPI, adtAPI, intersectionAPI
 from mpi4py import MPI
-from . import tsurf_component, tecplot_interface
+import numpy as np
+from scipy.optimize import minimize, broyden1
+from . import adtAPI, cgnsAPI, intersectionAPI, tecplot_interface, tsurf_component
 
 """
 TODO:
@@ -1857,18 +1857,14 @@ def hypTanDist(Sp1, Sp2, N):
     #
     # Ney Secco 2016-11
 
-    # IMPORTS
-    from numpy import arange, sqrt, sinh, tanh
-    from scipy.optimize import broyden1
-
     # Check existence of result
-    if (N - 1) * sqrt(Sp1 * Sp2) < 1:
+    if (N - 1) * np.sqrt(Sp1 * Sp2) < 1:
         print("Hyperbolic distribution not possible")
         # exit()
 
     # First find b
     def findRootb(b):
-        return sinh(b) - b / (N - 1) / sqrt(Sp1 * Sp2)
+        return np.sinh(b) - b / (N - 1) / np.sqrt(Sp1 * Sp2)
 
     b = broyden1(findRootb, 20, f_tol=1e-10)
 
@@ -1883,16 +1879,16 @@ def hypTanDist(Sp1, Sp2, N):
     #         break
 
     # Compute parameter A
-    A = sqrt(Sp1 / Sp2)
+    A = np.sqrt(Sp1 / Sp2)
 
     # Create nodes indices
-    index = arange(N) + 1
+    index = np.arange(N) + 1
 
     # Compute parameter R
     R = (index - 1) / (N - 1) - 1 / 2
 
     # Compute parameter U
-    U = 1 + tanh(b * R) / tanh(b / 2)
+    U = 1 + np.tanh(b * R) / np.tanh(b / 2)
 
     # Compute spacings
     S = U / (2 * A + (1 - A) * U)
@@ -1919,14 +1915,6 @@ def tanDist(Sp1, Sp2, N):
     #
     # Ney Secco 2016-11
 
-    # IMPORTS
-    from numpy import tan, arange, pi
-
-    try:
-        from scipy.optimize import minimize
-    except ImportError:
-        print("ERROR: Scipy not available")
-
     # Convert number of nodes to number of cells
     N = N - 1
 
@@ -1939,9 +1927,9 @@ def tanDist(Sp1, Sp2, N):
         # Find b
         b = e - c
         # Equations
-        Eq1 = a * (tan(b + c) - tan(c)) - 1
-        Eq2 = a * (tan(b / N + c) - tan(c)) - Sp1
-        Eq3 = a * (tan(b + c) - tan(b * (1 - 1 / N) + c)) - Sp2
+        Eq1 = a * (np.tan(b + c) - np.tan(c)) - 1
+        Eq2 = a * (np.tan(b / N + c) - np.tan(c)) - Sp1
+        Eq3 = a * (np.tan(b + c) - np.tan(b * (1 - 1 / N) + c)) - Sp2
         # Cost function
         J = Eq1 ** 2 + Eq2 ** 2 + Eq3 ** 2
         # Return
@@ -1949,14 +1937,14 @@ def tanDist(Sp1, Sp2, N):
 
     # Define bounds for the problem
     a_bounds = [(0, None)]
-    e_bounds = [(0, pi / 2)]
-    c_bounds = [(-pi / 2, 0)]
+    e_bounds = [(0, np.pi / 2)]
+    c_bounds = [(-np.pi / 2, 0)]
     bounds = a_bounds + e_bounds + c_bounds
 
     # Define initial guess
     a_start = 1.0
-    e_start = pi / 4
-    c_start = -pi / 4
+    e_start = np.pi / 4
+    c_start = -np.pi / 4
     x_start = [a_start, e_start, c_start]
 
     # Optimize
@@ -1971,11 +1959,11 @@ def tanDist(Sp1, Sp2, N):
 
     # Find other parameters
     b = e - c
-    d = -a * tan(c)
+    d = -a * np.tan(c)
 
     # Generate spacing
-    index = arange(N + 1)
-    S = a * tan(b * index / N + c) + d
+    index = np.arange(N + 1)
+    S = a * np.tan(b * index / N + c) + d
 
     # Return spacing
     return S
@@ -1994,25 +1982,21 @@ def cubicDist(Sp1, Sp2, N):
     #
     # Ney Secco 2016-11
 
-    # IMPORTS
-    from numpy import array, arange
-    from numpy.linalg import inv
-
     # Convert number of nodes to number of cells
     N = N - 1
 
     # Assemble linear system matrix
-    A = array([[1, 1, 1], [(1 / N) ** 3, (1 / N) ** 2, (1 / N)], [(1 - 1 / N) ** 3, (1 - 1 / N) ** 2, (1 - 1 / N)]])
-    b = array([1, Sp1, 1 - Sp2])
+    A = np.array([[1, 1, 1], [(1 / N) ** 3, (1 / N) ** 2, (1 / N)], [(1 - 1 / N) ** 3, (1 - 1 / N) ** 2, (1 - 1 / N)]])
+    rhs = np.array([1, Sp1, 1 - Sp2])
 
     # Solve the linear system
-    x = inv(A).dot(b)
+    x = np.linalg.solve(A, rhs)
     a = x[0]
     b = x[1]
     c = x[2]
 
     # Generate spacing
-    index = arange(N + 1) / N
+    index = np.arange(N + 1) / N
     S = a * index ** 3 + b * index ** 2 + c * index
 
     # Return spacing
