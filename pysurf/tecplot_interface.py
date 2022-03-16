@@ -1,4 +1,3 @@
-# IMPORTS
 import numpy as np
 
 
@@ -40,9 +39,6 @@ def readTecplotFEdata(fileName):
     # This script will read sections from a Tecplot FE file
     # FOR NOW THIS JUST READS BAR FE FILES FOR THE CURVE FUNCTIONS
 
-    # IMPORTS
-    from numpy import array
-
     # Initialize list that will hold node and connectivity data for each slice
     sectionName = []
     sectionData = []
@@ -77,8 +73,8 @@ def readTecplotFEdata(fileName):
 
             # Save data from previous section
             if sectionID >= 0:  # Only if we have a previous section...
-                sectionData.append(array(currData))  # noqa: F821
-                sectionConn.append(array(currConn))  # noqa: F821
+                sectionData.append(np.array(currData))  # noqa: F821
+                sectionConn.append(np.array(currConn))  # noqa: F821
 
             # Increment section counter
             sectionID = sectionID + 1
@@ -108,8 +104,8 @@ def readTecplotFEdata(fileName):
                 pass
 
     # Append the last section
-    sectionData.append(array(currData))
-    sectionConn.append(array(currConn))
+    sectionData.append(np.array(currData))
+    sectionConn.append(np.array(currConn))
 
     # RETURNS
     return sectionName, sectionData, sectionConn
