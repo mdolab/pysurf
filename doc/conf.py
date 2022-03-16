@@ -21,4 +21,4 @@ extensions.extend(["numpydoc"])
 numpydoc_show_class_members = False
 
 # mock import for autodoc
-autodoc_mock_imports = ["numpy", "mpi4py", "scipy", "cgnsutilities", "pysurf", "geomach_geometry", "GeoMACH"]
+autodoc_mock_imports = ["numpy", "mpi4py", "scipy"]
