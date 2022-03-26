@@ -1,12 +1,11 @@
-import os
-import numpy as np
-from mpi4py import MPI
-from .baseClasses import Geometry, Curve
-from . import tecplot_interface
-from . import utilitiesAPI, curveSearchAPI
-from . import tsurf_tools as tst
-from . import adtAPI
 import copy
+import os
+from mpi4py import MPI
+import numpy as np
+from scipy.interpolate import interp1d
+from .baseClasses import Geometry, Curve
+from . import adtAPI, curveSearchAPI, utilitiesAPI, tecplot_interface
+from . import tsurf_tools as tst
 
 fortran_flag = True
 
@@ -1550,9 +1549,6 @@ class TSurfCurve(Curve):
             # INTERPOLATE NEW NODES
 
             # Now we sample the new coordinates based on the interpolation method given by the user
-
-            # Import interpolation function
-            from scipy.interpolate import interp1d
 
             # Create interpolants for x, y, and z
             fX = interp1d(arcLength, nodeCoor[:, 0], kind=method)
