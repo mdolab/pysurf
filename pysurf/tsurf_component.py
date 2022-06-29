@@ -1446,23 +1446,6 @@ class TSurfCurve(Curve):
         newCoord = newCoord.T
         newBarsConn = newBarsConn.T - 1
 
-        # DO A LOCAL FD TEST
-        stepSize = 1e-7
-        coord = coord / np.sqrt(np.sum(coor**2))
-        coor = coor + coord * stepSize
-
-        # Call Fortran code. Remember to adjust transposes and indices
-        newCoorf, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-        )
-
-        # Transpose results coming out of Fortran
-        newCoorf = newCoorf.T
-
-        newCoord_FD = (newCoorf - newCoor) / stepSize
-        print("FD test @ remesh_d")
-        print(np.max(np.abs(newCoord_FD - newCoord)))
-
         # Adjust seeds if curve is periodic
         if periodic:
             newCoord[0, :] = 0.5 * (newCoord[0, :] + newCoord[-1, :])
@@ -2013,7 +1996,7 @@ class TSurfCurve(Curve):
 
         """
         We will just return the nodes that define the curve.
-        If the user wants another set of points, then he should use self.remesh first.
+        Use self.remesh first if you want a different set of points.
         """
 
         # Get the number of elements
@@ -2035,8 +2018,7 @@ class TSurfCurve(Curve):
     def set_points(self, pts):
 
         """
-        We will just return the nodes that define the curve.
-        If the user wants another set of points, then he should use self.remesh first.
+        We will just set the nodes that define the curve.
         """
 
         # Get the number of elements
