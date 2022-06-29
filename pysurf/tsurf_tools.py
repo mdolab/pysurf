@@ -619,7 +619,7 @@ def merge_surface_sections(sectionDict, selectedSections):
 # =================================================================
 
 
-def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
+def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7, dtype=float):
 
     """
     This function will generate a curve object from a list
@@ -665,7 +665,7 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
         np.vstack([barsConn, newBar])
 
     # Create curve object
-    curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol)
+    curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol, dtype)
 
     # Return curve object
     return curve
@@ -1632,7 +1632,7 @@ def remove_unused_points(coor, triaConnF=None, quadsConnF=None, barsConn=None):
     nUsedPts = np.sum(usedPtsMask)
 
     # Initialize new coordinate array
-    cropCoor = np.zeros((nUsedPts, 3))
+    cropCoor = np.zeros((nUsedPts, 3), dtype=coor.dtype)
 
     # Initialize counter to fill cropCoor
     cropPointID = -1

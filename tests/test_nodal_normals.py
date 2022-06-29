@@ -19,7 +19,7 @@ class TestNodalNormals(unittest.TestCase):
         triaConn = np.array([[1, 2, 3], [2, 4, 3]], order="F").T
         quadsConn = np.array([[2, 5, 6, 4]], order="F").T
 
-        # Define perturbations
+        # Define step sizes
         stepSize_FD = 1e-7
         stepSize_CS = 1e-200
 

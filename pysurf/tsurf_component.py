@@ -4,6 +4,7 @@ from mpi4py import MPI
 import numpy as np
 from .baseClasses import Geometry, Curve
 from . import adtAPI, curveSearchAPI, utilitiesAPI, tecplot_interface
+from . import adtAPI_cs, curveSearchAPI_cs, utilitiesAPI_cs
 from . import tsurf_tools as tst
 
 
@@ -1027,13 +1028,15 @@ class TSurfCurve(Curve):
 
     """
 
-    def __init__(self, coor, barsConn, name, mergeTol=1e-7):
+    def __init__(self, coor, barsConn, name, mergeTol=1e-7, dtype=float):
 
         # Initialize the base classs
         super().__init__()
 
-        # Define nodal coordinates as floats so Fortran recognizes them
-        coor = np.array(coor, dtype=float)
+        self.dtype = dtype
+
+        # Define nodal coordinates as float or complex so Fortran recognizes them
+        coor = np.array(coor, dtype=dtype)
 
         # Define bar connectivities as integers so Fortran recognizes them
         barsConn = np.array(barsConn, dtype=np.int32)
@@ -1045,7 +1048,10 @@ class TSurfCurve(Curve):
         barsConnF = (
             barsConn.T + 1
         )  # Adjust indices since Fortran is 1-based (we need to do this separately as Fortran changes it)
-        nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
+        if self.dtype == float:
+            nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
+        elif self.dtype == complex:
+            nUniqueNodes, linkOld2New = utilitiesAPI_cs.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
 
         # Readjust back to Python indexing
         linkOld2New = linkOld2New - 1
@@ -1371,9 +1377,15 @@ class TSurfCurve(Curve):
             nNewNodes = nNodes
 
         # Call Fortran code. Remember to adjust transposes and indices
-        newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-        )
+        if self.dtype == float:
+            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
+                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
+            )
+        elif self.dtype == complex:
+            newCoor, newBarsConn = utilitiesAPI_cs.utilitiesapi.remesh(
+                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
+            )
+
         newCoor = newCoor.T
         newBarsConn = newBarsConn.T - 1
 
@@ -1387,7 +1399,7 @@ class TSurfCurve(Curve):
 
         # Create a new curve object and return it
         # This way the original curve coordinates and connectivities remain the same
-        newCurve = TSurfCurve(newCoor, newBarsConn, newCurveName)
+        newCurve = TSurfCurve(newCoor, newBarsConn, newCurveName, dtype=self.dtype)
 
         return newCurve
 
@@ -1997,7 +2009,7 @@ class TSurfCurve(Curve):
         numElems = self.barsConn.shape[0]
 
         # Initialize coordinates matrix
-        pts = np.zeros((numElems + 1, 3))
+        pts = np.zeros((numElems + 1, 3), dtype=self.dtype)
 
         # Get the last point
         pts[-1, :] = self.coor[self.barsConn[-1, -1], :]
