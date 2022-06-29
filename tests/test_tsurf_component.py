@@ -121,17 +121,17 @@ class TestTSurfProjection(unittest.TestCase):
 
         # Set random AD seeds
         xyzd = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        xyzd = xyzd / np.sqrt(np.sum(xyzd ** 2))
+        xyzd = xyzd / np.sqrt(np.sum(xyzd**2))
 
         coord = np.array(np.random.rand(cube.coor.shape[0], cube.coor.shape[1]))
-        coord = coord / np.sqrt(np.sum(coord ** 2))
+        coord = coord / np.sqrt(np.sum(coord**2))
 
         allCoord = {}
         for curveName in cube.curves:
             # Get curve coordinate size
             coor = cube.curves[curveName].get_points()
             curveCoord = np.array(np.random.rand(coor.shape[0], coor.shape[1]))
-            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord ** 2))
+            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord**2))
 
         xyzProjb = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
         normProjb = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))

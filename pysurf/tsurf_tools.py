@@ -1931,7 +1931,7 @@ def tanDist(Sp1, Sp2, N):
         Eq2 = a * (np.tan(b / N + c) - np.tan(c)) - Sp1
         Eq3 = a * (np.tan(b + c) - np.tan(b * (1 - 1 / N) + c)) - Sp2
         # Cost function
-        J = Eq1 ** 2 + Eq2 ** 2 + Eq3 ** 2
+        J = Eq1**2 + Eq2**2 + Eq3**2
         # Return
         return J
 
@@ -1997,7 +1997,7 @@ def cubicDist(Sp1, Sp2, N):
 
     # Generate spacing
     index = np.arange(N + 1) / N
-    S = a * index ** 3 + b * index ** 2 + c * index
+    S = a * index**3 + b * index**2 + c * index
 
     # Return spacing
     return S
@@ -2123,7 +2123,7 @@ def normalize(vec):
     """
 
     # STEP 1: compute sum of squares
-    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms = np.array([np.sum(vec**2, axis=1)]).T
 
     # STEP 2: compute norms
     vecNorms = np.sqrt(vecNorms)
@@ -2144,7 +2144,7 @@ def normalize_d(vec, vecd):
     """
 
     # STEP 1_d
-    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms = np.array([np.sum(vec**2, axis=1)]).T
     vecNormsd = np.array([np.sum(2 * vec * vecd, axis=1)]).T
 
     # STEP 2_d
@@ -2153,7 +2153,7 @@ def normalize_d(vec, vecd):
 
     # STEP 3_d
     normalVec = vec / vecNorms
-    normalVecd = vecd / vecNorms - vec * vecNormsd / vecNorms ** 2
+    normalVecd = vecd / vecNorms - vec * vecNormsd / vecNorms**2
 
     return normalVec, normalVecd
 
@@ -2168,7 +2168,7 @@ def normalize_b(vec, normalVecb):
     """
 
     # STEP 1
-    vecNorms1 = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms1 = np.array([np.sum(vec**2, axis=1)]).T
 
     # STEP 2
     vecNorms2 = np.sqrt(vecNorms1)
