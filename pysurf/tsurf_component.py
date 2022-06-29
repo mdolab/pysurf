@@ -1310,10 +1310,8 @@ class TSurfCurve(Curve):
     def remesh(self, nNewNodes=None, method="linear", spacing="linear", initialSpacing=0.1, finalSpacing=0.1):
 
         """
-        This function will redistribute the nodes along the curve to get
-        better spacing among the nodes.
+        This function will redistribute the nodes along the curve to get better spacing among the nodes.
         This assumes that the FE data is ordered.
-
         The first and last nodes will remain at the same place.
 
         Consider using self.shift_end_nodes first so you can preserve the start and end points
@@ -1322,28 +1320,24 @@ class TSurfCurve(Curve):
         Parameters
         ----------
 
-        nNewNodes: integer
+        nNewNodes : integer
             Number of new nodes desired in the new curve definition.
 
-        method: string
+        method : string, optional
             Method used to interpolate new nodes with respect to
             existing ones. Check scipy.interpolate.interp1d for options.
 
-        spacing: string
+        spacing : string, optional
             Desired spacing criteria for new nodes.
-            Current options are:['linear', 'cosine', 'hypTan', 'tangent']
+            Current options are: ['linear', 'cosine', 'hypTan', 'tangent']
 
-        initialSpacing: float
-            Desired distance between the first and second nodes. Only
-            used by 'hypTan' and 'tangent'.
-        finalSpacing: float
-            Desired distance between the last two nodes. Only
-            used by 'hypTan' and 'tangent'.
-        guideCurves: list of strings
-            Curves to snap nodes to.
-            Especially useful for blunt trailing edges. (removed since it was not differentiated)
-        ref_geom: geometry object
-            Container with the data for each curve used in guideCurves. (removed since it was not differentiated)
+        initialSpacing : float
+            Desired distance between the first and second nodes.
+            Only used by 'hypTan' and 'tangent'.
+
+        finalSpacing : float
+            Desired distance between the last two nodes.
+            Only used by 'hypTan' and 'tangent'.
 
         Returns
         -------
