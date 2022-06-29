@@ -27,7 +27,9 @@ default:
 	echo " ";\
 	echo "Modify this config file as required. With the config file "; \
 	echo "specified, rerun 'make' and the build will start."; \
-	else make discretesurf;\
+	else \
+		make discretesurf; \
+		make -f Makefile_CS discretesurf; \
 	fi;
 
 clean:
@@ -43,6 +45,8 @@ clean:
 	rm -f *~ config.mk;
 	rm -f lib/lib* mod/* obj/*
 	(cd pysurf && rm *.so) || exit 1;
+
+	make -f Makefile_CS clean
 
 discretesurf:
 	mkdir -p obj
