@@ -23,11 +23,10 @@ default:
 	echo "config/defaults/ directory to the config/ directory and  "; \
 	echo "rename to config.mk. For example:"; \
 	echo " ";\
-	echo "  cp config/defaults/config.LINUX_INTEL_OPENMPI.mk config/config.mk"; \
+	echo "  cp config/defaults/config_LINUX_GFORTRAN.mk config/config.mk"; \
 	echo " ";\
-	echo "The modify this config file as required. Typically the CGNS directory "; \
-	echo "will have to be modified. With the config file specified, rerun "; \
-	echo "'make' and the build will start"; \
+	echo "Modify this config file as required. With the config file "; \
+	echo "specified, rerun 'make' and the build will start."; \
 	else make discretesurf;\
 	fi;
 
