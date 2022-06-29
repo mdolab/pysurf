@@ -480,7 +480,7 @@ class Curve(object):
     self.comm : MPI communicator.
     """
 
-    def __init__(self, *arg, **kwargs):
+    def __init__(self):
         """
         Call the initialization method defined in each
         child class
@@ -488,11 +488,9 @@ class Curve(object):
         # Initialize dictionary to hold extra information
         self.extra_data = {}
 
-        self._initialize(*arg)
-
         # Initialize important extra data fields
-        self.extra_data["parentGeoms"] = None  # This will be used by the manager to indentify intersections meshes
-        self.extra_data["childMeshes"] = None  # This will be used by the manager to indentify collar meshes
+        self.extra_data["parentGeoms"] = None  # This will be used by the manager to identify intersections meshes
+        self.extra_data["childMeshes"] = None  # This will be used by the manager to identify collar meshes
 
     def get_points(self):
         """

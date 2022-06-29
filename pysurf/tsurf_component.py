@@ -1046,76 +1046,35 @@ class TSurfGeometry(Geometry):
 class TSurfCurve(Curve):
 
     """
-    This is a derived class from the parent Curve class defined in
-    baseClasses.py
+    This is a TSurf Curve object, which uses finite element data to represent curves.
+    This is a derived class from the parent Curve class defined in baseClasses.py.
+
+    Parameters
+    ----------
+    name : string
+        Curve name
+
+    coor : array[nNodes,3],dtype='float'
+        Nodal X,Y,Z coordinates.
+
+    barsConn : array[nBars,2],dtype='int32'
+        Element connectivity matrix.
+
+    mergeTol : float, optional
+        Tolerance to merge nodes.
+
     """
 
-    def _initialize(self, *arg):  # ,coor, barsConn, name, mergeTol=1e-2):
+    def __init__(self, coor, barsConn, name, mergeTol=1e-7):
 
-        """
-        This method initializes a TSurf Curve object, which uses finite element
-        data to represent curves.
-        This method will be called by the __init__ method of the parent Curve class
+        # Initialize base classs
+        super().__init__()
 
-        Parameters
-        ----------
-        name: string
-            Curve name
+        # Define nodal coordinates as floats so Fortran recognizes them
+        coor = np.array(coor, dtype=float)
 
-        coor : array[nNodes,3],dtype='float'
-            Nodal X,Y,Z coordinates.
-
-        barsConn : array[nBars,2],dtype='int32'
-            Element connectivity matrix.
-
-        mergeTol: float, optional
-            Tolerance to merge nodes.
-
-        John Jasa 2016-08
-        Ney Secco 2016-08
-        """
-
-        # Optional inputs
-        mergeTol = 1e-7
-
-        # Parse inputs
-        for currArg in arg:
-
-            if type(currArg) == str:
-                # This is probably the name!
-                name = currArg
-
-            elif type(currArg) == np.ndarray:
-                # This is an array.
-                # We still need to figure out if we have coordinates or
-                # bar connectivities
-
-                # Get dimension of the current array
-                dim = currArg.shape[1]
-
-                if dim == 3:
-                    # We have nodal coordinates. We need to make sure they
-                    # are defined as floats, otherwise Fortran will not recognize them.
-                    coor = np.array(currArg, dtype=float)
-
-                elif dim == 2:
-                    # We have bar connectivities. We need to make sure they
-                    # are defined as integers, otherwise Fortran will not recognize them.
-                    barsConn = np.array(currArg, dtype=np.int32)
-
-                else:
-                    print(" ERROR: Could not recognize array inputs when initializing TSurfCurve.")
-                    print(" Please provide an [n x 3] array with nodal coordinates and an")
-                    print(" [m x 2] array for bar connectivities.")
-                    quit()
-
-            elif type(currArg) == float:
-                # This is probably mergeTol
-                mergeTol = currArg
-
-            else:
-                print(" ERROR: Could not recognize inputs when initializing TSurfCurve.")
-                quit()
+        # Define bar connectivities as integers so Fortran recognizes them
+        barsConn = np.array(barsConn, dtype=np.int32)
 
         # Remove unused points (This will update and barsConn)
         coor, usedPtsMask = tst.remove_unused_points(coor, barsConn=barsConn)
@@ -1472,7 +1431,7 @@ class TSurfCurve(Curve):
 
         # Create a new curve object and return it
         # This way the original curve coordinates and connectivities remain the same
-        newCurve = TSurfCurve(newCurveName, newCoor, newBarsConn)
+        newCurve = TSurfCurve(newCoor, newBarsConn, newCurveName)
 
         return newCurve
 
