@@ -2,12 +2,9 @@ import copy
 import os
 from mpi4py import MPI
 import numpy as np
-from scipy.interpolate import interp1d
 from .baseClasses import Geometry, Curve
 from . import adtAPI, curveSearchAPI, utilitiesAPI, tecplot_interface
 from . import tsurf_tools as tst
-
-fortran_flag = True
 
 
 class TSurfGeometry(Geometry):
@@ -986,7 +983,7 @@ class TSurfGeometry(Geometry):
         if mode == "forward" or mode == "both":
 
             coord = np.random.random_sample(self.coor.shape)
-            coord = coord / np.sqrt(np.sum(coord ** 2))
+            coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
 
             curveCoord = {}
@@ -998,7 +995,7 @@ class TSurfGeometry(Geometry):
         if mode == "reverse" or mode == "both":
 
             coorb = np.random.random_sample(self.coor.shape)
-            coorb = coorb / np.sqrt(np.sum(coorb ** 2))
+            coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
 
             curveCoorb = {}
@@ -1458,139 +1455,12 @@ class TSurfCurve(Curve):
         if nNewNodes is None:
             nNewNodes = nNodes
 
-        if fortran_flag:
-
-            # Call Fortran code. Remember to adjust transposes and indices
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-            )
-            newCoor = newCoor.T
-            newBarsConn = newBarsConn.T - 1
-
-        else:
-
-            # CHECKING INPUTS
-
-            # First we check if the FE data is ordered
-            for elemID in range(1, nElem):
-
-                # Get node indices
-                prevNodeID = barsConn[elemID - 1, 1]
-                currNodeID = barsConn[elemID, 0]
-
-                # Check if the FE data is ordered
-                if prevNodeID != currNodeID:
-
-                    # Print warning
-                    print("WARNING: Could not remesh curve because it has unordered FE data.")
-                    print("         Call FEsort first.")
-                    return
-
-            # COMPUTE ARC-LENGTH
-
-            # We can proceed if FE data is ordered
-
-            # Initialize an array that will store the arclength of each node.
-            # That is, the distance, along the curve from the current node to
-            # the first node of the curve.
-            arcLength = np.zeros(nNodes)
-
-            # Also initialize an array to store nodal coordinates in the curve order
-            nodeCoor = np.zeros((nNodes, 3))
-
-            # Store position of the first node (the other nodes will be covered in the loop)
-            # (the -1 is due Fortran indexing)
-            nodeCoor[0, :] = coor[barsConn[0, 0], :]
-
-            # Loop over each element to increment arcLength
-            for elemID in range(nElem):
-
-                # Get node positions
-                node1 = coor[barsConn[elemID, 0], :]
-                node2 = coor[barsConn[elemID, 1], :]
-
-                # Compute distance between nodes
-                dist = np.linalg.norm(node1 - node2)
-
-                # Store nodal arc-length
-                arcLength[elemID + 1] = arcLength[elemID] + dist
-
-                # Store coordinates of the next node
-                nodeCoor[elemID + 1, :] = node2
-
-            # SAMPLING POSITION FOR NEW NODES
-
-            # The arcLength will be used as our parametric coordinate to sample the new nodes.
-
-            # First we will initialize arrays for the new coordinates and arclengths
-            # newNodeCoor = np.zeros((3, nNewNodes), order='F') #3change here
-            newNodeCoor = np.zeros((nNewNodes, 3))
-            newArcLength = np.zeros(nNewNodes)
-
-            # Now that we know the initial and final arcLength, we can redistribute the
-            # parametric coordinates based on the used defined spacing criteria.
-            # These statements should initially create parametric coordinates in the interval
-            # [0.0, 1.0]. We will rescale it after the if statements.
-            if spacing.lower() == "linear":
-                newArcLength = np.linspace(0.0, 1.0, nNewNodes)
-
-            elif spacing.lower() == "cosine":
-                newArcLength = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
-
-            elif spacing.lower() == "hyptan":
-                newArcLength = tst.hypTanDist(initialSpacing / arcLength[-1], finalSpacing / arcLength[-1], nNewNodes)
-
-            elif spacing.lower() == "tangent":
-                newArcLength = tst.tanDist(initialSpacing / arcLength[-1], finalSpacing / arcLength[-1], nNewNodes)
-
-            # Rescale newArcLength based on the final distance
-            newArcLength = arcLength[-1] * newArcLength
-
-            # INTERPOLATE NEW NODES
-
-            # Now we sample the new coordinates based on the interpolation method given by the user
-
-            # Create interpolants for x, y, and z
-            fX = interp1d(arcLength, nodeCoor[:, 0], kind=method)
-            fY = interp1d(arcLength, nodeCoor[:, 1], kind=method)
-            fZ = interp1d(arcLength, nodeCoor[:, 2], kind=method)
-
-            # Sample new points using the interpolation functions
-            newNodeCoor[:, 0] = fX(newArcLength)
-            newNodeCoor[:, 1] = fY(newArcLength)
-            newNodeCoor[:, 2] = fZ(newArcLength)
-
-            """
-            # The next commands are to snap a point to guide curves. Since this was not differentiated
-            # and also not added to the Fortran code, I'll leave this commented until future use.
-
-            # If you want to use this, you should include guideCurves=[] and ref_geom=None
-            # as arguments to this function.
-
-            guideIndices = []
-            for curve in guideCurves:
-                guideCurve = ref_geom.curves[curve].extract_points()
-                guideIndices.append(closest_node(guideCurve, newNodeCoor.T))
-
-            if guideIndices:
-                for i, index in enumerate(guideIndices):
-                    curve = guideCurves[i]
-                    node = newNodeCoor[:, index]
-                    newNodeCoor[:, index], _, __ = ref_geom.project_on_curve((node.reshape(1, 3)), curveCandidates=[curve])
-            """
-
-            # ASSIGN NEW COORDINATES AND CONNECTIVITIES
-
-            # Set new nodes
-            newCoor = newNodeCoor
-
-            # Generate new connectivity (the nodes are already in order so we just
-            # need to assign an ordered set to barsConn).
-            barsConn = np.zeros((nNewNodes - 1, 2), dtype="int32")
-            barsConn[:, 0] = list(range(0, nNewNodes - 1))
-            barsConn[:, 1] = list(range(1, nNewNodes))
-
-            newBarsConn = barsConn
+        # Call Fortran code. Remember to adjust transposes and indices
+        newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
+            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
+        )
+        newCoor = newCoor.T
+        newBarsConn = newBarsConn.T - 1
 
         # Adjust connectivities if curve is periodic
         if periodic:
@@ -1657,7 +1527,7 @@ class TSurfCurve(Curve):
 
         # DO A LOCAL FD TEST
         stepSize = 1e-7
-        coord = coord / np.sqrt(np.sum(coor ** 2))
+        coord = coord / np.sqrt(np.sum(coor**2))
         coor = coor + coord * stepSize
 
         # Call Fortran code. Remember to adjust transposes and indices
@@ -2177,7 +2047,7 @@ class TSurfCurve(Curve):
             # Compute the squared distances between the selected startPoint
             # the coordinates of the curve.
             deltas = coor - startPoint
-            dist_2 = np.sum(deltas ** 2, axis=1)
+            dist_2 = np.sum(deltas**2, axis=1)
 
             # Set the start node as the curve coordinate point closest to the
             # selected startPoint
@@ -2399,14 +2269,14 @@ class TSurfCurve(Curve):
         if mode == "forward" or mode == "both":
 
             coord = np.random.random_sample(self.coor.shape)
-            coord = coord / np.sqrt(np.sum(coord ** 2))
+            coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
 
         # Set reverse AD seeds
         if mode == "reverse" or mode == "both":
 
             coorb = np.random.random_sample(self.coor.shape)
-            coorb = coorb / np.sqrt(np.sum(coorb ** 2))
+            coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
 
         # Return the randomly generated seeds
