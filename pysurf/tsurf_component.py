@@ -8,59 +8,32 @@ from . import tsurf_tools as tst
 
 
 class TSurfGeometry(Geometry):
-    def _initialize(self, *arg, **kwargs):
+    """
+    Parameters
+    ----------
+    fileName : string
+        Name of the CGNS file that contains the triangulated surface definition.
 
-        """
-        This function initializes and TSurfGeometry.
-        It is called by the __init__ method of the parent Geometry
-        class defined in classes.py.
+    sectionsList : list of strings, optional
+        List of strings containing the names of the sections in the CGNS file that
+        should be included in the current ADTGeometry.
+        If None, then all sections will be included.
 
-        The expected arguments for the initialization function are:
-        TSurfGeometry(fileName, sectionsList, comm, name=name)
+    comm : MPI communicator, optional
+        An MPI communicator, such as MPI.COMM_WORLD
 
-        Parameters
-        ----------
-        fileName: string, optional
-            Name of the CGNS file that contains the
-            triangulated surface definition.
+    name : string, optional
+        Name that can be assigned to the geometry. This name
+        should match the wall boundary condition family names used by the solver.
 
-        sectionsList: list of strings, optional
-            List of strings containing
-            the names of the sections in the CGNS file that
-            should be included in the current ADTGeometry.
-            If nothing is provided, or if sectionList is None
-            or an empty list, then all sections will be included.
+    """
 
-        comm: MPI communicator, optional
-            An MPI communicator, such as MPI.COMM_WORLD
+    def __init__(self, fileName, sectionsList=None, comm=None, name=None):
 
-        name: string, optional
-            Name that can be assigned to the geometry. This name
-            should match the wall boundary condition family names used by the solver.
-        """
+        # Initialize the base classs
+        super().__init__(comm)
 
-        # Set dummy value to filename, so we can check later on if
-        # the user actually gave an input name.
-        filename = None
-
-        # Set default values in case we have no additional arguments
-        selectedSections = None  # We will update this later if necessary
-
-        # Check the optional arguments and do the necessary changes
-        for optarg in arg:
-
-            if type(optarg) == MPI.Intracomm:  # We have an MPI Communicator
-                self.comm = optarg
-
-            elif type(optarg) == list:
-                selectedSections = optarg
-
-            elif optarg in (None, []):
-                print("Reading all CGNS sections in ADTGeometry assigment.")
-
-            elif type(optarg) == str:
-                # Get filename
-                filename = optarg
+        self.name = name
 
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
@@ -78,48 +51,37 @@ class TSurfGeometry(Geometry):
         self.comm = newComm
 
         # Assign component name based on its CGNS file
-        self.name = os.path.splitext(os.path.basename(filename))[0]
+        self.name = os.path.splitext(os.path.basename(fileName))[0]
 
-        # We create a custom name if the user selected a subgroup of sections
-        if selectedSections is not None:
-            self.name = self.name + "__" + "_".join(selectedSections)
-
-        # Rename everything if the user gives a name
-        if "name" in kwargs:
-            self.name = kwargs["name"]
+        if sectionsList is not None:
+            self.name = self.name + "__" + "_".join(sectionsList)
 
         # Only the root proc will work here
         if self.myID == 0:
 
-            # Check if the user provided no input file
-            if filename is None:
-                print(" ERROR: Cannot initialize TSurf Geometry as no input file")
-                print(" was specified.")
-                quit()
-
             # Get file extension
-            fileExt = os.path.splitext(os.path.basename(filename))[1]
+            fileExt = os.path.splitext(os.path.basename(fileName))[1]
 
             if fileExt == ".cgns":
 
                 # Read CGNS file
-                self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
+                self.coor, sectionDict = tst.getCGNSsections(fileName, self.comm)
 
-                # Select all section names in case the user provided none
-                if selectedSections is None:
-                    selectedSections = list(sectionDict.keys())
+                if sectionsList is None:
+                    # Select all section names if the user provided None
+                    sectionsList = list(sectionDict.keys())
 
                 # Now we call an auxiliary function to merge selected surface sections in a single
                 # connectivity array
-                self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
+                self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, sectionsList)
 
                 # Initialize curves
-                tst.initialize_curves(self, sectionDict, selectedSections)
+                tst.initialize_curves(self, sectionDict, sectionsList)
 
             elif fileExt == ".plt":
 
                 # Read Tecplot file
-                self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(filename)
+                self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(fileName)
 
                 # Adjust indices to Fortran ordering
                 self.triaConnF = triaConn + 1
@@ -1067,7 +1029,7 @@ class TSurfCurve(Curve):
 
     def __init__(self, coor, barsConn, name, mergeTol=1e-7):
 
-        # Initialize base classs
+        # Initialize the base classs
         super().__init__()
 
         # Define nodal coordinates as floats so Fortran recognizes them

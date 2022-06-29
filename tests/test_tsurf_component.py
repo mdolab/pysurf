@@ -23,7 +23,7 @@ class TestTSurfProjection(unittest.TestCase):
     def setUp(self):
         baseDir = os.path.dirname(os.path.abspath(__file__))
         surfFile = os.path.join(baseDir, "..", "input_files", "cube.cgns")
-        self.cube = pysurf.TSurfGeometry(surfFile, MPI.COMM_WORLD)
+        self.cube = pysurf.TSurfGeometry(surfFile, comm=MPI.COMM_WORLD)
         self.pts = np.array([[0.6, 0.5, 1.0], [0.6, 0.5, 0.1]], order="F")
 
     def test_orig_cube_projection(self):

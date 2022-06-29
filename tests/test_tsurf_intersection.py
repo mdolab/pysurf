@@ -19,8 +19,8 @@ class TestCurveIntersection(unittest.TestCase):
         cylinderFile = os.path.join(baseDir, "..", "input_files", "cylinder.cgns")
 
         # Create geometry objects
-        self.comp1 = pysurf.TSurfGeometry(cubeFile, comm)
-        self.comp2 = pysurf.TSurfGeometry(cylinderFile, comm)
+        self.comp1 = pysurf.TSurfGeometry(cubeFile, comm=comm)
+        self.comp2 = pysurf.TSurfGeometry(cylinderFile, comm=comm)
 
     def test_curve_intersection(self):
 
