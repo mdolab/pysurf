@@ -6,11 +6,11 @@ First it checks the projection on the original cube, then it translates the cube
 
 """
 
-import pysurf
-from mpi4py import MPI
+import os
 import numpy as np
 import unittest
-import os
+from mpi4py import MPI
+from pysurf import TSurfGeometry
 
 # Set random seed for derivative tests
 np.random.seed(123)
@@ -23,7 +23,7 @@ class TestTSurfProjection(unittest.TestCase):
     def setUp(self):
         baseDir = os.path.dirname(os.path.abspath(__file__))
         surfFile = os.path.join(baseDir, "..", "input_files", "cube.cgns")
-        self.cube = pysurf.TSurfGeometry(surfFile, comm=MPI.COMM_WORLD)
+        self.cube = TSurfGeometry(surfFile, comm=MPI.COMM_WORLD)
         self.pts = np.array([[0.6, 0.5, 1.0], [0.6, 0.5, 0.1]], order="F")
 
     def test_orig_cube_projection(self):
@@ -87,29 +87,41 @@ class TestTSurfProjection(unittest.TestCase):
 
         return xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b
 
-    def computeProjections(self, xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
+    def computeSurfaceProjections_AD(self, xyz, xyz_d, coor_d, xyzProj_b, normProj_b):
 
         cube = self.cube
-
-        # Replace baseline surface coordinates if the user provided it
-        if coor is not None:
-            cube.update(coor)
 
         # Call projection algorithm
         xyzProj, normProj, projDict = cube.project_on_surface(xyz)
 
         # Set derivative seeds
-        cube.set_forwardADSeeds(coord=coord)
+        cube.set_forwardADSeeds(coord=coor_d)
 
         # Call derivatives code in forward mode
-        xyzProj_d, normProj_d = cube.project_on_surface_d(xyz, xyzd, xyzProj, normProj, projDict)
+        xyzProj_d, normProj_d = cube.project_on_surface_d(xyz, xyz_d, xyzProj, normProj, projDict)
 
         # Call derivatives code in backward mode
-        xyz_b = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
+        xyz_b = cube.project_on_surface_b(xyz, xyzProj, xyzProj_b, normProj, normProj_b, projDict)
         coor_b = cube.coorb
 
         # Return results
         return xyzProj, xyzProj_d, normProj, normProj_d, xyz_b, coor_b
+
+    def computeSurfaceProjections_pert(self, xyz_pert, coor_pert, CS=False):
+
+        if CS:
+            cube = self.cube_CS
+        else:
+            cube = self.cube
+
+        # Replace the baseline surface coordinates
+        cube.update(coor_pert)
+
+        # Call projection algorithm
+        xyzProj_pert, normProj_pert = cube.project_on_surface(xyz_pert)[0:2]
+
+        # Return results
+        return xyzProj_pert, normProj_pert
 
     def computeCurveProjections(self, xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=None):
 
@@ -144,15 +156,15 @@ class TestTSurfProjection(unittest.TestCase):
         cube = self.cube
         xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 
-        # Call projection function at the original point
-        xyzProj0, xyzProj_d, normProj0, normProj_d, xyz_b, coor_b = self.computeProjections(
+        # Compute projection and AD at the original point
+        xyzProj0, xyzProj_d, normProj0, normProj_d, xyz_b, coor_b = self.computeSurfaceProjections_AD(
             xyz, xyz_d, coor_d, xyzProj_b, normProj_b
         )
 
-        # Call projection function at the FD perturbed point
-        xyzProj_pert, _, normProj_pert = self.computeProjections(
-            xyz + stepSize_FD * xyz_d, xyz_d, coor_d, xyzProj_b, normProj_b, coor=cube.coor + stepSize_FD * coor_d
-        )[0:3]
+        # Compute projection at the FD perturbed point
+        xyz_pert = xyz + stepSize_FD * xyz_d
+        coor_pert = cube.coor + stepSize_FD * coor_d
+        xyzProj_pert, normProj_pert = self.computeSurfaceProjections_pert(xyz_pert, coor_pert)
 
         # Compute FD derivatives
         xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
