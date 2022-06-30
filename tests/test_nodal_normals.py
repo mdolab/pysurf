@@ -24,42 +24,44 @@ class TestNodalNormals(unittest.TestCase):
         stepSize_CS = 1e-200
 
         # Set random AD seeds
-        coord = np.array(np.random.rand(coor.shape[0], coor.shape[1]), order="F")
-        coord = coord / np.array([np.linalg.norm(coord, axis=1)]).T
-        nodal_normalsb = np.array(np.random.rand(coor.shape[0], coor.shape[1]), order="F")
-        nodal_normalsb = nodal_normalsb / np.array([np.linalg.norm(nodal_normalsb, axis=1)]).T
+        coor_d = np.array(np.random.rand(coor.shape[0], coor.shape[1]), order="F")
+        coor_d = coor_d / np.array([np.linalg.norm(coor_d, axis=1)]).T
+        nodal_normals_b = np.array(np.random.rand(coor.shape[0], coor.shape[1]), order="F")
+        nodal_normals_b = nodal_normals_b / np.array([np.linalg.norm(nodal_normals_b, axis=1)]).T
 
         # Compute unperturbed normals
         nodal_normals0 = adtAPI.adtapi.adtcomputenodalnormals(coor, triaConn, quadsConn)
 
         # Compute derivatives of the normal vectors with forward mode
-        _, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(coor, coord, triaConn, quadsConn)
+        _, nodal_normals_d = adtAPI.adtapi.adtcomputenodalnormals_d(coor, coor_d, triaConn, quadsConn)
 
         # Compute derivatives of the coordinates with reverse mode
-        coorb_AD = adtAPI.adtapi.adtcomputenodalnormals_b(coor, triaConn, quadsConn, nodal_normals0, nodal_normalsb)
+        coor_b = adtAPI.adtapi.adtcomputenodalnormals_b(coor, triaConn, quadsConn, nodal_normals0, nodal_normals_b)
 
         # Apply FD perturbation
-        coor_FD = coor + stepSize_FD * coord
+        coor_FD = coor + stepSize_FD * coor_d
 
         # Compute FD derivative
         nodal_normals_pert = adtAPI.adtapi.adtcomputenodalnormals(coor_FD, triaConn, quadsConn)
         nodal_normals_FD = (nodal_normals_pert - nodal_normals0) / stepSize_FD
 
         # Apply CS perturbation
-        coor_CS = coor + stepSize_CS * coord * 1j
+        coor_CS = coor + stepSize_CS * coor_d * 1j
 
         # Compute CS derivative
         nodal_normals_pert = adtAPI_cs.adtapi.adtcomputenodalnormals(coor_CS, triaConn, quadsConn)
         nodal_normals_CS = np.imag(nodal_normals_pert) / stepSize_CS
 
         # Dot product test
-        np.testing.assert_allclose(np.sum(coord * coorb_AD), np.sum(nodal_normalsd * nodal_normalsb), rtol=1e-15)
+        dotProd_LHS = np.sum(coor_d * coor_b)
+        dotProd_RHS = np.sum(nodal_normals_d * nodal_normals_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
-        np.testing.assert_allclose(nodal_normalsd, nodal_normals_FD, atol=3e-8, rtol=1e-14)
+        np.testing.assert_allclose(nodal_normals_d, nodal_normals_FD, atol=3e-8, rtol=1e-14)
 
         # Compare AD to CS
-        np.testing.assert_allclose(nodal_normalsd, nodal_normals_CS, atol=1e-14, rtol=1e-14)
+        np.testing.assert_allclose(nodal_normals_d, nodal_normals_CS, atol=1e-14, rtol=1e-14)
 
 
 if __name__ == "__main__":

@@ -88,8 +88,8 @@ class TestCurveIntersection(unittest.TestCase):
         # === FORWARD AD ===
 
         # Set random AD seeds
-        coor1d, curveCoor1d = comp1.set_randomADSeeds(mode="forward")
-        coor2d, curveCoor2d = comp2.set_randomADSeeds(mode="forward")
+        coor1_d, curveCoor1_d = comp1.set_randomADSeeds(mode="forward")
+        coor2_d, curveCoor2_d = comp2.set_randomADSeeds(mode="forward")
         intCoorb = intCurve.set_randomADSeeds(mode="reverse")
 
         # Compute derivatives in forward mode
@@ -113,12 +113,16 @@ class TestCurveIntersection(unittest.TestCase):
         stepSize = 1e-7
 
         # Change the geometry
-        comp1.update(comp1.coor + stepSize * coor1d)
-        for curveName in curveCoor1d:
-            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize * curveCoor1d[curveName])
-        comp2.update(comp2.coor + stepSize * coor2d)
-        for curveName in curveCoor2d:
-            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize * curveCoor2d[curveName])
+        comp1.update(comp1.coor + stepSize * coor1_d)
+        for curveName in curveCoor1_d:
+            comp1.curves[curveName].set_points(
+                comp1.curves[curveName].get_points() + stepSize * curveCoor1_d[curveName]
+            )
+        comp2.update(comp2.coor + stepSize * coor2_d)
+        for curveName in curveCoor2_d:
+            comp2.curves[curveName].set_points(
+                comp2.curves[curveName].get_points() + stepSize * curveCoor2_d[curveName]
+            )
 
         # Run the intersection code once again
         intCurves = comp1.intersect(comp2, distTol)
@@ -133,15 +137,13 @@ class TestCurveIntersection(unittest.TestCase):
         # === DERIVATIVE TESTS ===
 
         # Compute dot product test
-        dotProd = 0.0
-        dotProd = dotProd + np.sum(coor1d * coor1b)
-        dotProd = dotProd + np.sum(coor2d * coor2b)
-        dotProd = dotProd - np.sum(intCoord * intCoorb)
-        for curveName in curveCoor1d:
-            dotProd = dotProd - np.sum(curveCoor1b[curveName] * curveCoor1d[curveName])
-        for curveName in curveCoor2d:
-            dotProd = dotProd - np.sum(curveCoor2b[curveName] * curveCoor2d[curveName])
-        np.testing.assert_allclose(dotProd, 0, atol=3e-16)
+        dotProd_LHS = np.sum(coor1_d * coor1b) + np.sum(coor2_d * coor2b)
+        dotProd_RHS = np.sum(intCoord * intCoorb)
+        for curveName in curveCoor1_d:
+            dotProd_RHS += np.sum(curveCoor1b[curveName] * curveCoor1_d[curveName])
+        for curveName in curveCoor2_d:
+            dotProd_RHS += np.sum(curveCoor2b[curveName] * curveCoor2_d[curveName])
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
         np.testing.assert_allclose(intCoord, intCoord_FD, rtol=1e-7)

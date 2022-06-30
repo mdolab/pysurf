@@ -89,7 +89,7 @@ class TestRemesh(unittest.TestCase):
         remeshedCurve = self.curve.remesh(**optionsDict)
 
         # Assign derivative seeds
-        coord = self.curve.set_randomADSeeds(mode="forward")
+        coor_d = self.curve.set_randomADSeeds(mode="forward")
         remeshedCoor_b = remeshedCurve.set_randomADSeeds(mode="reverse")
 
         # Forward AD
@@ -102,17 +102,19 @@ class TestRemesh(unittest.TestCase):
         self.curve.remesh_b(remeshedCurve, **optionsDict)
 
         # Store relevant seeds
-        coorb = self.curve.get_reverseADSeeds()
+        coor_b = self.curve.get_reverseADSeeds()
 
         # Dot product test
-        np.testing.assert_allclose(np.sum(coord * coorb), np.sum(remeshedCoor_d * remeshedCoor_b), rtol=1e-15)
+        dotProd_LHS = np.sum(coor_d * coor_b)
+        dotProd_RHS = np.sum(remeshedCoor_d * remeshedCoor_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Define step sizes
         stepSize_FD = 1e-7
         stepSize_CS = 1e-200
 
         # Apply FD perturbation
-        self.curve.set_points(self.curve.get_points() + stepSize_FD * coord)
+        self.curve.set_points(self.curve.get_points() + stepSize_FD * coor_d)
 
         # Remesh the curve
         remeshedCurve_pert = self.curve.remesh(**optionsDict)
@@ -129,7 +131,7 @@ class TestRemesh(unittest.TestCase):
         self.curve_CS = create_curve_from_points(self.curve.get_points(), "test", periodic=False, dtype=complex)
 
         # Apply CS perturbation
-        self.curve_CS.set_points(self.curve_CS.get_points() + stepSize_CS * coord * 1j)
+        self.curve_CS.set_points(self.curve_CS.get_points() + stepSize_CS * coor_d * 1j)
 
         # Remesh the complex curve
         remeshedCurve_pert = self.curve_CS.remesh(**optionsDict)
