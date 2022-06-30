@@ -124,26 +124,21 @@ class TestTSurfProjection(unittest.TestCase):
         # Return results
         return xyzProj_pert, normProj_pert
 
-    def computeCurveProjections(self, xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=None):
+    def computeCurveProjections_AD(self, xyz, xyz_d, allCoor_d, xyzProj_b, tanProj_b):
 
         cube = self.cube
-
-        # Replace baseline coordinates if the user provided it
-        if allCoor is not None:
-            for curveName in cube.curves:
-                cube.curves[curveName].set_points(allCoor[curveName])
 
         # Call projection algorithm
         xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
 
         # Set derivative seeds
-        cube.set_forwardADSeeds(curveCoord=allCoord)
+        cube.set_forwardADSeeds(curveCoord=allCoor_d)
 
         # Call AD code in forward mode
-        xyzProj_d, tanProj_d = cube.project_on_curve_d(xyz, xyzd, xyzProj, tanProj, curveProjDict)
+        xyzProj_d, tanProj_d = cube.project_on_curve_d(xyz, xyz_d, xyzProj, tanProj, curveProjDict)
 
         # Call AD code in backward mode
-        xyz_b = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
+        xyz_b = cube.project_on_curve_b(xyz, xyzProj, xyzProj_b, tanProj, tanProj_b, curveProjDict)
 
         allCoor_b = {}
         for curve in cube.curves.values():
@@ -151,6 +146,20 @@ class TestTSurfProjection(unittest.TestCase):
 
         # Return results
         return xyzProj, xyzProj_d, tanProj, tanProj_d, xyz_b, allCoor_b
+
+    def computeCurveProjections_pert(self, xyz_pert, allCoor_pert):
+
+        cube = self.cube
+
+        # Replace baseline coordinates
+        for curveName in cube.curves:
+            cube.curves[curveName].set_points(allCoor_pert[curveName])
+
+        # Call projection algorithm
+        xyzProj, tanProj = cube.project_on_curve(xyz_pert)[0:2]
+
+        # Return results
+        return xyzProj, tanProj
 
     def test_surface_projection_deriv(self):
 
@@ -198,27 +207,26 @@ class TestTSurfProjection(unittest.TestCase):
         cube = self.cube
         xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 
-        # Call projection function at the original point
-        xyzProj0, xyzProj_d, tanProj0, tanProj_d, xyz_b, allCoor_b = self.computeCurveProjections(
+        # Compute projection and AD at the original point
+        xyzProj0, xyzProj_d, tanProj0, tanProj_d, xyz_b, allCoor_b = self.computeCurveProjections_AD(
             xyz, xyz_d, allCoord, xyzProj_b, tanProj_b
         )
 
         # Create coordinates of perturbed points
-        allCoor = {}
+        xyz_pert = xyz + stepSize_FD * xyz_d
+        allCoor_pert = {}
         for curveName in cube.curves:
             coor = cube.curves[curveName].get_points()
-            allCoor[curveName] = coor + allCoord[curveName] * stepSize_FD
+            allCoor_pert[curveName] = coor + allCoord[curveName] * stepSize_FD
 
-        # Call projection function at the perturbed point
-        xyzProj_pert, _, tanProj_pert = self.computeCurveProjections(
-            xyz + stepSize_FD * xyz_d, xyz_d, allCoord, xyzProj_b, tanProj_b, allCoor
-        )[0:3]
+        # Compute projection at the FD perturbed point
+        xyzProj_pert, tanProj_pert = self.computeCurveProjections_pert(xyz_pert, allCoor_pert)
 
-        # Compute directional derivatives with finite differencing
+        # Compute FD derivatives
         xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
         tanProj_FD = (tanProj_pert - tanProj0) / stepSize_FD
 
-        # Compute dot product test
+        # Dot product test
         dotProd_LHS = np.sum(xyz_d * xyz_b)
         for curveName in cube.curves:
             dotProd_LHS += np.sum(allCoord[curveName] * allCoor_b[curveName])
