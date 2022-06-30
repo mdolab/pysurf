@@ -57,6 +57,36 @@ class TestTSurfProjection(unittest.TestCase):
         )
 
     # Define helper functions for derivative testing
+    def setUpDerivTest(self):
+        cube = self.cube
+
+        # Define points
+        xyz = np.array([[0.7, 0.55, 0.1], [0.7, 0.55, 0.9]])
+
+        # Define step sizes
+        stepSize_FD = 1e-7
+        stepSize_CS = 1e-200
+
+        # Set random AD seeds
+        xyz_d = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        xyz_d = xyz_d / np.sqrt(np.sum(xyz_d**2))
+
+        coor_d = np.array(np.random.rand(cube.coor.shape[0], cube.coor.shape[1]))
+        coor_d = coor_d / np.sqrt(np.sum(coor_d**2))
+
+        allCoord = {}
+        for curveName in cube.curves:
+            # Get curve coordinate size
+            coor = cube.curves[curveName].get_points()
+            curveCoord = np.array(np.random.rand(coor.shape[0], coor.shape[1]))
+            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord**2))
+
+        xyzProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        normProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        tanProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+
+        return xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b
+
     def computeProjections(self, xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
 
         cube = self.cube
@@ -109,42 +139,17 @@ class TestTSurfProjection(unittest.TestCase):
         # Return results
         return xyzProj, xyzProj_d, tanProj, tanProj_d, xyz_b, allCoor_b
 
-    def test_projection_deriv(self):
+    def test_surface_projection_deriv(self):
 
         cube = self.cube
-
-        # Define points
-        xyz = np.array([[0.7, 0.55, 0.1], [0.7, 0.55, 0.9]])
-
-        # Define step size
-        stepSize_FD = 1e-7
-
-        # Set random AD seeds
-        xyz_d = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        xyz_d = xyz_d / np.sqrt(np.sum(xyz_d**2))
-
-        coor_d = np.array(np.random.rand(cube.coor.shape[0], cube.coor.shape[1]))
-        coor_d = coor_d / np.sqrt(np.sum(coor_d**2))
-
-        allCoord = {}
-        for curveName in cube.curves:
-            # Get curve coordinate size
-            coor = cube.curves[curveName].get_points()
-            curveCoord = np.array(np.random.rand(coor.shape[0], coor.shape[1]))
-            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord**2))
-
-        xyzProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        normProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        tanProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-
-        # === SURFACE PROJECTION ===
+        xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 
         # Call projection function at the original point
         xyzProj0, xyzProj_d, normProj0, normProj_d, xyz_b, coor_b = self.computeProjections(
             xyz, xyz_d, coor_d, xyzProj_b, normProj_b
         )
 
-        # Call projection function at the perturbed point
+        # Call projection function at the FD perturbed point
         xyzProj_pert, _, normProj_pert = self.computeProjections(
             xyz + stepSize_FD * xyz_d, xyz_d, coor_d, xyzProj_b, normProj_b, coor=cube.coor + stepSize_FD * coor_d
         )[0:3]
@@ -162,7 +167,10 @@ class TestTSurfProjection(unittest.TestCase):
         np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=1e-6)
         np.testing.assert_allclose(normProj_d, normProj_FD, rtol=3e-6)
 
-        # === CURVE PROJECTION ===
+    def test_curve_projection_deriv(self):
+
+        cube = self.cube
+        xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 
         # Call projection function at the original point
         xyzProj0, xyzProj_d, tanProj0, tanProj_d, xyz_b, allCoor_b = self.computeCurveProjections(
