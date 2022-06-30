@@ -116,8 +116,8 @@ class TestTSurfProjection(unittest.TestCase):
         # Define points
         xyz = np.array([[0.7, 0.55, 0.1], [0.7, 0.55, 0.9]])
 
-        # Define derivatives and normalize them to a given step size
-        stepSize = 1e-7
+        # Define step size
+        stepSize_FD = 1e-7
 
         # Set random AD seeds
         xyz_d = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
@@ -145,25 +145,22 @@ class TestTSurfProjection(unittest.TestCase):
         )
 
         # Call projection function at the perturbed point
-        xyzProj, xyzProjd, normProj, normProjd, dummy, dummy2 = self.computeProjections(
-            xyz + stepSize * xyz_d, xyz_d, coor_d, xyzProj_b, normProj_b, coor=cube.coor + stepSize * coor_d
-        )
+        xyzProj_pert, _, normProj_pert = self.computeProjections(
+            xyz + stepSize_FD * xyz_d, xyz_d, coor_d, xyzProj_b, normProj_b, coor=cube.coor + stepSize_FD * coor_d
+        )[0:3]
 
-        # Compute directional derivatives with finite differencing
-        xyzProjd_FD = (xyzProj - xyzProj0) / stepSize
-        normProjd_FD = (normProj - normProj0) / stepSize
+        # Compute FD derivatives
+        xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
+        normProj_FD = (normProj_pert - normProj0) / stepSize_FD
 
         # Compute dot product test
-        dotProd = 0.0
-        dotProd = dotProd + np.sum(xyz_d * xyz_b)
-        dotProd = dotProd + np.sum(coor_d * coor_b)
-        dotProd = dotProd - np.sum(xyzProj_d * xyzProj_b)
-        dotProd = dotProd - np.sum(normProj_d * normProj_b)
-        np.testing.assert_allclose(dotProd, 0, atol=1e-15)
+        dotProd_LHS = np.sum(xyz_d * xyz_b) + np.sum(coor_d * coor_b)
+        dotProd_RHS = np.sum(xyzProj_d * xyzProj_b) + np.sum(normProj_d * normProj_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
-        np.testing.assert_allclose(xyzProj_d, xyzProjd_FD, rtol=1e-6)
-        np.testing.assert_allclose(normProj_d, normProjd_FD, rtol=3e-6)
+        np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=1e-6)
+        np.testing.assert_allclose(normProj_d, normProj_FD, rtol=3e-6)
 
         # === CURVE PROJECTION ===
 
@@ -176,16 +173,16 @@ class TestTSurfProjection(unittest.TestCase):
         allCoor = {}
         for curveName in cube.curves:
             coor = cube.curves[curveName].get_points()
-            allCoor[curveName] = coor + allCoord[curveName] * stepSize
+            allCoor[curveName] = coor + allCoord[curveName] * stepSize_FD
 
         # Call projection function at the perturbed point
-        xyzProj, dummy0, tanProj, dummy1, dummy2, dummy3 = self.computeCurveProjections(
-            xyz + stepSize * xyz_d, xyz_d, allCoord, xyzProj_b, tanProj_b, allCoor
-        )
+        xyzProj_pert, _, tanProj_pert = self.computeCurveProjections(
+            xyz + stepSize_FD * xyz_d, xyz_d, allCoord, xyzProj_b, tanProj_b, allCoor
+        )[0:3]
 
         # Compute directional derivatives with finite differencing
-        xyzProjd_FD = (xyzProj - xyzProj0) / stepSize
-        tanProjd_FD = (tanProj - tanProj0) / stepSize
+        xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
+        tanProj_FD = (tanProj_pert - tanProj0) / stepSize_FD
 
         # Compute dot product test
         dotProd_LHS = np.sum(xyz_d * xyz_b)
@@ -195,8 +192,8 @@ class TestTSurfProjection(unittest.TestCase):
         np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
-        np.testing.assert_allclose(xyzProj_d, xyzProjd_FD, rtol=3e-6)
-        np.testing.assert_allclose(tanProj_d, tanProjd_FD, atol=1e-6)
+        np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=3e-6)
+        np.testing.assert_allclose(tanProj_d, tanProj_FD, atol=1e-6)
 
 
 if __name__ == "__main__":
