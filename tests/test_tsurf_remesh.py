@@ -92,11 +92,6 @@ class TestRemesh(unittest.TestCase):
         coord = self.curve.set_randomADSeeds(mode="forward")
         remeshedCoor_b = remeshedCurve.set_randomADSeeds(mode="reverse")
 
-        # Adjust seeds
-        coord[:, :] = 0.0
-        coord[1, 2] = -1.0
-        self.curve.set_forwardADSeeds(coord)
-
         # Forward AD
         self.curve.remesh_d(remeshedCurve, **optionsDict)
 
@@ -128,7 +123,7 @@ class TestRemesh(unittest.TestCase):
         remeshedCoor_FD = (remeshedCoor_pert - remeshedCoor0) / stepSize_FD
 
         # Compare AD to FD
-        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_FD, rtol=3e-5)
+        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_FD, rtol=1e-7)
 
         # Create a complex curve object for CS test
         self.curve_CS = create_curve_from_points(self.curve.get_points(), "test", periodic=False, dtype=complex)
@@ -144,7 +139,7 @@ class TestRemesh(unittest.TestCase):
         remeshedCoor_CS = np.imag(remeshedCoor_pert) / stepSize_CS
 
         # Compare AD to CS
-        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_CS, rtol=3e-5)
+        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_CS, rtol=1e-7)
 
 
 if __name__ == "__main__":
