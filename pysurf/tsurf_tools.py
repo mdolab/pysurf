@@ -2,7 +2,7 @@ from mpi4py import MPI
 import numpy as np
 from scipy.optimize import minimize, broyden1
 from . import adtAPI, cgnsAPI, intersectionAPI, tecplot_interface, tsurf_component
-from . import adtAPI_cs
+from . import adtAPI_cs, intersectionAPI_cs
 
 """
 TODO:
@@ -1126,6 +1126,9 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Get communicator from the first object
     comm = TSurfGeometryA.comm
 
+    # Get the dtype from the first object
+    dtype = TSurfGeometryA.dtype
+
     ### Call Fortran code to find intersections
 
     # This will de done in two steps:
@@ -1135,22 +1138,37 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
 
-    arraySizes = intersectionAPI.intersectionapi.computeintersection(
-        TSurfGeometryA.coor.T,
-        TSurfGeometryA.triaConnF.T,
-        TSurfGeometryA.quadsConnF.T,
-        TSurfGeometryB.coor.T,
-        TSurfGeometryB.triaConnF.T,
-        TSurfGeometryB.quadsConnF.T,
-        distTol,
-        comm.py2f(),
-    )
+    if dtype == float:
+        arraySizes = intersectionAPI.intersectionapi.computeintersection(
+            TSurfGeometryA.coor.T,
+            TSurfGeometryA.triaConnF.T,
+            TSurfGeometryA.quadsConnF.T,
+            TSurfGeometryB.coor.T,
+            TSurfGeometryB.triaConnF.T,
+            TSurfGeometryB.quadsConnF.T,
+            distTol,
+            comm.py2f(),
+        )
+    elif dtype == complex:
+        arraySizes = intersectionAPI_cs.intersectionapi.computeintersection(
+            TSurfGeometryA.coor.T,
+            TSurfGeometryA.triaConnF.T,
+            TSurfGeometryA.quadsConnF.T,
+            TSurfGeometryB.coor.T,
+            TSurfGeometryB.triaConnF.T,
+            TSurfGeometryB.quadsConnF.T,
+            distTol,
+            comm.py2f(),
+        )
 
     # Retrieve results from Fortran if we have an intersection
     if np.max(arraySizes[1:]) > 0:
 
         # Second Fortran call to retrieve data from the CGNS file.
-        intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)
+        if dtype == float:
+            intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)
+        elif dtype == complex:
+            intersectionArrays = intersectionAPI_cs.intersectionapi.retrievedata(*arraySizes)
 
         # Split results.
         # We need to do actual copies, otherwise data will be overwritten if we compute another intersection.
@@ -1164,12 +1182,15 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     else:
 
         # Assign empty arrays
-        coor = np.zeros((0, 3))
+        coor = np.zeros((0, 3), dtype=dtype)
         barsConn = np.zeros((0, 2))
         parentTria = np.zeros((0, 2))
 
     # Release memory used by Fortran so we can run another intersection in the future
-    intersectionAPI.intersectionapi.releasememory()
+    if dtype == float:
+        intersectionAPI.intersectionapi.releasememory()
+    elif dtype == complex:
+        intersectionAPI_cs.intersectionapi.releasememory()
 
     # Initialize list to hold all intersection curves
     Intersections = []
@@ -1206,7 +1227,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
             currParents = parentTria[currMap, :]
 
             # Create new curve object
-            newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
+            newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName, dtype=dtype)
 
             # Store parent triangles as extra data
             newCurve.extra_data["parentTria"] = currParents
