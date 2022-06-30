@@ -84,7 +84,7 @@ class TSurfGeometry(Geometry):
                 self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, sectionsList)
 
                 # Initialize curves
-                tst.initialize_curves(self, sectionDict, sectionsList)
+                tst.initialize_curves(self, sectionDict, sectionsList, dtype=self.dtype)
 
             elif fileExt == ".plt":
 
@@ -547,9 +547,9 @@ class TSurfGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts) * 1e10
-        xyzProj = np.zeros((numPts, 3))
-        tanProj = np.zeros((numPts, 3))
+        dist2 = np.ones(numPts, dtype=self.dtype) * 1e10
+        xyzProj = np.zeros((numPts, 3), dtype=self.dtype)
+        tanProj = np.zeros((numPts, 3), dtype=self.dtype)
         elemIDs = np.zeros((numPts), dtype="int32")
 
         # Check if the candidates are actually defined
@@ -1183,11 +1183,11 @@ class TSurfCurve(Curve):
 
         # Initialize references if user provided none
         if dist2 is None:
-            dist2 = np.ones(nPoints) * 1e10
+            dist2 = np.ones(nPoints, dtype=self.dtype) * 1e10
         if xyzProj is None:
-            xyzProj = np.zeros((nPoints, 3))
+            xyzProj = np.zeros((nPoints, 3), dtype=self.dtype)
         if tanProj is None:
-            tanProj = np.zeros((nPoints, 3))
+            tanProj = np.zeros((nPoints, 3), dtype=self.dtype)
         if elemIDs is None:
             elemIDs = np.zeros((nPoints), dtype="int32")
 
@@ -1198,9 +1198,15 @@ class TSurfCurve(Curve):
         elemIDs[:] = (
             elemIDs + 1
         )  # (we need to do this separetely because Fortran will actively change elemIDs contents.
-        curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(
-            xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
-        )
+
+        if self.dtype == float:
+            curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(
+                xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
+            )
+        elif self.dtype == complex:
+            curveMask = curveSearchAPI_cs.curvesearchapi.mindistancecurve(
+                xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
+            )
 
         # Adjust indices back to Python standards
         elemIDs[:] = elemIDs - 1

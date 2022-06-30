@@ -147,9 +147,12 @@ class TestTSurfProjection(unittest.TestCase):
         # Return results
         return xyzProj, xyzProj_d, tanProj, tanProj_d, xyz_b, allCoor_b
 
-    def computeCurveProjections_pert(self, xyz_pert, allCoor_pert):
+    def computeCurveProjections_pert(self, xyz_pert, allCoor_pert, CS=True):
 
-        cube = self.cube
+        if CS:
+            cube = self.cube_CS
+        else:
+            cube = self.cube
 
         # Replace baseline coordinates
         for curveName in cube.curves:
@@ -212,7 +215,7 @@ class TestTSurfProjection(unittest.TestCase):
             xyz, xyz_d, allCoord, xyzProj_b, tanProj_b
         )
 
-        # Create coordinates of perturbed points
+        # Create coordinates of perturbed points for FD
         xyz_pert = xyz + stepSize_FD * xyz_d
         allCoor_pert = {}
         for curveName in cube.curves:
@@ -226,6 +229,20 @@ class TestTSurfProjection(unittest.TestCase):
         xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
         tanProj_FD = (tanProj_pert - tanProj0) / stepSize_FD
 
+        # Create coordinates of perturbed points for CS
+        xyz_pert = xyz + stepSize_CS * 1j * xyz_d
+        allCoor_pert = {}
+        for curveName in cube.curves:
+            coor = cube.curves[curveName].get_points()
+            allCoor_pert[curveName] = coor + allCoord[curveName] * stepSize_CS * 1j
+
+        # Compute projection at the CS perturbed point
+        xyzProj_pert, tanProj_pert = self.computeCurveProjections_pert(xyz_pert, allCoor_pert, CS=True)
+
+        # Compute CS derivatives
+        xyzProj_CS = np.imag(xyzProj_pert) / stepSize_CS
+        tanProj_CS = np.imag(tanProj_pert) / stepSize_CS
+
         # Dot product test
         dotProd_LHS = np.sum(xyz_d * xyz_b)
         for curveName in cube.curves:
@@ -236,6 +253,10 @@ class TestTSurfProjection(unittest.TestCase):
         # Compare AD to FD
         np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=3e-6)
         np.testing.assert_allclose(tanProj_d, tanProj_FD, atol=1e-6)
+
+        # Compare AD to CS
+        np.testing.assert_allclose(xyzProj_d, xyzProj_CS, rtol=1e-15)
+        np.testing.assert_allclose(tanProj_d, tanProj_CS, rtol=1e-15, atol=1e-16)
 
 
 if __name__ == "__main__":

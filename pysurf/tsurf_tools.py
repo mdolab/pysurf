@@ -259,7 +259,7 @@ def update_surface(TSurfGeometry):
 # =================================================================
 
 
-def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
+def initialize_curves(TSurfGeometry, sectionDict, selectedSections, dtype=float):
 
     """
     This function initializes all curves given in sectionDict that are
@@ -296,7 +296,9 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
             barsConn = sectionDict[sectionName]["barsConn"]
 
             # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = tsurf_component.TSurfCurve(TSurfGeometry.coor, barsConn, sectionName)
+            curveObjDict[sectionName] = tsurf_component.TSurfCurve(
+                TSurfGeometry.coor, barsConn, sectionName, dtype=dtype
+            )
 
     # Assign curve objects to ADT component
     TSurfGeometry.curves = curveObjDict
