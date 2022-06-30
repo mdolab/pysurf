@@ -2,6 +2,7 @@ from mpi4py import MPI
 import numpy as np
 from scipy.optimize import minimize, broyden1
 from . import adtAPI, cgnsAPI, intersectionAPI, tecplot_interface, tsurf_component
+from . import adtAPI_cs
 
 """
 TODO:
@@ -210,30 +211,49 @@ def update_surface(TSurfGeometry):
     """
 
     # Deallocate previous tree
-    adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
+    if TSurfGeometry.dtype == float:
+        adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
+    elif TSurfGeometry.dtype == complex:
+        adtAPI_cs.adtapi.adtdeallocateadts(TSurfGeometry.name)
 
     # Set bounding box for new tree
-    BBox = np.zeros((2, 3))
+    BBox = np.zeros((2, 3), dtype=TSurfGeometry.dtype)
     useBBox = False
 
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(
-        TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
-    )
+    if TSurfGeometry.dtype == float:
+        nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(
+            TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
+        )
+    elif TSurfGeometry.dtype == complex:
+        nodal_normals = adtAPI_cs.adtapi.adtcomputenodalnormals(
+            TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
+        )
     TSurfGeometry.nodal_normals = nodal_normals.T
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(
-        TSurfGeometry.coor.T,
-        TSurfGeometry.triaConnF.T,
-        TSurfGeometry.quadsConnF.T,
-        BBox.T,
-        useBBox,
-        TSurfGeometry.comm.py2f(),
-        TSurfGeometry.name,
-    )
+    if TSurfGeometry.dtype == float:
+        adtAPI.adtapi.adtbuildsurfaceadt(
+            TSurfGeometry.coor.T,
+            TSurfGeometry.triaConnF.T,
+            TSurfGeometry.quadsConnF.T,
+            BBox.T,
+            useBBox,
+            TSurfGeometry.comm.py2f(),
+            TSurfGeometry.name,
+        )
+    elif TSurfGeometry.dtype == complex:
+        adtAPI_cs.adtapi.adtbuildsurfaceadt(
+            TSurfGeometry.coor.T,
+            TSurfGeometry.triaConnF.T,
+            TSurfGeometry.quadsConnF.T,
+            BBox.T,
+            useBBox,
+            TSurfGeometry.comm.py2f(),
+            TSurfGeometry.name,
+        )
 
 
 # =================================================================

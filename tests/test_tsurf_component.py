@@ -24,6 +24,7 @@ class TestTSurfProjection(unittest.TestCase):
         baseDir = os.path.dirname(os.path.abspath(__file__))
         surfFile = os.path.join(baseDir, "..", "input_files", "cube.cgns")
         self.cube = TSurfGeometry(surfFile, comm=MPI.COMM_WORLD)
+        self.cube_CS = TSurfGeometry(surfFile, comm=MPI.COMM_WORLD, name="cube_CS", dtype=complex)
         self.pts = np.array([[0.6, 0.5, 1.0], [0.6, 0.5, 0.1]], order="F")
 
     def test_orig_cube_projection(self):
@@ -170,7 +171,16 @@ class TestTSurfProjection(unittest.TestCase):
         xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
         normProj_FD = (normProj_pert - normProj0) / stepSize_FD
 
-        # Compute dot product test
+        # Compute projection at the CS perturbed point
+        xyz_pert = xyz + stepSize_CS * 1j * xyz_d
+        coor_pert = cube.coor + stepSize_CS * 1j * coor_d
+        xyzProj_pert, normProj_pert = self.computeSurfaceProjections_pert(xyz_pert, coor_pert, CS=True)
+
+        # Compute CS derivatives
+        xyzProj_CS = np.imag(xyzProj_pert) / stepSize_CS
+        normProj_CS = np.imag(normProj_pert) / stepSize_CS
+
+        # Dot product test
         dotProd_LHS = np.sum(xyz_d * xyz_b) + np.sum(coor_d * coor_b)
         dotProd_RHS = np.sum(xyzProj_d * xyzProj_b) + np.sum(normProj_d * normProj_b)
         np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
@@ -178,6 +188,10 @@ class TestTSurfProjection(unittest.TestCase):
         # Compare AD to FD
         np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=1e-6)
         np.testing.assert_allclose(normProj_d, normProj_FD, rtol=3e-6)
+
+        # Compare AD to CS
+        np.testing.assert_allclose(xyzProj_d, xyzProj_CS, rtol=1e-6)
+        np.testing.assert_allclose(normProj_d, normProj_CS, rtol=3e-6, atol=1e-9)
 
     def test_curve_projection_deriv(self):
 

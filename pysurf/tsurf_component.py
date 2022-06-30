@@ -27,14 +27,24 @@ class TSurfGeometry(Geometry):
         Name that can be assigned to the geometry. This name
         should match the wall boundary condition family names used by the solver.
 
+    dtype : data type, optional
+        The data type for this object.
+        Should be float for real objects or complex for complex objects.
+
     """
 
-    def __init__(self, fileName, sectionsList=None, comm=None, name=None):
+    def __init__(self, fileName, sectionsList=None, comm=None, name=None, dtype=float):
 
         # Initialize the base classs
         super().__init__(comm)
 
-        self.name = name
+        if name is None:
+            # Assign component name based on its CGNS file
+            self.name = os.path.splitext(os.path.basename(fileName))[0]
+        else:
+            self.name = name
+
+        self.dtype = dtype
 
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
@@ -50,9 +60,6 @@ class TSurfGeometry(Geometry):
         newComm = comm.Split(color)
 
         self.comm = newComm
-
-        # Assign component name based on its CGNS file
-        self.name = os.path.splitext(os.path.basename(fileName))[0]
 
         if sectionsList is not None:
             self.name = self.name + "__" + "_".join(sectionsList)
@@ -263,14 +270,19 @@ class TSurfGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts) * 1e10
-        xyzProj = np.zeros((numPts, 3))
-        normProjNotNorm = np.zeros((numPts, 3))
+        dist2 = np.ones(numPts, dtype=self.dtype) * 1e10
+        xyzProj = np.zeros((numPts, 3), dtype=self.dtype)
+        normProjNotNorm = np.zeros((numPts, 3), dtype=self.dtype)
 
         # Call projection function
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(
-            xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
-        )
+        if self.dtype == float:
+            procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(
+                xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
+            )
+        elif self.dtype == complex:
+            procID, elementType, elementID, uvw = adtAPI_cs.adtapi.adtmindistancesearch(
+                xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
+            )
 
         # Adjust indices and ordering
         elementID = elementID - 1
@@ -1025,6 +1037,10 @@ class TSurfCurve(Curve):
 
     mergeTol : float, optional
         Tolerance to merge nodes.
+
+    dtype : data type, optional
+        The data type for this object.
+        Should be float for real objects or complex for complex objects.
 
     """
 
