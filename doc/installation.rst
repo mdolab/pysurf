@@ -19,8 +19,8 @@ Once you have copied the config file, compile pySurf by running:
 
     make
 
-If everything was successful, the following lines will be printed to
-the screen (near the end)::
+If the real build was successful, the following lines will be printed to
+the screen near the middle of the output::
 
    Testing if module cgnsAPI can be imported...
    Module cgnsAPI was successfully imported.
@@ -36,6 +36,24 @@ the screen (near the end)::
 
    Testing if module utilitiesAPI can be imported...
    Module utilitiesAPI was successfully imported.
+
+Similarly, if the complex build was successful, the following lines will be
+printed near the end of the output::
+
+    Testing if module cgnsAPI_cs can be imported...
+    Module cgnsAPI_cs was successfully imported.
+
+    Testing if module adtAPI_cs can be imported...
+    Module adtAPI_cs was successfully imported.
+
+    Testing if module curveSearchAPI_cs can be imported...
+    Module curveSearchAPI_cs was successfully imported.
+
+    Testing if module intersectionAPI_cs can be imported...
+    Module intersectionAPI_cs was successfully imported.
+
+    Testing if module utilitiesAPI_cs can be imported...
+    Module utilitiesAPI_cs was successfully imported.
 
 Finally, install the Python interface with:
 
