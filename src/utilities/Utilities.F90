@@ -665,8 +665,14 @@ subroutine computeBBox(coor, BBox)
   ! EXECUTION
 
   ! Get bounding values
+#ifdef USE_COMPLEX
+  ! Use only real values for the bounding box
   BBox(:, 1) = minval(real(coor), 2)
   BBox(:, 2) = maxval(real(coor), 2)
+#else
+  BBox(:, 1) = minval(coor, 2)
+  BBox(:, 2) = maxval(coor, 2)
+#endif
 
 end subroutine computeBBox
 

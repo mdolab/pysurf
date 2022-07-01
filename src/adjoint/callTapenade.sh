@@ -1,14 +1,15 @@
 # Preprocess some files
 cpp -traditional -P -DUSE_TAPENADE ../common/precision.F90 precision.f90
 cpp -traditional -P -DUSE_TAPENADE ../common/constants.F90 constants.f90
+cpp -traditional -P -DUSE_TAPENADE ../utilities/Utilities.F90 Utilities.F90
 
 # INTERSECTION AND CURVE DERIVATIVES
 
 # Generate forward mode
-tapenade -d -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90 precision.f90 constants.f90
+tapenade -d -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 Utilities.F90 ../curveSearch/curveUtils.F90 precision.f90 constants.f90
 
 # Generate backward mode
-tapenade -b -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 ../utilities/Utilities.F90 ../curveSearch/curveUtils.F90 precision.f90 constants.f90
+tapenade -b -head "triTriIntersect remesh_main(coor)\(newCoor) barProjection(x1,x2,x)\(xf) computeTangent" ../intersections/Intersection.F90 Utilities.F90 ../curveSearch/curveUtils.F90 precision.f90 constants.f90
 
 # PROJECTION DERIVATIVES
 
@@ -37,3 +38,4 @@ rm constants_b.*
 # Remove processed files
 rm precision.f90
 rm constants.f90
+rm Utilities.F90
