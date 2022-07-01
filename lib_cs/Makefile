@@ -1,13 +1,3 @@
-#      ******************************************************************
-#      *                                                                *
-#      * File:          Makefile                                        *
-#      * Authors: Ney Secco and John Jasa                               *
-#      * Based on Gaetan Kenway's Makefiles                             *
-#      * Starting date: 07-27-2016                                      *
-#      * Last modified: 07-27-2016                                      *
-#      *                                                                *
-#      ******************************************************************
-#
 HOME_DIR = ..
 COMMON_FILE = $(HOME_DIR)/common.mk
 include ${COMMON_FILE}
