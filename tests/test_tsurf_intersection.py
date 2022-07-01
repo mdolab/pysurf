@@ -135,7 +135,7 @@ class TestCurveIntersection(unittest.TestCase):
         # Get the new intersection coordinates
         intCoor_pert = intCurve.get_points()
 
-        # Compute derivatives with finite differences
+        # Compute FD derivative
         intCoord_FD = (intCoor_pert - intCoor0) / stepSize_FD
 
         # === COMPLEX STEP ===
@@ -184,7 +184,7 @@ class TestCurveIntersection(unittest.TestCase):
         # Get the new intersection coordinates
         intCoor_pert = intCurve.get_points()
 
-        # Compute derivatives with finite differences
+        # Compute CS derivative
         intCoord_CS = np.imag(intCoor_pert) / stepSize_CS
 
         # === DERIVATIVE TESTS ===
