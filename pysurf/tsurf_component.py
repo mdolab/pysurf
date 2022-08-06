@@ -3,8 +3,8 @@ import os
 from mpi4py import MPI
 import numpy as np
 from .baseClasses import Geometry, Curve
-from . import adtAPI, curveSearchAPI, utilitiesAPI, tecplot_interface
-from . import adtAPI_cs, curveSearchAPI_cs, utilitiesAPI_cs
+from . import adtAPI, curveSearchAPI, intersectionAPI, utilitiesAPI, tecplot_interface
+from . import adtAPI_cs, curveSearchAPI_cs, intersectionAPI_cs, utilitiesAPI_cs
 from . import tsurf_tools as tst
 
 
@@ -44,7 +44,18 @@ class TSurfGeometry(Geometry):
         else:
             self.name = name
 
+        # Set real or complex Fortran APIs
         self.dtype = dtype
+        if dtype == float:
+            self.adtAPI = adtAPI.adtapi
+            self.curveSearchAPI = curveSearchAPI.curvesearchapi
+            self.intersectionAPI = intersectionAPI.intersectionapi
+            self.utilitiesAPI = utilitiesAPI.utilitiesapi
+        elif dtype == complex:
+            self.adtAPI = adtAPI_cs.adtapi
+            self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
+            self.intersectionAPI = intersectionAPI_cs.intersectionapi
+            self.utilitiesAPI = utilitiesAPI_cs.utilitiesapi
 
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
@@ -128,7 +139,7 @@ class TSurfGeometry(Geometry):
         if self.myID == 0:
 
             # Deallocate previous tree
-            adtAPI.adtapi.adtdeallocateadts(self.name)
+            self.adtAPI.adtdeallocateadts(self.name)
 
             # Update name
             self.name = name
@@ -275,15 +286,9 @@ class TSurfGeometry(Geometry):
         normProjNotNorm = np.zeros((numPts, 3), dtype=self.dtype)
 
         # Call projection function
-        if self.dtype == float:
-            procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(
-                xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
-            )
-        elif self.dtype == complex:
-            procID, elementType, elementID, uvw = adtAPI_cs.adtapi.adtmindistancesearch(
-                xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
-            )
-
+        procID, elementType, elementID, uvw = self.adtAPI.adtmindistancesearch(
+            xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
+        )
         # Adjust indices and ordering
         elementID = elementID - 1
         uvw = uvw.T
@@ -359,7 +364,7 @@ class TSurfGeometry(Geometry):
         normProjNotNorm = projDict["normProjNotNorm"]
 
         # Compute derivatives of the normal vectors
-        nodal_normals, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(
+        nodal_normals, nodal_normalsd = self.adtAPI.adtcomputenodalnormals_d(
             self.coor.T, self.coord.T, self.triaConnF.T, self.quadsConnF.T
         )
         # Transpose Fortran outputs
@@ -371,7 +376,7 @@ class TSurfGeometry(Geometry):
         # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
         # I could not change this because the original ADT code already used "coor" to denote nodes that should be
         # projected.
-        xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(
+        xyzProjd, normProjNotNormd = self.adtAPI.adtmindistancesearch_d(
             xyz.T,
             xyzd.T,
             self.name,
@@ -458,7 +463,7 @@ class TSurfGeometry(Geometry):
         # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
         # I could not change this because the original ADT code already used "coor" to denote nodes that should be
         # projected.
-        xyzb, coorb, nodal_normalsb = adtAPI.adtapi.adtmindistancesearch_b(
+        xyzb, coorb, nodal_normalsb = self.adtAPI.adtmindistancesearch_b(
             xyz.T,
             self.name,
             procID,
@@ -479,7 +484,7 @@ class TSurfGeometry(Geometry):
         nodal_normalsb = nodal_normalsb.T
 
         # Compute derivative seed contributions of the normal vectors
-        deltaCoorb = adtAPI.adtapi.adtcomputenodalnormals_b(
+        deltaCoorb = self.adtAPI.adtcomputenodalnormals_b(
             self.coor.T, self.triaConnF.T, self.quadsConnF.T, self.nodal_normals.T, nodal_normalsb.T
         )
 
@@ -1049,7 +1054,16 @@ class TSurfCurve(Curve):
         # Initialize the base classs
         super().__init__()
 
+        # Set real or complex Fortran APIs
         self.dtype = dtype
+        if dtype == float:
+            self.adtAPI = adtAPI.adtapi
+            self.curveSearchAPI = curveSearchAPI.curvesearchapi
+            self.utilitiesAPI = utilitiesAPI.utilitiesapi
+        elif dtype == complex:
+            self.adtAPI = adtAPI_cs.adtapi
+            self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
+            self.utilitiesAPI = utilitiesAPI_cs.utilitiesapi
 
         # Define nodal coordinates as float or complex so Fortran recognizes them
         coor = np.array(coor, dtype=dtype)
@@ -1064,10 +1078,7 @@ class TSurfCurve(Curve):
         barsConnF = (
             barsConn.T + 1
         )  # Adjust indices since Fortran is 1-based (we need to do this separately as Fortran changes it)
-        if self.dtype == float:
-            nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
-        elif self.dtype == complex:
-            nUniqueNodes, linkOld2New = utilitiesAPI_cs.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
+        nUniqueNodes, linkOld2New = self.utilitiesAPI.condensebarnodes(mergeTol, coor.T, barsConnF)
 
         # Readjust back to Python indexing
         linkOld2New = linkOld2New - 1
@@ -1199,14 +1210,9 @@ class TSurfCurve(Curve):
             elemIDs + 1
         )  # (we need to do this separetely because Fortran will actively change elemIDs contents.
 
-        if self.dtype == float:
-            curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(
-                xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
-            )
-        elif self.dtype == complex:
-            curveMask = curveSearchAPI_cs.curvesearchapi.mindistancecurve(
-                xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
-            )
+        curveMask = self.curveSearchAPI.mindistancecurve(
+            xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
+        )
 
         # Adjust indices back to Python standards
         elemIDs[:] = elemIDs - 1
@@ -1257,7 +1263,7 @@ class TSurfCurve(Curve):
             print("with the number of nodes.")
 
         # Call fortran code
-        curveSearchAPI.curvesearchapi.mindistancecurve_d(
+        self.curveSearchAPI.mindistancecurve_d(
             xyz.T,
             xyzd.T,
             self.coor.T,
@@ -1315,7 +1321,7 @@ class TSurfCurve(Curve):
             print("with the number of points.")
 
         # Call fortran code (This will accumulate seeds in xyzb and self.coorb)
-        xyzb_new, coorb_new = curveSearchAPI.curvesearchapi.mindistancecurve_b(
+        xyzb_new, coorb_new = self.curveSearchAPI.mindistancecurve_b(
             xyz.T,
             self.coor.T,
             self.barsConn.T + 1,
@@ -1399,14 +1405,9 @@ class TSurfCurve(Curve):
             nNewNodes = nNodes
 
         # Call Fortran code. Remember to adjust transposes and indices
-        if self.dtype == float:
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-            )
-        elif self.dtype == complex:
-            newCoor, newBarsConn = utilitiesAPI_cs.utilitiesapi.remesh(
-                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-            )
+        newCoor, newBarsConn = self.utilitiesAPI.remesh(
+            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
+        )
 
         newCoor = newCoor.T
         newBarsConn = newBarsConn.T - 1
@@ -1465,7 +1466,7 @@ class TSurfCurve(Curve):
         nNewElems = nNewNodes - 1
 
         # Call Fortran code. Remember to adjust transposes and indices
-        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(
+        newCoor, newCoord, newBarsConn = self.utilitiesAPI.remesh_d(
             nNewNodes, nNewElems, coor.T, coord.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
         )
 
@@ -1533,7 +1534,7 @@ class TSurfCurve(Curve):
         nNewElems = nNewNodes - 1
 
         # Call Fortran code. Remember to adjust transposes and indices
-        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(
+        _, __, coorb = self.utilitiesAPI.remesh_b(
             nNewElems, coor.T, newCoorb.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
         )
 

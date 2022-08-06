@@ -1,8 +1,7 @@
 from mpi4py import MPI
 import numpy as np
 from scipy.optimize import minimize, broyden1
-from . import adtAPI, cgnsAPI, intersectionAPI, tecplot_interface, tsurf_component
-from . import adtAPI_cs, intersectionAPI_cs
+from . import cgnsAPI, tecplot_interface, tsurf_component
 
 """
 TODO:
@@ -211,10 +210,7 @@ def update_surface(TSurfGeometry):
     """
 
     # Deallocate previous tree
-    if TSurfGeometry.dtype == float:
-        adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
-    elif TSurfGeometry.dtype == complex:
-        adtAPI_cs.adtapi.adtdeallocateadts(TSurfGeometry.name)
+    TSurfGeometry.adtAPI.adtdeallocateadts(TSurfGeometry.name)
 
     # Set bounding box for new tree
     BBox = np.zeros((2, 3), dtype=TSurfGeometry.dtype)
@@ -223,37 +219,22 @@ def update_surface(TSurfGeometry):
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    if TSurfGeometry.dtype == float:
-        nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(
-            TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
-        )
-    elif TSurfGeometry.dtype == complex:
-        nodal_normals = adtAPI_cs.adtapi.adtcomputenodalnormals(
-            TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
-        )
+    nodal_normals = TSurfGeometry.adtAPI.adtcomputenodalnormals(
+        TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
+    )
+
     TSurfGeometry.nodal_normals = nodal_normals.T
 
     # Create new tree (the tree itself is stored in Fortran level)
-    if TSurfGeometry.dtype == float:
-        adtAPI.adtapi.adtbuildsurfaceadt(
-            TSurfGeometry.coor.T,
-            TSurfGeometry.triaConnF.T,
-            TSurfGeometry.quadsConnF.T,
-            BBox.T,
-            useBBox,
-            TSurfGeometry.comm.py2f(),
-            TSurfGeometry.name,
-        )
-    elif TSurfGeometry.dtype == complex:
-        adtAPI_cs.adtapi.adtbuildsurfaceadt(
-            TSurfGeometry.coor.T,
-            TSurfGeometry.triaConnF.T,
-            TSurfGeometry.quadsConnF.T,
-            BBox.T,
-            useBBox,
-            TSurfGeometry.comm.py2f(),
-            TSurfGeometry.name,
-        )
+    TSurfGeometry.adtAPI.adtbuildsurfaceadt(
+        TSurfGeometry.coor.T,
+        TSurfGeometry.triaConnF.T,
+        TSurfGeometry.quadsConnF.T,
+        BBox.T,
+        useBBox,
+        TSurfGeometry.comm.py2f(),
+        TSurfGeometry.name,
+    )
 
 
 # =================================================================
@@ -1138,37 +1119,22 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
 
-    if dtype == float:
-        arraySizes = intersectionAPI.intersectionapi.computeintersection(
-            TSurfGeometryA.coor.T,
-            TSurfGeometryA.triaConnF.T,
-            TSurfGeometryA.quadsConnF.T,
-            TSurfGeometryB.coor.T,
-            TSurfGeometryB.triaConnF.T,
-            TSurfGeometryB.quadsConnF.T,
-            distTol,
-            comm.py2f(),
-        )
-    elif dtype == complex:
-        arraySizes = intersectionAPI_cs.intersectionapi.computeintersection(
-            TSurfGeometryA.coor.T,
-            TSurfGeometryA.triaConnF.T,
-            TSurfGeometryA.quadsConnF.T,
-            TSurfGeometryB.coor.T,
-            TSurfGeometryB.triaConnF.T,
-            TSurfGeometryB.quadsConnF.T,
-            distTol,
-            comm.py2f(),
-        )
+    arraySizes = TSurfGeometryA.intersectionAPI.computeintersection(
+        TSurfGeometryA.coor.T,
+        TSurfGeometryA.triaConnF.T,
+        TSurfGeometryA.quadsConnF.T,
+        TSurfGeometryB.coor.T,
+        TSurfGeometryB.triaConnF.T,
+        TSurfGeometryB.quadsConnF.T,
+        distTol,
+        comm.py2f(),
+    )
 
     # Retrieve results from Fortran if we have an intersection
     if np.max(arraySizes[1:]) > 0:
 
         # Second Fortran call to retrieve data from the CGNS file.
-        if dtype == float:
-            intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)
-        elif dtype == complex:
-            intersectionArrays = intersectionAPI_cs.intersectionapi.retrievedata(*arraySizes)
+        intersectionArrays = TSurfGeometryA.intersectionAPI.retrievedata(*arraySizes)
 
         # Split results.
         # We need to do actual copies, otherwise data will be overwritten if we compute another intersection.
@@ -1187,10 +1153,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
         parentTria = np.zeros((0, 2))
 
     # Release memory used by Fortran so we can run another intersection in the future
-    if dtype == float:
-        intersectionAPI.intersectionapi.releasememory()
-    elif dtype == complex:
-        intersectionAPI_cs.intersectionapi.releasememory()
+    TSurfGeometryA.intersectionAPI.releasememory()
 
     # Initialize list to hold all intersection curves
     Intersections = []
@@ -1276,7 +1239,7 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(
+    coorIntd = TSurfGeometryA.intersectionAPI.computeintersection_d(
         TSurfGeometryA.coor.T,
         coorAd.T,
         TSurfGeometryA.triaConnF.T,
@@ -1331,7 +1294,7 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(
+    coorAb, coorBb = TSurfGeometryA.intersectionAPI.computeintersection_b(
         TSurfGeometryA.coor.T,
         TSurfGeometryA.triaConnF.T,
         TSurfGeometryA.quadsConnF.T,
