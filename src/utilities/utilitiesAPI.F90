@@ -83,6 +83,9 @@ subroutine remesh(nNodes, nElem, nNewNodes, coor, barsConn, method, spacing,&
 
 end subroutine remesh
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
 subroutine remesh_b(nNodes, nElem, nNewNodes, nNewElems, coor, newCoorb, barsConn,&
   method, spacing, initialSpacing, finalSpacing, newCoor, newBarsConn, coorb)
 
@@ -154,6 +157,8 @@ subroutine remesh_d(nNodes, nElem, nNewNodes, nNewElems, coor, coord, barsConn,&
   spacing, initialSpacing, finalSpacing, newCoor, newCoord, newBarsConn)
 
 end subroutine remesh_d
+
+#endif
 
 !=============================================
 

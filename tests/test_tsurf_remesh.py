@@ -1,6 +1,6 @@
-import pysurf
 import numpy as np
 import unittest
+from pysurf.tsurf_tools import create_curve_from_points
 
 
 class TestRemesh(unittest.TestCase):
@@ -13,13 +13,13 @@ class TestRemesh(unittest.TestCase):
         coor = np.array([[0.0, 0.2, 0.9], [0.1, 0.3, 0.7], [0.5, 0.6, 0.5], [0.8, 0.7, 0.4], [1.0, 0.9, 0.2]])
 
         # Create curve object
-        self.curve = pysurf.tsurf_tools.create_curve_from_points(coor, "test", periodic=False)
+        self.curve = create_curve_from_points(coor, "test", periodic=False)
 
         # Create simple curve and store within the class
         coor = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.5, 1.0, 0.5], [0.8, 0.7, 0.4], [0.0, 0.0, 0.0]])
 
         # Create curve object
-        self.periodic_curve = pysurf.tsurf_tools.create_curve_from_points(coor, "test", periodic=True)
+        self.periodic_curve = create_curve_from_points(coor, "test", periodic=True)
 
         # Define relative tolerance
         self.rtol = 5e-7
@@ -89,46 +89,59 @@ class TestRemesh(unittest.TestCase):
         remeshedCurve = self.curve.remesh(**optionsDict)
 
         # Assign derivative seeds
-        coord = self.curve.set_randomADSeeds(mode="forward")
-        remeshedCoorb = remeshedCurve.set_randomADSeeds(mode="reverse")
-
-        # Adjust seeds
-        coord[:, :] = 0.0
-        coord[1, 2] = -1.0
-        self.curve.set_forwardADSeeds(coord)
+        coor_d = self.curve.set_randomADSeeds(mode="forward")
+        remeshedCoor_b = remeshedCurve.set_randomADSeeds(mode="reverse")
 
         # Forward AD
         self.curve.remesh_d(remeshedCurve, **optionsDict)
 
         # Store relevant seeds
-        remeshedCoord = remeshedCurve.get_forwardADSeeds()
+        remeshedCoor_d = remeshedCurve.get_forwardADSeeds()
 
         # Reverse AD
         self.curve.remesh_b(remeshedCurve, **optionsDict)
 
         # Store relevant seeds
-        coorb = self.curve.get_reverseADSeeds()
+        coor_b = self.curve.get_reverseADSeeds()
 
-        # Compute dot product test
-        dotProd = np.sum(coord * coorb) - np.sum(remeshedCoord * remeshedCoorb)
-        np.testing.assert_allclose(dotProd, 0, atol=1e-15)
+        # Dot product test
+        dotProd_LHS = np.sum(coor_d * coor_b)
+        dotProd_RHS = np.sum(remeshedCoor_d * remeshedCoor_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
-        # Define step size for finite difference test
-        stepSize = 1e-7
+        # Define step sizes
+        stepSize_FD = 1e-7
+        stepSize_CS = 1e-200
 
-        # Apply perturbations for finite difference tests
-        self.curve.set_points(self.curve.get_points() + stepSize * coord)
+        # Apply FD perturbation
+        self.curve.set_points(self.curve.get_points() + stepSize_FD * coor_d)
 
         # Remesh the curve
-        remeshedCurve2 = self.curve.remesh(**optionsDict)
+        remeshedCurve_pert = self.curve.remesh(**optionsDict)
 
-        # Compare coordinates to compute derivatives
+        # Compute FD derivative
         remeshedCoor0 = remeshedCurve.get_points()
-        remeshedCoorf = remeshedCurve2.get_points()
-        remeshedCoord_FD = (remeshedCoorf - remeshedCoor0) / stepSize
+        remeshedCoor_pert = remeshedCurve_pert.get_points()
+        remeshedCoor_FD = (remeshedCoor_pert - remeshedCoor0) / stepSize_FD
 
         # Compare AD to FD
-        np.testing.assert_allclose(remeshedCoord, remeshedCoord_FD, rtol=3e-5)
+        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_FD, rtol=1e-7)
+
+        # Create a complex curve object for CS test
+        self.curve_CS = create_curve_from_points(self.curve.get_points(), "test", periodic=False, dtype=complex)
+
+        # Apply CS perturbation
+        self.curve_CS.set_points(self.curve_CS.get_points() + stepSize_CS * coor_d * 1j)
+
+        # Remesh the complex curve
+        remeshedCurve_pert = self.curve_CS.remesh(**optionsDict)
+
+        # Compute CS derivative
+        remeshedCoor_pert = remeshedCurve_pert.get_points()
+        remeshedCoor_CS = np.imag(remeshedCoor_pert) / stepSize_CS
+
+        # Compare AD to CS
+        np.testing.assert_allclose(remeshedCoor_d, remeshedCoor_CS, rtol=1e-7)
 
 
 if __name__ == "__main__":

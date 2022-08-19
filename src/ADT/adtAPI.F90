@@ -562,6 +562,9 @@
         !***************************************************************
         !***************************************************************
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
         subroutine adtMinDistanceSearch_d(nCoor,       nNodes,      coor,        coord, &
                                           adtID,       adtCoord,    procID,      elementType, &
                                           elementID,   uvw,         dist2,       &
@@ -770,6 +773,8 @@
 
         end subroutine adtMinDistanceSearch_b
 
+#endif
+
         !***************************************************************
         !***************************************************************
 
@@ -826,6 +831,9 @@
 
         !***************************************************************
         !***************************************************************
+
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
 
         subroutine adtComputeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
                                             quadsConn, nodalNormals, nodalNormalsd)
@@ -951,6 +959,9 @@
 
         !***************************************************************
         !***************************************************************
+
+#endif
+
         !***************************************************************
         !***************************************************************
 

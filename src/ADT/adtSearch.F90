@@ -1048,6 +1048,9 @@
         !***************************************************************
         !***************************************************************
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
         subroutine minDistanceSearch_d(nCoor,       nNodes,      coor,        coord, &
                                        adtID,       adtCoord,    procID,      &
                                        elementType, elementID,   &
@@ -1620,6 +1623,8 @@
         end do
 
       end subroutine minDistanceSearch_b
+
+#endif
 
         !***************************************************************
         !***************************************************************

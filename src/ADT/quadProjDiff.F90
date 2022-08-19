@@ -12,6 +12,9 @@ implicit none
 
 contains
 
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
+
   subroutine quadProjection_d(x1, x1d, x2, x2d, x3, x3d, x4, x4d, x, xd, &
                               xfd, u, ud, v, vd)
 
@@ -226,6 +229,6 @@ contains
 
   end subroutine quadProjection_b
 
-
+#endif
 
 end module quadProjDiff

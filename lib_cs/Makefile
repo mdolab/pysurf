@@ -13,7 +13,7 @@ clean:
 libdiscretesurf:
 	@echo "        creating library ..."
 	@echo
-	$(AR) $(AR_FLAGS) libdiscretesurf.a $(OBJDIR)/*.o
+	$(AR) $(AR_FLAGS) libdiscretesurf_cs.a $(OBJDIR)/*.o
 	@echo
-	@echo "        library libdiscretesurf.a created."
+	@echo "        library libdiscretesurf_cs.a created."
 	@echo

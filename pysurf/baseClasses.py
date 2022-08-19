@@ -19,7 +19,7 @@ class Geometry(object):
     self.curves : dictionary{curveName:curveObject} -> Dictionary with component curves.
     """
 
-    def __init__(self, *arg, **kwargs):
+    def __init__(self, comm=None):
         """
         Call the initialization method defined in each
         derived class.
@@ -29,12 +29,10 @@ class Geometry(object):
         """
 
         self.name = ""
-        self.comm = None
+        self.comm = comm
         self.curves = {}
 
-        if "comm" in kwargs:
-            self.comm = kwargs["comm"]
-        else:
+        if self.comm is None:
             self.comm = MPI.COMM_WORLD
 
         # Assign proc ID
@@ -50,14 +48,6 @@ class Geometry(object):
 
         # Define point set name to store geometry nodes into the manipulator
         self.ptSetName = None
-
-        self._initialize(*arg, **kwargs)
-
-    def _initialize(self, *arg):
-        """
-        Virtual method
-        """
-        pass
 
     def translate(self, x, y, z):
         """
@@ -480,7 +470,7 @@ class Curve(object):
     self.comm : MPI communicator.
     """
 
-    def __init__(self, *arg, **kwargs):
+    def __init__(self):
         """
         Call the initialization method defined in each
         child class
@@ -488,11 +478,9 @@ class Curve(object):
         # Initialize dictionary to hold extra information
         self.extra_data = {}
 
-        self._initialize(*arg)
-
         # Initialize important extra data fields
-        self.extra_data["parentGeoms"] = None  # This will be used by the manager to indentify intersections meshes
-        self.extra_data["childMeshes"] = None  # This will be used by the manager to indentify collar meshes
+        self.extra_data["parentGeoms"] = None  # This will be used by the manager to identify intersections meshes
+        self.extra_data["childMeshes"] = None  # This will be used by the manager to identify collar meshes
 
     def get_points(self):
         """

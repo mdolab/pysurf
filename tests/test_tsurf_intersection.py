@@ -19,8 +19,12 @@ class TestCurveIntersection(unittest.TestCase):
         cylinderFile = os.path.join(baseDir, "..", "input_files", "cylinder.cgns")
 
         # Create geometry objects
-        self.comp1 = pysurf.TSurfGeometry(cubeFile, comm)
-        self.comp2 = pysurf.TSurfGeometry(cylinderFile, comm)
+        self.comp1 = pysurf.TSurfGeometry(cubeFile, comm=comm)
+        self.comp2 = pysurf.TSurfGeometry(cylinderFile, comm=comm)
+
+        # Create complex geometry objects
+        self.comp1_CS = pysurf.TSurfGeometry(cubeFile, comm=comm, dtype=complex)
+        self.comp2_CS = pysurf.TSurfGeometry(cylinderFile, comm=comm, dtype=complex)
 
     def test_curve_intersection(self):
 
@@ -56,7 +60,7 @@ class TestCurveIntersection(unittest.TestCase):
         # Define distance tolerance
         distTol = 1e-7
 
-        # Load dummy components whose data  will be overwritten
+        # Load dummy components whose data will be overwritten
         comp1 = self.comp1
         comp2 = self.comp2
 
@@ -88,8 +92,8 @@ class TestCurveIntersection(unittest.TestCase):
         # === FORWARD AD ===
 
         # Set random AD seeds
-        coor1d, curveCoor1d = comp1.set_randomADSeeds(mode="forward")
-        coor2d, curveCoor2d = comp2.set_randomADSeeds(mode="forward")
+        coor1_d, curveCoor1_d = comp1.set_randomADSeeds(mode="forward")
+        coor2_d, curveCoor2_d = comp2.set_randomADSeeds(mode="forward")
         intCoorb = intCurve.set_randomADSeeds(mode="reverse")
 
         # Compute derivatives in forward mode
@@ -110,41 +114,95 @@ class TestCurveIntersection(unittest.TestCase):
         # === FINITE DIFFERENCES ===
 
         # Set step size
-        stepSize = 1e-7
+        stepSize_FD = 1e-7
 
-        # Change the geometry
-        comp1.update(comp1.coor + stepSize * coor1d)
-        for curveName in curveCoor1d:
-            comp1.curves[curveName].set_points(comp1.curves[curveName].get_points() + stepSize * curveCoor1d[curveName])
-        comp2.update(comp2.coor + stepSize * coor2d)
-        for curveName in curveCoor2d:
-            comp2.curves[curveName].set_points(comp2.curves[curveName].get_points() + stepSize * curveCoor2d[curveName])
+        # Perturb the geometry
+        comp1.update(comp1.coor + stepSize_FD * coor1_d)
+        for curveName in curveCoor1_d:
+            comp1.curves[curveName].set_points(
+                comp1.curves[curveName].get_points() + stepSize_FD * curveCoor1_d[curveName]
+            )
+        comp2.update(comp2.coor + stepSize_FD * coor2_d)
+        for curveName in curveCoor2_d:
+            comp2.curves[curveName].set_points(
+                comp2.curves[curveName].get_points() + stepSize_FD * curveCoor2_d[curveName]
+            )
 
-        # Run the intersection code once again
+        # Run the intersection code
         intCurves = comp1.intersect(comp2, distTol)
         intCurve = intCurves[0]
 
         # Get the new intersection coordinates
-        intCoor = intCurve.get_points()
+        intCoor_pert = intCurve.get_points()
 
-        # Compute derivatives with finite differences
-        intCoord_FD = (intCoor - intCoor0) / stepSize
+        # Compute FD derivative
+        intCoord_FD = (intCoor_pert - intCoor0) / stepSize_FD
+
+        # === COMPLEX STEP ===
+
+        # Set step size
+        stepSize_CS = 1e-200
+
+        # Set up complex curve objects
+
+        # Load dummy components whose data will be overwritten
+        comp1 = self.comp1_CS
+        comp2 = self.comp2_CS
+
+        # Define component A
+        comp1.coor = np.array([[-0.1, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 1.0, 0.0], [3.0, 1.0, 0.0]], dtype=complex)
+        comp1.triaConnF = np.array([[1, 2, 3], [2, 4, 3]])
+        comp1.quadsConnF = np.zeros((0, 4))
+
+        # Update ADT
+        comp1.update()
+
+        # Define component B
+        comp2.coor = np.array([[0.0, 0.2, -0.2], [3.5, 0.2, -0.2], [0.0, 0.2, 0.2], [3.5, 0.2, 0.2]], dtype=complex)
+        comp2.triaConnF = np.array([[1, 2, 3], [2, 4, 3]])
+        comp2.quadsConnF = np.zeros((0, 4))
+
+        # Update ADT
+        comp2.update()
+
+        # Perturb the geometry
+        comp1.update(comp1.coor + stepSize_CS * 1j * coor1_d)
+        for curveName in curveCoor1_d:
+            comp1.curves[curveName].set_points(
+                comp1.curves[curveName].get_points() + stepSize_CS * 1j * curveCoor1_d[curveName]
+            )
+        comp2.update(comp2.coor + stepSize_CS * 1j * coor2_d)
+        for curveName in curveCoor2_d:
+            comp2.curves[curveName].set_points(
+                comp2.curves[curveName].get_points() + stepSize_CS * 1j * curveCoor2_d[curveName]
+            )
+
+        # Run the intersection code
+        intCurves = comp1.intersect(comp2, distTol)
+        intCurve = intCurves[0]
+
+        # Get the new intersection coordinates
+        intCoor_pert = intCurve.get_points()
+
+        # Compute CS derivative
+        intCoord_CS = np.imag(intCoor_pert) / stepSize_CS
 
         # === DERIVATIVE TESTS ===
 
-        # Compute dot product test
-        dotProd = 0.0
-        dotProd = dotProd + np.sum(coor1d * coor1b)
-        dotProd = dotProd + np.sum(coor2d * coor2b)
-        dotProd = dotProd - np.sum(intCoord * intCoorb)
-        for curveName in curveCoor1d:
-            dotProd = dotProd - np.sum(curveCoor1b[curveName] * curveCoor1d[curveName])
-        for curveName in curveCoor2d:
-            dotProd = dotProd - np.sum(curveCoor2b[curveName] * curveCoor2d[curveName])
-        np.testing.assert_allclose(dotProd, 0, atol=3e-16)
+        # Dot product test
+        dotProd_LHS = np.sum(coor1_d * coor1b) + np.sum(coor2_d * coor2b)
+        dotProd_RHS = np.sum(intCoord * intCoorb)
+        for curveName in curveCoor1_d:
+            dotProd_RHS += np.sum(curveCoor1b[curveName] * curveCoor1_d[curveName])
+        for curveName in curveCoor2_d:
+            dotProd_RHS += np.sum(curveCoor2b[curveName] * curveCoor2_d[curveName])
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
         np.testing.assert_allclose(intCoord, intCoord_FD, rtol=1e-7)
+
+        # Compare AD to CS
+        np.testing.assert_allclose(intCoord, intCoord_CS, rtol=1e-15)
 
 
 if __name__ == "__main__":

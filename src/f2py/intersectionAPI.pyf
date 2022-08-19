@@ -1,7 +1,11 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module intersectionAPI ! in 
+#ifdef USE_COMPLEX
+python module intersectionAPI_cs ! in
+#else
+python module intersectionAPI ! in
+#endif
     interface  ! in :intersectionAPI
         module intersectionapi ! in :intersectionAPI:intersectionAPI.F90
             use precision
@@ -27,6 +31,8 @@ python module intersectionAPI ! in
                 integer(kind=inttype) intent(out) :: numbarsconn
                 integer(kind=inttype) intent(out) :: numparenttria
             end subroutine computeintersection
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
             subroutine computeintersection_b(nnodesa,ntriaa,nquadsa,nnodesb,ntriab,nquadsb,nnodesint,nbarsint,coora,coorab,triaconna,quadsconna,coorb,coorbb,triaconnb,quadsconnb,coorint,coorintb,barsconnint,parenttriaint,disttol) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection_b, only: tritriintersect_b
                 use intersection
@@ -79,6 +85,7 @@ python module intersectionAPI ! in
                 integer(kind=inttype) dimension(2,nbarsint),intent(in),depend(nbarsint) :: parenttriaint
                 real(kind=realtype) intent(in) :: disttol
             end subroutine computeintersection_d
+#endif
             subroutine retrievedata(numcoor,numbarsconn,numparenttria,coordata,barsconndata,parenttriadata) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 integer(kind=inttype) intent(in) :: numcoor
                 integer(kind=inttype) intent(in) :: numbarsconn
@@ -89,6 +96,7 @@ python module intersectionAPI ! in
             end subroutine retrievedata
             subroutine releasememory ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
             end subroutine releasememory
+#ifndef USE_COMPLEX
             subroutine testtri(v0,v1,v2,u0,u1,u2,intersect,vecstart,vecend) ! in :intersectionAPI:intersectionAPI.F90:intersectionapi
                 use intersection_b, only: tritriintersect_b
                 use intersection, only: tritriintersect
@@ -103,6 +111,7 @@ python module intersectionAPI ! in
                 real(kind=realtype) dimension(3),intent(out) :: vecstart
                 real(kind=realtype) dimension(3),intent(out) :: vecend
             end subroutine testtri
+#endif
         end module intersectionapi
     end interface 
 end python module intersectionAPI

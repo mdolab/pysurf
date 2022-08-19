@@ -6,11 +6,11 @@ First it checks the projection on the original cube, then it translates the cube
 
 """
 
-import pysurf
-from mpi4py import MPI
+import os
 import numpy as np
 import unittest
-import os
+from mpi4py import MPI
+from pysurf import TSurfGeometry
 
 # Set random seed for derivative tests
 np.random.seed(123)
@@ -23,7 +23,8 @@ class TestTSurfProjection(unittest.TestCase):
     def setUp(self):
         baseDir = os.path.dirname(os.path.abspath(__file__))
         surfFile = os.path.join(baseDir, "..", "input_files", "cube.cgns")
-        self.cube = pysurf.TSurfGeometry(surfFile, MPI.COMM_WORLD)
+        self.cube = TSurfGeometry(surfFile, comm=MPI.COMM_WORLD)
+        self.cube_CS = TSurfGeometry(surfFile, comm=MPI.COMM_WORLD, name="cube_CS", dtype=complex)
         self.pts = np.array([[0.6, 0.5, 1.0], [0.6, 0.5, 0.1]], order="F")
 
     def test_orig_cube_projection(self):
@@ -57,148 +58,205 @@ class TestTSurfProjection(unittest.TestCase):
         )
 
     # Define helper functions for derivative testing
-    def computeProjections(self, xyz, xyzd, coord, xyzProjb, normProjb, coor=None):
-
-        cube = self.cube
-
-        # Replace baseline surface coordinates if the user provided it
-        if coor is not None:
-            cube.update(coor)
-
-        # Call projection algorithm
-        xyzProj, normProj, projDict = cube.project_on_surface(xyz)
-
-        # Set derivative seeds
-        cube.set_forwardADSeeds(coord=coord)
-
-        # Call derivatives code in forward mode
-        xyzProjd, normProjd = cube.project_on_surface_d(xyz, xyzd, xyzProj, normProj, projDict)
-
-        # Call derivatives code in backward mode
-        xyzb = cube.project_on_surface_b(xyz, xyzProj, xyzProjb, normProj, normProjb, projDict)
-        coorb = cube.coorb
-
-        # Return results
-        return xyzProj, xyzProjd, normProj, normProjd, xyzb, coorb
-
-    def computeCurveProjections(self, xyz, xyzd, allCoord, xyzProjb, tanProjb, allCoor=None):
-
-        cube = self.cube
-
-        # Replace baseline coordinates if the user provided it
-        if allCoor is not None:
-            for curveName in cube.curves:
-                cube.curves[curveName].set_points(allCoor[curveName])
-
-        # Call projection algorithm
-        xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
-
-        # Set derivative seeds
-        cube.set_forwardADSeeds(curveCoord=allCoord)
-
-        # Call derivatives code in forward mode
-        xyzProjd, tanProjd = cube.project_on_curve_d(xyz, xyzd, xyzProj, tanProj, curveProjDict)
-
-        # Call derivatives code in backward mode
-        xyzb = cube.project_on_curve_b(xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict)
-
-        allCoorb = {}
-        for curve in cube.curves.values():
-            allCoorb[curve.name] = curve.get_reverseADSeeds()
-
-        # Return results
-        return xyzProj, xyzProjd, tanProj, tanProjd, xyzb, allCoorb
-
-    def test_projection_deriv(self):
-
+    def setUpDerivTest(self):
         cube = self.cube
 
         # Define points
         xyz = np.array([[0.7, 0.55, 0.1], [0.7, 0.55, 0.9]])
 
-        # Define derivatives and normalize them to a given step size
-        stepSize = 1e-7
+        # Define step sizes
+        stepSize_FD = 1e-7
+        stepSize_CS = 1e-200
 
         # Set random AD seeds
-        xyzd = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        xyzd = xyzd / np.sqrt(np.sum(xyzd ** 2))
+        xyz_d = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        xyz_d = xyz_d / np.sqrt(np.sum(xyz_d**2))
 
-        coord = np.array(np.random.rand(cube.coor.shape[0], cube.coor.shape[1]))
-        coord = coord / np.sqrt(np.sum(coord ** 2))
+        coor_d = np.array(np.random.rand(cube.coor.shape[0], cube.coor.shape[1]))
+        coor_d = coor_d / np.sqrt(np.sum(coor_d**2))
 
         allCoord = {}
         for curveName in cube.curves:
             # Get curve coordinate size
             coor = cube.curves[curveName].get_points()
             curveCoord = np.array(np.random.rand(coor.shape[0], coor.shape[1]))
-            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord ** 2))
+            allCoord[curveName] = curveCoord / np.sqrt(np.sum(curveCoord**2))
 
-        xyzProjb = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        normProjb = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
-        tanProjb = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        xyzProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        normProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
+        tanProj_b = np.array(np.random.rand(xyz.shape[0], xyz.shape[1]))
 
-        # === SURFACE PROJECTION ===
+        return xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b
 
-        # Call projection function at the original point
-        xyzProj0, xyzProjd_AD, normProj0, normProjd_AD, xyzb_AD, coorb_AD = self.computeProjections(
-            xyz, xyzd, coord, xyzProjb, normProjb
+    def computeSurfaceProjections_AD(self, xyz, xyz_d, coor_d, xyzProj_b, normProj_b):
+
+        cube = self.cube
+
+        # Call projection algorithm
+        xyzProj, normProj, projDict = cube.project_on_surface(xyz)
+
+        # Set derivative seeds
+        cube.set_forwardADSeeds(coord=coor_d)
+
+        # Call derivatives code in forward mode
+        xyzProj_d, normProj_d = cube.project_on_surface_d(xyz, xyz_d, xyzProj, normProj, projDict)
+
+        # Call derivatives code in backward mode
+        xyz_b = cube.project_on_surface_b(xyz, xyzProj, xyzProj_b, normProj, normProj_b, projDict)
+        coor_b = cube.coorb
+
+        # Return results
+        return xyzProj, xyzProj_d, normProj, normProj_d, xyz_b, coor_b
+
+    def computeSurfaceProjections_pert(self, xyz_pert, coor_pert, CS=False):
+
+        if CS:
+            cube = self.cube_CS
+        else:
+            cube = self.cube
+
+        # Replace the baseline surface coordinates
+        cube.update(coor_pert)
+
+        # Call projection algorithm
+        xyzProj_pert, normProj_pert = cube.project_on_surface(xyz_pert)[0:2]
+
+        # Return results
+        return xyzProj_pert, normProj_pert
+
+    def computeCurveProjections_AD(self, xyz, xyz_d, allCoor_d, xyzProj_b, tanProj_b):
+
+        cube = self.cube
+
+        # Call projection algorithm
+        xyzProj, tanProj, curveProjDict = cube.project_on_curve(xyz)
+
+        # Set derivative seeds
+        cube.set_forwardADSeeds(curveCoord=allCoor_d)
+
+        # Call AD code in forward mode
+        xyzProj_d, tanProj_d = cube.project_on_curve_d(xyz, xyz_d, xyzProj, tanProj, curveProjDict)
+
+        # Call AD code in backward mode
+        xyz_b = cube.project_on_curve_b(xyz, xyzProj, xyzProj_b, tanProj, tanProj_b, curveProjDict)
+
+        allCoor_b = {}
+        for curve in cube.curves.values():
+            allCoor_b[curve.name] = curve.get_reverseADSeeds()
+
+        # Return results
+        return xyzProj, xyzProj_d, tanProj, tanProj_d, xyz_b, allCoor_b
+
+    def computeCurveProjections_pert(self, xyz_pert, allCoor_pert, CS=True):
+
+        if CS:
+            cube = self.cube_CS
+        else:
+            cube = self.cube
+
+        # Replace baseline coordinates
+        for curveName in cube.curves:
+            cube.curves[curveName].set_points(allCoor_pert[curveName])
+
+        # Call projection algorithm
+        xyzProj, tanProj = cube.project_on_curve(xyz_pert)[0:2]
+
+        # Return results
+        return xyzProj, tanProj
+
+    def test_surface_projection_deriv(self):
+
+        cube = self.cube
+        xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
+
+        # Compute projection and AD at the original point
+        xyzProj0, xyzProj_d, normProj0, normProj_d, xyz_b, coor_b = self.computeSurfaceProjections_AD(
+            xyz, xyz_d, coor_d, xyzProj_b, normProj_b
         )
 
-        # Call projection function at the perturbed point
-        xyzProj, xyzProjd, normProj, normProjd, dummy, dummy2 = self.computeProjections(
-            xyz + stepSize * xyzd, xyzd, coord, xyzProjb, normProjb, coor=cube.coor + stepSize * coord
-        )
+        # Compute projection at the FD perturbed point
+        xyz_pert = xyz + stepSize_FD * xyz_d
+        coor_pert = cube.coor + stepSize_FD * coor_d
+        xyzProj_pert, normProj_pert = self.computeSurfaceProjections_pert(xyz_pert, coor_pert)
 
-        # Compute directional derivatives with finite differencing
-        xyzProjd_FD = (xyzProj - xyzProj0) / stepSize
-        normProjd_FD = (normProj - normProj0) / stepSize
+        # Compute FD derivatives
+        xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
+        normProj_FD = (normProj_pert - normProj0) / stepSize_FD
 
-        # Compute dot product test
-        dotProd = 0.0
-        dotProd = dotProd + np.sum(xyzd * xyzb_AD)
-        dotProd = dotProd + np.sum(coord * coorb_AD)
-        dotProd = dotProd - np.sum(xyzProjd_AD * xyzProjb)
-        dotProd = dotProd - np.sum(normProjd_AD * normProjb)
-        np.testing.assert_allclose(dotProd, 0, atol=1e-15)
+        # Compute projection at the CS perturbed point
+        xyz_pert = xyz + stepSize_CS * 1j * xyz_d
+        coor_pert = cube.coor + stepSize_CS * 1j * coor_d
+        xyzProj_pert, normProj_pert = self.computeSurfaceProjections_pert(xyz_pert, coor_pert, CS=True)
+
+        # Compute CS derivatives
+        xyzProj_CS = np.imag(xyzProj_pert) / stepSize_CS
+        normProj_CS = np.imag(normProj_pert) / stepSize_CS
+
+        # Dot product test
+        dotProd_LHS = np.sum(xyz_d * xyz_b) + np.sum(coor_d * coor_b)
+        dotProd_RHS = np.sum(xyzProj_d * xyzProj_b) + np.sum(normProj_d * normProj_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
-        np.testing.assert_allclose(xyzProjd_AD, xyzProjd_FD, rtol=1e-6)
-        np.testing.assert_allclose(normProjd_AD, normProjd_FD, rtol=3e-6)
+        np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=1e-6)
+        np.testing.assert_allclose(normProj_d, normProj_FD, rtol=3e-6)
 
-        # === CURVE PROJECTION ===
+        # Compare AD to CS
+        np.testing.assert_allclose(xyzProj_d, xyzProj_CS, rtol=1e-6)
+        np.testing.assert_allclose(normProj_d, normProj_CS, rtol=3e-6, atol=1e-9)
 
-        # Call projection function at the original point
-        xyzProj0, xyzProjd_AD, tanProj0, tanProjd_AD, xyzb_AD, allCoorb_AD = self.computeCurveProjections(
-            xyz, xyzd, allCoord, xyzProjb, tanProjb
+    def test_curve_projection_deriv(self):
+
+        cube = self.cube
+        xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
+
+        # Compute projection and AD at the original point
+        xyzProj0, xyzProj_d, tanProj0, tanProj_d, xyz_b, allCoor_b = self.computeCurveProjections_AD(
+            xyz, xyz_d, allCoord, xyzProj_b, tanProj_b
         )
 
-        # Create coordinates of perturbed points
-        allCoor = {}
+        # Create coordinates of perturbed points for FD
+        xyz_pert = xyz + stepSize_FD * xyz_d
+        allCoor_pert = {}
         for curveName in cube.curves:
             coor = cube.curves[curveName].get_points()
-            allCoor[curveName] = coor + allCoord[curveName] * stepSize
+            allCoor_pert[curveName] = coor + allCoord[curveName] * stepSize_FD
 
-        # Call projection function at the perturbed point
-        xyzProj, dummy0, tanProj, dummy1, dummy2, dummy3 = self.computeCurveProjections(
-            xyz + stepSize * xyzd, xyzd, allCoord, xyzProjb, tanProjb, allCoor
-        )
+        # Compute projection at the FD perturbed point
+        xyzProj_pert, tanProj_pert = self.computeCurveProjections_pert(xyz_pert, allCoor_pert)
 
-        # Compute directional derivatives with finite differencing
-        xyzProjd_FD = (xyzProj - xyzProj0) / stepSize
-        tanProjd_FD = (tanProj - tanProj0) / stepSize
+        # Compute FD derivatives
+        xyzProj_FD = (xyzProj_pert - xyzProj0) / stepSize_FD
+        tanProj_FD = (tanProj_pert - tanProj0) / stepSize_FD
 
-        # Compute dot product test
-        dotProd = 0.0
-        dotProd = dotProd + np.sum(xyzd * xyzb_AD)
+        # Create coordinates of perturbed points for CS
+        xyz_pert = xyz + stepSize_CS * 1j * xyz_d
+        allCoor_pert = {}
         for curveName in cube.curves:
-            dotProd = dotProd + np.sum(allCoord[curveName] * allCoorb_AD[curveName])
-        dotProd = dotProd - np.sum(xyzProjd_AD * xyzProjb)
-        dotProd = dotProd - np.sum(tanProjd_AD * tanProjb)
-        np.testing.assert_allclose(dotProd, 0, atol=1e-15)
+            coor = cube.curves[curveName].get_points()
+            allCoor_pert[curveName] = coor + allCoord[curveName] * stepSize_CS * 1j
+
+        # Compute projection at the CS perturbed point
+        xyzProj_pert, tanProj_pert = self.computeCurveProjections_pert(xyz_pert, allCoor_pert, CS=True)
+
+        # Compute CS derivatives
+        xyzProj_CS = np.imag(xyzProj_pert) / stepSize_CS
+        tanProj_CS = np.imag(tanProj_pert) / stepSize_CS
+
+        # Dot product test
+        dotProd_LHS = np.sum(xyz_d * xyz_b)
+        for curveName in cube.curves:
+            dotProd_LHS += np.sum(allCoord[curveName] * allCoor_b[curveName])
+        dotProd_RHS = np.sum(xyzProj_d * xyzProj_b) + np.sum(tanProj_d * tanProj_b)
+        np.testing.assert_allclose(dotProd_LHS, dotProd_RHS, rtol=1e-15)
 
         # Compare AD to FD
-        np.testing.assert_allclose(xyzProjd_AD, xyzProjd_FD, rtol=3e-6)
-        np.testing.assert_allclose(tanProjd_AD, tanProjd_FD, atol=1e-6)
+        np.testing.assert_allclose(xyzProj_d, xyzProj_FD, rtol=3e-6)
+        np.testing.assert_allclose(tanProj_d, tanProj_FD, atol=1e-6)
+
+        # Compare AD to CS
+        np.testing.assert_allclose(xyzProj_d, xyzProj_CS, rtol=1e-15)
+        np.testing.assert_allclose(tanProj_d, tanProj_CS, rtol=1e-15, atol=1e-16)
 
 
 if __name__ == "__main__":

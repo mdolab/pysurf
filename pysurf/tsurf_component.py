@@ -2,68 +2,60 @@ import copy
 import os
 from mpi4py import MPI
 import numpy as np
-from scipy.interpolate import interp1d
 from .baseClasses import Geometry, Curve
-from . import adtAPI, curveSearchAPI, utilitiesAPI, tecplot_interface
+from . import adtAPI, curveSearchAPI, intersectionAPI, utilitiesAPI, tecplot_interface
+from . import adtAPI_cs, curveSearchAPI_cs, intersectionAPI_cs, utilitiesAPI_cs
 from . import tsurf_tools as tst
-
-fortran_flag = True
 
 
 class TSurfGeometry(Geometry):
-    def _initialize(self, *arg, **kwargs):
+    """
+    Parameters
+    ----------
+    fileName : string
+        Name of the CGNS file that contains the triangulated surface definition.
 
-        """
-        This function initializes and TSurfGeometry.
-        It is called by the __init__ method of the parent Geometry
-        class defined in classes.py.
+    sectionsList : list of strings, optional
+        List of strings containing the names of the sections in the CGNS file that
+        should be included in the current ADTGeometry.
+        If None, then all sections will be included.
 
-        The expected arguments for the initialization function are:
-        TSurfGeometry(fileName, sectionsList, comm, name=name)
+    comm : MPI communicator, optional
+        An MPI communicator, such as MPI.COMM_WORLD
 
-        Parameters
-        ----------
-        fileName: string, optional
-            Name of the CGNS file that contains the
-            triangulated surface definition.
+    name : string, optional
+        Name that can be assigned to the geometry. This name
+        should match the wall boundary condition family names used by the solver.
 
-        sectionsList: list of strings, optional
-            List of strings containing
-            the names of the sections in the CGNS file that
-            should be included in the current ADTGeometry.
-            If nothing is provided, or if sectionList is None
-            or an empty list, then all sections will be included.
+    dtype : data type, optional
+        The data type for this object.
+        Should be float for real objects or complex for complex objects.
 
-        comm: MPI communicator, optional
-            An MPI communicator, such as MPI.COMM_WORLD
+    """
 
-        name: string, optional
-            Name that can be assigned to the geometry. This name
-            should match the wall boundary condition family names used by the solver.
-        """
+    def __init__(self, fileName, sectionsList=None, comm=None, name=None, dtype=float):
 
-        # Set dummy value to filename, so we can check later on if
-        # the user actually gave an input name.
-        filename = None
+        # Initialize the base classs
+        super().__init__(comm)
 
-        # Set default values in case we have no additional arguments
-        selectedSections = None  # We will update this later if necessary
+        if name is None:
+            # Assign component name based on its CGNS file
+            self.name = os.path.splitext(os.path.basename(fileName))[0]
+        else:
+            self.name = name
 
-        # Check the optional arguments and do the necessary changes
-        for optarg in arg:
-
-            if type(optarg) == MPI.Intracomm:  # We have an MPI Communicator
-                self.comm = optarg
-
-            elif type(optarg) == list:
-                selectedSections = optarg
-
-            elif optarg in (None, []):
-                print("Reading all CGNS sections in ADTGeometry assigment.")
-
-            elif type(optarg) == str:
-                # Get filename
-                filename = optarg
+        # Set real or complex Fortran APIs
+        self.dtype = dtype
+        if dtype == float:
+            self.adtAPI = adtAPI.adtapi
+            self.curveSearchAPI = curveSearchAPI.curvesearchapi
+            self.intersectionAPI = intersectionAPI.intersectionapi
+            self.utilitiesAPI = utilitiesAPI.utilitiesapi
+        elif dtype == complex:
+            self.adtAPI = adtAPI_cs.adtapi
+            self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
+            self.intersectionAPI = intersectionAPI_cs.intersectionapi
+            self.utilitiesAPI = utilitiesAPI_cs.utilitiesapi
 
         # SERIALIZATION
         # Here we create a new communicator just for the root proc because TSurf currently runs in
@@ -80,49 +72,35 @@ class TSurfGeometry(Geometry):
 
         self.comm = newComm
 
-        # Assign component name based on its CGNS file
-        self.name = os.path.splitext(os.path.basename(filename))[0]
-
-        # We create a custom name if the user selected a subgroup of sections
-        if selectedSections is not None:
-            self.name = self.name + "__" + "_".join(selectedSections)
-
-        # Rename everything if the user gives a name
-        if "name" in kwargs:
-            self.name = kwargs["name"]
+        if sectionsList is not None:
+            self.name = self.name + "__" + "_".join(sectionsList)
 
         # Only the root proc will work here
         if self.myID == 0:
 
-            # Check if the user provided no input file
-            if filename is None:
-                print(" ERROR: Cannot initialize TSurf Geometry as no input file")
-                print(" was specified.")
-                quit()
-
             # Get file extension
-            fileExt = os.path.splitext(os.path.basename(filename))[1]
+            fileExt = os.path.splitext(os.path.basename(fileName))[1]
 
             if fileExt == ".cgns":
 
                 # Read CGNS file
-                self.coor, sectionDict = tst.getCGNSsections(filename, self.comm)
+                self.coor, sectionDict = tst.getCGNSsections(fileName, self.comm)
 
-                # Select all section names in case the user provided none
-                if selectedSections is None:
-                    selectedSections = list(sectionDict.keys())
+                if sectionsList is None:
+                    # Select all section names if the user provided None
+                    sectionsList = list(sectionDict.keys())
 
                 # Now we call an auxiliary function to merge selected surface sections in a single
                 # connectivity array
-                self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, selectedSections)
+                self.triaConnF, self.quadsConnF = tst.merge_surface_sections(sectionDict, sectionsList)
 
                 # Initialize curves
-                tst.initialize_curves(self, sectionDict, selectedSections)
+                tst.initialize_curves(self, sectionDict, sectionsList, dtype=self.dtype)
 
             elif fileExt == ".plt":
 
                 # Read Tecplot file
-                self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(filename)
+                self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(fileName)
 
                 # Adjust indices to Fortran ordering
                 self.triaConnF = triaConn + 1
@@ -161,7 +139,7 @@ class TSurfGeometry(Geometry):
         if self.myID == 0:
 
             # Deallocate previous tree
-            adtAPI.adtapi.adtdeallocateadts(self.name)
+            self.adtAPI.adtdeallocateadts(self.name)
 
             # Update name
             self.name = name
@@ -303,15 +281,14 @@ class TSurfGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts) * 1e10
-        xyzProj = np.zeros((numPts, 3))
-        normProjNotNorm = np.zeros((numPts, 3))
+        dist2 = np.ones(numPts, dtype=self.dtype) * 1e10
+        xyzProj = np.zeros((numPts, 3), dtype=self.dtype)
+        normProjNotNorm = np.zeros((numPts, 3), dtype=self.dtype)
 
         # Call projection function
-        procID, elementType, elementID, uvw = adtAPI.adtapi.adtmindistancesearch(
+        procID, elementType, elementID, uvw = self.adtAPI.adtmindistancesearch(
             xyz.T, self.name, dist2, xyzProj.T, self.nodal_normals.T, normProjNotNorm.T
         )
-
         # Adjust indices and ordering
         elementID = elementID - 1
         uvw = uvw.T
@@ -387,7 +364,7 @@ class TSurfGeometry(Geometry):
         normProjNotNorm = projDict["normProjNotNorm"]
 
         # Compute derivatives of the normal vectors
-        nodal_normals, nodal_normalsd = adtAPI.adtapi.adtcomputenodalnormals_d(
+        nodal_normals, nodal_normalsd = self.adtAPI.adtcomputenodalnormals_d(
             self.coor.T, self.coord.T, self.triaConnF.T, self.quadsConnF.T
         )
         # Transpose Fortran outputs
@@ -399,7 +376,7 @@ class TSurfGeometry(Geometry):
         # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
         # I could not change this because the original ADT code already used "coor" to denote nodes that should be
         # projected.
-        xyzProjd, normProjNotNormd = adtAPI.adtapi.adtmindistancesearch_d(
+        xyzProjd, normProjNotNormd = self.adtAPI.adtmindistancesearch_d(
             xyz.T,
             xyzd.T,
             self.name,
@@ -486,7 +463,7 @@ class TSurfGeometry(Geometry):
         # On the other hand, the variable "coor" here in Python corresponds to the variable "adtCoor" in Fortran.
         # I could not change this because the original ADT code already used "coor" to denote nodes that should be
         # projected.
-        xyzb, coorb, nodal_normalsb = adtAPI.adtapi.adtmindistancesearch_b(
+        xyzb, coorb, nodal_normalsb = self.adtAPI.adtmindistancesearch_b(
             xyz.T,
             self.name,
             procID,
@@ -507,7 +484,7 @@ class TSurfGeometry(Geometry):
         nodal_normalsb = nodal_normalsb.T
 
         # Compute derivative seed contributions of the normal vectors
-        deltaCoorb = adtAPI.adtapi.adtcomputenodalnormals_b(
+        deltaCoorb = self.adtAPI.adtcomputenodalnormals_b(
             self.coor.T, self.triaConnF.T, self.quadsConnF.T, self.nodal_normals.T, nodal_normalsb.T
         )
 
@@ -575,9 +552,9 @@ class TSurfGeometry(Geometry):
 
         # Initialize reference values (see explanation above)
         numPts = xyz.shape[0]
-        dist2 = np.ones(numPts) * 1e10
-        xyzProj = np.zeros((numPts, 3))
-        tanProj = np.zeros((numPts, 3))
+        dist2 = np.ones(numPts, dtype=self.dtype) * 1e10
+        xyzProj = np.zeros((numPts, 3), dtype=self.dtype)
+        tanProj = np.zeros((numPts, 3), dtype=self.dtype)
         elemIDs = np.zeros((numPts), dtype="int32")
 
         # Check if the candidates are actually defined
@@ -986,7 +963,7 @@ class TSurfGeometry(Geometry):
         if mode == "forward" or mode == "both":
 
             coord = np.random.random_sample(self.coor.shape)
-            coord = coord / np.sqrt(np.sum(coord ** 2))
+            coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
 
             curveCoord = {}
@@ -998,7 +975,7 @@ class TSurfGeometry(Geometry):
         if mode == "reverse" or mode == "both":
 
             coorb = np.random.random_sample(self.coor.shape)
-            coorb = coorb / np.sqrt(np.sum(coorb ** 2))
+            coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
 
             curveCoorb = {}
@@ -1049,76 +1026,50 @@ class TSurfGeometry(Geometry):
 class TSurfCurve(Curve):
 
     """
-    This is a derived class from the parent Curve class defined in
-    baseClasses.py
+    This is a TSurf Curve object, which uses finite element data to represent curves.
+    This is a derived class from the parent Curve class defined in baseClasses.py.
+
+    Parameters
+    ----------
+    name : string
+        Curve name
+
+    coor : array[nNodes,3],dtype='float'
+        Nodal X,Y,Z coordinates.
+
+    barsConn : array[nBars,2],dtype='int32'
+        Element connectivity matrix.
+
+    mergeTol : float, optional
+        Tolerance to merge nodes.
+
+    dtype : data type, optional
+        The data type for this object.
+        Should be float for real objects or complex for complex objects.
+
     """
 
-    def _initialize(self, *arg):  # ,coor, barsConn, name, mergeTol=1e-2):
+    def __init__(self, coor, barsConn, name, mergeTol=1e-7, dtype=float):
 
-        """
-        This method initializes a TSurf Curve object, which uses finite element
-        data to represent curves.
-        This method will be called by the __init__ method of the parent Curve class
+        # Initialize the base classs
+        super().__init__()
 
-        Parameters
-        ----------
-        name: string
-            Curve name
+        # Set real or complex Fortran APIs
+        self.dtype = dtype
+        if dtype == float:
+            self.adtAPI = adtAPI.adtapi
+            self.curveSearchAPI = curveSearchAPI.curvesearchapi
+            self.utilitiesAPI = utilitiesAPI.utilitiesapi
+        elif dtype == complex:
+            self.adtAPI = adtAPI_cs.adtapi
+            self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
+            self.utilitiesAPI = utilitiesAPI_cs.utilitiesapi
 
-        coor : array[nNodes,3],dtype='float'
-            Nodal X,Y,Z coordinates.
+        # Define nodal coordinates as float or complex so Fortran recognizes them
+        coor = np.array(coor, dtype=dtype)
 
-        barsConn : array[nBars,2],dtype='int32'
-            Element connectivity matrix.
-
-        mergeTol: float, optional
-            Tolerance to merge nodes.
-
-        John Jasa 2016-08
-        Ney Secco 2016-08
-        """
-
-        # Optional inputs
-        mergeTol = 1e-7
-
-        # Parse inputs
-        for currArg in arg:
-
-            if type(currArg) == str:
-                # This is probably the name!
-                name = currArg
-
-            elif type(currArg) == np.ndarray:
-                # This is an array.
-                # We still need to figure out if we have coordinates or
-                # bar connectivities
-
-                # Get dimension of the current array
-                dim = currArg.shape[1]
-
-                if dim == 3:
-                    # We have nodal coordinates. We need to make sure they
-                    # are defined as floats, otherwise Fortran will not recognize them.
-                    coor = np.array(currArg, dtype=float)
-
-                elif dim == 2:
-                    # We have bar connectivities. We need to make sure they
-                    # are defined as integers, otherwise Fortran will not recognize them.
-                    barsConn = np.array(currArg, dtype=np.int32)
-
-                else:
-                    print(" ERROR: Could not recognize array inputs when initializing TSurfCurve.")
-                    print(" Please provide an [n x 3] array with nodal coordinates and an")
-                    print(" [m x 2] array for bar connectivities.")
-                    quit()
-
-            elif type(currArg) == float:
-                # This is probably mergeTol
-                mergeTol = currArg
-
-            else:
-                print(" ERROR: Could not recognize inputs when initializing TSurfCurve.")
-                quit()
+        # Define bar connectivities as integers so Fortran recognizes them
+        barsConn = np.array(barsConn, dtype=np.int32)
 
         # Remove unused points (This will update and barsConn)
         coor, usedPtsMask = tst.remove_unused_points(coor, barsConn=barsConn)
@@ -1127,7 +1078,7 @@ class TSurfCurve(Curve):
         barsConnF = (
             barsConn.T + 1
         )  # Adjust indices since Fortran is 1-based (we need to do this separately as Fortran changes it)
-        nUniqueNodes, linkOld2New = utilitiesAPI.utilitiesapi.condensebarnodes(mergeTol, coor.T, barsConnF)
+        nUniqueNodes, linkOld2New = self.utilitiesAPI.condensebarnodes(mergeTol, coor.T, barsConnF)
 
         # Readjust back to Python indexing
         linkOld2New = linkOld2New - 1
@@ -1243,11 +1194,11 @@ class TSurfCurve(Curve):
 
         # Initialize references if user provided none
         if dist2 is None:
-            dist2 = np.ones(nPoints) * 1e10
+            dist2 = np.ones(nPoints, dtype=self.dtype) * 1e10
         if xyzProj is None:
-            xyzProj = np.zeros((nPoints, 3))
+            xyzProj = np.zeros((nPoints, 3), dtype=self.dtype)
         if tanProj is None:
-            tanProj = np.zeros((nPoints, 3))
+            tanProj = np.zeros((nPoints, 3), dtype=self.dtype)
         if elemIDs is None:
             elemIDs = np.zeros((nPoints), dtype="int32")
 
@@ -1258,7 +1209,8 @@ class TSurfCurve(Curve):
         elemIDs[:] = (
             elemIDs + 1
         )  # (we need to do this separetely because Fortran will actively change elemIDs contents.
-        curveMask = curveSearchAPI.curvesearchapi.mindistancecurve(
+
+        curveMask = self.curveSearchAPI.mindistancecurve(
             xyz.T, self.coor.T, self.barsConn.T + 1, xyzProj.T, tanProj.T, dist2, elemIDs
         )
 
@@ -1311,7 +1263,7 @@ class TSurfCurve(Curve):
             print("with the number of nodes.")
 
         # Call fortran code
-        curveSearchAPI.curvesearchapi.mindistancecurve_d(
+        self.curveSearchAPI.mindistancecurve_d(
             xyz.T,
             xyzd.T,
             self.coor.T,
@@ -1369,7 +1321,7 @@ class TSurfCurve(Curve):
             print("with the number of points.")
 
         # Call fortran code (This will accumulate seeds in xyzb and self.coorb)
-        xyzb_new, coorb_new = curveSearchAPI.curvesearchapi.mindistancecurve_b(
+        xyzb_new, coorb_new = self.curveSearchAPI.mindistancecurve_b(
             xyz.T,
             self.coor.T,
             self.barsConn.T + 1,
@@ -1392,10 +1344,8 @@ class TSurfCurve(Curve):
     def remesh(self, nNewNodes=None, method="linear", spacing="linear", initialSpacing=0.1, finalSpacing=0.1):
 
         """
-        This function will redistribute the nodes along the curve to get
-        better spacing among the nodes.
+        This function will redistribute the nodes along the curve to get better spacing among the nodes.
         This assumes that the FE data is ordered.
-
         The first and last nodes will remain at the same place.
 
         Consider using self.shift_end_nodes first so you can preserve the start and end points
@@ -1404,28 +1354,24 @@ class TSurfCurve(Curve):
         Parameters
         ----------
 
-        nNewNodes: integer
+        nNewNodes : integer
             Number of new nodes desired in the new curve definition.
 
-        method: string
+        method : string, optional
             Method used to interpolate new nodes with respect to
             existing ones. Check scipy.interpolate.interp1d for options.
 
-        spacing: string
+        spacing : string, optional
             Desired spacing criteria for new nodes.
-            Current options are:['linear', 'cosine', 'hypTan', 'tangent']
+            Current options are: ['linear', 'cosine', 'hypTan', 'tangent']
 
-        initialSpacing: float
-            Desired distance between the first and second nodes. Only
-            used by 'hypTan' and 'tangent'.
-        finalSpacing: float
-            Desired distance between the last two nodes. Only
-            used by 'hypTan' and 'tangent'.
-        guideCurves: list of strings
-            Curves to snap nodes to.
-            Especially useful for blunt trailing edges. (removed since it was not differentiated)
-        ref_geom: geometry object
-            Container with the data for each curve used in guideCurves. (removed since it was not differentiated)
+        initialSpacing : float
+            Desired distance between the first and second nodes.
+            Only used by 'hypTan' and 'tangent'.
+
+        finalSpacing : float
+            Desired distance between the last two nodes.
+            Only used by 'hypTan' and 'tangent'.
 
         Returns
         -------
@@ -1458,139 +1404,13 @@ class TSurfCurve(Curve):
         if nNewNodes is None:
             nNewNodes = nNodes
 
-        if fortran_flag:
+        # Call Fortran code. Remember to adjust transposes and indices
+        newCoor, newBarsConn = self.utilitiesAPI.remesh(
+            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
+        )
 
-            # Call Fortran code. Remember to adjust transposes and indices
-            newCoor, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-                nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-            )
-            newCoor = newCoor.T
-            newBarsConn = newBarsConn.T - 1
-
-        else:
-
-            # CHECKING INPUTS
-
-            # First we check if the FE data is ordered
-            for elemID in range(1, nElem):
-
-                # Get node indices
-                prevNodeID = barsConn[elemID - 1, 1]
-                currNodeID = barsConn[elemID, 0]
-
-                # Check if the FE data is ordered
-                if prevNodeID != currNodeID:
-
-                    # Print warning
-                    print("WARNING: Could not remesh curve because it has unordered FE data.")
-                    print("         Call FEsort first.")
-                    return
-
-            # COMPUTE ARC-LENGTH
-
-            # We can proceed if FE data is ordered
-
-            # Initialize an array that will store the arclength of each node.
-            # That is, the distance, along the curve from the current node to
-            # the first node of the curve.
-            arcLength = np.zeros(nNodes)
-
-            # Also initialize an array to store nodal coordinates in the curve order
-            nodeCoor = np.zeros((nNodes, 3))
-
-            # Store position of the first node (the other nodes will be covered in the loop)
-            # (the -1 is due Fortran indexing)
-            nodeCoor[0, :] = coor[barsConn[0, 0], :]
-
-            # Loop over each element to increment arcLength
-            for elemID in range(nElem):
-
-                # Get node positions
-                node1 = coor[barsConn[elemID, 0], :]
-                node2 = coor[barsConn[elemID, 1], :]
-
-                # Compute distance between nodes
-                dist = np.linalg.norm(node1 - node2)
-
-                # Store nodal arc-length
-                arcLength[elemID + 1] = arcLength[elemID] + dist
-
-                # Store coordinates of the next node
-                nodeCoor[elemID + 1, :] = node2
-
-            # SAMPLING POSITION FOR NEW NODES
-
-            # The arcLength will be used as our parametric coordinate to sample the new nodes.
-
-            # First we will initialize arrays for the new coordinates and arclengths
-            # newNodeCoor = np.zeros((3, nNewNodes), order='F') #3change here
-            newNodeCoor = np.zeros((nNewNodes, 3))
-            newArcLength = np.zeros(nNewNodes)
-
-            # Now that we know the initial and final arcLength, we can redistribute the
-            # parametric coordinates based on the used defined spacing criteria.
-            # These statements should initially create parametric coordinates in the interval
-            # [0.0, 1.0]. We will rescale it after the if statements.
-            if spacing.lower() == "linear":
-                newArcLength = np.linspace(0.0, 1.0, nNewNodes)
-
-            elif spacing.lower() == "cosine":
-                newArcLength = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, nNewNodes)))
-
-            elif spacing.lower() == "hyptan":
-                newArcLength = tst.hypTanDist(initialSpacing / arcLength[-1], finalSpacing / arcLength[-1], nNewNodes)
-
-            elif spacing.lower() == "tangent":
-                newArcLength = tst.tanDist(initialSpacing / arcLength[-1], finalSpacing / arcLength[-1], nNewNodes)
-
-            # Rescale newArcLength based on the final distance
-            newArcLength = arcLength[-1] * newArcLength
-
-            # INTERPOLATE NEW NODES
-
-            # Now we sample the new coordinates based on the interpolation method given by the user
-
-            # Create interpolants for x, y, and z
-            fX = interp1d(arcLength, nodeCoor[:, 0], kind=method)
-            fY = interp1d(arcLength, nodeCoor[:, 1], kind=method)
-            fZ = interp1d(arcLength, nodeCoor[:, 2], kind=method)
-
-            # Sample new points using the interpolation functions
-            newNodeCoor[:, 0] = fX(newArcLength)
-            newNodeCoor[:, 1] = fY(newArcLength)
-            newNodeCoor[:, 2] = fZ(newArcLength)
-
-            """
-            # The next commands are to snap a point to guide curves. Since this was not differentiated
-            # and also not added to the Fortran code, I'll leave this commented until future use.
-
-            # If you want to use this, you should include guideCurves=[] and ref_geom=None
-            # as arguments to this function.
-
-            guideIndices = []
-            for curve in guideCurves:
-                guideCurve = ref_geom.curves[curve].extract_points()
-                guideIndices.append(closest_node(guideCurve, newNodeCoor.T))
-
-            if guideIndices:
-                for i, index in enumerate(guideIndices):
-                    curve = guideCurves[i]
-                    node = newNodeCoor[:, index]
-                    newNodeCoor[:, index], _, __ = ref_geom.project_on_curve((node.reshape(1, 3)), curveCandidates=[curve])
-            """
-
-            # ASSIGN NEW COORDINATES AND CONNECTIVITIES
-
-            # Set new nodes
-            newCoor = newNodeCoor
-
-            # Generate new connectivity (the nodes are already in order so we just
-            # need to assign an ordered set to barsConn).
-            barsConn = np.zeros((nNewNodes - 1, 2), dtype="int32")
-            barsConn[:, 0] = list(range(0, nNewNodes - 1))
-            barsConn[:, 1] = list(range(1, nNewNodes))
-
-            newBarsConn = barsConn
+        newCoor = newCoor.T
+        newBarsConn = newBarsConn.T - 1
 
         # Adjust connectivities if curve is periodic
         if periodic:
@@ -1602,7 +1422,7 @@ class TSurfCurve(Curve):
 
         # Create a new curve object and return it
         # This way the original curve coordinates and connectivities remain the same
-        newCurve = TSurfCurve(newCurveName, newCoor, newBarsConn)
+        newCurve = TSurfCurve(newCoor, newBarsConn, newCurveName, dtype=self.dtype)
 
         return newCurve
 
@@ -1646,7 +1466,7 @@ class TSurfCurve(Curve):
         nNewElems = nNewNodes - 1
 
         # Call Fortran code. Remember to adjust transposes and indices
-        newCoor, newCoord, newBarsConn = utilitiesAPI.utilitiesapi.remesh_d(
+        newCoor, newCoord, newBarsConn = self.utilitiesAPI.remesh_d(
             nNewNodes, nNewElems, coor.T, coord.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
         )
 
@@ -1654,23 +1474,6 @@ class TSurfCurve(Curve):
         newCoor = newCoor.T
         newCoord = newCoord.T
         newBarsConn = newBarsConn.T - 1
-
-        # DO A LOCAL FD TEST
-        stepSize = 1e-7
-        coord = coord / np.sqrt(np.sum(coor ** 2))
-        coor = coor + coord * stepSize
-
-        # Call Fortran code. Remember to adjust transposes and indices
-        newCoorf, newBarsConn = utilitiesAPI.utilitiesapi.remesh(
-            nNewNodes, coor.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
-        )
-
-        # Transpose results coming out of Fortran
-        newCoorf = newCoorf.T
-
-        newCoord_FD = (newCoorf - newCoor) / stepSize
-        print("FD test @ remesh_d")
-        print(np.max(np.abs(newCoord_FD - newCoord)))
 
         # Adjust seeds if curve is periodic
         if periodic:
@@ -1731,7 +1534,7 @@ class TSurfCurve(Curve):
         nNewElems = nNewNodes - 1
 
         # Call Fortran code. Remember to adjust transposes and indices
-        _, __, coorb = utilitiesAPI.utilitiesapi.remesh_b(
+        _, __, coorb = self.utilitiesAPI.remesh_b(
             nNewElems, coor.T, newCoorb.T, barsConn.T + 1, method, spacing, initialSpacing, finalSpacing
         )
 
@@ -2177,7 +1980,7 @@ class TSurfCurve(Curve):
             # Compute the squared distances between the selected startPoint
             # the coordinates of the curve.
             deltas = coor - startPoint
-            dist_2 = np.sum(deltas ** 2, axis=1)
+            dist_2 = np.sum(deltas**2, axis=1)
 
             # Set the start node as the curve coordinate point closest to the
             # selected startPoint
@@ -2222,14 +2025,14 @@ class TSurfCurve(Curve):
 
         """
         We will just return the nodes that define the curve.
-        If the user wants another set of points, then he should use self.remesh first.
+        Use self.remesh first if you want a different set of points.
         """
 
         # Get the number of elements
         numElems = self.barsConn.shape[0]
 
         # Initialize coordinates matrix
-        pts = np.zeros((numElems + 1, 3))
+        pts = np.zeros((numElems + 1, 3), dtype=self.dtype)
 
         # Get the last point
         pts[-1, :] = self.coor[self.barsConn[-1, -1], :]
@@ -2244,8 +2047,7 @@ class TSurfCurve(Curve):
     def set_points(self, pts):
 
         """
-        We will just return the nodes that define the curve.
-        If the user wants another set of points, then he should use self.remesh first.
+        We will just set the nodes that define the curve.
         """
 
         # Get the number of elements
@@ -2399,14 +2201,14 @@ class TSurfCurve(Curve):
         if mode == "forward" or mode == "both":
 
             coord = np.random.random_sample(self.coor.shape)
-            coord = coord / np.sqrt(np.sum(coord ** 2))
+            coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
 
         # Set reverse AD seeds
         if mode == "reverse" or mode == "both":
 
             coorb = np.random.random_sample(self.coor.shape)
-            coorb = coorb / np.sqrt(np.sum(coorb ** 2))
+            coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
 
         # Return the randomly generated seeds

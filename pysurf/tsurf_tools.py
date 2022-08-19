@@ -1,7 +1,7 @@
 from mpi4py import MPI
 import numpy as np
 from scipy.optimize import minimize, broyden1
-from . import adtAPI, cgnsAPI, intersectionAPI, tecplot_interface, tsurf_component
+from . import cgnsAPI, tecplot_interface, tsurf_component
 
 """
 TODO:
@@ -210,22 +210,23 @@ def update_surface(TSurfGeometry):
     """
 
     # Deallocate previous tree
-    adtAPI.adtapi.adtdeallocateadts(TSurfGeometry.name)
+    TSurfGeometry.adtAPI.adtdeallocateadts(TSurfGeometry.name)
 
     # Set bounding box for new tree
-    BBox = np.zeros((2, 3))
+    BBox = np.zeros((2, 3), dtype=TSurfGeometry.dtype)
     useBBox = False
 
     # Compute set of nodal normals by taking the average normal of all
     # elements surrounding the node. This allows the meshing algorithms,
     # for instance, to march in an average direction near kinks.
-    nodal_normals = adtAPI.adtapi.adtcomputenodalnormals(
+    nodal_normals = TSurfGeometry.adtAPI.adtcomputenodalnormals(
         TSurfGeometry.coor.T, TSurfGeometry.triaConnF.T, TSurfGeometry.quadsConnF.T
     )
+
     TSurfGeometry.nodal_normals = nodal_normals.T
 
     # Create new tree (the tree itself is stored in Fortran level)
-    adtAPI.adtapi.adtbuildsurfaceadt(
+    TSurfGeometry.adtAPI.adtbuildsurfaceadt(
         TSurfGeometry.coor.T,
         TSurfGeometry.triaConnF.T,
         TSurfGeometry.quadsConnF.T,
@@ -239,7 +240,7 @@ def update_surface(TSurfGeometry):
 # =================================================================
 
 
-def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
+def initialize_curves(TSurfGeometry, sectionDict, selectedSections, dtype=float):
 
     """
     This function initializes all curves given in sectionDict that are
@@ -276,7 +277,9 @@ def initialize_curves(TSurfGeometry, sectionDict, selectedSections):
             barsConn = sectionDict[sectionName]["barsConn"]
 
             # Create Curve object and append entry to the dictionary
-            curveObjDict[sectionName] = tsurf_component.TSurfCurve(TSurfGeometry.coor, barsConn, sectionName)
+            curveObjDict[sectionName] = tsurf_component.TSurfCurve(
+                TSurfGeometry.coor, barsConn, sectionName, dtype=dtype
+            )
 
     # Assign curve objects to ADT component
     TSurfGeometry.curves = curveObjDict
@@ -619,7 +622,7 @@ def merge_surface_sections(sectionDict, selectedSections):
 # =================================================================
 
 
-def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
+def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7, dtype=float):
 
     """
     This function will generate a curve object from a list
@@ -665,7 +668,7 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7):
         np.vstack([barsConn, newBar])
 
     # Create curve object
-    curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol)
+    curve = tsurf_component.TSurfCurve(coor, barsConn, curveName, mergeTol, dtype)
 
     # Return curve object
     return curve
@@ -1104,6 +1107,9 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # Get communicator from the first object
     comm = TSurfGeometryA.comm
 
+    # Get the dtype from the first object
+    dtype = TSurfGeometryA.dtype
+
     ### Call Fortran code to find intersections
 
     # This will de done in two steps:
@@ -1113,7 +1119,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     # We have to use this two steps approach so that Python does not need direct access to the
     # allocatable arrays, since this does not work when we use Intel compilers.
 
-    arraySizes = intersectionAPI.intersectionapi.computeintersection(
+    arraySizes = TSurfGeometryA.intersectionAPI.computeintersection(
         TSurfGeometryA.coor.T,
         TSurfGeometryA.triaConnF.T,
         TSurfGeometryA.quadsConnF.T,
@@ -1128,7 +1134,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     if np.max(arraySizes[1:]) > 0:
 
         # Second Fortran call to retrieve data from the CGNS file.
-        intersectionArrays = intersectionAPI.intersectionapi.retrievedata(*arraySizes)
+        intersectionArrays = TSurfGeometryA.intersectionAPI.retrievedata(*arraySizes)
 
         # Split results.
         # We need to do actual copies, otherwise data will be overwritten if we compute another intersection.
@@ -1142,12 +1148,12 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
     else:
 
         # Assign empty arrays
-        coor = np.zeros((0, 3))
+        coor = np.zeros((0, 3), dtype=dtype)
         barsConn = np.zeros((0, 2))
         parentTria = np.zeros((0, 2))
 
     # Release memory used by Fortran so we can run another intersection in the future
-    intersectionAPI.intersectionapi.releasememory()
+    TSurfGeometryA.intersectionAPI.releasememory()
 
     # Initialize list to hold all intersection curves
     Intersections = []
@@ -1184,7 +1190,7 @@ def _compute_pair_intersection(TSurfGeometryA, TSurfGeometryB, distTol):
             currParents = parentTria[currMap, :]
 
             # Create new curve object
-            newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName)
+            newCurve = tsurf_component.TSurfCurve(coor, currConn, curveName, dtype=dtype)
 
             # Store parent triangles as extra data
             newCurve.extra_data["parentTria"] = currParents
@@ -1233,7 +1239,7 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorIntd = intersectionAPI.intersectionapi.computeintersection_d(
+    coorIntd = TSurfGeometryA.intersectionAPI.computeintersection_d(
         TSurfGeometryA.coor.T,
         coorAd.T,
         TSurfGeometryA.triaConnF.T,
@@ -1288,7 +1294,7 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
     # Call Fortran code to find derivatives
     # The transposes are because Fortran stores data by rows while Python stores by columns.
     # The +1 are due to the Fortran indexing, that starts at 1
-    coorAb, coorBb = intersectionAPI.intersectionapi.computeintersection_b(
+    coorAb, coorBb = TSurfGeometryA.intersectionAPI.computeintersection_b(
         TSurfGeometryA.coor.T,
         TSurfGeometryA.triaConnF.T,
         TSurfGeometryA.quadsConnF.T,
@@ -1632,7 +1638,7 @@ def remove_unused_points(coor, triaConnF=None, quadsConnF=None, barsConn=None):
     nUsedPts = np.sum(usedPtsMask)
 
     # Initialize new coordinate array
-    cropCoor = np.zeros((nUsedPts, 3))
+    cropCoor = np.zeros((nUsedPts, 3), dtype=coor.dtype)
 
     # Initialize counter to fill cropCoor
     cropPointID = -1
@@ -1931,7 +1937,7 @@ def tanDist(Sp1, Sp2, N):
         Eq2 = a * (np.tan(b / N + c) - np.tan(c)) - Sp1
         Eq3 = a * (np.tan(b + c) - np.tan(b * (1 - 1 / N) + c)) - Sp2
         # Cost function
-        J = Eq1 ** 2 + Eq2 ** 2 + Eq3 ** 2
+        J = Eq1**2 + Eq2**2 + Eq3**2
         # Return
         return J
 
@@ -1997,7 +2003,7 @@ def cubicDist(Sp1, Sp2, N):
 
     # Generate spacing
     index = np.arange(N + 1) / N
-    S = a * index ** 3 + b * index ** 2 + c * index
+    S = a * index**3 + b * index**2 + c * index
 
     # Return spacing
     return S
@@ -2123,7 +2129,7 @@ def normalize(vec):
     """
 
     # STEP 1: compute sum of squares
-    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms = np.array([np.sum(vec**2, axis=1)]).T
 
     # STEP 2: compute norms
     vecNorms = np.sqrt(vecNorms)
@@ -2144,7 +2150,7 @@ def normalize_d(vec, vecd):
     """
 
     # STEP 1_d
-    vecNorms = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms = np.array([np.sum(vec**2, axis=1)]).T
     vecNormsd = np.array([np.sum(2 * vec * vecd, axis=1)]).T
 
     # STEP 2_d
@@ -2153,7 +2159,7 @@ def normalize_d(vec, vecd):
 
     # STEP 3_d
     normalVec = vec / vecNorms
-    normalVecd = vecd / vecNorms - vec * vecNormsd / vecNorms ** 2
+    normalVecd = vecd / vecNorms - vec * vecNormsd / vecNorms**2
 
     return normalVec, normalVecd
 
@@ -2168,7 +2174,7 @@ def normalize_b(vec, normalVecb):
     """
 
     # STEP 1
-    vecNorms1 = np.array([np.sum(vec ** 2, axis=1)]).T
+    vecNorms1 = np.array([np.sum(vec**2, axis=1)]).T
 
     # STEP 2
     vecNorms2 = np.sqrt(vecNorms1)

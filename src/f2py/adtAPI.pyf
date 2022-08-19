@@ -1,7 +1,11 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
+#ifdef USE_COMPLEX
+python module adtAPI_cs ! in
+#else
 python module adtAPI ! in
+#endif
     interface  ! in :adtAPI
         module adtapi ! in :adtAPI:adtAPI.F90
             use adtsearch
@@ -34,6 +38,8 @@ python module adtAPI ! in
                 integer(kind=inttype) intent(in) :: ninterpol
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
             end subroutine adtmindistancesearch
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
             subroutine adtmindistancesearch_d(ncoor,nnodes,coor,coord,adtid,adtcoord,procid,elementtype,elementid,uvw,dist2,allxfs,allxfsd,ninterpol,arrdonor,arrdonord,arrinterpol,arrinterpold) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor
                 integer(kind=inttype) intent(in) :: nnodes
@@ -74,6 +80,7 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(in) :: arrdonor
                 real(kind=realtype) dimension(ninterpol,nnodes),intent(out) :: arrdonorb
             end subroutine adtmindistancesearch_b
+#endif
             subroutine adtgetnumberoftrees(nADT) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(out) :: nADT
             end subroutine adtgetnumberoftrees
@@ -89,6 +96,8 @@ python module adtAPI ! in
                 integer(kind=inttype) dimension(4,nquads),intent(in) :: quadsconn
                 real(kind=realtype) dimension(3,ncoor),intent(out) :: nodalnormals
             end subroutine adtcomputenodalnormals
+! Skip the AD routines for the complex build
+#ifndef USE_COMPLEX
             subroutine adtcomputenodalnormals_d(ncoor,ntria,nquads,coor,coord,triaconn,quadsconn,nodalnormals,nodalnormalsd) ! in :adtAPI:adtAPI.F90:adtapi
                 integer(kind=inttype) intent(in) :: ncoor
                 integer(kind=inttype) intent(in) :: ntria
@@ -111,6 +120,7 @@ python module adtAPI ! in
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: nodalnormals
                 real(kind=realtype) dimension(3,ncoor),intent(in) :: nodalnormalsb
             end subroutine adtcomputenodalnormals_b
+#endif
         end module adtapi
     end interface
 end python module adtAPI

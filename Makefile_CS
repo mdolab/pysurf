@@ -1,18 +1,16 @@
-#      ******************************************************************
-#      *                                                                *
-#      * File:          Makefile                                        *
-#      * Author:        John Jasa (based on Gaetan Kenway's work)       *
-#      * Starting date: 02-01-2017                                      *
-#      * Last modified: 02-01-2017                                      *
-#      *                                                                *
-#      ******************************************************************
+REAL_SRC = src/common \
+           src/utilities \
+           src/CGNSInterface \
+           src/ADT \
+           src/curveSearch \
+           src/intersections \
 
-REAL_SRC = 	src/utilities	\
-
-SUBDIR_SRC =	src_cs/utilities       \
-
-WARP_SUBDIRS       = $(SUBDIR_SRC_CS)
-WARP_CLEAN_SUBDIRS = $(SUBDIR_SRC_CS)
+SUBDIR_SRC = src_cs/common \
+             src_cs/utilities \
+             src_cs/CGNSInterface \
+             src_cs/ADT \
+             src_cs/curveSearch \
+             src_cs/intersections \
 
 default:
 # Check if the config.mk file is in the config dir.
@@ -21,12 +19,11 @@ default:
 	echo "config/defaults/ directory to the config/ directory and  "; \
 	echo "rename to config.mk. For example:"; \
 	echo " ";\
-	echo "  cp config/defaults/config.LINUX_INTEL_OPENMPI.mk config/config.mk"; \
+	echo "  cp config/defaults/config_LINUX_GFORTRAN.mk config/config.mk"; \
 	echo " ";\
-	echo "The modify this config file as required. Typically the CGNS directory "; \
-	echo "will have to be modified. With the config file specified, rerun "; \
-	echo "'make' and the build will start"; \
-	else make -f Makefile_CS TSurf;\
+	echo "Modify this config file as required. With the config file "; \
+	echo "specified, rerun 'make' and the build will start."; \
+	else make -f Makefile_CS discretesurf;\
 	fi;
 
 dirs:
@@ -38,7 +35,7 @@ dirs:
 	         (mkdir -p $$subdir) || exit 1;  \
 	     done
 clean:
-	ln -sf Common_CS.mk Common.mk
+	ln -sf common_CS.mk common.mk
 	@echo " Making clean ... "
 	@for subdir in $(SUBDIR_SRC) ; \
 	     do \
@@ -46,14 +43,13 @@ clean:
 	         (rm -fr $$subdir) || exit 1;  \
 	     done
 
-#	(cd src_cs/f2py && make clean)
 	rm -f *~ config.mk;
 	rm -f lib_cs/lib* mod_cs/* obj_cs/*
 
-TSurf:
+discretesurf:
 	make -f Makefile_CS dirs
 	ln -sf config/config.mk config.mk
-	ln -sf Common_CS.mk Common.mk
+	ln -sf common_CS.mk common.mk
 
 	@for subdir in $(REAL_SRC) ; \
 		do \
