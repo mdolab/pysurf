@@ -126,7 +126,9 @@ patt_if = re.compile("((?:\s*)|(?:\s*\w+:\s*))((?:else\s*|)if\s*\()(.*$)", re.IG
 #                     re.IGNORECASE)  # includes '\n' at end  # ORIGINAL
 # patt_if = re.compile('(.*if.*)',
 #                    re.IGNORECASE)  # includes '\n' at end
-patt_logic_ass = re.compile("([^=]*)(\s*=[ \t]*)((?:.|\n)*\.\s*(?:and|or|not|eqv|neqv)\s*\.(?:.|\n)*)", re.IGNORECASE)
+patt_logic_assignment = re.compile(
+    "([^=]*)(\s*=[ \t]*)((?:.|\n)*\.\s*(?:and|or|not|eqv|neqv)\s*\.(?:.|\n)*)", re.IGNORECASE
+)
 
 patt_subroutine = re.compile(r"\s*(?!end)\w*\s*subroutine\b", re.IGNORECASE)
 patt_program = re.compile(r"^\s*program\b", re.IGNORECASE)
@@ -135,7 +137,7 @@ patt_module_procedure = re.compile(r"^\s*module procedure", re.IGNORECASE)
 patt_real_cast = re.compile(r"([^a-zA-z]\s*)real\s*\(", re.IGNORECASE)
 patt_module = re.compile(r"^\s*(?!end)\s*module\b", re.IGNORECASE)
 
-patt_usemebaby = re.compile(r"^\s*use\s*\w+", re.IGNORECASE)
+patt_use = re.compile(r"^\s*use\s*\w+", re.IGNORECASE)
 patt_intrinsic = re.compile(
     r"^\s*(?:(?:complex|real|integer|logical|character).*,.*)?intrinsic\b(?:\s*:\s*:)?", re.IGNORECASE
 )
@@ -364,7 +366,7 @@ def fix_line(line, implicit_found):
 
     if patt_if.match(line) != None:
         line = fix_if(line)
-    elif patt_logic_ass.match(line) != None:
+    elif patt_logic_assignment.match(line) != None:
         line = fix_logic_assignment(line)
 
     if patt_intrinsic.match(line) != None:
@@ -457,7 +459,7 @@ def fix_if(line):
 def fix_logic_assignment(line):
     # fixes the logical expression on the right hand side of
     # an assignment to a logical variable
-    lhs, equals, rhs = patt_logic_ass.search(line).group(1, 2, 3)
+    lhs, equals, rhs = patt_logic_assignment.search(line).group(1, 2, 3)
     rhs = re.sub(r"!.*\n", "\n", rhs)  # take out ! style comments
     rhs = fix_logic_expression(rhs[0:-1])  # strip off trailing '\n'
 
@@ -584,7 +586,7 @@ def skip_continuation(i, lines):
             is_continuation = 1
         elif patt_tabno.match(lines[i]):
             is_continuation = 1
-        elif patt_usemebaby.match(lines[i]):
+        elif patt_use.match(lines[i]):
             is_continuation = 1
         elif patt_blankline.match(lines[i]):
             is_continuation = 1
