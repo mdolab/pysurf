@@ -8,7 +8,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      module adtUtils
+module adtUtils
 !
 !     ******************************************************************
 !     *                                                                *
@@ -17,8 +17,8 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      use adtData
-      implicit none
+    use adtData
+    implicit none
 !
 !     ******************************************************************
 !     *                                                                *
@@ -26,23 +26,23 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      ! nStack:   Number of elements allocated in the stack array;
-      !           needed for a more efficient implementation of the
-      !           local qsort routines.
-      ! stack(:): The corresponding array to store the stack.
-      !           This is a pointer, such that the reallocation
-      !           is easier.
+    ! nStack:   Number of elements allocated in the stack array;
+    !           needed for a more efficient implementation of the
+    !           local qsort routines.
+    ! stack(:): The corresponding array to store the stack.
+    !           This is a pointer, such that the reallocation
+    !           is easier.
 
-      integer(kind=intType) :: nStack
-      integer(kind=intType), dimension(:), pointer :: stack
+    integer(kind=intType) :: nStack
+    integer(kind=intType), dimension(:), pointer :: stack
 
-      !=================================================================
+    !=================================================================
 
-      contains
+contains
 
-        !===============================================================
+    !===============================================================
 
-        subroutine adtTerminate(jj, routineName, errorMessage)
+    subroutine adtTerminate(jj, routineName, errorMessage)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -106,52 +106,52 @@
                       &============================"
 
 #ifndef SEQUENTIAL_MODE
-        write(integerString,"(i8)") ADTs(jj)%myID
+        write (integerString, "(i8)") ADTs(jj)%myID
         integerString = adjustl(integerString)
 
         print "(2a)", "#* adtTerminate called by processor ", &
-                      trim(integerString)
+            trim(integerString)
 #endif
 
         print "(2a)", "#* Run-time error in procedure ", &
-                      trim(routineName)
+            trim(routineName)
 
         ! Loop to write the error message. If the message is too long it
         ! is split over several lines.
 
         firstTime = .true.
         do
-          ! Determine the remaining error message to be written.
-          ! If longer than the maximum number of characters allowed
-          ! on a line, it is attempted to split the message.
+            ! Determine the remaining error message to be written.
+            ! If longer than the maximum number of characters allowed
+            ! on a line, it is attempted to split the message.
 
-           message = adjustl(message)
-           len = len_trim(message)
-           i2  = min(maxCharLine,len)
+            message = adjustl(message)
+            len = len_trim(message)
+            i2 = min(maxCharLine, len)
 
-           if(i2 < len) i2 = index(message(:i2), " ", .true.) - 1
-           if(i2 < 0)   i2 = index(message, " ") - 1
-           if(i2 < 0)   i2 = len
+            if (i2 < len) i2 = index(message(:i2), " ", .true.) - 1
+            if (i2 < 0) i2 = index(message, " ") - 1
+            if (i2 < 0) i2 = len
 
-           ! Write this part of the error message. If it is the first
-           ! line of the message some additional stuff is printed.
+            ! Write this part of the error message. If it is the first
+            ! line of the message some additional stuff is printed.
 
-          if( firstTime ) then
-            print "(2a)", "#* Error message: ", trim(message(:i2))
-            firstTime = .false.
-          else
-            print "(2a)", "#*                ", trim(message(:i2))
-          endif
+            if (firstTime) then
+                print "(2a)", "#* Error message: ", trim(message(:i2))
+                firstTime = .false.
+            else
+                print "(2a)", "#*                ", trim(message(:i2))
+            end if
 
-          ! Exit the loop if the entire message has been written.
+            ! Exit the loop if the entire message has been written.
 
-          if(i2 == len) exit
+            if (i2 == len) exit
 
-          ! Adapt the string for the next part to be written.
+            ! Adapt the string for the next part to be written.
 
-          message = message(i2+1:)
+            message = message(i2 + 1:)
 
-        enddo
+        end do
 
         ! Write the trailing message.
 
@@ -167,12 +167,12 @@
         call mpi_abort(ADTs(jj)%comm, 1, ierr)
         stop
 
-        end subroutine adtTerminate
+    end subroutine adtTerminate
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine allocateADTs
+    subroutine allocateADTs
 !
 !       ****************************************************************
 !       *                                                              *
@@ -198,35 +198,35 @@
         ! the processor ID for the current tree is used in this routine
         ! and that value has not been set yet.
 
-        allocate(ADTs(1), stat=ierr)
-        if(ierr /= 0) stop "Allocation failure for ADTs"
+        allocate (ADTs(1), stat=ierr)
+        if (ierr /= 0) stop "Allocation failure for ADTs"
 
         ! Nullify the pointers of ADTs(1).
 
-        nullify(ADTs(1)%coor)
+        nullify (ADTs(1)%coor)
 
-        nullify(ADTs(1)%triaConn)
-        nullify(ADTs(1)%quadsConn)
-        nullify(ADTs(1)%tetraConn)
-        nullify(ADTs(1)%pyraConn)
-        nullify(ADTs(1)%prismsConn)
-        nullify(ADTs(1)%hexaConn)
+        nullify (ADTs(1)%triaConn)
+        nullify (ADTs(1)%quadsConn)
+        nullify (ADTs(1)%tetraConn)
+        nullify (ADTs(1)%pyraConn)
+        nullify (ADTs(1)%prismsConn)
+        nullify (ADTs(1)%hexaConn)
 
-        nullify(ADTs(1)%rootLeavesProcs)
-        nullify(ADTs(1)%rootBBoxes)
+        nullify (ADTs(1)%rootLeavesProcs)
+        nullify (ADTs(1)%rootBBoxes)
 
-        nullify(ADTs(1)%elementType)
-        nullify(ADTs(1)%elementID)
-        nullify(ADTs(1)%xBBox)
+        nullify (ADTs(1)%elementType)
+        nullify (ADTs(1)%elementID)
+        nullify (ADTs(1)%xBBox)
 
-        nullify(ADTs(1)%ADTree)
+        nullify (ADTs(1)%ADTree)
 
-        end subroutine allocateADTs
+    end subroutine allocateADTs
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine deallocateADTs(adtID)
+    subroutine deallocateADTs(adtID)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -269,22 +269,22 @@
         ! ID. As the number of trees stored is limited, a linear search
         ! algorithm is okay.
 
-        if( allocated(ADTs) ) then
-          nAlloc = ubound(ADTs, 1)
+        if (allocated(ADTs)) then
+            nAlloc = ubound(ADTs, 1)
         else
-          nAlloc = 0
-        endif
+            nAlloc = 0
+        end if
 
-        do jj=1,nAlloc
-          if(adtID == ADTs(jj)%adtID) exit
-        enddo
+        do jj = 1, nAlloc
+            if (adtID == ADTs(jj)%adtID) exit
+        end do
 
         ! Return immediately if the ID is not present.
 
-        if(jj > nAlloc) then
-           print *,'This ADT does not exist. Returning...'
-           print *,''
-           return
+        if (jj > nAlloc) then
+            print *, 'This ADT does not exist. Returning...'
+            print *, ''
+            return
         end if
 
         ! Deallocate the data for this ADT entry. Note that the memory
@@ -292,107 +292,107 @@
         ! deallocated, because these pointers are just set to the given
         ! input. The deallocation only takes place if the tree is active.
 
-        if( ADTs(jj)%isActive ) then
+        if (ADTs(jj)%isActive) then
 
-          deallocate(ADTs(jj)%rootLeavesProcs, ADTs(jj)%rootBBoxes, &
-                     ADTs(jj)%elementType,     ADTs(jj)%elementID,  &
-                     ADTs(jj)%xBBox,           ADTs(jj)%ADTree,     &
-                     stat=ierr)
-          if(ierr /= 0)                             &
-            call adtTerminate(jj, "deallocateADTs", &
-                              "Deallocation failure for the ADT data")
-          ! print *,'ADT deallocated.'
-          ! print *,''
-        endif
+            deallocate (ADTs(jj)%rootLeavesProcs, ADTs(jj)%rootBBoxes, &
+                        ADTs(jj)%elementType, ADTs(jj)%elementID, &
+                        ADTs(jj)%xBBox, ADTs(jj)%ADTree, &
+                        stat=ierr)
+            if (ierr /= 0) &
+                call adtTerminate(jj, "deallocateADTs", &
+                                  "Deallocation failure for the ADT data")
+            ! print *,'ADT deallocated.'
+            ! print *,''
+        end if
 
         ! Make sure the ADT is inactive and nullify the pointers.
 
         ADTs(jj)%isActive = .false.
 
-        nullify(ADTs(jj)%coor)
+        nullify (ADTs(jj)%coor)
 
-        nullify(ADTs(jj)%triaConn)
-        nullify(ADTs(jj)%quadsConn)
-        nullify(ADTs(jj)%tetraConn)
-        nullify(ADTs(jj)%pyraConn)
-        nullify(ADTs(jj)%prismsConn)
-        nullify(ADTs(jj)%hexaConn)
+        nullify (ADTs(jj)%triaConn)
+        nullify (ADTs(jj)%quadsConn)
+        nullify (ADTs(jj)%tetraConn)
+        nullify (ADTs(jj)%pyraConn)
+        nullify (ADTs(jj)%prismsConn)
+        nullify (ADTs(jj)%hexaConn)
 
-        nullify(ADTs(jj)%rootLeavesProcs)
-        nullify(ADTs(jj)%rootBBoxes)
+        nullify (ADTs(jj)%rootLeavesProcs)
+        nullify (ADTs(jj)%rootBBoxes)
 
-        nullify(ADTs(jj)%elementType)
-        nullify(ADTs(jj)%elementID)
-        nullify(ADTs(jj)%xBBox)
+        nullify (ADTs(jj)%elementType)
+        nullify (ADTs(jj)%elementID)
+        nullify (ADTs(jj)%xBBox)
 
-        nullify(ADTs(jj)%ADTree)
+        nullify (ADTs(jj)%ADTree)
 
         ! Determine the highest entry in ADTs which is still valid.
 
-        do nn=nAlloc,1,-1
-          if( ADTs(nn)%isActive ) exit
-        enddo
+        do nn = nAlloc, 1, -1
+            if (ADTs(nn)%isActive) exit
+        end do
 
         ! Determine the situation we are having here.
 
-        if(nn == 0) then
+        if (nn == 0) then
 
-          ! No active ADT's anymore. Deallocte the entire array.
-          ! Note that adtTerminate cannot be called when something
-          ! goes wrong.
+            ! No active ADT's anymore. Deallocte the entire array.
+            ! Note that adtTerminate cannot be called when something
+            ! goes wrong.
 
-          deallocate(ADTs, stat=ierr)
-          if(ierr /= 0) stop "Deallocation failure for ADTs"
+            deallocate (ADTs, stat=ierr)
+            if (ierr /= 0) stop "Deallocation failure for ADTs"
 
-        else if(nn < nAlloc) then
+        else if (nn < nAlloc) then
 
-          ! There are still some active ADT's, but the highest ones
-          ! are inactive. Therefore ADTs is reallocated. First allocate
-          ! the memory for tmpADTs to be able to retrieve the currently
-          ! stored data later on.
+            ! There are still some active ADT's, but the highest ones
+            ! are inactive. Therefore ADTs is reallocated. First allocate
+            ! the memory for tmpADTs to be able to retrieve the currently
+            ! stored data later on.
 
-          nAllocNew = nn
-          allocate(tmpADTs(nAllocNew), stat=ierr)
-          if(ierr /= 0) &
-            call adtTerminate(jj, "adtDeallocateADTs", &
-                              "Memory allocation failure for tmpADTs")
+            nAllocNew = nn
+            allocate (tmpADTs(nAllocNew), stat=ierr)
+            if (ierr /= 0) &
+                call adtTerminate(jj, "adtDeallocateADTs", &
+                                  "Memory allocation failure for tmpADTs")
 
-          ! Copy the data from ADTs to tmpADTs.
+            ! Copy the data from ADTs to tmpADTs.
 
-          do nn=1,nAllocNew
-            tmpADTs(nn) = ADTs(nn)
-          enddo
+            do nn = 1, nAllocNew
+                tmpADTs(nn) = ADTs(nn)
+            end do
 
-          ! Deallocate and allocate the memory for ADTs. Note that
-          ! adtTerminate is not called when the memory allocation fails.
-          ! The reason is that the processor ID for the current tree is
-          ! used in this routine and that value may not be available
-          ! anymore.
+            ! Deallocate and allocate the memory for ADTs. Note that
+            ! adtTerminate is not called when the memory allocation fails.
+            ! The reason is that the processor ID for the current tree is
+            ! used in this routine and that value may not be available
+            ! anymore.
 
-          deallocate(ADTs, stat=ierr)
-          if(ierr /= 0) stop "Deallocation failure for ADTs"
+            deallocate (ADTs, stat=ierr)
+            if (ierr /= 0) stop "Deallocation failure for ADTs"
 
-          allocate(ADTs(nAllocNew), stat=ierr)
-          if(ierr /= 0) stop "Allocation failure for ADTs"
+            allocate (ADTs(nAllocNew), stat=ierr)
+            if (ierr /= 0) stop "Allocation failure for ADTs"
 
-          ! Copy the data back into ADTs and release the memory of
-          ! tmpADTs afterwards.
+            ! Copy the data back into ADTs and release the memory of
+            ! tmpADTs afterwards.
 
-          do nn=1,nAllocNew
-            ADTs(nn) = tmpADTs(nn)
-          enddo
+            do nn = 1, nAllocNew
+                ADTs(nn) = tmpADTs(nn)
+            end do
 
-          deallocate(tmpADTs, stat=ierr)
-          if(ierr /= 0) stop "Deallocation failure for tmpADTs"
+            deallocate (tmpADTs, stat=ierr)
+            if (ierr /= 0) stop "Deallocation failure for tmpADTs"
 
-        endif
+        end if
 
-        end subroutine deallocateADTs
+    end subroutine deallocateADTs
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine qsortBBoxes(arr, nn, jj, dir)
+    subroutine qsortBBoxes(arr, nn, jj, dir)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -424,7 +424,7 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in)  :: nn, jj, dir
+        integer(kind=intType), intent(in) :: nn, jj, dir
 
         integer(kind=intType), dimension(:), intent(inout) :: arr
 !
@@ -438,7 +438,7 @@
         integer(kind=intType) :: a, tmp
 
         real(kind=realType) :: ra
-        real(kind=realType), dimension(:,:), pointer :: xBBox
+        real(kind=realType), dimension(:, :), pointer :: xBBox
 !
 !       ****************************************************************
 !       *                                                              *
@@ -453,149 +453,149 @@
         ! Initialize the variables that control the sorting.
 
         jStack = 0
-        l      = 1
-        r      = nn
+        l = 1
+        r = nn
 
         ! Start of the algorithm.
 
         sortLoop: do
 
-          ! Check for the size of the subarray.
+            ! Check for the size of the subarray.
 
-          testInsertion: if((r-l) < m) then
+            testInsertion: if ((r - l) < m) then
 
-            ! Perform the insertion sort.
+                ! Perform the insertion sort.
 
-            do j=(l+1),r
-              a  = arr(j)
-              ra = xBBox(dir,a)
-              do i=(j-1),l,-1
-                if(xBBox(dir,arr(i)) <= ra) exit
-                arr(i+1) = arr(i)
-              enddo
-              arr(i+1) = a
-            enddo
+                do j = (l + 1), r
+                    a = arr(j)
+                    ra = xBBox(dir, a)
+                    do i = (j - 1), l, -1
+                        if (xBBox(dir, arr(i)) <= ra) exit
+                        arr(i + 1) = arr(i)
+                    end do
+                    arr(i + 1) = a
+                end do
 
-            ! In case there are no more elements on the stack, exit from
-            ! the outermost do-loop. Algorithm has finished.
+                ! In case there are no more elements on the stack, exit from
+                ! the outermost do-loop. Algorithm has finished.
 
-            if(jStack == 0) exit sortLoop
+                if (jStack == 0) exit sortLoop
 
-            ! Pop stack and begin a new round of partitioning.
+                ! Pop stack and begin a new round of partitioning.
 
-            r = stack(jStack)
-            l = stack(jStack-1)
-            jStack = jStack - 2
+                r = stack(jStack)
+                l = stack(jStack - 1)
+                jStack = jStack - 2
 
-          else testInsertion
+                else testInsertion
 
-            ! Subarray is larger than the threshold for a linear sort.
-            ! Choose median of left, center and right elements as
-            ! partitioning element a. Also rearrange so that
-            ! (l) <= (l+1) <= (r).
+                ! Subarray is larger than the threshold for a linear sort.
+                ! Choose median of left, center and right elements as
+                ! partitioning element a. Also rearrange so that
+                ! (l) <= (l+1) <= (r).
 
-            k = (l+r)/2
-            tmp      = arr(k)      ! Swap the elements
-            arr(k)   = arr(l+1)    ! k and l+1.
-            arr(l+1) = tmp
+                k = (l + r) / 2
+                tmp = arr(k)      ! Swap the elements
+                arr(k) = arr(l + 1)    ! k and l+1.
+                arr(l + 1) = tmp
 
-            if(xBBox(dir,arr(r)) < xBBox(dir,arr(l))) then
-              tmp    = arr(l)             ! Swap the elements
-              arr(l) = arr(r)             ! r and l.
-              arr(r) = tmp
-            endif
+                if (xBBox(dir, arr(r)) < xBBox(dir, arr(l))) then
+                    tmp = arr(l)             ! Swap the elements
+                    arr(l) = arr(r)             ! r and l.
+                    arr(r) = tmp
+                end if
 
-            if(xBBox(dir,arr(r)) < xBBox(dir,arr(l+1))) then
-              tmp      = arr(l+1)         ! Swap the elements
-              arr(l+1) = arr(r)           ! r and l+1.
-              arr(r)   = tmp
-            endif
+                if (xBBox(dir, arr(r)) < xBBox(dir, arr(l + 1))) then
+                    tmp = arr(l + 1)         ! Swap the elements
+                    arr(l + 1) = arr(r)           ! r and l+1.
+                    arr(r) = tmp
+                end if
 
-            if(xBBox(dir,arr(l+1)) < xBBox(dir,arr(l))) then
-              tmp      = arr(l+1)         ! Swap the elements
-              arr(l+1) = arr(l)           ! l and l+1.
-              arr(l)   = tmp
-            endif
+                if (xBBox(dir, arr(l + 1)) < xBBox(dir, arr(l))) then
+                    tmp = arr(l + 1)         ! Swap the elements
+                    arr(l + 1) = arr(l)           ! l and l+1.
+                    arr(l) = tmp
+                end if
 
-            ! Initialize the pointers for partitioning.
+                ! Initialize the pointers for partitioning.
 
-            i  = l+1
-            j  = r
-            a  = arr(l+1)
-            ra = xBBox(dir,a)
+                i = l + 1
+                j = r
+                a = arr(l + 1)
+                ra = xBBox(dir, a)
 
-            ! The innermost loop.
+                ! The innermost loop.
 
-            innerLoop: do
+                innerLoop: do
 
-              ! Scan up to find element >= a.
-              do
-                i = i+1
-                if(ra <= xBBox(dir,arr(i))) exit
-              enddo
+                    ! Scan up to find element >= a.
+                    do
+                        i = i + 1
+                        if (ra <= xBBox(dir, arr(i))) exit
+                    end do
 
-              ! Scan down to find element <= a.
-              do
-                j = j-1
-                if(xBBox(dir,arr(j)) <= ra) exit
-              enddo
+                    ! Scan down to find element <= a.
+                    do
+                        j = j - 1
+                        if (xBBox(dir, arr(j)) <= ra) exit
+                    end do
 
-              ! Exit the loop in case the pointers i and j crossed.
+                    ! Exit the loop in case the pointers i and j crossed.
 
-              if(j < i) exit innerLoop
+                    if (j < i) exit innerLoop
 
-              ! Swap the element i and j.
+                    ! Swap the element i and j.
 
-              tmp    = arr(i)
-              arr(i) = arr(j)
-              arr(j) = tmp
+                    tmp = arr(i)
+                    arr(i) = arr(j)
+                    arr(j) = tmp
 
-            enddo innerLoop
+                end do innerLoop
 
-            ! Swap the entries j and l+1. Remember that a equals
-            ! arr(l+1).
+                ! Swap the entries j and l+1. Remember that a equals
+                ! arr(l+1).
 
-            arr(l+1) = arr(j)
-            arr(j)   = a
+                arr(l + 1) = arr(j)
+                arr(j) = a
 
-            ! Push pointers to larger subarray on stack; process smaller
-            ! subarray immediately. Check if enough memory is available.
-            ! If not reallocate it.
+                ! Push pointers to larger subarray on stack; process smaller
+                ! subarray immediately. Check if enough memory is available.
+                ! If not reallocate it.
 
-            jStack = jStack + 2
+                jStack = jStack + 2
 
-            if(jStack > nStack) call reallocPlus(stack, nStack, 100, jj)
+                if (jStack > nStack) call reallocPlus(stack, nStack, 100, jj)
 
-            if((r-i+1) >= (j-l)) then
-              stack(jStack)   = r
-              r               = j-1
-              stack(jStack-1) = j
-            else
-              stack(jStack)   = j-1
-              stack(jStack-1) = l
-              l               = j
-            endif
+                if ((r - i + 1) >= (j - l)) then
+                    stack(jStack) = r
+                    r = j - 1
+                    stack(jStack - 1) = j
+                else
+                    stack(jStack) = j - 1
+                    stack(jStack - 1) = l
+                    l = j
+                end if
 
-          endif testInsertion
-        enddo sortLoop
+            end if testInsertion
+        end do sortLoop
 
         ! Check in debug mode if the sort has been done correctly.
 
-        if( debug ) then
-          do i=1,(nn-1)
-            if(xBBox(dir,arr(i+1)) < xBBox(dir,arr(i))) then
-              call adtTerminate(jj, "qsortBBoxes", &
-                                "Array is not sorted correctly")
-            endif
-          enddo
-        endif
+        if (debug) then
+            do i = 1, (nn - 1)
+                if (xBBox(dir, arr(i + 1)) < xBBox(dir, arr(i))) then
+                    call adtTerminate(jj, "qsortBBoxes", &
+                                      "Array is not sorted correctly")
+                end if
+            end do
+        end if
 
-        end subroutine qsortBBoxes
+    end subroutine qsortBBoxes
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine qsortBBoxTargets(arr, nn, jj)
+    subroutine qsortBBoxTargets(arr, nn, jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -629,146 +629,146 @@
         ! Initialize the variables that control the sorting.
 
         jStack = 0
-        l      = 1
-        r      = nn
+        l = 1
+        r = nn
 
         ! Start of the algorithm
 
         sortLoop: do
 
-          ! Check for the size of the subarray.
+            ! Check for the size of the subarray.
 
-          testInsertion: if((r-l) < m) then
+            testInsertion: if ((r - l) < m) then
 
-            ! Perform insertion sort
+                ! Perform insertion sort
 
-            do j=l+1,r
-              a = arr(j)
-              do i=(j-1),l,-1
-                if(arr(i) <= a) exit
-                arr(i+1) = arr(i)
-              enddo
-              arr(i+1) = a
-            enddo
+                do j = l + 1, r
+                    a = arr(j)
+                    do i = (j - 1), l, -1
+                        if (arr(i) <= a) exit
+                        arr(i + 1) = arr(i)
+                    end do
+                    arr(i + 1) = a
+                end do
 
-            ! In case there are no more elements on the stack, exit from
-            ! the outermost do-loop. Algorithm has finished.
+                ! In case there are no more elements on the stack, exit from
+                ! the outermost do-loop. Algorithm has finished.
 
-            if(jStack == 0) exit sortLoop
+                if (jStack == 0) exit sortLoop
 
-            ! Pop stack and begin a new round of partitioning.
+                ! Pop stack and begin a new round of partitioning.
 
-            r = stack(jStack)
-            l = stack(jStack-1)
-            jStack = jStack - 2
+                r = stack(jStack)
+                l = stack(jStack - 1)
+                jStack = jStack - 2
 
-          else testInsertion
+                else testInsertion
 
-            ! Subarray is larger than the threshold for a linear sort.
-            ! Choose median of left, center and right elements as
-            ! partitioning element a. Also rearrange so that
-            ! (l) <= (l+1) <= (r).
+                ! Subarray is larger than the threshold for a linear sort.
+                ! Choose median of left, center and right elements as
+                ! partitioning element a. Also rearrange so that
+                ! (l) <= (l+1) <= (r).
 
-            k = (l+r)/2
-            tmp      = arr(k)      ! Swap the elements
-            arr(k)   = arr(l+1)    ! k and l+1.
-            arr(l+1) = tmp
+                k = (l + r) / 2
+                tmp = arr(k)      ! Swap the elements
+                arr(k) = arr(l + 1)    ! k and l+1.
+                arr(l + 1) = tmp
 
-            if(arr(r) < arr(l)) then
-              tmp    = arr(l)             ! Swap the elements
-              arr(l) = arr(r)             ! r and l.
-              arr(r) = tmp
-            endif
+                if (arr(r) < arr(l)) then
+                    tmp = arr(l)             ! Swap the elements
+                    arr(l) = arr(r)             ! r and l.
+                    arr(r) = tmp
+                end if
 
-            if(arr(r) < arr(l+1)) then
-              tmp      = arr(l+1)         ! Swap the elements
-              arr(l+1) = arr(r)           ! r and l+1.
-              arr(r)   = tmp
-            endif
+                if (arr(r) < arr(l + 1)) then
+                    tmp = arr(l + 1)         ! Swap the elements
+                    arr(l + 1) = arr(r)           ! r and l+1.
+                    arr(r) = tmp
+                end if
 
-            if(arr(l+1) < arr(l)) then
-              tmp      = arr(l+1)         ! Swap the elements
-              arr(l+1) = arr(l)           ! l and l+1.
-              arr(l)   = tmp
-            endif
+                if (arr(l + 1) < arr(l)) then
+                    tmp = arr(l + 1)         ! Swap the elements
+                    arr(l + 1) = arr(l)           ! l and l+1.
+                    arr(l) = tmp
+                end if
 
-            ! Initialize the pointers for partitioning.
+                ! Initialize the pointers for partitioning.
 
-           i = l+1
-           j = r
-           a = arr(l+1)
+                i = l + 1
+                j = r
+                a = arr(l + 1)
 
-            ! The innermost loop
+                ! The innermost loop
 
-            innerLoop: do
+                innerLoop: do
 
-              ! Scan up to find element >= a.
-              do
-                i = i+1
-                if(a <= arr(i)) exit
-              enddo
+                    ! Scan up to find element >= a.
+                    do
+                        i = i + 1
+                        if (a <= arr(i)) exit
+                    end do
 
-              ! Scan down to find element <= a.
-              do
-                j = j-1
-                if(arr(j) <= a) exit
-              enddo
+                    ! Scan down to find element <= a.
+                    do
+                        j = j - 1
+                        if (arr(j) <= a) exit
+                    end do
 
-              ! Exit the loop in case the pointers i and j crossed.
+                    ! Exit the loop in case the pointers i and j crossed.
 
-              if(j < i) exit innerLoop
+                    if (j < i) exit innerLoop
 
-              ! Swap the element i and j.
+                    ! Swap the element i and j.
 
-              tmp    = arr(i)
-              arr(i) = arr(j)
-              arr(j) = tmp
+                    tmp = arr(i)
+                    arr(i) = arr(j)
+                    arr(j) = tmp
 
-            enddo innerLoop
+                end do innerLoop
 
-            ! Swap the entries j and l+1. Remember that a equals
-            ! arr(l+1).
+                ! Swap the entries j and l+1. Remember that a equals
+                ! arr(l+1).
 
-            arr(l+1) = arr(j)
-            arr(j)   = a
+                arr(l + 1) = arr(j)
+                arr(j) = a
 
-            ! Push pointers to larger subarray on stack; process smaller
-            ! subarray immediately. Check if enough memory is available.
-            ! If not reallocate it.
+                ! Push pointers to larger subarray on stack; process smaller
+                ! subarray immediately. Check if enough memory is available.
+                ! If not reallocate it.
 
-            jStack = jStack + 2
+                jStack = jStack + 2
 
-            if(jStack > nStack) call reallocPlus(stack, nStack, 100, jj)
+                if (jStack > nStack) call reallocPlus(stack, nStack, 100, jj)
 
-            if((r-i+1) >= (j-l)) then
-              stack(jStack)   = r
-              r               = j-1
-              stack(jStack-1) = j
-            else
-              stack(jStack)   = j-1
-              stack(jStack-1) = l
-              l               = j
-            endif
+                if ((r - i + 1) >= (j - l)) then
+                    stack(jStack) = r
+                    r = j - 1
+                    stack(jStack - 1) = j
+                else
+                    stack(jStack) = j - 1
+                    stack(jStack - 1) = l
+                    l = j
+                end if
 
-          endif testInsertion
-        enddo sortLoop
+            end if testInsertion
+        end do sortLoop
 
         ! Check in debug mode whether the array is really sorted.
 
-        if( debug ) then
-          do i=1,(nn-1)
-            if(arr(i+1) < arr(i))                       &
-              call adtTerminate(jj, "qsortBBoxTargets", &
-                                "Array is not sorted correctly")
-          enddo
-        endif
+        if (debug) then
+            do i = 1, (nn - 1)
+                if (arr(i + 1) < arr(i)) &
+                    call adtTerminate(jj, "qsortBBoxTargets", &
+                                      "Array is not sorted correctly")
+            end do
+        end if
 
-        end subroutine qsortBBoxTargets
+    end subroutine qsortBBoxTargets
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine reallocateADTs(adtID, jj)
+    subroutine reallocateADTs(adtID, jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -792,7 +792,7 @@
 !
 !       Subroutine arguments.
 !
-        character(len=*), intent(in)          :: adtID
+        character(len=*), intent(in) :: adtID
         integer(kind=intType), intent(out) :: jj
 !
 !       Local variables.
@@ -816,97 +816,97 @@
 
         nAlloc = ubound(ADTs, 1)
         jj = nAlloc + 1
-        do nn=1,nAlloc
-          if( ADTs(nn)%isActive ) then
-            if(adtID == ADTs(nn)%adtID) exit
-          else if(jj > nAlloc) then
-            jj = nn
-          endif
-        enddo
+        do nn = 1, nAlloc
+            if (ADTs(nn)%isActive) then
+                if (adtID == ADTs(nn)%adtID) exit
+            else if (jj > nAlloc) then
+                jj = nn
+            end if
+        end do
 
         ! If the given ID corresponds to an already active tree,
         ! terminate. To avoid a messy output only processor 0 prints
         ! an error message while the other ones wait to get killed.
 
-        if(nn <= nAlloc) then
-          if(ADTs(nn)%myID == 0)                    &
-            call adtTerminate(nn, "reallocateADTs", &
-                              "Given ID corresponds to an already active ADT.")
-                              !Check if you are using the same section names in different .cgns files. &
-                              !Rename the sections so there are no repeated &
-                              !name between .cgns files. You can do this &
-                              !using the cgnsview command from terminal.")
-          call mpi_barrier(ADTs(nn)%comm, ierr)
-        endif
+        if (nn <= nAlloc) then
+            if (ADTs(nn)%myID == 0) &
+                call adtTerminate(nn, "reallocateADTs", &
+                                  "Given ID corresponds to an already active ADT.")
+            !Check if you are using the same section names in different .cgns files. &
+            !Rename the sections so there are no repeated &
+            !name between .cgns files. You can do this &
+            !using the cgnsview command from terminal.")
+            call mpi_barrier(ADTs(nn)%comm, ierr)
+        end if
 
         ! Check if a reallocate must be done.
 
-        checkReallocate: if(jj > nAlloc) then
+        checkReallocate: if (jj > nAlloc) then
 
-          ! No empty spot present in ADTs. A true reallocation must be
-          ! performed. First allocate the memory for tmpADTs to be able
-          ! to retrieve the currently stored data later on. Note that
-          ! adtTerminate is not called when the memory allocation fails.
-          ! The reason is that the processor ID for the current tree is
-          ! used in this routine and that value has not been set yet.
+            ! No empty spot present in ADTs. A true reallocation must be
+            ! performed. First allocate the memory for tmpADTs to be able
+            ! to retrieve the currently stored data later on. Note that
+            ! adtTerminate is not called when the memory allocation fails.
+            ! The reason is that the processor ID for the current tree is
+            ! used in this routine and that value has not been set yet.
 
-          allocate(tmpADTs(nAlloc), stat=ierr)
-          if(ierr /= 0) stop "Allocation failure for tmpADTs"
+            allocate (tmpADTs(nAlloc), stat=ierr)
+            if (ierr /= 0) stop "Allocation failure for tmpADTs"
 
-          ! Copy the data from ADTs to tmpADTs.
+            ! Copy the data from ADTs to tmpADTs.
 
-          do nn=1,nAlloc
-            tmpADTs(nn) = ADTs(nn)
-          enddo
+            do nn = 1, nAlloc
+                tmpADTs(nn) = ADTs(nn)
+            end do
 
-          ! Release the memory of ADTs and allocate it again with
-          ! increased size.
+            ! Release the memory of ADTs and allocate it again with
+            ! increased size.
 
-          deallocate(ADTs, stat=ierr)
-          if(ierr /= 0) stop "Deallocation failure for ADTs"
+            deallocate (ADTs, stat=ierr)
+            if (ierr /= 0) stop "Deallocation failure for ADTs"
 
-          allocate(ADTs(jj), stat=ierr)
-          if(ierr /= 0) stop "Allocation failure for ADTs"
+            allocate (ADTs(jj), stat=ierr)
+            if (ierr /= 0) stop "Allocation failure for ADTs"
 
-          ! Copy the data back from tmpADTs.
+            ! Copy the data back from tmpADTs.
 
-          do nn=1,nAlloc
-            ADTs(nn) = tmpADTs(nn)
-          enddo
+            do nn = 1, nAlloc
+                ADTs(nn) = tmpADTs(nn)
+            end do
 
-          ! Release the memory of tmpADTs.
+            ! Release the memory of tmpADTs.
 
-          deallocate(tmpADTs, stat=ierr)
-          if(ierr /= 0) stop "Deallocation failure for tmpADTs"
+            deallocate (tmpADTs, stat=ierr)
+            if (ierr /= 0) stop "Deallocation failure for tmpADTs"
 
-          ! Nullify the pointers of the new entry.
+            ! Nullify the pointers of the new entry.
 
-          nullify(ADTs(jj)%coor)
+            nullify (ADTs(jj)%coor)
 
-          nullify(ADTs(jj)%triaConn)
-          nullify(ADTs(jj)%quadsConn)
-          nullify(ADTs(jj)%tetraConn)
-          nullify(ADTs(jj)%pyraConn)
-          nullify(ADTs(jj)%prismsConn)
-          nullify(ADTs(jj)%hexaConn)
+            nullify (ADTs(jj)%triaConn)
+            nullify (ADTs(jj)%quadsConn)
+            nullify (ADTs(jj)%tetraConn)
+            nullify (ADTs(jj)%pyraConn)
+            nullify (ADTs(jj)%prismsConn)
+            nullify (ADTs(jj)%hexaConn)
 
-          nullify(ADTs(jj)%rootLeavesProcs)
-          nullify(ADTs(jj)%rootBBoxes)
+            nullify (ADTs(jj)%rootLeavesProcs)
+            nullify (ADTs(jj)%rootBBoxes)
 
-          nullify(ADTs(jj)%elementType)
-          nullify(ADTs(jj)%elementID)
-          nullify(ADTs(jj)%xBBox)
+            nullify (ADTs(jj)%elementType)
+            nullify (ADTs(jj)%elementID)
+            nullify (ADTs(jj)%xBBox)
 
-          nullify(ADTs(jj)%ADTree)
+            nullify (ADTs(jj)%ADTree)
 
-        endif checkReallocate
+        end if checkReallocate
 
-        end subroutine reallocateADTs
+    end subroutine reallocateADTs
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine reallocBBoxTargetTypePlus(arr, nSize, nInc, jj)
+    subroutine reallocBBoxTargetTypePlus(arr, nSize, nInc, jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -933,8 +933,8 @@
 !
 !       Subroutine arguments.
 !
-        integer,                  intent(in)    :: nInc
-        integer(kind=intType), intent(in)    :: jj
+        integer, intent(in) :: nInc
+        integer(kind=intType), intent(in) :: jj
         integer(kind=intType), intent(inout) :: nSize
 
         type(adtBBoxTargetType), dimension(:), pointer :: arr
@@ -961,32 +961,32 @@
         ! Allocate the new memory for the array.
 
         nSize = nSize + nInc
-        allocate(arr(nSize), stat=ierr)
-        if(ierr /= 0) &
-          call adtTerminate(jj, "reallocBBoxTargetTypePlus", &
-                            "Memory allocation failure for arr.")
+        allocate (arr(nSize), stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocBBoxTargetTypePlus", &
+                              "Memory allocation failure for arr.")
 
         ! Copy the data from the original array into arr.
 
-        nOld = min(nOld,nSize)
-          do i=1,nOld
-          arr(i) = tmp(i)
-        enddo
+        nOld = min(nOld, nSize)
+        do i = 1, nOld
+            arr(i) = tmp(i)
+        end do
 
         ! Release the memory of tmp, which points to the original
         ! memory of the given array.
 
-        deallocate(tmp, stat=ierr)
-        if(ierr /= 0) &
-          call adtTerminate(jj, "reallocBBoxTargetTypePlus", &
-                            "Deallocation failure for tmp.")
+        deallocate (tmp, stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocBBoxTargetTypePlus", &
+                              "Deallocation failure for tmp.")
 
-        end subroutine reallocBBoxTargetTypePlus
+    end subroutine reallocBBoxTargetTypePlus
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine reallocPlus(arr, nSize, nInc, jj)
+    subroutine reallocPlus(arr, nSize, nInc, jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -1013,8 +1013,8 @@
 !
 !       Subroutine arguments.
 !
-        integer,                  intent(in)    :: nInc
-        integer(kind=intType), intent(in)    :: jj
+        integer, intent(in) :: nInc
+        integer(kind=intType), intent(in) :: jj
         integer(kind=intType), intent(inout) :: nSize
 
         integer(kind=intType), dimension(:), pointer :: arr
@@ -1041,33 +1041,32 @@
         ! Allocate the new memory for the array.
 
         nSize = nSize + nInc
-        allocate(arr(nSize), stat=ierr)
-        if(ierr /= 0)                          &
-          call adtTerminate(jj, "reallocPlus", &
-                            "Memory allocation failure for arr.")
+        allocate (arr(nSize), stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocPlus", &
+                              "Memory allocation failure for arr.")
 
         ! Copy the data from the original array into arr.
 
-        nOld = min(nOld,nSize)
-        do i=1,nOld
-          arr(i) = tmp(i)
-        enddo
+        nOld = min(nOld, nSize)
+        do i = 1, nOld
+            arr(i) = tmp(i)
+        end do
 
         ! Release the memory of tmp, which points to the original
         ! memory of the given array.
 
-        deallocate(tmp, stat=ierr)
-        if(ierr /= 0)                          &
-          call adtTerminate(jj, "reallocPlus", &
-                            "Deallocation failure for tmp.")
+        deallocate (tmp, stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocPlus", &
+                              "Deallocation failure for tmp.")
 
-        end subroutine reallocPlus
+    end subroutine reallocPlus
 
+    !***************************************************************
+    !***************************************************************
 
-        !***************************************************************
-        !***************************************************************
-
-        subroutine reallocPlus2D(arr, nSize, nInc, jj)
+    subroutine reallocPlus2D(arr, nSize, nInc, jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -1100,18 +1099,18 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in)    :: nInc
-        integer(kind=intType), intent(in)    :: jj
+        integer(kind=intType), intent(in) :: nInc
+        integer(kind=intType), intent(in) :: jj
         integer(kind=intType), intent(inout) :: nSize
 
-        integer(kind=intType), dimension(:,:), allocatable :: arr
+        integer(kind=intType), dimension(:, :), allocatable :: arr
 !
 !       Local variables.
 !
         integer(kind=intType) :: ierr
         integer(kind=intType) :: i, nOld, nDim
 
-        integer(kind=intType), dimension(:,:), allocatable :: tmp
+        integer(kind=intType), dimension(:, :), allocatable :: tmp
 !
 !       ****************************************************************
 !       *                                                              *
@@ -1120,7 +1119,7 @@
 !       ****************************************************************
 !
         ! Get first dimension of the input array
-        nDim = size(arr,1)
+        nDim = size(arr, 1)
 
         ! Store the input value of nSize
         nOld = nSize
@@ -1129,62 +1128,58 @@
         nSize = nSize + nInc
 
         ! Allocate temporary array with new size and initialize
-        allocate(tmp(nDim, nSize), stat=ierr)
-        if(ierr /= 0)                          &
-          call adtTerminate(jj, "reallocPlus2D", &
-                            "Memory allocation failure for arr.")
+        allocate (tmp(nDim, nSize), stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocPlus2D", &
+                              "Memory allocation failure for arr.")
         tmp = 0
 
         ! Copy the data from the original array into tmp.
-        nOld = min(nOld,nSize)
-        tmp(:,1:nOld) = arr(:,1:nOld)
+        nOld = min(nOld, nSize)
+        tmp(:, 1:nOld) = arr(:, 1:nOld)
 
         ! Deallocate our original array so that we can reallocate it later on.
-        deallocate(arr, stat=ierr)
-        if(ierr /= 0)                          &
-          call adtTerminate(jj, "reallocPlus2D", &
-                            "Deallocation failure for arr.")
+        deallocate (arr, stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "reallocPlus2D", &
+                              "Deallocation failure for arr.")
 
         ! Now move the new allocation back to arr.
         ! temp is deallocated in this process.
         call move_alloc(tmp, arr)
 
-        end subroutine reallocPlus2D
+    end subroutine reallocPlus2D
 
+    !***************************************************************
+    !***************************************************************
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        !***************************************************************
-        !***************************************************************
-
-
-        subroutine numberOfADTs(nADT)
+    subroutine numberOfADTs(nADT)
 
 ! This subroutine computes the maximum number of ADTs defined so far
 ! Ney Secco 08-2016
 
-          implicit none
+        implicit none
 
-          ! OUTPUT VARIABLES
+        ! OUTPUT VARIABLES
 
-          integer(kind=intType), intent(out) :: nADT
+        integer(kind=intType), intent(out) :: nADT
 
+        ! EXECUTION
 
-          ! EXECUTION
+        ! First assume we have no ADTs
+        nADT = 0
 
-          ! First assume we have no ADTs
-          nADT = 0
+        ! If ADT is allocated, we get the maximum number of trees
+        if (allocated(ADTs)) then
+            nADT = size(ADTs)
+        end if
 
-          ! If ADT is allocated, we get the maximum number of trees
-          if( allocated(ADTs) ) then
-             nADT = size(ADTs)
-          end if
+    end subroutine numberOfADTs
 
-        end subroutine numberOfADTs
+    !***************************************************************
+    !***************************************************************
 
-        !***************************************************************
-        !***************************************************************
-
-
-      end module adtUtils
+end module adtUtils

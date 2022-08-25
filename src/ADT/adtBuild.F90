@@ -8,7 +8,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      module adtBuild
+module adtBuild
 !
 !     ******************************************************************
 !     *                                                                *
@@ -17,16 +17,16 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      use adtUtils
-      implicit none
+    use adtUtils
+    implicit none
 
-      !=================================================================
+    !=================================================================
 
-      contains
+contains
 
-        !===============================================================
+    !===============================================================
 
-        subroutine buildADT(jj)
+    subroutine buildADT(jj)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -45,7 +45,7 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in)  :: jj
+        integer(kind=intType), intent(in) :: jj
 !
 !       Local variables.
 !
@@ -64,13 +64,13 @@
         integer(kind=intType), dimension(:), pointer :: curLeafNew
         integer(kind=intType), dimension(:), pointer :: tmpIntPointer
 
-        integer(kind=intType), dimension(0:ADTs(jj)%nProcs-1) :: tmpArr
+        integer(kind=intType), dimension(0:ADTs(jj)%nProcs - 1) :: tmpArr
 
-        real(kind=realType), dimension(:,:), pointer :: xBBox
+        real(kind=realType), dimension(:, :), pointer :: xBBox
 
-        real(kind=realType), dimension(3,2) :: rootLeafBBox
-        real(kind=realType), dimension(3,2,0:ADTs(jj)%nProcs-1) :: &
-                                                         rootLeavesBBox
+        real(kind=realType), dimension(3, 2) :: rootLeafBBox
+        real(kind=realType), dimension(3, 2, 0:ADTs(jj)%nProcs - 1) :: &
+            rootLeavesBBox
 
         type(adtLeafType), dimension(:), pointer :: ADTree
 !
@@ -87,10 +87,10 @@
         ! and over again.
 
         nStack = 100
-        allocate(stack(nStack), stat=ierr)
-        if(ierr /= 0)                       &
-          call adtTerminate(jj, "buildADT", &
-                            "Memory allocation failure for stack.")
+        allocate (stack(nStack), stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "buildADT", &
+                              "Memory allocation failure for stack.")
 
         ! Determine the number of leaves of the adt. It can be proved
         ! that nLeaves equals nBBoxes - 1 for an optimally balanced
@@ -99,32 +99,32 @@
 
         nBBoxes = ADTs(jj)%nBBoxes
         nLeaves = nBBoxes - 1
-        if(nBBoxes <= 1) nLeaves = nLeaves + 1
+        if (nBBoxes <= 1) nLeaves = nLeaves + 1
 
         ADTs(jj)%nLeaves = nLeaves
 
         ! Allocate the memory for the adt.
 
-        allocate(ADTs(jj)%ADTree(nLeaves), stat=ierr)
-        if(ierr /= 0)                       &
-          call adtTerminate(jj, "buildADT", &
-                            "Memory allocation failure for ADTree.")
+        allocate (ADTs(jj)%ADTree(nLeaves), stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "buildADT", &
+                              "Memory allocation failure for ADTree.")
 
         ! Set some pointers to make the code more readable.
 
-        xBBox  => ADTs(jj)%xBBox
+        xBBox => ADTs(jj)%xBBox
         ADTree => ADTs(jj)%ADTree
 
         ! Allocate the memory for the arrays which control the
         ! subdivision of the leaves.
 
-        nn = (nBBoxes+1)/2
+        nn = (nBBoxes + 1) / 2
         nn = max(nn, 1_intType)
 
-        allocate(BB_IDs(nBBoxes), BB_IDsNew(nBBoxes), &
-                 nBB_IDs(0:nn),   nBB_IDsNew(0:nn),   &
-                 curLeaf(nn),     curLeafNew(nn),     stat=ierr)
-        if(ierr /= 0)                       &
+        allocate (BB_IDs(nBBoxes), BB_IDsNew(nBBoxes), &
+                  nBB_IDs(0:nn), nBB_IDsNew(0:nn), &
+                  curLeaf(nn), curLeafNew(nn), stat=ierr)
+        if (ierr /= 0) &
           call adtTerminate(jj, "buildADT", &
                             "Memory allocation failure for the arrays &
                             &used in the subdivision.")
@@ -137,12 +137,12 @@
         nBB_IDs(0) = 0; nBB_IDs(1) = nBBoxes
         curLeaf(1) = 1
 
-        do i=1,nBBoxes
-          BB_IDs(i) = i
-        enddo
+        do i = 1, nBBoxes
+            BB_IDs(i) = i
+        end do
 
         nLeavesToDivide = min(nLeaves, 1_intType)
-        nLeavesTot      = nLeavesToDivide
+        nLeavesTot = nLeavesToDivide
 
         ! Initialize splitDir to 0, such that the first time it will
         ! split in direction 1.
@@ -154,181 +154,181 @@
 
         leafDivision: do
 
-          ! Criterion to exit the loop.
+            ! Criterion to exit the loop.
 
-          if(nLeavesToDivide == 0) exit
+            if (nLeavesToDivide == 0) exit
 
-          ! Initializations for the next round of subdivisions and
-          ! increment splitDir.
+            ! Initializations for the next round of subdivisions and
+            ! increment splitDir.
 
-          nLeavesToDivideNew = 0
-          nBB_IDsNew(0) = 0
+            nLeavesToDivideNew = 0
+            nBB_IDsNew(0) = 0
 
-          splitdir = splitDir + 1
-          if(splitDir > 6) splitDir = 1
+            splitdir = splitDir + 1
+            if (splitDir > 6) splitDir = 1
 
-          ! Loop over the current number of leaves to be divided.
+            ! Loop over the current number of leaves to be divided.
 
-          currentLeavesLoop: do i=1,nLeavesToDivide
+            currentLeavesLoop: do i = 1, nLeavesToDivide
 
-            ! Store the number of bounding boxes present in the leaf
-            ! in nn, the current leaf number in mm and i-1 in ii.
+                ! Store the number of bounding boxes present in the leaf
+                ! in nn, the current leaf number in mm and i-1 in ii.
 
-            ii = i-1
-            nn = nBB_IDs(i) - nBB_IDs(ii)
-            mm = curLeaf(i)
+                ii = i - 1
+                nn = nBB_IDs(i) - nBB_IDs(ii)
+                mm = curLeaf(i)
 
-            ! Determine the bounding box coordinates of this leaf.
+                ! Determine the bounding box coordinates of this leaf.
 
-            ll = BB_IDs(nBB_IDs(ii)+1)
-            ADTree(mm)%xMin(1) = xBBox(1,ll)
-            ADTree(mm)%xMin(2) = xBBox(2,ll)
-            ADTree(mm)%xMin(3) = xBBox(3,ll)
-            ADTree(mm)%xMin(4) = xBBox(4,ll)
-            ADTree(mm)%xMin(5) = xBBox(5,ll)
-            ADTree(mm)%xMin(6) = xBBox(6,ll)
+                ll = BB_IDs(nBB_IDs(ii) + 1)
+                ADTree(mm)%xMin(1) = xBBox(1, ll)
+                ADTree(mm)%xMin(2) = xBBox(2, ll)
+                ADTree(mm)%xMin(3) = xBBox(3, ll)
+                ADTree(mm)%xMin(4) = xBBox(4, ll)
+                ADTree(mm)%xMin(5) = xBBox(5, ll)
+                ADTree(mm)%xMin(6) = xBBox(6, ll)
 
-            ADTree(mm)%xMax(1) = xBBox(1,ll)
-            ADTree(mm)%xMax(2) = xBBox(2,ll)
-            ADTree(mm)%xMax(3) = xBBox(3,ll)
-            ADTree(mm)%xMax(4) = xBBox(4,ll)
-            ADTree(mm)%xMax(5) = xBBox(5,ll)
-            ADTree(mm)%xMax(6) = xBBox(6,ll)
+                ADTree(mm)%xMax(1) = xBBox(1, ll)
+                ADTree(mm)%xMax(2) = xBBox(2, ll)
+                ADTree(mm)%xMax(3) = xBBox(3, ll)
+                ADTree(mm)%xMax(4) = xBBox(4, ll)
+                ADTree(mm)%xMax(5) = xBBox(5, ll)
+                ADTree(mm)%xMax(6) = xBBox(6, ll)
 
-            do j=(nBB_IDs(ii)+2),nBB_IDs(i)
-              ll = BB_IDs(j)
+                do j = (nBB_IDs(ii) + 2), nBB_IDs(i)
+                    ll = BB_IDs(j)
 
-              ADTree(mm)%xMin(1) = min(ADTree(mm)%xMin(1), xBBox(1,ll))
-              ADTree(mm)%xMin(2) = min(ADTree(mm)%xMin(2), xBBox(2,ll))
-              ADTree(mm)%xMin(3) = min(ADTree(mm)%xMin(3), xBBox(3,ll))
-              ADTree(mm)%xMin(4) = min(ADTree(mm)%xMin(4), xBBox(4,ll))
-              ADTree(mm)%xMin(5) = min(ADTree(mm)%xMin(5), xBBox(5,ll))
-              ADTree(mm)%xMin(6) = min(ADTree(mm)%xMin(6), xBBox(6,ll))
+                    ADTree(mm)%xMin(1) = min(ADTree(mm)%xMin(1), xBBox(1, ll))
+                    ADTree(mm)%xMin(2) = min(ADTree(mm)%xMin(2), xBBox(2, ll))
+                    ADTree(mm)%xMin(3) = min(ADTree(mm)%xMin(3), xBBox(3, ll))
+                    ADTree(mm)%xMin(4) = min(ADTree(mm)%xMin(4), xBBox(4, ll))
+                    ADTree(mm)%xMin(5) = min(ADTree(mm)%xMin(5), xBBox(5, ll))
+                    ADTree(mm)%xMin(6) = min(ADTree(mm)%xMin(6), xBBox(6, ll))
 
-              ADTree(mm)%xMax(1) = max(ADTree(mm)%xMax(1), xBBox(1,ll))
-              ADTree(mm)%xMax(2) = max(ADTree(mm)%xMax(2), xBBox(2,ll))
-              ADTree(mm)%xMax(3) = max(ADTree(mm)%xMax(3), xBBox(3,ll))
-              ADTree(mm)%xMax(4) = max(ADTree(mm)%xMax(4), xBBox(4,ll))
-              ADTree(mm)%xMax(5) = max(ADTree(mm)%xMax(5), xBBox(5,ll))
-              ADTree(mm)%xMax(6) = max(ADTree(mm)%xMax(6), xBBox(6,ll))
-            enddo
+                    ADTree(mm)%xMax(1) = max(ADTree(mm)%xMax(1), xBBox(1, ll))
+                    ADTree(mm)%xMax(2) = max(ADTree(mm)%xMax(2), xBBox(2, ll))
+                    ADTree(mm)%xMax(3) = max(ADTree(mm)%xMax(3), xBBox(3, ll))
+                    ADTree(mm)%xMax(4) = max(ADTree(mm)%xMax(4), xBBox(4, ll))
+                    ADTree(mm)%xMax(5) = max(ADTree(mm)%xMax(5), xBBox(5, ll))
+                    ADTree(mm)%xMax(6) = max(ADTree(mm)%xMax(6), xBBox(6, ll))
+                end do
 
-            ! Determine the situation of the leaf. It is either a
-            ! terminal leaf or a leaf that must be subdivided.
+                ! Determine the situation of the leaf. It is either a
+                ! terminal leaf or a leaf that must be subdivided.
 
-            terminalTest: if(nn <= 2) then
+                terminalTest: if (nn <= 2) then
 
-              ! Terminal leaf. Store the ID's of the bounding boxes with
-              ! negative numbers in children.
+                    ! Terminal leaf. Store the ID's of the bounding boxes with
+                    ! negative numbers in children.
 
-              ADTree(mm)%children(1) = -BB_IDs(nBB_IDs(ii)+1)
-              ADTree(mm)%children(2) = -BB_IDs(nBB_IDs(i))
+                    ADTree(mm)%children(1) = -BB_IDs(nBB_IDs(ii) + 1)
+                    ADTree(mm)%children(2) = -BB_IDs(nBB_IDs(i))
 
-            else terminalTest
+                    else terminalTest
 
-              ! Leaf must be divided. Sort the bounding boxes of the
-              ! current leaf in increasing order; the sorting is based
-              ! on the coordinate in the split direction.
+                    ! Leaf must be divided. Sort the bounding boxes of the
+                    ! current leaf in increasing order; the sorting is based
+                    ! on the coordinate in the split direction.
 
-              call qsortBBoxes(BB_IDs(nBB_IDs(ii)+1:), nn, jj, splitDir)
+                    call qsortBBoxes(BB_IDs(nBB_IDs(ii) + 1:), nn, jj, splitDir)
 
-              ! Determine the number of bounding boxes in the left leaf.
-              ! This number is at least 2. The actual number stored in
-              ! kk is this number plus an offset. Also initialize the
-              ! counter nfl, which is used to store the bounding boxes
-              ! in the arrays for the new round.
+                    ! Determine the number of bounding boxes in the left leaf.
+                    ! This number is at least 2. The actual number stored in
+                    ! kk is this number plus an offset. Also initialize the
+                    ! counter nfl, which is used to store the bounding boxes
+                    ! in the arrays for the new round.
 
-              kk  = (nn+1)/2 + nBB_IDs(ii)
-              nfl = nBB_IDsNew(nLeavesToDivideNew)
+                    kk = (nn + 1) / 2 + nBB_IDs(ii)
+                    nfl = nBB_IDsNew(nLeavesToDivideNew)
 
-              ! Copy the ID's of the left bounding boxes into BB_IDsNew.
-              ! Also update nLeavesToDivideNew and the corresponding
-              ! entry in nBB_IDsNew.
+                    ! Copy the ID's of the left bounding boxes into BB_IDsNew.
+                    ! Also update nLeavesToDivideNew and the corresponding
+                    ! entry in nBB_IDsNew.
 
-              do k=(nBB_IDs(ii)+1),kk
-                nfl = nfl + 1
-                BB_IDsNew(nfl) = BB_IDs(k)
-              enddo
+                    do k = (nBB_IDs(ii) + 1), kk
+                        nfl = nfl + 1
+                        BB_IDsNew(nfl) = BB_IDs(k)
+                    end do
 
-              nLeavesToDivideNew = nLeavesToDivideNew + 1
-              nBB_IDsNew(nLeavesToDivideNew) = nfl
+                    nLeavesToDivideNew = nLeavesToDivideNew + 1
+                    nBB_IDsNew(nLeavesToDivideNew) = nfl
 
-              ! Update the total number of leaves and store this number
-              ! in child 1 of the current leaf and in the current leaves
-              ! for the next round.
+                    ! Update the total number of leaves and store this number
+                    ! in child 1 of the current leaf and in the current leaves
+                    ! for the next round.
 
-              nLeavesTot = nLeavesTot + 1
-              ADTree(mm)%children(1) = nLeavesTot
-              curLeafNew(nLeavesToDivideNew) = nLeavesTot
+                    nLeavesTot = nLeavesTot + 1
+                    ADTree(mm)%children(1) = nLeavesTot
+                    curLeafNew(nLeavesToDivideNew) = nLeavesTot
 
-              ! The right leaf will only be created if it has more than
-              ! one bounding box in it, i.e. if the original leaf has
-              ! more than three bounding boxes. If the new leaf only has
-              ! one bounding box in it, it is not created; instead the
-              ! bounding box is stored in the current leaf.
+                    ! The right leaf will only be created if it has more than
+                    ! one bounding box in it, i.e. if the original leaf has
+                    ! more than three bounding boxes. If the new leaf only has
+                    ! one bounding box in it, it is not created; instead the
+                    ! bounding box is stored in the current leaf.
 
-              if(nn == 3) then
+                    if (nn == 3) then
 
-                ! Only three bounding boxes present in the current leaf.
-                ! The right leaf is not created and the last bounding
-                ! box is stored as the second child of the current leaf.
+                        ! Only three bounding boxes present in the current leaf.
+                        ! The right leaf is not created and the last bounding
+                        ! box is stored as the second child of the current leaf.
 
-                ADTree(mm)%children(2) = -BB_IDs(nBB_IDs(i))
+                        ADTree(mm)%children(2) = -BB_IDs(nBB_IDs(i))
 
-              else
+                    else
 
-                ! More than 3 bounding boxes are present and thus the
-                ! right leaf is created. Copy the ID's from BB_IDs into
-                ! BB_IDsNew and update the counters for the new round.
+                        ! More than 3 bounding boxes are present and thus the
+                        ! right leaf is created. Copy the ID's from BB_IDs into
+                        ! BB_IDsNew and update the counters for the new round.
 
-                nfr = nBB_IDsNew(nLeavesToDivideNew)
-                do k=(kk+1),nBB_IDs(i)
-                  nfr = nfr + 1
-                  BB_IDsNew(nfr) = BB_IDs(k)
-                enddo
+                        nfr = nBB_IDsNew(nLeavesToDivideNew)
+                        do k = (kk + 1), nBB_IDs(i)
+                            nfr = nfr + 1
+                            BB_IDsNew(nfr) = BB_IDs(k)
+                        end do
 
-                nLeavesToDivideNew = nLeavesToDivideNew + 1
-                nBB_IDsNew(nLeavesToDivideNew) = nfr
+                        nLeavesToDivideNew = nLeavesToDivideNew + 1
+                        nBB_IDsNew(nLeavesToDivideNew) = nfr
 
-                ! Update the total number of leaves and store this number
-                ! in child 2 of the current leaf and in the current
-                ! leaves for the next round.
+                        ! Update the total number of leaves and store this number
+                        ! in child 2 of the current leaf and in the current
+                        ! leaves for the next round.
 
-                nLeavesTot = nLeavesTot + 1
-                ADTree(mm)%children(2) = nLeavesTot
-                curLeafNew(nLeavesToDivideNew) = nLeavesTot
+                        nLeavesTot = nLeavesTot + 1
+                        ADTree(mm)%children(2) = nLeavesTot
+                        curLeafNew(nLeavesToDivideNew) = nLeavesTot
 
-              endif
+                    end if
 
-            endif terminalTest
+                end if terminalTest
 
-          enddo currentLeavesLoop
+            end do currentLeavesLoop
 
-          ! Swap the pointers for the next round.
+            ! Swap the pointers for the next round.
 
-          nLeavesToDivide = nLeavesToDivideNew
+            nLeavesToDivide = nLeavesToDivideNew
 
-          tmpIntPointer => BB_IDs
-          BB_IDs        => BB_IDsNew
-          BB_IDsNew     => tmpIntPointer
+            tmpIntPointer => BB_IDs
+            BB_IDs => BB_IDsNew
+            BB_IDsNew => tmpIntPointer
 
-          tmpIntPointer => nBB_IDs
-          nBB_IDs       => nBB_IDsNew
-          nBB_IDsNew    => tmpIntPointer
+            tmpIntPointer => nBB_IDs
+            nBB_IDs => nBB_IDsNew
+            nBB_IDsNew => tmpIntPointer
 
-          tmpIntPointer => curLeaf
-          curLeaf       => curLeafNew
-          curLeafNew    => tmpIntPointer
+            tmpIntPointer => curLeaf
+            curLeaf => curLeafNew
+            curLeafNew => tmpIntPointer
 
-        enddo leafDivision
+        end do leafDivision
 
         ! Deallocate the arrays used to build the local tree.
 
-        deallocate(stack, BB_IDs, BB_IDsNew, nBB_IDs, nBB_IDsNew, &
-                   curLeaf, curLeafNew, stat=ierr)
-        if(ierr /= 0)                       &
-          call adtTerminate(jj, "buildADT", &
-                            "Deallocation failure for the local arrays.")
+        deallocate (stack, BB_IDs, BB_IDsNew, nBB_IDs, nBB_IDsNew, &
+                    curLeaf, curLeafNew, stat=ierr)
+        if (ierr /= 0) &
+            call adtTerminate(jj, "buildADT", &
+                              "Deallocation failure for the local arrays.")
 !
 !       ****************************************************************
 !       *                                                              *
@@ -341,24 +341,24 @@
         ! trees by gathering the data from the participating processors.
 
         ii = 1
-        if(nBBoxes == 0) ii = 0
+        if (nBBoxes == 0) ii = 0
 
         call mpi_allgather(ii, 1, sumb_integer, tmpArr, 1, sumb_integer, &
                            ADTs(jj)%comm, ierr)
 
         ii = 0
-        do i=0,(ADTs(jj)%nProcs-1)
-          ii = ii + tmpArr(i)
-        enddo
+        do i = 0, (ADTs(jj)%nProcs - 1)
+            ii = ii + tmpArr(i)
+        end do
 
         ADTs(jj)%nRootLeaves = ii
 
         ! Allocate the memory for both the processor ID's and the
         ! 3D bounding box of the root leaf.
 
-        allocate(ADTs(jj)%rootLeavesProcs(ii), &
-                 ADTs(jj)%rootBBoxes(3,2,ii), stat=ierr)
-        if(ierr /= 0)                       &
+        allocate (ADTs(jj)%rootLeavesProcs(ii), &
+                  ADTs(jj)%rootBBoxes(3, 2, ii), stat=ierr)
+        if (ierr /= 0) &
           call adtTerminate(jj, "buildADT", &
                             "Memory allocation failure for &
                             &rootLeavesProcs and rootBBoxes.")
@@ -368,29 +368,29 @@
         ii = 0
         ADTs(jj)%myEntryInRootProcs = 0
 
-        do i=0,(ADTs(jj)%nProcs-1)
-          if(tmpArr(i) > 0) then
-            ii = ii + 1
-            ADTs(jj)%rootLeavesProcs(ii) = i
-            if(ADTs(jj)%myID == i) ADTs(jj)%myEntryInRootProcs = ii
-          endif
-        enddo
+        do i = 0, (ADTs(jj)%nProcs - 1)
+            if (tmpArr(i) > 0) then
+                ii = ii + 1
+                ADTs(jj)%rootLeavesProcs(ii) = i
+                if (ADTs(jj)%myID == i) ADTs(jj)%myEntryInRootProcs = ii
+            end if
+        end do
 
         ! Determine the local 3D bounding box of the root leaf.
         ! If no local tree is present, just set it to zero to avoid
         ! problems. The values do not matter.
 
-        if(nBBoxes == 0) then
-          rootLeafBBox = adtZero
+        if (nBBoxes == 0) then
+            rootLeafBBox = adtZero
         else
-          rootLeafBBox(1,1) = ADTree(1)%xMin(1)
-          rootLeafBBox(2,1) = ADTree(1)%xMin(2)
-          rootLeafBBox(3,1) = ADTree(1)%xMin(3)
+            rootLeafBBox(1, 1) = ADTree(1)%xMin(1)
+            rootLeafBBox(2, 1) = ADTree(1)%xMin(2)
+            rootLeafBBox(3, 1) = ADTree(1)%xMin(3)
 
-          rootLeafBBox(1,2) = ADTree(1)%xMax(4)
-          rootLeafBBox(2,2) = ADTree(1)%xMax(5)
-          rootLeafBBox(3,2) = ADTree(1)%xMax(6)
-        endif
+            rootLeafBBox(1, 2) = ADTree(1)%xMax(4)
+            rootLeafBBox(2, 2) = ADTree(1)%xMax(5)
+            rootLeafBBox(3, 2) = ADTree(1)%xMax(6)
+        end if
 
         ! Gather the data of the root leaves.
 
@@ -401,29 +401,29 @@
         ! the data structure for the current ADT.
 
         ii = 0
-        do i=0,(ADTs(jj)%nProcs-1)
-          if(tmpArr(i) > 0) then
-            ii = ii + 1
+        do i = 0, (ADTs(jj)%nProcs - 1)
+            if (tmpArr(i) > 0) then
+                ii = ii + 1
 
-            ADTs(jj)%rootBBoxes(1,1,ii) = rootLeavesBBox(1,1,i)
-            ADTs(jj)%rootBBoxes(2,1,ii) = rootLeavesBBox(2,1,i)
-            ADTs(jj)%rootBBoxes(3,1,ii) = rootLeavesBBox(3,1,i)
+                ADTs(jj)%rootBBoxes(1, 1, ii) = rootLeavesBBox(1, 1, i)
+                ADTs(jj)%rootBBoxes(2, 1, ii) = rootLeavesBBox(2, 1, i)
+                ADTs(jj)%rootBBoxes(3, 1, ii) = rootLeavesBBox(3, 1, i)
 
-            ADTs(jj)%rootBBoxes(1,2,ii) = rootLeavesBBox(1,2,i)
-            ADTs(jj)%rootBBoxes(2,2,ii) = rootLeavesBBox(2,2,i)
-            ADTs(jj)%rootBBoxes(3,2,ii) = rootLeavesBBox(3,2,i)
-          endif
-        enddo
+                ADTs(jj)%rootBBoxes(1, 2, ii) = rootLeavesBBox(1, 2, i)
+                ADTs(jj)%rootBBoxes(2, 2, ii) = rootLeavesBBox(2, 2, i)
+                ADTs(jj)%rootBBoxes(3, 2, ii) = rootLeavesBBox(3, 2, i)
+            end if
+        end do
 
-        end subroutine buildADT
+    end subroutine buildADT
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine buildSurfaceADT(nTria,  nQuads,   nNodes,    &
-                                   coor,   triaConn, quadsConn, &
-                                   BBox,   useBBox,  comm,      &
-                                   adtID)
+    subroutine buildSurfaceADT(nTria, nQuads, nNodes, &
+                               coor, triaConn, quadsConn, &
+                               BBox, useBBox, comm, &
+                               adtID)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -463,7 +463,7 @@
 !
 !       Subroutine arguments.
 !
-        integer, intent(in)          :: comm
+        integer, intent(in) :: comm
         character(len=*), intent(in) :: adtID
 
         integer(kind=intType), intent(in) :: nTria
@@ -472,15 +472,15 @@
 
         logical, intent(in) :: useBBox
 
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: triaConn
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: quadsConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: triaConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: quadsConn
 
-        real(kind=realType), dimension(3,2), intent(in) :: BBox
+        real(kind=realType), dimension(3, 2), intent(in) :: BBox
 
-        real(kind=realType), dimension(:,:), intent(in), &
-                                                target :: coor
+        real(kind=realType), dimension(:, :), intent(in), &
+            target :: coor
 !
 !       Local variables.
 !
@@ -490,7 +490,7 @@
 
         integer(kind=intType) :: i, j, ii, jj, mm, nn, nElem
 
-        integer(kind=intType), dimension(:,:), pointer :: conn
+        integer(kind=intType), dimension(:, :), pointer :: conn
 
         real(kind=realType), dimension(3) :: xMin, xMax
 
@@ -505,23 +505,23 @@
         ! Allocate or reallocate the memory for ADTs. This depends
         ! whether or not this is the first ADT to be built.
 
-        if( allocated(ADTs) ) then
-          call reallocateADTs(adtID, jj)
+        if (allocated(ADTs)) then
+            call reallocateADTs(adtID, jj)
         else
-          call allocateADTs
-          jj = 1
-        endif
+            call allocateADTs
+            jj = 1
+        end if
 
         ! Make sure the ADT is active and store the ID of this ADT.
 
         ADTs(jj)%isActive = .true.
-        ADTs(jj)%adtID    = adtID
+        ADTs(jj)%adtID = adtID
 
         ! Copy the communicator and determine the number of processors
         ! and my processor ID in this group.
 
         ADTs(jj)%comm = comm
-        call mpi_comm_rank(comm, ADTs(jj)%myID,   ierr)
+        call mpi_comm_rank(comm, ADTs(jj)%myID, ierr)
         call mpi_comm_size(comm, ADTs(jj)%nProcs, ierr)
 
         ! Set the ADT type, which is a surface ADT.
@@ -533,230 +533,230 @@
         ! given.
 
         ADTs(jj)%nNodes = nNodes
-        ADTs(jj)%nTria  = nTria
+        ADTs(jj)%nTria = nTria
         ADTs(jj)%nQuads = nQuads
 
-        ADTs(jj)%nTetra  = 0
-        ADTs(jj)%nPyra   = 0
+        ADTs(jj)%nTetra = 0
+        ADTs(jj)%nPyra = 0
         ADTs(jj)%nPrisms = 0
-        ADTs(jj)%nHexa   = 0
+        ADTs(jj)%nHexa = 0
 
         ! Set the pointers for the coordinates and the
         ! surface connectivities.
 
-        ADTs(jj)%coor      => coor
-        ADTs(jj)%triaConn  => triaConn
+        ADTs(jj)%coor => coor
+        ADTs(jj)%triaConn => triaConn
         ADTs(jj)%quadsConn => quadsConn
 
         ! Determine the number of elements to be stored in the ADT.
         ! This depends whether or not the global bounding box should be
         ! used when building the ADT.
 
-        testBBox: if( useBBox ) then
+        testBBox: if (useBBox) then
 
-          ! Global bounding box is used. Allocate the memory for the
-          ! logical elementWithinBBox.
+            ! Global bounding box is used. Allocate the memory for the
+            ! logical elementWithinBBox.
 
-          nn = nTria + nQuads
-          allocate(elementWithinBBox(nn), stat=ierr)
-          if(ierr /= 0)                              &
-            call adtTerminate(jj, "buildSurfaceADT", &
-                              "Memory allocation failure for &
-                              &elementWithinBBox.")
+            nn = nTria + nQuads
+            allocate (elementWithinBBox(nn), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildSurfaceADT", &
+                                "Memory allocation failure for &
+                                &elementWithinBBox.")
 
-          ! Loop over the number of element types.
+            ! Loop over the number of element types.
 
-          ii = 0
-          elementLoop1: do ll=1,2
+            ii = 0
+            elementLoop1: do ll = 1, 2
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setSurfacePointers(ll)
+                call setSurfacePointers(ll)
 
-            ! Loop over the elements and determine the bounding box of
-            ! each element.
+                ! Loop over the elements and determine the bounding box of
+                ! each element.
 
-            do i=1,nElem
-              ii = ii + 1
+                do i = 1, nElem
+                    ii = ii + 1
 
-              mm = conn(1,i)
-              xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-              xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-              xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                    mm = conn(1, i)
+                    xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                    xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                    xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-              do j=2,nNPE
-                mm = conn(j,i)
+                    do j = 2, nNPE
+                        mm = conn(j, i)
 
-                xMin(1) = min(xMin(1),coor(1,mm))
-                xMin(2) = min(xMin(2),coor(2,mm))
-                xMin(3) = min(xMin(3),coor(3,mm))
+                        xMin(1) = min(xMin(1), coor(1, mm))
+                        xMin(2) = min(xMin(2), coor(2, mm))
+                        xMin(3) = min(xMin(3), coor(3, mm))
 
-                xMax(1) = max(xMax(1),coor(1,mm))
-                xMax(2) = max(xMax(2),coor(2,mm))
-                xMax(3) = max(xMax(3),coor(3,mm))
-              enddo
+                        xMax(1) = max(xMax(1), coor(1, mm))
+                        xMax(2) = max(xMax(2), coor(2, mm))
+                        xMax(3) = max(xMax(3), coor(3, mm))
+                    end do
 
-              ! Check if the bounding box is (partially) inside the
-              ! global bounding box. If so, set elementWithinBBox
-              ! to .true.; otherwise set it to .false.
+                    ! Check if the bounding box is (partially) inside the
+                    ! global bounding box. If so, set elementWithinBBox
+                    ! to .true.; otherwise set it to .false.
 
-              if(xMax(1) >= BBox(1,1) .and. xMin(1) <= BBox(1,2) .and. &
-                 xMax(2) >= BBox(2,1) .and. xMin(2) <= BBox(2,2) .and. &
-                 xMax(3) >= BBox(3,1) .and. xMin(3) <= BBox(3,2)) then
-                elementWithinBBox(ii) = .true.
-              else
-                elementWithinBBox(ii) = .false.
-              endif
+                    if (xMax(1) >= BBox(1, 1) .and. xMin(1) <= BBox(1, 2) .and. &
+                        xMax(2) >= BBox(2, 1) .and. xMin(2) <= BBox(2, 2) .and. &
+                        xMax(3) >= BBox(3, 1) .and. xMin(3) <= BBox(3, 2)) then
+                        elementWithinBBox(ii) = .true.
+                    else
+                        elementWithinBBox(ii) = .false.
+                    end if
 
-            enddo
-          enddo elementLoop1
+                end do
+            end do elementLoop1
 
-          ! Determine the local number of elements within the global
-          ! bounding box.
+            ! Determine the local number of elements within the global
+            ! bounding box.
 
-          ii = 0
-          do i=1,nn
-            if( elementWithinBBox(i) ) ii = ii + 1
-          enddo
+            ii = 0
+            do i = 1, nn
+                if (elementWithinBBox(i)) ii = ii + 1
+            end do
 
-          ADTs(jj)%nBBoxes = ii
+            ADTs(jj)%nBBoxes = ii
 
-          ! Allocate the memory for the bounding box coordinates, the
-          ! corresponding element type and the index in the connectivity.
+            ! Allocate the memory for the bounding box coordinates, the
+            ! corresponding element type and the index in the connectivity.
 
-          allocate(ADTs(jj)%xBBox(6,ii), ADTs(jj)%elementType(ii), &
-                   ADTs(jj)%elementID(ii), stat=ierr)
-          if(ierr /= 0)                              &
-            call adtTerminate(jj, "buildSurfaceADT", &
-                              "Memory allocation failure for bounding &
-                              &box data.")
+            allocate (ADTs(jj)%xBBox(6, ii), ADTs(jj)%elementType(ii), &
+                      ADTs(jj)%elementID(ii), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildSurfaceADT", &
+                                "Memory allocation failure for bounding &
+                                &box data.")
 
-          ! Repeat the loop over the all the elements, but now store
-          ! the bounding boxes in the ADT.
+            ! Repeat the loop over the all the elements, but now store
+            ! the bounding boxes in the ADT.
 
-          ii = 0
-          nn = 0
-          elementLoop2: do ll=1,2
+            ii = 0
+            nn = 0
+            elementLoop2: do ll = 1, 2
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setSurfacePointers(ll)
+                call setSurfacePointers(ll)
 
-            ! Loop over the elements and store the bounding box info,
-            ! if needed.
+                ! Loop over the elements and store the bounding box info,
+                ! if needed.
 
-            do i=1,nElem
-              ii = ii + 1
-              testWithin: if( elementWithinBBox(ii) ) then
+                do i = 1, nElem
+                    ii = ii + 1
+                    testWithin: if (elementWithinBBox(ii)) then
 
-                nn = nn + 1
+                        nn = nn + 1
 
-                ADTs(jj)%elementType(nn) = elType
-                ADTs(jj)%elementID(nn)   = i
+                        ADTs(jj)%elementType(nn) = elType
+                        ADTs(jj)%elementID(nn) = i
 
-                mm = conn(1,i)
-                xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-                xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-                xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                        mm = conn(1, i)
+                        xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                        xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                        xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-                do j=2,nNPE
-                  mm = conn(j,i)
+                        do j = 2, nNPE
+                            mm = conn(j, i)
 
-                  xMin(1) = min(xMin(1),coor(1,mm))
-                  xMin(2) = min(xMin(2),coor(2,mm))
-                  xMin(3) = min(xMin(3),coor(3,mm))
+                            xMin(1) = min(xMin(1), coor(1, mm))
+                            xMin(2) = min(xMin(2), coor(2, mm))
+                            xMin(3) = min(xMin(3), coor(3, mm))
 
-                  xMax(1) = max(xMax(1),coor(1,mm))
-                  xMax(2) = max(xMax(2),coor(2,mm))
-                  xMax(3) = max(xMax(3),coor(3,mm))
-                enddo
+                            xMax(1) = max(xMax(1), coor(1, mm))
+                            xMax(2) = max(xMax(2), coor(2, mm))
+                            xMax(3) = max(xMax(3), coor(3, mm))
+                        end do
 
-                ADTs(jj)%xBBox(1,nn) = xMin(1)
-                ADTs(jj)%xBBox(2,nn) = xMin(2)
-                ADTs(jj)%xBBox(3,nn) = xMin(3)
+                        ADTs(jj)%xBBox(1, nn) = xMin(1)
+                        ADTs(jj)%xBBox(2, nn) = xMin(2)
+                        ADTs(jj)%xBBox(3, nn) = xMin(3)
 
-                ADTs(jj)%xBBox(4,nn) = xMax(1)
-                ADTs(jj)%xBBox(5,nn) = xMax(2)
-                ADTs(jj)%xBBox(6,nn) = xMax(3)
+                        ADTs(jj)%xBBox(4, nn) = xMax(1)
+                        ADTs(jj)%xBBox(5, nn) = xMax(2)
+                        ADTs(jj)%xBBox(6, nn) = xMax(3)
 
-              endif testWithin
-            enddo
-          enddo elementLoop2
+                    end if testWithin
+                end do
+            end do elementLoop2
 
-          ! Deallocate the memory for elementWithinBBox.
+            ! Deallocate the memory for elementWithinBBox.
 
-          deallocate(elementWithinBBox, stat=ierr)
-          if(ierr /= 0)                              &
-            call adtTerminate(jj, "buildSurfaceADT", &
-                              "Deallocation failure for &
-                              &elementWithinBBox.")
+            deallocate (elementWithinBBox, stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildSurfaceADT", &
+                                "Deallocation failure for &
+                                &elementWithinBBox.")
 
-        else testBBox
+            else testBBox
 
-          ! No global bounding box. The number of local bounding boxes
-          ! to be stored is the total number of local surface elements.
+            ! No global bounding box. The number of local bounding boxes
+            ! to be stored is the total number of local surface elements.
 
-          ii = nTria + nQuads
-          ADTs(jj)%nBBoxes = ii
+            ii = nTria + nQuads
+            ADTs(jj)%nBBoxes = ii
 
-          ! Allocate the memory for the bounding box coordinates, the
-          ! corresponding element type and the index in the connectivity.
+            ! Allocate the memory for the bounding box coordinates, the
+            ! corresponding element type and the index in the connectivity.
 
-          allocate(ADTs(jj)%xBBox(6,ii), ADTs(jj)%elementType(ii), &
-                   ADTs(jj)%elementID(ii), stat=ierr)
-          if(ierr /= 0)                              &
-            call adtTerminate(jj, "buildSurfaceADT", &
-                              "Memory allocation failure for bounding &
-                              &box data.")
+            allocate (ADTs(jj)%xBBox(6, ii), ADTs(jj)%elementType(ii), &
+                      ADTs(jj)%elementID(ii), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildSurfaceADT", &
+                                "Memory allocation failure for bounding &
+                                &box data.")
 
-          ! Loop over the number of element types present, i.e. 2,
-          ! to store the bounding boxes; nn is the counter.
+            ! Loop over the number of element types present, i.e. 2,
+            ! to store the bounding boxes; nn is the counter.
 
-          nn = 0
-          elementLoop3: do ll=1,2
+            nn = 0
+            elementLoop3: do ll = 1, 2
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setSurfacePointers(ll)
+                call setSurfacePointers(ll)
 
-            ! Loop over the number of elements and store the bounding
-            ! box info.
+                ! Loop over the number of elements and store the bounding
+                ! box info.
 
-            do i=1,nElem
-              nn = nn + 1
+                do i = 1, nElem
+                    nn = nn + 1
 
-              ADTs(jj)%elementType(nn) = elType
-              ADTs(jj)%elementID(nn)   = i
+                    ADTs(jj)%elementType(nn) = elType
+                    ADTs(jj)%elementID(nn) = i
 
-              mm = conn(1,i)
-              xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-              xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-              xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                    mm = conn(1, i)
+                    xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                    xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                    xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-              do j=2,nNPE
-                mm = conn(j,i)
+                    do j = 2, nNPE
+                        mm = conn(j, i)
 
-                xMin(1) = min(xMin(1),coor(1,mm))
-                xMin(2) = min(xMin(2),coor(2,mm))
-                xMin(3) = min(xMin(3),coor(3,mm))
+                        xMin(1) = min(xMin(1), coor(1, mm))
+                        xMin(2) = min(xMin(2), coor(2, mm))
+                        xMin(3) = min(xMin(3), coor(3, mm))
 
-                xMax(1) = max(xMax(1),coor(1,mm))
-                xMax(2) = max(xMax(2),coor(2,mm))
-                xMax(3) = max(xMax(3),coor(3,mm))
-              enddo
+                        xMax(1) = max(xMax(1), coor(1, mm))
+                        xMax(2) = max(xMax(2), coor(2, mm))
+                        xMax(3) = max(xMax(3), coor(3, mm))
+                    end do
 
-              ADTs(jj)%xBBox(1,nn) = xMin(1)
-              ADTs(jj)%xBBox(2,nn) = xMin(2)
-              ADTs(jj)%xBBox(3,nn) = xMin(3)
+                    ADTs(jj)%xBBox(1, nn) = xMin(1)
+                    ADTs(jj)%xBBox(2, nn) = xMin(2)
+                    ADTs(jj)%xBBox(3, nn) = xMin(3)
 
-              ADTs(jj)%xBBox(4,nn) = xMax(1)
-              ADTs(jj)%xBBox(5,nn) = xMax(2)
-              ADTs(jj)%xBBox(6,nn) = xMax(3)
-            enddo
+                    ADTs(jj)%xBBox(4, nn) = xMax(1)
+                    ADTs(jj)%xBBox(5, nn) = xMax(2)
+                    ADTs(jj)%xBBox(6, nn) = xMax(3)
+                end do
 
-          enddo elementLoop3
+            end do elementLoop3
 
-        endif testBBox
+        end if testBBox
 
         ! Build the ADT from the now known boundary boxes.
 
@@ -764,11 +764,11 @@
 
         !===============================================================
 
-        contains
+    contains
 
-          !=============================================================
+        !=============================================================
 
-          subroutine setSurfacePointers(ll)
+        subroutine setSurfacePointers(ll)
 !
 !         **************************************************************
 !         *                                                            *
@@ -782,11 +782,11 @@
 !         *                                                            *
 !         **************************************************************
 !
-          implicit none
+            implicit none
 !
 !         Subroutine arguments.
 !
-          integer, intent(in) :: ll
+            integer, intent(in) :: ll
 !
 !         **************************************************************
 !         *                                                            *
@@ -794,28 +794,28 @@
 !         *                                                            *
 !         **************************************************************
 !
-          select case (ll)
+            select case (ll)
             case (1)
-              elType = adtTriangle;      nElem = nTria;  nNPE = 3
-              conn => triaConn
+                elType = adtTriangle; nElem = nTria; nNPE = 3
+                conn => triaConn
             case (2)
-              elType = adtQuadrilateral; nElem = nQuads; nNPE = 4
-              conn => quadsConn
+                elType = adtQuadrilateral; nElem = nQuads; nNPE = 4
+                conn => quadsConn
             case (3)
-          end select
+            end select
 
-          end subroutine setSurfacePointers
+        end subroutine setSurfacePointers
 
-        end subroutine buildSurfaceADT
+    end subroutine buildSurfaceADT
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine buildVolumeADT(nTetra,    nPyra,    nPrisms,    &
-                                  nHexa,     nNodes,   coor,       &
-                                  tetraConn, pyraConn, prismsConn, &
-                                  hexaConn,  BBox,     useBBox,    &
-                                  comm,      adtID)
+    subroutine buildVolumeADT(nTetra, nPyra, nPrisms, &
+                              nHexa, nNodes, coor, &
+                              tetraConn, pyraConn, prismsConn, &
+                              hexaConn, BBox, useBBox, &
+                              comm, adtID)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -859,7 +859,7 @@
 !
 !       Subroutine arguments.
 !
-        integer, intent(in)          :: comm
+        integer, intent(in) :: comm
         character(len=*), intent(in) :: adtID
 
         integer(kind=intType), intent(in) :: nTetra
@@ -870,19 +870,19 @@
 
         logical, intent(in) :: useBBox
 
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: tetraConn
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: pyraConn
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: prismsConn
-        integer(kind=intType), dimension(:,:), intent(in), &
-                                                  target :: hexaConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: tetraConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: pyraConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: prismsConn
+        integer(kind=intType), dimension(:, :), intent(in), &
+            target :: hexaConn
 
-        real(kind=realType), dimension(3,2), intent(in) :: BBox
+        real(kind=realType), dimension(3, 2), intent(in) :: BBox
 
-        real(kind=realType), dimension(:,:), intent(in), &
-                                                target :: coor
+        real(kind=realType), dimension(:, :), intent(in), &
+            target :: coor
 !
 !       Local variables.
 !
@@ -892,7 +892,7 @@
 
         integer(kind=intType) :: i, j, ii, jj, mm, nn, nElem
 
-        integer(kind=intType), dimension(:,:), pointer :: conn
+        integer(kind=intType), dimension(:, :), pointer :: conn
 
         real(kind=realType), dimension(3) :: xMin, xMax
 
@@ -907,23 +907,23 @@
         ! Allocate or reallocate the memory for ADTs. This depends
         ! whether or not this is the first ADT to be built.
 
-        if( allocated(ADTs) ) then
-          call reallocateADTs(adtID, jj)
+        if (allocated(ADTs)) then
+            call reallocateADTs(adtID, jj)
         else
-          call allocateADTs
-          jj = 1
-        endif
+            call allocateADTs
+            jj = 1
+        end if
 
         ! Make sure the ADT is active and store the ID of this ADT.
 
         ADTs(jj)%isActive = .true.
-        ADTs(jj)%adtID    = adtID
+        ADTs(jj)%adtID = adtID
 
         ! Copy the communicator and determine the number of processors
         ! and my processor ID in this group.
 
         ADTs(jj)%comm = comm
-        call mpi_comm_rank(comm, ADTs(jj)%myID,   ierr)
+        call mpi_comm_rank(comm, ADTs(jj)%myID, ierr)
         call mpi_comm_size(comm, ADTs(jj)%nProcs, ierr)
 
         ! Set the ADT type, which is a volume ADT.
@@ -933,233 +933,233 @@
         ! Copy the number of nodes and volume elements and set the number
         ! of surface elements to 0; only a volume grid has been given.
 
-        ADTs(jj)%nNodes  = nNodes
-        ADTs(jj)%nTetra  = nTetra
-        ADTs(jj)%nPyra   = nPyra
+        ADTs(jj)%nNodes = nNodes
+        ADTs(jj)%nTetra = nTetra
+        ADTs(jj)%nPyra = nPyra
         ADTs(jj)%nPrisms = nPrisms
-        ADTs(jj)%nHexa   = nHexa
+        ADTs(jj)%nHexa = nHexa
 
-        ADTs(jj)%nTria  = 0
+        ADTs(jj)%nTria = 0
         ADTs(jj)%nQuads = 0
 
         ! Set the pointers for the coordinates and the
         ! volume connectivities.
 
-        ADTs(jj)%coor       => coor
-        ADTs(jj)%tetraConn  => tetraConn
-        ADTs(jj)%pyraConn   => pyraConn
+        ADTs(jj)%coor => coor
+        ADTs(jj)%tetraConn => tetraConn
+        ADTs(jj)%pyraConn => pyraConn
         ADTs(jj)%prismsConn => prismsConn
-        ADTs(jj)%hexaConn   => hexaConn
+        ADTs(jj)%hexaConn => hexaConn
 
         ! Determine the number of elements to be stored in the ADT.
         ! This depends whether or not the global bounding box should be
         ! used when building the ADT.
 
-        testBBox: if( useBBox ) then
+        testBBox: if (useBBox) then
 
-          ! Global bounding box is used. Allocate the memory for the
-          ! logical elementWithinBBox.
+            ! Global bounding box is used. Allocate the memory for the
+            ! logical elementWithinBBox.
 
-          nn = nTetra + nPyra + nPrisms + nHexa
-          allocate(elementWithinBBox(nn), stat=ierr)
-          if(ierr /= 0)                             &
-            call adtTerminate(jj, "buildVolumeADT", &
-                              "Memory allocation failure for &
-                              &elementWithinBBox.")
+            nn = nTetra + nPyra + nPrisms + nHexa
+            allocate (elementWithinBBox(nn), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildVolumeADT", &
+                                "Memory allocation failure for &
+                                &elementWithinBBox.")
 
-          ! Loop over the number of element types.
+            ! Loop over the number of element types.
 
-          ii = 0
-          elementLoop1: do ll=1,4
+            ii = 0
+            elementLoop1: do ll = 1, 4
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setVolumePointers(ll)
+                call setVolumePointers(ll)
 
-            ! Loop over the elements and determine the bounding box of
-            ! each element.
+                ! Loop over the elements and determine the bounding box of
+                ! each element.
 
-            do i=1,nElem
-              ii = ii + 1
+                do i = 1, nElem
+                    ii = ii + 1
 
-              mm = conn(1,i)
-              xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-              xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-              xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                    mm = conn(1, i)
+                    xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                    xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                    xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-              do j=2,nNPE
-                mm = conn(j,i)
+                    do j = 2, nNPE
+                        mm = conn(j, i)
 
-                xMin(1) = min(xMin(1),coor(1,mm))
-                xMin(2) = min(xMin(2),coor(2,mm))
-                xMin(3) = min(xMin(3),coor(3,mm))
+                        xMin(1) = min(xMin(1), coor(1, mm))
+                        xMin(2) = min(xMin(2), coor(2, mm))
+                        xMin(3) = min(xMin(3), coor(3, mm))
 
-                xMax(1) = max(xMax(1),coor(1,mm))
-                xMax(2) = max(xMax(2),coor(2,mm))
-                xMax(3) = max(xMax(3),coor(3,mm))
-              enddo
+                        xMax(1) = max(xMax(1), coor(1, mm))
+                        xMax(2) = max(xMax(2), coor(2, mm))
+                        xMax(3) = max(xMax(3), coor(3, mm))
+                    end do
 
-              ! Check if the bounding box is (partially) inside the
-              ! global bounding box. If so, set elementWithinBBox
-              ! to .true.; otherwise set it to .false.
+                    ! Check if the bounding box is (partially) inside the
+                    ! global bounding box. If so, set elementWithinBBox
+                    ! to .true.; otherwise set it to .false.
 
-              if(xMax(1) >= BBox(1,1) .and. xMin(1) <= BBox(1,2) .and. &
-                 xMax(2) >= BBox(2,1) .and. xMin(2) <= BBox(2,2) .and. &
-                 xMax(3) >= BBox(3,1) .and. xMin(3) <= BBox(3,2)) then
-                elementWithinBBox(ii) = .true.
-              else
-                elementWithinBBox(ii) = .false.
-              endif
+                    if (xMax(1) >= BBox(1, 1) .and. xMin(1) <= BBox(1, 2) .and. &
+                        xMax(2) >= BBox(2, 1) .and. xMin(2) <= BBox(2, 2) .and. &
+                        xMax(3) >= BBox(3, 1) .and. xMin(3) <= BBox(3, 2)) then
+                        elementWithinBBox(ii) = .true.
+                    else
+                        elementWithinBBox(ii) = .false.
+                    end if
 
-            enddo
-          enddo elementLoop1
+                end do
+            end do elementLoop1
 
-          ! Determine the local number of elements within the global
-          ! bounding box.
+            ! Determine the local number of elements within the global
+            ! bounding box.
 
-          ii = 0
-          do i=1,nn
-            if( elementWithinBBox(i) ) ii = ii + 1
-          enddo
+            ii = 0
+            do i = 1, nn
+                if (elementWithinBBox(i)) ii = ii + 1
+            end do
 
-          ADTs(jj)%nBBoxes = ii
+            ADTs(jj)%nBBoxes = ii
 
-          ! Allocate the memory for the bounding box coordinates, the
-          ! corresponding element type and the index in the connectivity.
+            ! Allocate the memory for the bounding box coordinates, the
+            ! corresponding element type and the index in the connectivity.
 
-          allocate(ADTs(jj)%xBBox(6,ii), ADTs(jj)%elementType(ii), &
-                   ADTs(jj)%elementID(ii), stat=ierr)
-          if(ierr /= 0)                             &
-            call adtTerminate(jj, "buildVolumeADT", &
-                              "Memory allocation failure for bounding &
-                              &box data.")
+            allocate (ADTs(jj)%xBBox(6, ii), ADTs(jj)%elementType(ii), &
+                      ADTs(jj)%elementID(ii), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildVolumeADT", &
+                                "Memory allocation failure for bounding &
+                                &box data.")
 
-          ! Repeat the loop over the all the elements, but now store
-          ! the bounding boxes in the ADT.
+            ! Repeat the loop over the all the elements, but now store
+            ! the bounding boxes in the ADT.
 
-          ii = 0
-          nn = 0
-          elementLoop2: do ll=1,4
+            ii = 0
+            nn = 0
+            elementLoop2: do ll = 1, 4
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setVolumePointers(ll)
+                call setVolumePointers(ll)
 
-            ! Loop over the elements and store the bounding box info,
-            ! if needed.
+                ! Loop over the elements and store the bounding box info,
+                ! if needed.
 
-            do i=1,nElem
-              ii = ii + 1
-              testWithin: if( elementWithinBBox(ii) ) then
+                do i = 1, nElem
+                    ii = ii + 1
+                    testWithin: if (elementWithinBBox(ii)) then
 
-                nn = nn + 1
+                        nn = nn + 1
 
-                ADTs(jj)%elementType(nn) = elType
-                ADTs(jj)%elementID(nn)   = i
+                        ADTs(jj)%elementType(nn) = elType
+                        ADTs(jj)%elementID(nn) = i
 
-                mm = conn(1,i)
-                xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-                xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-                xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                        mm = conn(1, i)
+                        xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                        xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                        xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-                do j=2,nNPE
-                  mm = conn(j,i)
+                        do j = 2, nNPE
+                            mm = conn(j, i)
 
-                  xMin(1) = min(xMin(1),coor(1,mm))
-                  xMin(2) = min(xMin(2),coor(2,mm))
-                  xMin(3) = min(xMin(3),coor(3,mm))
+                            xMin(1) = min(xMin(1), coor(1, mm))
+                            xMin(2) = min(xMin(2), coor(2, mm))
+                            xMin(3) = min(xMin(3), coor(3, mm))
 
-                  xMax(1) = max(xMax(1),coor(1,mm))
-                  xMax(2) = max(xMax(2),coor(2,mm))
-                  xMax(3) = max(xMax(3),coor(3,mm))
-                enddo
+                            xMax(1) = max(xMax(1), coor(1, mm))
+                            xMax(2) = max(xMax(2), coor(2, mm))
+                            xMax(3) = max(xMax(3), coor(3, mm))
+                        end do
 
-                ADTs(jj)%xBBox(1,nn) = xMin(1)
-                ADTs(jj)%xBBox(2,nn) = xMin(2)
-                ADTs(jj)%xBBox(3,nn) = xMin(3)
+                        ADTs(jj)%xBBox(1, nn) = xMin(1)
+                        ADTs(jj)%xBBox(2, nn) = xMin(2)
+                        ADTs(jj)%xBBox(3, nn) = xMin(3)
 
-                ADTs(jj)%xBBox(4,nn) = xMax(1)
-                ADTs(jj)%xBBox(5,nn) = xMax(2)
-                ADTs(jj)%xBBox(6,nn) = xMax(3)
+                        ADTs(jj)%xBBox(4, nn) = xMax(1)
+                        ADTs(jj)%xBBox(5, nn) = xMax(2)
+                        ADTs(jj)%xBBox(6, nn) = xMax(3)
 
-              endif testWithin
-            enddo
-          enddo elementLoop2
+                    end if testWithin
+                end do
+            end do elementLoop2
 
-          ! Deallocate the memory for elementWithinBBox.
+            ! Deallocate the memory for elementWithinBBox.
 
-          deallocate(elementWithinBBox, stat=ierr)
-          if(ierr /= 0)                             &
-            call adtTerminate(jj, "buildVolumeADT", &
-                              "Deallocation failure for &
-                              &elementWithinBBox.")
+            deallocate (elementWithinBBox, stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildVolumeADT", &
+                                "Deallocation failure for &
+                                &elementWithinBBox.")
 
-        else testBBox
+            else testBBox
 
-          ! No global bounding box. The number of local bounding boxes
-          ! to be stored is the total number of local volume elements.
+            ! No global bounding box. The number of local bounding boxes
+            ! to be stored is the total number of local volume elements.
 
-          ii = nTetra + nPyra + nPrisms + nHexa
-          ADTs(jj)%nBBoxes = ii
+            ii = nTetra + nPyra + nPrisms + nHexa
+            ADTs(jj)%nBBoxes = ii
 
-          ! Allocate the memory for the bounding box coordinates, the
-          ! corresponding element type and the index in the connectivity.
+            ! Allocate the memory for the bounding box coordinates, the
+            ! corresponding element type and the index in the connectivity.
 
-          allocate(ADTs(jj)%xBBox(6,ii), ADTs(jj)%elementType(ii), &
-                   ADTs(jj)%elementID(ii), stat=ierr)
-          if(ierr /= 0)                             &
-            call adtTerminate(jj, "buildVolumeADT", &
-                              "Memory allocation failure for bounding &
-                              &box data.")
+            allocate (ADTs(jj)%xBBox(6, ii), ADTs(jj)%elementType(ii), &
+                      ADTs(jj)%elementID(ii), stat=ierr)
+            if (ierr /= 0) &
+              call adtTerminate(jj, "buildVolumeADT", &
+                                "Memory allocation failure for bounding &
+                                &box data.")
 
-          ! Loop over the number of element types present, i.e. 4,
-          ! to store the bounding boxes; nn is the counter.
+            ! Loop over the number of element types present, i.e. 4,
+            ! to store the bounding boxes; nn is the counter.
 
-          nn = 0
-          elementLoop3: do ll=1,4
+            nn = 0
+            elementLoop3: do ll = 1, 4
 
-            ! Set the correct pointers for this element.
+                ! Set the correct pointers for this element.
 
-            call setVolumePointers(ll)
+                call setVolumePointers(ll)
 
-            ! Loop over the number of elements and store the bounding
-            ! box info.
+                ! Loop over the number of elements and store the bounding
+                ! box info.
 
-            do i=1,nElem
-              nn = nn + 1
+                do i = 1, nElem
+                    nn = nn + 1
 
-              ADTs(jj)%elementType(nn) = elType
-              ADTs(jj)%elementID(nn)   = i
+                    ADTs(jj)%elementType(nn) = elType
+                    ADTs(jj)%elementID(nn) = i
 
-              mm = conn(1,i)
-              xMin(1) = coor(1,mm); xMax(1) = coor(1,mm)
-              xMin(2) = coor(2,mm); xMax(2) = coor(2,mm)
-              xMin(3) = coor(3,mm); xMax(3) = coor(3,mm)
+                    mm = conn(1, i)
+                    xMin(1) = coor(1, mm); xMax(1) = coor(1, mm)
+                    xMin(2) = coor(2, mm); xMax(2) = coor(2, mm)
+                    xMin(3) = coor(3, mm); xMax(3) = coor(3, mm)
 
-              do j=2,nNPE
-                mm = conn(j,i)
+                    do j = 2, nNPE
+                        mm = conn(j, i)
 
-                xMin(1) = min(xMin(1),coor(1,mm))
-                xMin(2) = min(xMin(2),coor(2,mm))
-                xMin(3) = min(xMin(3),coor(3,mm))
+                        xMin(1) = min(xMin(1), coor(1, mm))
+                        xMin(2) = min(xMin(2), coor(2, mm))
+                        xMin(3) = min(xMin(3), coor(3, mm))
 
-                xMax(1) = max(xMax(1),coor(1,mm))
-                xMax(2) = max(xMax(2),coor(2,mm))
-                xMax(3) = max(xMax(3),coor(3,mm))
-              enddo
+                        xMax(1) = max(xMax(1), coor(1, mm))
+                        xMax(2) = max(xMax(2), coor(2, mm))
+                        xMax(3) = max(xMax(3), coor(3, mm))
+                    end do
 
-              ADTs(jj)%xBBox(1,nn) = xMin(1)
-              ADTs(jj)%xBBox(2,nn) = xMin(2)
-              ADTs(jj)%xBBox(3,nn) = xMin(3)
+                    ADTs(jj)%xBBox(1, nn) = xMin(1)
+                    ADTs(jj)%xBBox(2, nn) = xMin(2)
+                    ADTs(jj)%xBBox(3, nn) = xMin(3)
 
-              ADTs(jj)%xBBox(4,nn) = xMax(1)
-              ADTs(jj)%xBBox(5,nn) = xMax(2)
-              ADTs(jj)%xBBox(6,nn) = xMax(3)
-            enddo
+                    ADTs(jj)%xBBox(4, nn) = xMax(1)
+                    ADTs(jj)%xBBox(5, nn) = xMax(2)
+                    ADTs(jj)%xBBox(6, nn) = xMax(3)
+                end do
 
-          enddo elementLoop3
+            end do elementLoop3
 
-        endif testBBox
+        end if testBBox
 
         ! Build the ADT from the now known boundary boxes.
 
@@ -1167,11 +1167,11 @@
 
         !===============================================================
 
-        contains
+    contains
 
-          !=============================================================
+        !=============================================================
 
-          subroutine setVolumePointers(ll)
+        subroutine setVolumePointers(ll)
 !
 !         **************************************************************
 !         *                                                            *
@@ -1185,11 +1185,11 @@
 !         *                                                            *
 !         **************************************************************
 !
-          implicit none
+            implicit none
 !
 !         Subroutine arguments.
 !
-          integer, intent(in) :: ll
+            integer, intent(in) :: ll
 !
 !         **************************************************************
 !         *                                                            *
@@ -1197,23 +1197,23 @@
 !         *                                                            *
 !         **************************************************************
 !
-          select case (ll)
+            select case (ll)
             case (1)
-              elType = adtTetrahedron; nElem = nTetra;  nNPE = 4
-              conn => tetraConn
+                elType = adtTetrahedron; nElem = nTetra; nNPE = 4
+                conn => tetraConn
             case (2)
-              elType = adtPyramid;     nElem = nPyra;   nNPE = 5
-              conn => pyraConn
+                elType = adtPyramid; nElem = nPyra; nNPE = 5
+                conn => pyraConn
             case (3)
-              elType = adtPrism;       nElem = nPrisms; nNPE = 6
-              conn => prismsConn
+                elType = adtPrism; nElem = nPrisms; nNPE = 6
+                conn => prismsConn
             case (4)
-              elType = adtHexahedron;  nElem = nHexa;   nNPE = 8
-              conn => hexaConn
-          end select
+                elType = adtHexahedron; nElem = nHexa; nNPE = 8
+                conn => hexaConn
+            end select
 
-          end subroutine setVolumePointers
+        end subroutine setVolumePointers
 
-        end subroutine buildVolumeADT
+    end subroutine buildVolumeADT
 
-      end module adtBuild
+end module adtBuild

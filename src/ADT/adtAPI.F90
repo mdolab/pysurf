@@ -8,7 +8,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      module adtAPI
+module adtAPI
 !
 !     ******************************************************************
 !     *                                                                *
@@ -18,21 +18,21 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      use adtBuild
-      use adtSearch
-      use adtUtils
-      implicit none
+    use adtBuild
+    use adtSearch
+    use adtUtils
+    implicit none
 
-      !=================================================================
+    !=================================================================
 
-      contains
+contains
 
-        !===============================================================
+    !===============================================================
 
-        subroutine adtBuildSurfaceADT(nTria, nQuads,   nNodes,    &
-                                      coor,  triaConn, quadsConn, &
-                                      BBox,  useBBox,  comm,      &
-                                      adtID)
+    subroutine adtBuildSurfaceADT(nTria, nQuads, nNodes, &
+                                  coor, triaConn, quadsConn, &
+                                  BBox, useBBox, comm, &
+                                  adtID)
 
 !
 !       ****************************************************************
@@ -75,7 +75,7 @@
 !
 !       Subroutine arguments.
 !
-        integer, intent(in)          :: comm
+        integer, intent(in) :: comm
         character(len=32), intent(in) :: adtID
 
         integer(kind=intType), intent(in) :: nTria
@@ -84,31 +84,31 @@
 
         logical, intent(in) :: useBBox
 
-        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
-        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+        integer(kind=intType), dimension(3, nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4, nQuads), intent(in) :: quadsConn
 
-        real(kind=realType), dimension(3,2), intent(in) :: BBox
+        real(kind=realType), dimension(3, 2), intent(in) :: BBox
 
-        real(kind=realType), dimension(3,nNodes), intent(in) :: coor
+        real(kind=realType), dimension(3, nNodes), intent(in) :: coor
 
         !===============================================================
 
         ! Call the subroutine buildSurfaceADT to do the actual work.
 
-        call buildSurfaceADT(nTria,    nQuads,    nNodes, coor,    &
-                             triaConn, quadsConn, BBox,   useBBox, &
-                             comm,     adtID)
+        call buildSurfaceADT(nTria, nQuads, nNodes, coor, &
+                             triaConn, quadsConn, BBox, useBBox, &
+                             comm, adtID)
 
-        end subroutine adtBuildSurfaceADT
+    end subroutine adtBuildSurfaceADT
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtBuildVolumeADT(nTetra,    nPyra,    nPrisms,    &
-                                     nHexa,     nNodes,   coor,       &
-                                     tetraConn, pyraConn, prismsConn, &
-                                     hexaConn,  BBox,     useBBox,    &
-                                     comm,      adtID)
+    subroutine adtBuildVolumeADT(nTetra, nPyra, nPrisms, &
+                                 nHexa, nNodes, coor, &
+                                 tetraConn, pyraConn, prismsConn, &
+                                 hexaConn, BBox, useBBox, &
+                                 comm, adtID)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -147,7 +147,7 @@
 !
 !       Subroutine arguments.
 !
-        integer, intent(in)          :: comm
+        integer, intent(in) :: comm
         character(len=*), intent(in) :: adtID
 
         integer(kind=intType), intent(in) :: nTetra
@@ -158,33 +158,33 @@
 
         logical, intent(in) :: useBBox
 
-        integer(kind=intType), dimension(:,:), intent(in) :: tetraConn
-        integer(kind=intType), dimension(:,:), intent(in) :: pyraConn
-        integer(kind=intType), dimension(:,:), intent(in) :: prismsConn
-        integer(kind=intType), dimension(:,:), intent(in) :: hexaConn
+        integer(kind=intType), dimension(:, :), intent(in) :: tetraConn
+        integer(kind=intType), dimension(:, :), intent(in) :: pyraConn
+        integer(kind=intType), dimension(:, :), intent(in) :: prismsConn
+        integer(kind=intType), dimension(:, :), intent(in) :: hexaConn
 
-        real(kind=realType), dimension(3,2), intent(in) :: BBox
+        real(kind=realType), dimension(3, 2), intent(in) :: BBox
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
+        real(kind=realType), dimension(:, :), intent(in) :: coor
 
         !===============================================================
 
         ! Call the subroutine buildVolumeADT to do the actual work.
 
-        call buildVolumeADT(nTetra,     nPyra,     nPrisms,   nHexa,    &
-                            nNodes,     coor,      tetraConn, pyraConn, &
-                            prismsConn, hexaConn,  BBox,      useBBox,  &
-                            comm,       adtID)
+        call buildVolumeADT(nTetra, nPyra, nPrisms, nHexa, &
+                            nNodes, coor, tetraConn, pyraConn, &
+                            prismsConn, hexaConn, BBox, useBBox, &
+                            comm, adtID)
 
-        end subroutine adtBuildVolumeADT
+    end subroutine adtBuildVolumeADT
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtContainmentSearch(nCoor,     coor,        adtID,     &
-                                        procID,    elementType, elementID, &
-                                        uvw,       allxfs,      nInterpol, &
-                                        arrDonor,  arrInterpol)
+    subroutine adtContainmentSearch(nCoor, coor, adtID, &
+                                    procID, elementType, elementID, &
+                                    uvw, allxfs, nInterpol, &
+                                    arrDonor, arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -229,36 +229,36 @@
 !       Subroutine arguments.
 !
         integer(kind=intType), intent(in) :: nCoor, nInterpol
-        character(len=*),         intent(in) :: adtID
+        character(len=*), intent(in) :: adtID
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
-        real(kind=realType), dimension(:,:), intent(in) :: arrDonor
+        real(kind=realType), dimension(:, :), intent(in) :: coor
+        real(kind=realType), dimension(:, :), intent(in) :: arrDonor
 
-        integer,                  dimension(:), intent(out) :: procID
+        integer, dimension(:), intent(out) :: procID
         integer(kind=intType), dimension(:), intent(out) :: elementID
 
         integer(kind=adtElementType), dimension(:), intent(out) :: &
-                                                            elementType
-        real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: allxfs
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
+            elementType
+        real(kind=realType), dimension(:, :), intent(out) :: uvw
+        real(kind=realType), dimension(:, :), intent(out) :: allxfs
+        real(kind=realType), dimension(:, :), intent(out) :: arrInterpol
 
         !===============================================================
 
         ! Call the subroutine containmentSearch to do the actual work.
 
-        call containmentSearch(nCoor,       coor,      adtID,    procID,    &
-                               elementType, elementID, uvw,      allxfs,    &
+        call containmentSearch(nCoor, coor, adtID, procID, &
+                               elementType, elementID, uvw, allxfs, &
                                nInterpol, arrDonor, arrInterpol)
 
-        end subroutine adtContainmentSearch
+    end subroutine adtContainmentSearch
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtIntersectionSearch(nBBox,     inpBBox,        adtID,     &
-                                         procID,    elementType, elementID, &
-                                         BBoxPtr)
+    subroutine adtIntersectionSearch(nBBox, inpBBox, adtID, &
+                                     procID, elementType, elementID, &
+                                     BBoxPtr)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -310,7 +310,7 @@
 !
         integer(kind=intType), intent(in) :: nBBox
 
-        real(kind=realType), dimension(6,nBBox), intent(in) :: inpBBox
+        real(kind=realType), dimension(6, nBBox), intent(in) :: inpBBox
 
         character(len=*), intent(in) :: adtID
 
@@ -320,22 +320,22 @@
 
         integer(kind=intType), dimension(:), allocatable, intent(out) :: elementID
 
-        integer(kind=intType), dimension(nBBox+1), intent(out) :: BBoxPtr
+        integer(kind=intType), dimension(nBBox + 1), intent(out) :: BBoxPtr
 
         !===============================================================
 
         ! Call the subroutine intersectionSearch to do the actual work.
 
-        call intersectionSearch(nBBox,       inpBBox,       adtID, &
-                                procID,  elementType,   elementID, &
+        call intersectionSearch(nBBox, inpBBox, adtID, &
+                                procID, elementType, elementID, &
                                 BBoxPtr)
 
-      end subroutine adtIntersectionSearch
+    end subroutine adtIntersectionSearch
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtDeallocateADTs(adtID)
+    subroutine adtDeallocateADTs(adtID)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -361,16 +361,16 @@
 
         call deallocateADTs(adtID)
 
-        end subroutine adtDeallocateADTs
+    end subroutine adtDeallocateADTs
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtFailSafeSearch(nCoor,    coor,        adtID,     &
-                                     procID,   elementType, elementID, &
-                                     uvw,      dist2,       allxfs,    &
-                                     nInterpol,   arrDonor,  &
-                                     arrInterpol)
+    subroutine adtFailSafeSearch(nCoor, coor, adtID, &
+                                 procID, elementType, elementID, &
+                                 uvw, dist2, allxfs, &
+                                 nInterpol, arrDonor, &
+                                 arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -428,43 +428,42 @@
 !       Subroutine arguments.
 !
         integer(kind=intType), intent(in) :: nCoor, nInterpol
-        character(len=*),         intent(in) :: adtID
+        character(len=*), intent(in) :: adtID
 
-        real(kind=realType), dimension(:,:), intent(in) :: coor
-        real(kind=realType), dimension(:,:), intent(in) :: arrDonor
+        real(kind=realType), dimension(:, :), intent(in) :: coor
+        real(kind=realType), dimension(:, :), intent(in) :: arrDonor
 
-        integer,                  dimension(:), intent(out) :: procID
+        integer, dimension(:), intent(out) :: procID
         integer(kind=intType), dimension(:), intent(out) :: elementID
 
         integer(kind=adtElementType), dimension(:), intent(out) :: &
-                                                              elementType
+            elementType
 
-        real(kind=realType), dimension(:,:), intent(out) :: uvw
-        real(kind=realType), dimension(:,:), intent(out) :: arrInterpol
+        real(kind=realType), dimension(:, :), intent(out) :: uvw
+        real(kind=realType), dimension(:, :), intent(out) :: arrInterpol
 
         real(kind=realType), dimension(:), intent(inout) :: dist2
-        real(kind=realType), dimension(:,:), intent(inout) :: allxfs
-
+        real(kind=realType), dimension(:, :), intent(inout) :: allxfs
 
         !===============================================================
 
         ! Call the subroutine failSafeSearch to do the actual work.
 
-        call failSafeSearch(nCoor,       coor,      adtID,     procID,   &
-                            elementType, elementID, uvw,       dist2,    &
-                            allxfs,      nInterpol, arrDonor, &
+        call failSafeSearch(nCoor, coor, adtID, procID, &
+                            elementType, elementID, uvw, dist2, &
+                            allxfs, nInterpol, arrDonor, &
                             arrInterpol)
 
-        end subroutine adtFailSafeSearch
+    end subroutine adtFailSafeSearch
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtMinDistanceSearch(nCoor,     nNodes,    coor,        &
-                                        adtID,     procID,    elementType, &
-                                        elementID, uvw,       dist2,       &
-                                        allxfs,    nInterpol,   &
-                                        arrDonor,  arrInterpol)
+    subroutine adtMinDistanceSearch(nCoor, nNodes, coor, &
+                                    adtID, procID, elementType, &
+                                    elementID, uvw, dist2, &
+                                    allxfs, nInterpol, &
+                                    arrDonor, arrInterpol)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -530,47 +529,47 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
-        character(len=32),     intent(in) :: adtID
+        integer(kind=intType), intent(in) :: nCoor, nNodes, nInterpol
+        character(len=32), intent(in) :: adtID
 
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor
+        real(kind=realType), dimension(nInterpol, nNodes), intent(in) :: arrDonor
 
         integer, dimension(nCoor), intent(out) :: procID
         integer(kind=intType), dimension(nCoor), intent(out) :: elementID
 
         integer(kind=adtElementType), dimension(nCoor), intent(out) :: &
-                                                            elementType
+            elementType
 
-        real(kind=realType), dimension(3,nCoor), intent(out) :: uvw
+        real(kind=realType), dimension(3, nCoor), intent(out) :: uvw
 
         real(kind=realType), dimension(nCoor), intent(inout) :: dist2
-        real(kind=realType), dimension(3,nCoor), intent(inout) :: allxfs
-        real(kind=realType), dimension(nInterpol,nCoor), intent(inout) :: arrInterpol
+        real(kind=realType), dimension(3, nCoor), intent(inout) :: allxfs
+        real(kind=realType), dimension(nInterpol, nCoor), intent(inout) :: arrInterpol
 
         !===============================================================
 
         ! Call the subroutine minDistanceSearch to do the actual work.
 
-        call minDistanceSearch(nCoor,       coor,      adtID,     procID,   &
-                               elementType, elementID, uvw,       dist2,    &
-                               allxfs,      nInterpol, arrDonor, &
+        call minDistanceSearch(nCoor, coor, adtID, procID, &
+                               elementType, elementID, uvw, dist2, &
+                               allxfs, nInterpol, arrDonor, &
                                arrInterpol)
 
-        end subroutine adtMinDistanceSearch
+    end subroutine adtMinDistanceSearch
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
 ! Skip the AD routines for the complex build
 #ifndef USE_COMPLEX
 
-        subroutine adtMinDistanceSearch_d(nCoor,       nNodes,      coor,        coord, &
-                                          adtID,       adtCoord,    procID,      elementType, &
-                                          elementID,   uvw,         dist2,       &
-                                          allxfs,      allxfsd,     nInterpol,   &
-                                          arrDonor,    arrDonord, &
-                                          arrInterpol, arrInterpold)
+    subroutine adtMinDistanceSearch_d(nCoor, nNodes, coor, coord, &
+                                      adtID, adtCoord, procID, elementType, &
+                                      elementID, uvw, dist2, &
+                                      allxfs, allxfsd, nInterpol, &
+                                      arrDonor, arrDonord, &
+                                      arrInterpol, arrInterpold)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -633,48 +632,48 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
-        character(len=32),     intent(in) :: adtID
+        integer(kind=intType), intent(in) :: nCoor, nNodes, nInterpol
+        character(len=32), intent(in) :: adtID
 
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor, coord
-        real(kind=realType), dimension(3,nNodes), intent(in) :: adtCoord
-        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor, arrDonord
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor, coord
+        real(kind=realType), dimension(3, nNodes), intent(in) :: adtCoord
+        real(kind=realType), dimension(nInterpol, nNodes), intent(in) :: arrDonor, arrDonord
 
         integer, dimension(nCoor), intent(in) :: procID
         integer(kind=intType), dimension(nCoor), intent(in) :: elementID
 
         integer(kind=adtElementType), dimension(nCoor), intent(in) :: &
-                                                            elementType
+            elementType
 
-        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+        real(kind=realType), dimension(3, nCoor), intent(in) :: uvw
 
         real(kind=realType), dimension(nCoor), intent(in) :: dist2
-        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
-        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
+        real(kind=realType), dimension(3, nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(nInterpol, nCoor), intent(in) :: arrInterpol
 
-        real(kind=realType), dimension(3,nCoor), intent(out) :: allxfsd
-        real(kind=realType), dimension(nInterpol,nCoor), intent(out) :: arrInterpold
+        real(kind=realType), dimension(3, nCoor), intent(out) :: allxfsd
+        real(kind=realType), dimension(nInterpol, nCoor), intent(out) :: arrInterpold
 
         !===============================================================
 
         ! Call the subroutine minDistanceSearch_d to do the actual work.
 
-        call minDistanceSearch_d(nCoor,       nNodes,      coor,        coord,     adtID,    adtCoord, &
-                                 procID,      elementType, elementID, uvw,      dist2,    &
-                                 allxfs,      allxfsd,     nInterpol, arrDonor, arrDonord, &
+        call minDistanceSearch_d(nCoor, nNodes, coor, coord, adtID, adtCoord, &
+                                 procID, elementType, elementID, uvw, dist2, &
+                                 allxfs, allxfsd, nInterpol, arrDonor, arrDonord, &
                                  arrInterpol, arrInterpold)
 
-        end subroutine adtMinDistanceSearch_d
+    end subroutine adtMinDistanceSearch_d
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtMinDistanceSearch_b(nCoor,       nNodes,      coor,        coorb, &
-                                          adtID,       adtCoorb,    procID,      elementType, &
-                                          elementID,   uvw,         dist2,       &
-                                          allxfs,      allxfsb,     nInterpol,   &
-                                          arrDonor,    arrDonorb, &
-                                          arrInterpol, arrInterpolb)
+    subroutine adtMinDistanceSearch_b(nCoor, nNodes, coor, coorb, &
+                                      adtID, adtCoorb, procID, elementType, &
+                                      elementID, uvw, dist2, &
+                                      allxfs, allxfsb, nInterpol, &
+                                      arrDonor, arrDonorb, &
+                                      arrInterpol, arrInterpolb)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -738,48 +737,48 @@
 !
 !       Subroutine arguments.
 !
-        integer(kind=intType), intent(in) :: nCoor, nNodes,nInterpol
-        character(len=32),     intent(in) :: adtID
+        integer(kind=intType), intent(in) :: nCoor, nNodes, nInterpol
+        character(len=32), intent(in) :: adtID
 
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        real(kind=realType), dimension(nInterpol,nNodes), intent(in) :: arrDonor
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor
+        real(kind=realType), dimension(nInterpol, nNodes), intent(in) :: arrDonor
 
         integer, dimension(nCoor), intent(in) :: procID
         integer(kind=intType), dimension(nCoor), intent(in) :: elementID
 
         integer(kind=adtElementType), dimension(nCoor), intent(in) :: &
-                                                            elementType
+            elementType
 
-        real(kind=realType), dimension(3,nCoor), intent(in) :: uvw
+        real(kind=realType), dimension(3, nCoor), intent(in) :: uvw
 
         real(kind=realType), dimension(nCoor), intent(in) :: dist2
-        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfs
-        real(kind=realType), dimension(3,nCoor), intent(in) :: allxfsb
-        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpol
-        real(kind=realType), dimension(nInterpol,nCoor), intent(in) :: arrInterpolb
+        real(kind=realType), dimension(3, nCoor), intent(in) :: allxfs
+        real(kind=realType), dimension(3, nCoor), intent(in) :: allxfsb
+        real(kind=realType), dimension(nInterpol, nCoor), intent(in) :: arrInterpol
+        real(kind=realType), dimension(nInterpol, nCoor), intent(in) :: arrInterpolb
 
-        real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
-        real(kind=realType), dimension(3,nNodes), intent(out) :: adtCoorb
-        real(kind=realType), dimension(nInterpol,nNodes), intent(out) :: arrDonorb
+        real(kind=realType), dimension(3, nCoor), intent(out) :: coorb
+        real(kind=realType), dimension(3, nNodes), intent(out) :: adtCoorb
+        real(kind=realType), dimension(nInterpol, nNodes), intent(out) :: arrDonorb
 
         !===============================================================
 
         ! Call the subroutine minDistanceSearch_b to do the actual work.
 
-        call minDistanceSearch_b(nCoor,       nNodes,      coor,      coorb,    adtID,    adtCoorb, &
-                                 procID,      elementType, elementID, uvw,      dist2,    &
-                                 allxfs,      allxfsb,     nInterpol, arrDonor, arrDonorb, &
+        call minDistanceSearch_b(nCoor, nNodes, coor, coorb, adtID, adtCoorb, &
+                                 procID, elementType, elementID, uvw, dist2, &
+                                 allxfs, allxfsb, nInterpol, arrDonor, arrDonorb, &
                                  arrInterpol, arrInterpolb)
 
-        end subroutine adtMinDistanceSearch_b
+    end subroutine adtMinDistanceSearch_b
 
 #endif
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtComputeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
-                                          quadsConn, nodalNormals)
+    subroutine adtComputeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
+                                      quadsConn, nodalNormals)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -815,28 +814,28 @@
 !
         ! Input
         integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
-        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor
+        integer(kind=intType), dimension(3, nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4, nQuads), intent(in) :: quadsConn
 
         ! Output
-        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
+        real(kind=realType), dimension(3, nCoor), intent(out) :: nodalNormals
 
         ! Call function that will do the job.
         ! computeNodalNormals defined in adtProjections.F90
         call computeNodalNormals(nCoor, nTria, nQuads, coor, triaConn, &
                                  quadsConn, nodalNormals)
 
-      end subroutine adtComputeNodalNormals
+    end subroutine adtComputeNodalNormals
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
 ! Skip the AD routines for the complex build
 #ifndef USE_COMPLEX
 
-        subroutine adtComputeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
-                                            quadsConn, nodalNormals, nodalNormalsd)
+    subroutine adtComputeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
+                                        quadsConn, nodalNormals, nodalNormalsd)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -874,27 +873,27 @@
 !
         ! Input
         integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coord
-        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
-        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coord
+        integer(kind=intType), dimension(3, nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4, nQuads), intent(in) :: quadsConn
 
         ! Output
-        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormals
-        real(kind=realType), dimension(3,nCoor), intent(out) :: nodalNormalsd
+        real(kind=realType), dimension(3, nCoor), intent(out) :: nodalNormals
+        real(kind=realType), dimension(3, nCoor), intent(out) :: nodalNormalsd
 
         ! Call function that will do the job.
         ! computeNodalNormals defined in adtProjections.F90
         call computeNodalNormals_d(nCoor, nTria, nQuads, coor, coord, triaConn, &
                                    quadsConn, nodalNormals, nodalNormalsd)
 
-      end subroutine adtComputeNodalNormals_d
+    end subroutine adtComputeNodalNormals_d
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtComputeNodalNormals_b(nCoor, nTria, nQuads, coor, coorb, triaConn, &
-                                            quadsConn, nodalNormals, nodalNormalsb)
+    subroutine adtComputeNodalNormals_b(nCoor, nTria, nQuads, coor, coorb, triaConn, &
+                                        quadsConn, nodalNormals, nodalNormalsb)
 !
 !       ****************************************************************
 !       *                                                              *
@@ -933,18 +932,18 @@
 !
         ! Input
         integer(kind=intType), intent(in) :: nCoor, nTria, nQuads
-        real(kind=realType), dimension(3,nCoor), intent(in) :: coor
-        integer(kind=intType), dimension(3,nTria), intent(in) :: triaConn
-        integer(kind=intType), dimension(4,nQuads), intent(in) :: quadsConn
-        real(kind=realType), dimension(3,nCoor), intent(in) :: nodalNormals
-        real(kind=realType), dimension(3,nCoor), intent(in) :: nodalNormalsb
+        real(kind=realType), dimension(3, nCoor), intent(in) :: coor
+        integer(kind=intType), dimension(3, nTria), intent(in) :: triaConn
+        integer(kind=intType), dimension(4, nQuads), intent(in) :: quadsConn
+        real(kind=realType), dimension(3, nCoor), intent(in) :: nodalNormals
+        real(kind=realType), dimension(3, nCoor), intent(in) :: nodalNormalsb
 
         ! Output
-        real(kind=realType), dimension(3,nCoor), intent(out) :: coorb
+        real(kind=realType), dimension(3, nCoor), intent(out) :: coorb
 
         ! Working variables
-        real(kind=realType), dimension(3,nCoor) :: nodalNormals_temp
-        real(kind=realType), dimension(3,nCoor) :: nodalNormalsb_temp
+        real(kind=realType), dimension(3, nCoor) :: nodalNormals_temp
+        real(kind=realType), dimension(3, nCoor) :: nodalNormalsb_temp
 
         ! Create temporary arrays due to intents of the differentiated code
         nodalNormals_temp = nodalNormals
@@ -955,17 +954,17 @@
         call computeNodalNormals_b(nCoor, nTria, nQuads, coor, coorb, triaConn, &
                                    quadsConn, nodalNormals_temp, nodalNormalsb_temp)
 
-      end subroutine adtComputeNodalNormals_b
+    end subroutine adtComputeNodalNormals_b
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
 #endif
 
-        !***************************************************************
-        !***************************************************************
+    !***************************************************************
+    !***************************************************************
 
-        subroutine adtGetNumberOfTrees(nADT)
+    subroutine adtGetNumberOfTrees(nADT)
 !
 !       ****************************************************************
 !       * This subroutine just gets the maximum number of ADTs         *
@@ -984,6 +983,6 @@
         ! call subroutine defined in adtUtils.F90 that will do the whole job
         call numberOfADTs(nADT)
 
-      end subroutine adtGetNumberOfTrees
+    end subroutine adtGetNumberOfTrees
 
-      end module adtAPI
+end module adtAPI
