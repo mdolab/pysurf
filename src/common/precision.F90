@@ -8,7 +8,7 @@
 !      *                                                                *
 !      ******************************************************************
 !
-       module precision
+module precision
 !
 !      ******************************************************************
 !      *                                                                *
@@ -30,8 +30,8 @@
 !      ******************************************************************
 !
 !
-       implicit none
-       save
+    implicit none
+    save
 #ifndef USE_TAPENADE
 #include "mpif.h"
 #endif
@@ -51,23 +51,23 @@
 
 #ifdef USE_LONG_INT
 
-       ! Long, i.e. 8 byte, integers are used as default integers
+    ! Long, i.e. 8 byte, integers are used as default integers
 
-       integer(kind=8), private :: dummyInt
+    integer(kind=8), private :: dummyInt
 #ifndef USE_TAPENADE
-       integer, parameter       :: sumb_integer  = mpi_integer8
+    integer, parameter :: sumb_integer = mpi_integer8
 #endif
-       integer, parameter       :: sizeOfInteger = 8
+    integer, parameter :: sizeOfInteger = 8
 
 #else
 
-       ! Standard 4 byte integer types are used as default integers.
+    ! Standard 4 byte integer types are used as default integers.
 
-       integer(kind=4), private :: dummyInt
+    integer(kind=4), private :: dummyInt
 #ifndef USE_TAPENADE
-       integer, parameter       :: sumb_integer  = mpi_integer4
+    integer, parameter :: sumb_integer = mpi_integer4
 #endif
-       integer, parameter       :: sizeOfInteger = 4
+    integer, parameter :: sizeOfInteger = 4
 
 #endif
 
@@ -83,42 +83,42 @@
 
 #ifdef USE_SINGLE_PRECISION
 
-       ! Single precision reals are used as default real types.
+    ! Single precision reals are used as default real types.
 
-       real(kind=4), private :: dummyReal
+    real(kind=4), private :: dummyReal
 #ifndef USE_TAPENADE
-       integer, parameter    :: sumb_real  = mpi_real4
+    integer, parameter :: sumb_real = mpi_real4
 #endif
-       integer, parameter    :: sizeOfReal = 4
+    integer, parameter :: sizeOfReal = 4
 
-       real(kind=4), private :: dummyCGNSReal
+    real(kind=4), private :: dummyCGNSReal
 
 #elif USE_QUADRUPLE_PRECISION
 
-       ! Quadrupole precision reals are used as default real types.
-       ! This may not be supported on all platforms.
-       ! As cgns does not support quadrupole precision, double
-       ! precision is used instead.
+    ! Quadrupole precision reals are used as default real types.
+    ! This may not be supported on all platforms.
+    ! As cgns does not support quadrupole precision, double
+    ! precision is used instead.
 
-       real(kind=16), private :: dummyReal
+    real(kind=16), private :: dummyReal
 #ifndef USE_TAPENADE
-       integer, parameter     :: sumb_real  = mpi_real16
+    integer, parameter :: sumb_real = mpi_real16
 #endif
-       integer, parameter     :: sizeOfReal = 16
+    integer, parameter :: sizeOfReal = 16
 
-       real(kind=8), private :: dummyCGNSReal
+    real(kind=8), private :: dummyCGNSReal
 
 #else
 
-       ! Double precision reals are used as default real types.
+    ! Double precision reals are used as default real types.
 
-       real(kind=8), private :: dummyReal
+    real(kind=8), private :: dummyReal
 #ifndef USE_TAPENADE
-       integer, parameter    :: sumb_real   = mpi_real8
+    integer, parameter :: sumb_real = mpi_real8
 #endif
-       integer, parameter    :: sizeOfReal = 8
+    integer, parameter :: sizeOfReal = 8
 
-       real(kind=8), private :: dummyCGNSReal
+    real(kind=8), private :: dummyCGNSReal
 
 #endif
 
@@ -131,7 +131,7 @@
 !      *                                                                *
 !      ******************************************************************
 !
-       integer(kind=1), private :: dummyPor
+    integer(kind=1), private :: dummyPor
 
 !     ******************************************************************
 !     *                                                                *
@@ -141,7 +141,7 @@
 !     *                                                                *
 !     ******************************************************************
 !
-      integer(kind=4), private :: adtDummyElementInt
+    integer(kind=4), private :: adtDummyElementInt
 
 !      ******************************************************************
 !      *                                                                *
@@ -149,7 +149,7 @@
 !      *                                                                *
 !      ******************************************************************
 !
-       real(kind=4), private :: dummyCGNSPer
+    real(kind=4), private :: dummyCGNSPer
 !
 !      ******************************************************************
 !      *                                                                *
@@ -158,12 +158,12 @@
 !      *                                                                *
 !      ******************************************************************
 !
-       integer, parameter :: intType      = kind(dummyInt)
-       integer, parameter :: porType      = kind(dummyPor)
-       integer, parameter :: realType     = kind(dummyReal)
-       integer, parameter :: adtElementType = kind(adtDummyElementInt)
-       integer, parameter :: cgnsRealType = kind(dummyCGNSReal)
-       integer, parameter :: cgnsPerType  = kind(dummyCGNSPer)
+    integer, parameter :: intType = kind(dummyInt)
+    integer, parameter :: porType = kind(dummyPor)
+    integer, parameter :: realType = kind(dummyReal)
+    integer, parameter :: adtElementType = kind(adtDummyElementInt)
+    integer, parameter :: cgnsRealType = kind(dummyCGNSReal)
+    integer, parameter :: cgnsPerType = kind(dummyCGNSPer)
 !
 !      ******************************************************************
 !      *                                                                *
@@ -173,10 +173,10 @@
 !      *                                                                *
 !      ******************************************************************
 !
-       integer(kind=4), private :: dummyIntPV3
-       real(kind=4),    private :: dummyRealPV3
-       integer, parameter       :: intPV3Type  = kind(dummyIntPV3)
-       integer, parameter       :: realPV3Type = kind(dummyRealPV3)
+    integer(kind=4), private :: dummyIntPV3
+    real(kind=4), private :: dummyRealPV3
+    integer, parameter :: intPV3Type = kind(dummyIntPV3)
+    integer, parameter :: realPV3Type = kind(dummyRealPV3)
 !
 !      ******************************************************************
 !      *                                                                *
@@ -185,9 +185,9 @@
 !      ******************************************************************
 !
 #ifdef DEBUG_MODE
-       logical, parameter :: debug = .true.
+    logical, parameter :: debug = .true.
 #else
-       logical, parameter :: debug = .false.
+    logical, parameter :: debug = .false.
 #endif
 
-       end module precision
+end module precision
