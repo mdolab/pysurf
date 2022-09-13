@@ -28,14 +28,13 @@ default:
 	done
 
 # Generate forward mode
-	tapenade -d -head $(ROUTINES) $(INPUT_FILES_NODIR)
+	tapenade -d -tgtmodulename "_d" -head $(ROUTINES) $(INPUT_FILES_NODIR)
 
 # Generate backward mode
-	tapenade -b -head $(ROUTINES) $(INPUT_FILES_NODIR)
+	tapenade -b -adjmodulename "_b" -head $(ROUTINES) $(INPUT_FILES_NODIR)
 
 # Remove modules that are not useful, but were differentiated anyway
 	rm precision_*
-	rm constants_*
 
 # Edit AD code to use original modules that should not be differentiated
 	sed -i -e 's/PRECISION_D/PRECISION/' -e 's/CONSTANTS_D/CONSTANTS/' *_d.f90

@@ -20,4 +20,5 @@ extends:
     IMAGE: private
     COVERAGE: true
     TAPENADE: true
+    TAPENADE_VERSION: "3.16"
     FPRETTIFY: true
