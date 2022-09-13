@@ -2494,8 +2494,8 @@ contains
             ! Complete the nonblocking sends of the interpolated data.
 
             do i = 1, nProcRecvCur
-                call mpi_waitany(nProcRecvCur, sendRecvRequest(1,:), sizeMessage, status, ierr)
-                call mpi_waitany(nProcRecvCur, sendRecvRequest(2,:), sizeMessage, status, ierr)
+                call mpi_waitany(nProcRecvCur, sendRecvRequest(1, :), sizeMessage, status, ierr)
+                call mpi_waitany(nProcRecvCur, sendRecvRequest(2, :), sizeMessage, status, ierr)
             end do
 
             ! Release the memory of the buffers used in the nonblocking
