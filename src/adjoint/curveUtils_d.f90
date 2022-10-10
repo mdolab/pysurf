@@ -127,7 +127,7 @@ CONTAINS
 ! Get the relative vectors for the bar element
     x21d = x2d - x1d
     x21 = x2 - x1
-! Normalize vector (dot defined in Utilities.F90)
+! Normalize vector (dot defined in utilities.F90)
     dummyvecd = x21d
     dummyvec = x21
     CALL DOT_D0(x21, x21d, dummyvec, dummyvecd, dotresult, dotresultd)
@@ -161,7 +161,7 @@ CONTAINS
 ! EXECUTION
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
-! Normalize vector (dot defined in Utilities.F90)
+! Normalize vector (dot defined in utilities.F90)
     dummyvec = x21
     CALL DOT(x21, dummyvec, dotresult)
     result1 = SQRT(dotresult)

@@ -144,7 +144,7 @@ CONTAINS
 ! EXECUTION
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
-! Normalize vector (dot defined in Utilities.F90)
+! Normalize vector (dot defined in utilities.F90)
     dummyvec = x21
     CALL DOT(x21, dummyvec, dotresult)
     x21b = 0.0_8
@@ -181,7 +181,7 @@ CONTAINS
 ! EXECUTION
 ! Get the relative vectors for the bar element
     x21 = x2 - x1
-! Normalize vector (dot defined in Utilities.F90)
+! Normalize vector (dot defined in utilities.F90)
     dummyvec = x21
     CALL DOT(x21, dummyvec, dotresult)
     tangent = x21/SQRT(dotresult)
