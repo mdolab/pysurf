@@ -756,7 +756,7 @@ contains
 
         ! This subroutine simply computes a dot product c = a.dot.b
         ! This function is redundant with the one defined in
-        ! Utilities.F90, but I decided to do it in order to
+        ! utilities.F90, but I decided to do it in order to
         ! keep ADT independent of other pySurf modules.
         !
         ! Ney Secco 2016-10

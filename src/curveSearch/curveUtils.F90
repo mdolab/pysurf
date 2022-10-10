@@ -80,7 +80,7 @@ contains
         ! Get the relative vectors for the bar element
         x21 = x2 - x1
 
-        ! Normalize vector (dot defined in Utilities.F90)
+        ! Normalize vector (dot defined in utilities.F90)
         dummyVec = x21
         call dot(x21, dummyVec, dotResult)
         tangent = x21 / sqrt(dotResult)

@@ -1603,7 +1603,7 @@ contains
 !       *                                                              *
 !       ****************************************************************
 !
-        use Utilities ! ../utilities/Utilities.F90
+        use Utilities ! ../utilities/utilities.F90
         implicit none
 !
 !       Subroutine arguments.
@@ -1726,7 +1726,7 @@ contains
                             BBoxB = xBBox(:, kk)
 
                             ! Check bounding box intersection
-                            ! computeBBoxIntersection defined in Utilities.F90 of the utilities foldes
+                            ! computeBBoxIntersection defined in utilities.F90 of the utilities foldes
                             call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
                             if (overlap) then
@@ -1752,7 +1752,7 @@ contains
                             BBoxB(4:6) = ADTree(kk)%xMax(4:6)
 
                             ! Check bounding box intersection
-                            ! computeBBoxIntersection defined in Utilities.F90 of the utilities foldes
+                            ! computeBBoxIntersection defined in utilities.F90 of the utilities foldes
                             call computeBBoxIntersection(BBoxA, BBoxB, BBoxAB, overlap)
 
                             if (overlap) then

@@ -2,7 +2,7 @@ INPUT_FILES = \
 	../common/precision.F90 \
 	../common/constants.F90 \
 	../intersections/intersection.F90 \
-	../utilities/Utilities.F90 \
+	../utilities/utilities.F90 \
 	../curveSearch/curveUtils.F90 \
 	../ADT/adtProjections.F90 \
 
