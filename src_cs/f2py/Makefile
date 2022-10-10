@@ -97,7 +97,7 @@ all:
 	$(FF90) -shared $(UTILITIES_OBJECTS) $(LINKER_ALL_FLAGS) -o utilitiesAPI_cs.so
 
 # Test if modules can be imported
-	$(PYTHON) importTest.py
+	$(PYTHON) ../../src/f2py/importTest.py cgnsAPI_cs.so adtAPI_cs.so curveSearchAPI_cs.so intersectionAPI_cs.so utilitiesAPI_cs.so
 
 # Move python modules to the main python folder
 	mv *.so ../../pysurf
