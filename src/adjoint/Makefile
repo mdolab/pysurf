@@ -10,8 +10,8 @@ FF90_OBJECTS_1 = adBuffer.o \
                  Utilities_b.o \
                  Utilities_d.o
 
-FF90_OBJECTS_2 = Intersection_b.o \
-                 Intersection_d.o \
+FF90_OBJECTS_2 = intersection_b.o \
+                 intersection_d.o \
                  adtProjections_b.o \
                  adtProjections_d.o \
                  curveUtils_d.o \
