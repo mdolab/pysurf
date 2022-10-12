@@ -14,11 +14,9 @@ CGNS_INCLUDE_FLAGS=-I$(CGNS_HOME)/include
 CGNS_LINKER_FLAGS=-L$(CGNS_HOME)/lib -lcgns
 
 # ------- Define Compiler Flags ----------------------------------------
-FF90_GEN_FLAGS = -DHAS_ISNAN -fPIC -r8 -O2 -g
-CC_GEN_FLAGS   = -DHAS_ISNAN -O -fPIC
-
-FF90_OPT_FLAGS   = -DHAS_ISNAN -fPIC -r8 -O2 -g
-CC_OPT_FLAGS     = -DHAS_ISNAN -O -fPIC
+FF77_FLAGS = -fPIC -r8 -O2 -g
+FF90_FLAGS = ${FF77_FLAGS} -std08
+C_FLAGS    = -fPIC -O2
 
 # ------- Define Archiver  and Flags -----------------------------------
 AR       = ar
@@ -26,7 +24,7 @@ AR_FLAGS = -rvs
 
 # ------- Define Linker Flags ------------------------------------------
 LINKER = $(FF90)
-LINKER_FLAGS = -nofor_main
+LINKER_FLAGS = -nofor-main
 
 # Define potentially different python, python-config and f2py executables:
 PYTHON = python

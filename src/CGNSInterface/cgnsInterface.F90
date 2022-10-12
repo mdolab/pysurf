@@ -34,7 +34,7 @@ contains
         real(kind=realType), intent(out), dimension(:, :), allocatable :: coor
         integer(kind=intType), intent(out), dimension(:, :), allocatable :: triaConn, quadsConn, barsConn
         integer(kind=intType), intent(out), dimension(:), allocatable :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
-        character*32, intent(out), dimension(:), allocatable :: surfNames, curveNames
+        character(len=32), intent(out), dimension(:), allocatable :: surfNames, curveNames
 
         ! Working
         integer(kind=intType) :: cg, ierr, i, myid
@@ -46,7 +46,7 @@ contains
         integer(kind=intType) :: iSurf, iCurve
         integer(kind=intType) :: nSurfSectionsTot, nCurveSectionsTot
 
-        character*32 :: baseName, secName
+        character(len=32) :: baseName, secName
 
         print *, '======================'
         print *, cgns_file
@@ -289,8 +289,8 @@ contains
         integer(kind=intType) :: ierr, base, dims(3), iZone
         integer(kind=intType) :: nNodes, nCells
         integer(kind=intType) :: tmpSym, nSymm
-        character*32 :: zoneName, bocoName, famName
-        character*32 :: secName
+        character(len=32) :: zoneName, bocoName, famName
+        character(len=32) :: secName
 
         integer(kind=intType) :: nbocos, boco
         integer(kind=intType) :: nVertices, nElements, nzones

@@ -7,7 +7,7 @@ module CGNSapi
     real(kind=realType), dimension(:, :), allocatable, save :: coor
     integer(kind=intType), dimension(:, :), allocatable, save :: triaConn, quadsConn, barsConn
     integer(kind=intType), dimension(:), allocatable, save :: surfTriaPtr, surfQuadsPtr, curveBarsPtr
-    character*32, dimension(:), allocatable, save :: surfNames, curveNames
+    character(len=32), dimension(:), allocatable, save :: surfNames, curveNames
 
 ! coor: real(3,numNodes) -> X,Y,Z coordinates of all nodes
 ! triaConn: real(3,numTria) -> Triangles connectivity
@@ -143,8 +143,8 @@ contains
         integer(kind=intType), intent(out), dimension(numSurfTriaPtr) :: surfTriaPtrData
         integer(kind=intType), intent(out), dimension(numSurfQuadsPtr) :: surfQuadsPtrData
         integer(kind=intType), intent(out), dimension(numCurveBarsPtr) :: curveBarsPtrData
-        character*32, intent(out), dimension(numSurfNames) :: surfNamesData
-        character*32, intent(out), dimension(numCurveNames) :: curveNamesData
+        character(len=32), intent(out), dimension(numSurfNames) :: surfNamesData
+        character(len=32), intent(out), dimension(numCurveNames) :: curveNamesData
 
         ! EXECUTION
 
