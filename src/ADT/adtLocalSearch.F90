@@ -1603,7 +1603,7 @@ contains
 !       *                                                              *
 !       ****************************************************************
 !
-        use Utilities ! ../utilities/utilities.F90
+        use utilities ! ../utilities/utilities.F90
         implicit none
 !
 !       Subroutine arguments.

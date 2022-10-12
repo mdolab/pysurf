@@ -13,7 +13,7 @@ contains
         !
         ! Ney Secco 2016-11
 
-        use Utilities ! This will bring dot
+        use utilities ! This will bring dot
         implicit none
 
         ! DECLARATIONS
@@ -60,7 +60,7 @@ contains
         !
         ! Ney Secco 2016-11
 
-        use Utilities
+        use utilities
         implicit none
 
         ! DECLARATIONS

@@ -1,4 +1,4 @@
-module Utilities
+module utilities
 
     use precision
     implicit none
@@ -861,4 +861,4 @@ contains
 
     end subroutine lineIntersectionInterval
 
-end module Utilities
+end module utilities
