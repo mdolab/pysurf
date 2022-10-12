@@ -18,8 +18,8 @@ default:
 	echo "Modify this config file as required. With the config file "; \
 	echo "specified, rerun 'make' and the build will start."; \
 	else \
-		make discretesurf; \
-		make -f Makefile_CS discretesurf; \
+		make discretesurf || exit 1; \
+		make -f Makefile_CS discretesurf || exit 1; \
 	fi;
 
 clean:
