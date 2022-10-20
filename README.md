@@ -1,6 +1,6 @@
 pySurf
 ======
-[![Build Status](https://dev.azure.com/mdolab/Private/_apis/build/status/mdolab.pysurf?repoName=mdolab%2Fpysurf&branchName=main)](https://dev.azure.com/mdolab/Private/_build/latest?definitionId=36&repoName=mdolab%2Fpysurf&branchName=main)
+[![Build Status](https://dev.azure.com/mdolab/Public/_apis/build/status/mdolab.pysurf?repoName=mdolab%2Fpysurf&branchName=main)](https://dev.azure.com/mdolab/Public/_build/latest?definitionId=46&repoName=mdolab%2Fpysurf&branchName=main)
 [![Documentation Status](https://readthedocs.com/projects/mdolab-pysurf/badge/?version=latest&token=067843d7a8abdc6f145c3207abe46d4d73bf44ad406656e48b06a15a4cfa37a7)](https://mdolab-pysurf.readthedocs-hosted.com/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/mdolab/pysurf/branch/main/graph/badge.svg?token=4WJA4N7CDQ)](https://codecov.io/gh/mdolab/pysurf)
 
@@ -31,7 +31,7 @@ Ney R. Secco, John P. Jasa, Gaetan K. W. Kenway, and Joaquim R. R. A. Martins.  
 
 License
 -------
-Copyright 2016-2019 MDO Lab
+Copyright 2016-2022 MDO Lab
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
