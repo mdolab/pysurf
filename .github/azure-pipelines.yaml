@@ -17,7 +17,7 @@ extends:
     REPO_NAME: pysurf
     GCC_CONFIG: config/defaults/config_LINUX_GFORTRAN.mk
     INTEL_CONFIG: config/defaults/config_LINUX_INTEL.mk
-    IMAGE: private
+    IMAGE: public
     COVERAGE: true
     TAPENADE: true
     TAPENADE_VERSION: "3.16"
