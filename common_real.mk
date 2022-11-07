@@ -40,7 +40,7 @@ MAKE_CLEAN_ARGUMENTS = *~ *.o *.mod *.il *.stb c_* *.a
 #      ******************************************************************
 
 # Check compiler and version and add flags if needed
-EXTRA_FF77_FLAGS = $(shell bash ../../config/compilerCheck.sh mpifort)
+EXTRA_FF77_FLAGS = $(shell bash ../../config/compilerCheck.sh $(FF90))
 
 FF77_ALL_FLAGS = -I$(MODDIR) \
 		$(CGNS_INCLUDE_FLAGS) \
