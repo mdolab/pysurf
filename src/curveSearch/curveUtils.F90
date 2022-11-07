@@ -13,7 +13,7 @@ contains
         !
         ! Ney Secco 2016-11
 
-        use Utilities ! This will bring dot
+        use utilities ! This will bring dot
         implicit none
 
         ! DECLARATIONS
@@ -60,7 +60,7 @@ contains
         !
         ! Ney Secco 2016-11
 
-        use Utilities
+        use utilities
         implicit none
 
         ! DECLARATIONS
@@ -80,7 +80,7 @@ contains
         ! Get the relative vectors for the bar element
         x21 = x2 - x1
 
-        ! Normalize vector (dot defined in Utilities.F90)
+        ! Normalize vector (dot defined in utilities.F90)
         dummyVec = x21
         call dot(x21, dummyVec, dotResult)
         tangent = x21 / sqrt(dotResult)

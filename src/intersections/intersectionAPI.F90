@@ -74,8 +74,8 @@ contains
         !
         ! Ney Secco 2016-08
 
-        use Intersection
-        use Utilities ! This will bring condenseBarNodes_main
+        use intersection
+        use utilities ! This will bring condenseBarNodes_main
         use adtAPI ! This will bring adtBuildSurfaceADT and adtIntersectionSearch
         implicit none
 
@@ -447,9 +447,9 @@ contains
         !
         ! Ney Secco 2016-09
 
-        use Intersection
-        use Intersection_b, only: triTriIntersect_b
-        use Utilities ! This will bring condenseBarNodes_main
+        use intersection
+        use intersection_b, only: triTriIntersect_b
+        use utilities ! This will bring condenseBarNodes_main
         implicit none
 
         ! Input variables
@@ -723,9 +723,9 @@ contains
         !
         ! Ney Secco 2016-09
 
-        use Intersection
-        use Intersection_d, only: triTriIntersect_d
-        use Utilities ! This will bring condenseBarNodes_main
+        use intersection
+        use intersection_d, only: triTriIntersect_d
+        use utilities ! This will bring condenseBarNodes_main
         implicit none
 
         ! Input variables
@@ -995,9 +995,9 @@ contains
         ! John Jasa 2016-08
         ! Ney Secco 2017-01: added derivative checks
 
-        use Intersection, only: triTriIntersect
-        use Intersection_b, only: triTriIntersect_b
-        use Intersection_d, only: triTriIntersect_d
+        use intersection, only: triTriIntersect
+        use intersection_b, only: triTriIntersect_b
+        use intersection_d, only: triTriIntersect_d
         implicit none
 
         real(kind=realType), dimension(3), intent(in) :: V0, V1, V2, U0, U1, U2

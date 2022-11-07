@@ -5,11 +5,11 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_1 = Utilities.o
+FF90_OBJECTS_1 = utilities.o
 
 FF90_OBJECTS_2 = utilitiesAPI.o
 
-FILES_TO_COMPLEXIFY = Utilities.F90 \
+FILES_TO_COMPLEXIFY = utilities.F90 \
                       utilitiesAPI.F90
 
 default: all
@@ -20,7 +20,7 @@ all:
 	cp -f *.mod $(MODDIR)
 
 clean:
-	@echo "        Making clean in Utilities... "
+	@echo "        Making clean in utilities... "
 	rm -f $(MAKE_CLEAN_ARGUMENTS)
 
 complexify:

@@ -12,10 +12,10 @@ FF90_OBJECTS_1 = adBuffer.o \
 
 FF90_OBJECTS_2 = intersection_b.o \
                  intersection_d.o \
-                 adtprojections_b.o \
-                 adtprojections_d.o \
-                 curveutils_d.o \
-                 curveutils_b.o
+                 adtProjections_b.o \
+                 adtProjections_d.o \
+                 curveUtils_d.o \
+                 curveUtils_b.o
 
 default: all
 

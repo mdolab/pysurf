@@ -1,6 +1,6 @@
-module Intersection
+module intersection
 
-    use Utilities
+    use utilities
     use precision
     implicit none
 
@@ -893,4 +893,4 @@ contains
 
     end subroutine sort
 
-end module Intersection
+end module intersection

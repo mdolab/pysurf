@@ -1,7 +1,7 @@
 program test
 
     use precision
-    use Intersection
+    use intersection
     implicit none
 
     real(kind=realType), dimension(:, :), allocatable :: coor
