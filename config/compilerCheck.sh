@@ -11,8 +11,8 @@ FFLAGS=""
 
 # Allow argument mismatch for gfortran >= 10
 
-# NOTE: The reason for adding this flag is because Tapenade 3.16's ADFirstAidKIt is not compliant with GCC 10+.
-# This should be removed once Tapenade fixes this or removes the ADFirstAidKIt.
+# NOTE: The reason for adding this flag is because Tapenade 3.16's ADFirstAidKit is not compliant with GCC 10+.
+# This should be removed once Tapenade fixes this or removes the ADFirstAidKit.
 
 fc=$("$FF90" --version 2>&1 | grep -i 'gnu')
 if [ ! -z "$fc" ]; then
