@@ -34,7 +34,7 @@ clean:
 		done
 	rm -f *~ config.mk;
 	rm -f lib/lib* mod/* obj/*
-	(cd pysurf && rm *.so) || exit 1;
+	rm -f pysurf/*.so
 
 	make -f Makefile_CS clean
 

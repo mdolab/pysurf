@@ -45,6 +45,7 @@ clean:
 
 	rm -f *~ config.mk;
 	rm -f lib_cs/lib* mod_cs/* obj_cs/*
+	rm -f pysurf/*.so
 
 discretesurf:
 	make -f Makefile_CS dirs
