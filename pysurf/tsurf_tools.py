@@ -748,26 +748,28 @@ def split_curve_single(curve, curveName, optionsDict={}, criteria="sharpness"):
 
     Parameters
     ----------
-    curve: Curve object -> Curve that will be split
+    curve : Curve object
+        Curve that will be split
 
-    curveName: string -> Name of the original curve. This name will be used
-               to name the split curves.
+    curveName: str
+        Name of the original curve. This name will be used to name the split curves.
 
-    optionsDict: dictionary -> Dictionary containing special options for each split
-    criteria. The following fields are needed:
-    For 'sharpness' criteria: -'angle': angle (in degrees) used to split the curve.
-                               the default value is 60 deg.
-    For 'curve' criteria: -'splittingCurves': list of curve objects. We will split
-                           the current curve in the intersection points with other curves.
-    For 'node' criteria: -'splittingNodes': list of integers. They represent the node IDs
-                          where we will split the curve.
+    optionsDict: dict
+        Dictionary containing special options for each split criteria. The following fields are needed:
+        For 'sharpness' criteria: -'angle': angle (in degrees) used to split the curve. The default value is 60 deg.
+        For 'curve' criteria: -'splittingCurves': list of curve objects.
+        We will split the current curve in the intersection points with other curves.
+        For 'node' criteria: -'splittingNodes': list of integers.
+        They represent the node IDs where we will split the curve.
 
-    criteria: string -> Criteria that will be used to split curves. The options
-              available for now are: ['sharpness', 'curve', 'node']
+    criteria : str
+        Criteria that will be used to split curves.
+        The options available for now are: ['sharpness', 'curve', 'node']
 
     Returns
     -------
-    splitCurveDict: dictionary[curve objects] -> Dictionary containing split curves.
+    splitCurveDict : dict
+        Dictionary containing split curves.
 
     Ney Secco 2016-08
     """
@@ -2163,63 +2165,72 @@ def airfoil_intersection(
     """
     This script works for blunt traling edges
 
-    intCurveName: string -> Name of the intersection curve that should be
-                            treated as a wing-body intersection.
-                            This intersection curve should already be in the
-                            manager. manager.intersect() returns curve names.
+    intCurveName : str
+        Name of the intersection curve that should be treated as a wing-body intersection.
+        This intersection curve should already be in the manager. manager.intersect() returns curve names.
 
-    LECurve: TSurf curve object -> Curve that follows the wing leading edge.
+    LECurve : TSurf curve object
+        Curve that follows the wing leading edge.
 
-    UpperTECurve: TSurf curve object -> Curve that follows the wing upper trailing edge.
+    UpperTECurve : TSurf curve object
+        Curve that follows the wing upper trailing edge.
 
-    LowerTECurve: TSurf curve object -> Curve that follows the wing upper trailing edge.
+    LowerTECurve : TSurf curve object
+        Curve that follows the wing upper trailing edge.
 
-    mergedCurveName: string -> Name that will be assigned to the intersection curve and
-                               its corresponding collar mesh.
+    mergedCurveName : string
+        Name that will be assigned to the intersection curve and its corresponding collar mesh.
 
-    optionsBodyMesh: Dictionary -> Options to grow the body mesh. The user does not need
-                                     to specify boundary conditions. This is done automatically.
-                                     Here is an example of dictionary:
-    optionsBodyMesh = {
-        'dStart' : 0.01*2/fact,
-        'numLayers' : int(48/2*fact)+1, #Should be /4
-        'extension' : 1.8,
-        'epsE0' : 3.5,
-        'theta' : -0.5,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 0,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 20,
-        'sigmaSplay' : 0.3,
-        'cMax' : 5.0,
-        'ratioGuess' : 10.0,
-    }
+     optionsBodyMesh : dict
+        Options to grow the body mesh. The user does not need to specify boundary conditions.
+        This is done automatically. Here is an example of dictionary
 
-    optionsWingMesh: Dictionary -> Options to grow the wing mesh. The user does not need
-                                     to specify boundary conditions. This is done automatically.
-                                     Here is an example of dictionary:
+        .. code-block:: python
 
-    optionsWingMesh = {
-        'dStart' : 0.01*2/fact,
-        'numLayers' : int(48/2*fact)+1,
-        'extension' : 2.2,
-        'epsE0' : 12.5,
-        'theta' : -0.8,
-        'alphaP0' : 0.25,
-        'numSmoothingPasses' : 4,
-        'nuArea' : 0.16,
-        'numAreaPasses' : 0,
-        'sigmaSplay' : 0.3,
-        'cMax' : 5.0,
-        'ratioGuess' : 10.0,
-        'guideCurves' : ['curve_te_low','curve_te_upp'],
-        'remesh' : True
-    }
+            optionsBodyMesh = {
+                'dStart' : 0.01*2/fact,
+                'numLayers' : int(48/2*fact)+1, #Should be /4
+                'extension' : 1.8,
+                'epsE0' : 3.5,
+                'theta' : -0.5,
+                'alphaP0' : 0.25,
+                'numSmoothingPasses' : 0,
+                'nuArea' : 0.16,
+                'numAreaPasses' : 20,
+                'sigmaSplay' : 0.3,
+                'cMax' : 5.0,
+                'ratioGuess' : 10.0,
+            }
 
-    wingGeomName: string -> Name of the geometry component that represents the wing.
-                            We need this information because pySurf may store either
-                            the wing or the body as the first marching side for the
-                            collar mesh generation.
+
+    optionsWingMesh : dict
+        Options to grow the wing mesh. The user does not need to specify boundary conditions.
+        This is done automatically. Here is an example of dictionary:
+
+        .. code-block:: python
+
+            optionsWingMesh = {
+                'dStart' : 0.01*2/fact,
+                'numLayers' : int(48/2*fact)+1,
+                'extension' : 2.2,
+                'epsE0' : 12.5,
+                'theta' : -0.8,
+                'alphaP0' : 0.25,
+                'numSmoothingPasses' : 4,
+                'nuArea' : 0.16,
+                'numAreaPasses' : 0,
+                'sigmaSplay' : 0.3,
+                'cMax' : 5.0,
+                'ratioGuess' : 10.0,
+                'guideCurves' : ['curve_te_low','curve_te_upp'],
+                'remesh' : True
+            }
+
+    wingGeomName : str
+        Name of the geometry component that represents the wing.
+        We need this information because pySurf may store either
+        the wing or the body as the first marching side for the
+        collar mesh generation.
 
     """
 

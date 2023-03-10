@@ -10,6 +10,8 @@ from . import tsurf_tools as tst
 
 class TSurfGeometry(Geometry):
     """
+    A class for handling a triangulated surface geometry.
+
     Parameters
     ----------
     fileName : string
@@ -297,32 +299,28 @@ class TSurfGeometry(Geometry):
 
         Parameters
         ----------
-        xyz: float[numPts, 3]
+        xyz : float[numPts, 3]
             Coordinates of the points that should be projected.
 
-        xyzd: float[numPts, 3]
-            Derivative seeds for coordinates of the points
-                                   that should be projected.
+        xyzd : float[numPts, 3]
+            Derivative seeds for coordinates of the points that should be projected.
 
-        xyzProj: float[numPts,3]
-            Coordinates of the projected points (can be obtained
-                                     with the original projection function)
+        xyzProj : float[numPts,3]
+            Coordinates of the projected points (can be obtained with the original projection function)
 
-        normProj: float[numPts,3]
-            Surface normal at projected points (can be obtained
-                                      with the original projection function)
+        normProj : float[numPts,3]
+            Surface normal at projected points (can be obtained with the original projection function)
 
-        projDict: dictionary
-            Dictionary containing intermediate values that are
-            required by the differentiation routines.  (can be obtained
-            with the original projection function)
+        projDict : dict
+            Dictionary containing intermediate values that are required by the differentiation routines
+            (can be obtained with the original projection function)
 
         Returns
         -------
-        xyzProjd: float[numPts,3]
+        xyzProjd : float[numPts,3]
             Derivative seeds of the coordinates of the projected points
 
-        normProjd: float[numPts,3]
+        normProjd : float[numPts,3]
             Derivative seeds of the surface normal at projected points
 
 
