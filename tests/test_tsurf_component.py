@@ -17,7 +17,6 @@ np.random.seed(123)
 
 
 class TestTSurfProjection(unittest.TestCase):
-
     N_PROCS = 1
 
     def setUp(self):
@@ -89,7 +88,6 @@ class TestTSurfProjection(unittest.TestCase):
         return xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b
 
     def computeSurfaceProjections_AD(self, xyz, xyz_d, coor_d, xyzProj_b, normProj_b):
-
         cube = self.cube
 
         # Call projection algorithm
@@ -109,7 +107,6 @@ class TestTSurfProjection(unittest.TestCase):
         return xyzProj, xyzProj_d, normProj, normProj_d, xyz_b, coor_b
 
     def computeSurfaceProjections_pert(self, xyz_pert, coor_pert, CS=False):
-
         if CS:
             cube = self.cube_CS
         else:
@@ -125,7 +122,6 @@ class TestTSurfProjection(unittest.TestCase):
         return xyzProj_pert, normProj_pert
 
     def computeCurveProjections_AD(self, xyz, xyz_d, allCoor_d, xyzProj_b, tanProj_b):
-
         cube = self.cube
 
         # Call projection algorithm
@@ -148,7 +144,6 @@ class TestTSurfProjection(unittest.TestCase):
         return xyzProj, xyzProj_d, tanProj, tanProj_d, xyz_b, allCoor_b
 
     def computeCurveProjections_pert(self, xyz_pert, allCoor_pert, CS=True):
-
         if CS:
             cube = self.cube_CS
         else:
@@ -165,7 +160,6 @@ class TestTSurfProjection(unittest.TestCase):
         return xyzProj, tanProj
 
     def test_surface_projection_deriv(self):
-
         cube = self.cube
         xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 
@@ -206,7 +200,6 @@ class TestTSurfProjection(unittest.TestCase):
         np.testing.assert_allclose(normProj_d, normProj_CS, rtol=3e-6, atol=1e-9)
 
     def test_curve_projection_deriv(self):
-
         cube = self.cube
         xyz, stepSize_FD, stepSize_CS, xyz_d, coor_d, allCoord, xyzProj_b, normProj_b, tanProj_b = self.setUpDerivTest()
 

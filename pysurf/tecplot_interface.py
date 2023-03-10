@@ -2,7 +2,6 @@ import numpy as np
 
 
 def write_tecplot_scatter(filename, title, variable_names, data_points):
-
     # Open the data file
     fid = open(filename, "w")
 
@@ -34,7 +33,6 @@ def write_tecplot_scatter(filename, title, variable_names, data_points):
 
 
 def readTecplotFEdata(fileName):
-
     # Written by Ney Secco
     # This script will read sections from a Tecplot FE file
     # FOR NOW THIS JUST READS BAR FE FILES FOR THE CURVE FUNCTIONS
@@ -53,7 +51,6 @@ def readTecplotFEdata(fileName):
 
     # Loop over the lines to gather data
     for line in lines:
-
         # Split data
         data = line.split()
 
@@ -64,7 +61,6 @@ def readTecplotFEdata(fileName):
 
         # Detect if we reached a new section definition
         if data[0].lower() == "zone":
-
             # Gather name of the new zone
             zoneName = line.split('"')[1]
 
@@ -85,7 +81,6 @@ def readTecplotFEdata(fileName):
 
         # Check if we have a data line
         if len(data) == 3:
-
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a data line.
             try:
@@ -95,7 +90,6 @@ def readTecplotFEdata(fileName):
 
         # Check if we have a connectivity line
         if len(data) == 2:
-
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a connectivity line.
             try:
@@ -112,7 +106,6 @@ def readTecplotFEdata(fileName):
 
 
 def readTecplotCurves(fileName):
-
     """
     This function will read a curve definition from a Tecplot FE data file
     and assign coor and barsConn.
@@ -126,7 +119,6 @@ def readTecplotCurves(fileName):
     # Create curves for every section
     curves = []
     for secID in range(len(sectionName)):
-
         # Gather data
         # The -1 is to adjust connectivities to Python indexing, which starts at zero.
         coor = np.array(sectionData[secID])
@@ -150,7 +142,6 @@ class Curve:
         self.name = curveName
 
     def export_tecplot(self, fileName="curve"):
-
         writeTecplotFEdata(self.coor, self.barsConn, self.name, fileName)
 
 
@@ -159,7 +150,6 @@ class Curve:
 
 
 def readTecplotFEdataSurf(fileName):
-
     # Written by Ney Secco
     # This script will read sections from a Tecplot FE file with quads written by pysurf.
     # The Tecplot file should have a single zone
@@ -175,7 +165,6 @@ def readTecplotFEdataSurf(fileName):
 
     # Loop over the lines to gather data
     for line in lines:
-
         # Split data
         data = line.split()
 
@@ -186,7 +175,6 @@ def readTecplotFEdataSurf(fileName):
 
         # Check if we have a coordinate line
         if len(data) == 3:
-
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a data line.
             try:
@@ -196,7 +184,6 @@ def readTecplotFEdataSurf(fileName):
 
         # Check if we have a quad connectivity line
         if len(data) == 4:
-
             # Try to convert the elements of this line to numbers.
             # If this doesn't work, it means we do not have a connectivity line.
             try:
@@ -226,7 +213,6 @@ def readTecplotFEdataSurf(fileName):
 
 
 def writeTecplotFEdata(coor, barsConn, curveName, fileName):
-
     # This script will write sections from a Tecplot FE file
     # Written by John Hwang. Adapted by Ney Secco.
 
@@ -273,7 +259,6 @@ def writeTecplotFEdata(coor, barsConn, curveName, fileName):
 
 
 def writeTecplotSurfaceFEData(coor, triaConn, quadsConn, surfName, fileName):
-
     """
     This method will export the triangulated surface data into a tecplot format.
     The will write all elements as quad data. The triangle elements will be exported

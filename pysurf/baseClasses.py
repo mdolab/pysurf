@@ -223,7 +223,6 @@ class Geometry(object):
     # MANIPULATOR INTERFACE METHODS
 
     def assign_manipulator(self, GMObj):
-
         """
         This function assign a geometry manipulation object (such ad DVGeo) to the
         current Geometry object.
@@ -241,7 +240,6 @@ class Geometry(object):
 
         # Only the root proc will embed the pySurf nodes into the manipulator
         if self.myID == 0:
-
             print("")
             print("Assigning ", self.name, " to manipulator object")
 
@@ -262,7 +260,6 @@ class Geometry(object):
 
             # Now we need to assign every curve to the manipulator as well
             for curveName in self.curves:
-
                 # Generate name for the curve point set
                 ptSetName = self.name + ":curveNodes:" + curveName
 
@@ -279,12 +276,10 @@ class Geometry(object):
             print("")
 
         else:
-
             # The other processors will just save the reference to the manipulator
             self.manipulator = GMObj
 
     def manipulator_addPointSet(self, coor, ptSetName):
-
         """
         This method adds an extra point set to the manipulator object.
 
@@ -302,7 +297,6 @@ class Geometry(object):
         self.manipulator.addPointSet(coor, ptSetName)
 
     def manipulator_update(self, ptSetName=None):
-
         """
         This method will call the update functions from the manipulator object accordingly
         to update the geometry based on the new set of design variables.
@@ -320,7 +314,6 @@ class Geometry(object):
 
         # Only the root proc should update the triangulated surfaces and curves
         if self.myID == 0:
-
             # Update surface nodes
             print("Updating triangulated surface nodes from ", self.name)
             coor = self.manipulator.update(self.ptSetName)
@@ -329,7 +322,6 @@ class Geometry(object):
 
             # Now we need to update every curve as well
             for curveName in self.curves:
-
                 # Update curve nodes
                 print("Updating nodes from curve ", curveName)
                 coor = self.manipulator.update(self.curves[curveName].ptSetName)
@@ -338,7 +330,6 @@ class Geometry(object):
 
         # Finally, all procs update the embeded nodes, if they have one
         if ptSetName is not None:
-
             if self.myID == 0:
                 print("Updating embedded nodes from ", self.name, " under ptSet ", ptSetName)
 
@@ -349,7 +340,6 @@ class Geometry(object):
                 print("Done")
 
     def manipulator_forwardAD(self, xDVd, ptSetName=None):
-
         """
         This method uses forward AD to propagate derivative seeds from the design
         variables to the surface mesh coordinates.
@@ -372,7 +362,6 @@ class Geometry(object):
 
             # Now we need to update every curve as well
             for curveName in self.curves:
-
                 # Update curve nodes
                 print("Updating nodes from curve ", curveName)
                 coord = self.manipulator.totalSensitivityProd(xDVd, self.curves[curveName].ptSetName)
@@ -382,7 +371,6 @@ class Geometry(object):
 
         # Finally, all procs update the embeded nodes, if they have one
         if ptSetName is not None:
-
             if self.myID == 0:
                 print("Updating embedded nodes from ", self.name, " under ptSet ", ptSetName)
 
@@ -393,7 +381,6 @@ class Geometry(object):
                 print("Done")
 
     def manipulator_reverseAD(self, xDVb, ptSetName=None, comm=None, clean=True):
-
         """
         This method uses reverse AD to propagate derivative seeds from the surface mesh
         coordinates to the design variables.
@@ -404,7 +391,6 @@ class Geometry(object):
         """
 
         if self.myID == 0:
-
             # Print log
             print("")
             print("Reverse AD call to manipulator of ", self.name, " object")
@@ -420,7 +406,6 @@ class Geometry(object):
 
             # Now we need to update every curve as well
             for curveName in self.curves:
-
                 # Update curve nodes
                 print("Updating nodes from curve ", curveName)
                 xDVb_curr = self.manipulator.totalSensitivity(curveCoorb[curveName], self.curves[curveName].ptSetName)
@@ -429,7 +414,6 @@ class Geometry(object):
 
         # Finally, all procs update the embeded nodes, if they have one
         if ptSetName is not None:
-
             if self.myID == 0:
                 print("Updating embedded nodes from ", self.name, " under ptSet ", ptSetName)
 
@@ -440,7 +424,6 @@ class Geometry(object):
                 print("Done")
 
     def manipulator_getDVs(self):
-
         """
         This returns the design variables of the current manipulator.
         """
@@ -543,7 +526,6 @@ class Curve(object):
 
 
 def accumulate_dict(majorDict, minorDict):
-
     """
     This function will loop over all keys of minorDict. If majorDict
     shares the same key, then we will accumulate (add) the values into

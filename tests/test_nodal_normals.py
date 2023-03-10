@@ -7,7 +7,6 @@ np.random.seed(123)
 
 
 class TestNodalNormals(unittest.TestCase):
-
     N_PROCS = 2
 
     def test_nodal_normals(self):

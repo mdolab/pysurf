@@ -4,11 +4,9 @@ import unittest
 
 
 class TestReorder(unittest.TestCase):
-
     N_PROCS = 2
 
     def test_reorder(self):
-
         # Define number of nodes in the circle
         nNodes = 5
 

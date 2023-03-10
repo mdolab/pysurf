@@ -6,7 +6,6 @@ import os
 
 
 class TestCurveIntersection(unittest.TestCase):
-
     N_PROCS = 1
 
     def setUp(self):
@@ -27,7 +26,6 @@ class TestCurveIntersection(unittest.TestCase):
         self.comp2_CS = pysurf.TSurfGeometry(cylinderFile, comm=comm, dtype=complex)
 
     def test_curve_intersection(self):
-
         comp1 = self.comp1
         comp2 = self.comp2
 
@@ -56,7 +54,6 @@ class TestCurveIntersection(unittest.TestCase):
         self.assertEqual(len(intersectionSplit), 27)
 
     def test_intersection_deriv(self):
-
         # Define distance tolerance
         distTol = 1e-7
 
