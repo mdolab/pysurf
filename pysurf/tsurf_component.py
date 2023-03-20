@@ -10,6 +10,8 @@ from . import tsurf_tools as tst
 
 class TSurfGeometry(Geometry):
     """
+    A class for handling a triangulated surface geometry.
+
     Parameters
     ----------
     fileName : string
@@ -34,7 +36,6 @@ class TSurfGeometry(Geometry):
     """
 
     def __init__(self, fileName, sectionsList=None, comm=None, name=None, dtype=float):
-
         # Initialize the base classs
         super().__init__(comm)
 
@@ -77,12 +78,10 @@ class TSurfGeometry(Geometry):
 
         # Only the root proc will work here
         if self.myID == 0:
-
             # Get file extension
             fileExt = os.path.splitext(os.path.basename(fileName))[1]
 
             if fileExt == ".cgns":
-
                 # Read CGNS file
                 self.coor, sectionDict = tst.getCGNSsections(fileName, self.comm)
 
@@ -98,7 +97,6 @@ class TSurfGeometry(Geometry):
                 tst.initialize_curves(self, sectionDict, sectionsList, dtype=self.dtype)
 
             elif fileExt == ".plt":
-
                 # Read Tecplot file
                 self.coor, triaConn, quadsConn = tecplot_interface.readTecplotFEdataSurf(fileName)
 
@@ -122,7 +120,6 @@ class TSurfGeometry(Geometry):
             tst.initialize_surface(self)
 
         else:
-
             # Other procs create dummy data
             self.coor = np.zeros((1, 3))
 
@@ -137,7 +134,6 @@ class TSurfGeometry(Geometry):
 
         # Only the root proc will work here
         if self.myID == 0:
-
             # Deallocate previous tree
             self.adtAPI.adtdeallocateadts(self.name)
 
@@ -164,7 +160,6 @@ class TSurfGeometry(Geometry):
 
         # Only the root proc will work here
         if self.myID == 0:
-
             self.curves.pop(name)
 
     def rename_curve(self, oldName, newName):
@@ -174,21 +169,17 @@ class TSurfGeometry(Geometry):
 
         # Only the root proc will work here
         if self.myID == 0:
-
             self.curves[newName] = self.curves.pop(oldName)
             self.curves[newName].rename(newName)
 
     def update(self, coor=None):
-
         """
         This function updates the nodal coordinates used by the surface object.
         """
 
         # Only the root proc will work here
         if self.myID == 0:
-
             if coor is not None:
-
                 # First check if we have the same number of new coordinates
                 if not self.coor.shape == coor.shape:
                     print("")
@@ -204,30 +195,24 @@ class TSurfGeometry(Geometry):
             tst.update_surface(self)
 
     def translate(self, x, y, z):
-
         # Only the root proc will work here
         if self.myID == 0:
-
             tst.translate(self, x, y, z)
             tst.update_surface(self)
             for curve in self.curves.values():
                 curve.translate(x, y, z)
 
     def scale(self, factor):
-
         # Only the root proc will work here
         if self.myID == 0:
-
             tst.scale(self, factor)
             tst.update_surface(self)
             for curve in self.curves.values():
                 curve.scale(factor)
 
     def rotate(self, angle, axis, point=None):
-
         # Only the root proc will work here
         if self.myID == 0:
-
             tst.rotate(self, angle, axis, point)
             tst.update_surface(self)
             for curve in self.curves.values():
@@ -237,7 +222,6 @@ class TSurfGeometry(Geometry):
     # SURFACE PROJECTION METHODS
 
     def project_on_surface(self, xyz):
-
         """
         This function will compute projections and surface Normals
 
@@ -310,38 +294,33 @@ class TSurfGeometry(Geometry):
         return xyzProj, normProj, projDict
 
     def project_on_surface_d(self, xyz, xyzd, xyzProj, normProj, projDict):
-
         """
         This function will compute derivatives of the projection algorithm in forward mode.
 
         Parameters
         ----------
-        xyz: float[numPts, 3]
+        xyz : float[numPts, 3]
             Coordinates of the points that should be projected.
 
-        xyzd: float[numPts, 3]
-            Derivative seeds for coordinates of the points
-                                   that should be projected.
+        xyzd : float[numPts, 3]
+            Derivative seeds for coordinates of the points that should be projected.
 
-        xyzProj: float[numPts,3]
-            Coordinates of the projected points (can be obtained
-                                     with the original projection function)
+        xyzProj : float[numPts,3]
+            Coordinates of the projected points (can be obtained with the original projection function)
 
-        normProj: float[numPts,3]
-            Surface normal at projected points (can be obtained
-                                      with the original projection function)
+        normProj : float[numPts,3]
+            Surface normal at projected points (can be obtained with the original projection function)
 
-        projDict: dictionary
-            Dictionary containing intermediate values that are
-            required by the differentiation routines.  (can be obtained
-            with the original projection function)
+        projDict : dict
+            Dictionary containing intermediate values that are required by the differentiation routines
+            (can be obtained with the original projection function)
 
         Returns
         -------
-        xyzProjd: float[numPts,3]
+        xyzProjd : float[numPts,3]
             Derivative seeds of the coordinates of the projected points
 
-        normProjd: float[numPts,3]
+        normProjd : float[numPts,3]
             Derivative seeds of the surface normal at projected points
 
 
@@ -403,7 +382,6 @@ class TSurfGeometry(Geometry):
         return xyzProjd, normProjd
 
     def project_on_surface_b(self, xyz, xyzProj, xyzProjb, normProj, normProjb, projDict):
-
         """
         This function will compute derivatives of the projection algorithm in reverse mode.
 
@@ -504,7 +482,6 @@ class TSurfGeometry(Geometry):
     # CURVE PROJECTION METHODS
 
     def project_on_curve(self, xyz, curveCandidates=None):
-
         """
         This function will compute projections and surface Normals
 
@@ -573,7 +550,6 @@ class TSurfGeometry(Geometry):
         # dist2, xyzProj, and normProj
         for curveName in self.curves:
             if curveName in curveCandidates:
-
                 # Run projection code
                 _, _, _, curveMask = self.curves[curveName].project(xyz, dist2, xyzProj, tanProj, elemIDs)
 
@@ -592,7 +568,6 @@ class TSurfGeometry(Geometry):
         return xyzProj, tanProj, curveProjDict
 
     def project_on_curve_d(self, xyz, xyzd, xyzProj, tanProj, curveProjDict):
-
         """
         This function will compute projections and surface Normals
 
@@ -634,7 +609,6 @@ class TSurfGeometry(Geometry):
         # dist2, xyzProj, and normProj
         for curveName in self.curves:
             if curveName in curveCandidates:
-
                 # Identify points that are projected to the current curve to create a mask
                 curveMask = [0] * numPts
                 for ii in range(numPts):
@@ -648,7 +622,6 @@ class TSurfGeometry(Geometry):
         return xyzProjd, tanProjd
 
     def project_on_curve_b(self, xyz, xyzProj, xyzProjb, tanProj, tanProjb, curveProjDict):
-
         """
         This function will backpropagate projections derivatives back
         to curve nodes and unprojected points.
@@ -670,9 +643,7 @@ class TSurfGeometry(Geometry):
         # Call inverse_evaluate for each component in the list, so that we can update
         # dist2, xyzProj, and normProj
         for curveName in self.curves:
-
             if curveName in curveCandidates:
-
                 # Identify points that are projected to the current curve to create a mask
                 curveMask = [0] * numPts
                 for ii in range(numPts):
@@ -743,7 +714,6 @@ class TSurfGeometry(Geometry):
         if (self.name == intCurve.extra_data["parentGeoms"][0]) and (
             otherGeometry.name == intCurve.extra_data["parentGeoms"][1]
         ):
-
             # Print log
             print("")
             print("Propagating forward AD seeds for intersection curve:")
@@ -751,7 +721,6 @@ class TSurfGeometry(Geometry):
             print("")
 
         else:
-
             raise NameError("Trying to run derivative code with incorrect parents")
 
         # Then we can call the AD code defined in tsurf_tools.py
@@ -776,7 +745,6 @@ class TSurfGeometry(Geometry):
         if (self.name == intCurve.extra_data["parentGeoms"][0]) and (
             otherGeometry.name == intCurve.extra_data["parentGeoms"][1]
         ):
-
             # Print log
             print("")
             print("Propagating reverse AD seeds for intersection curve:")
@@ -784,7 +752,6 @@ class TSurfGeometry(Geometry):
             print("")
 
         else:
-
             raise NameError("Trying to run derivative code with incorrect parents")
 
         # Copy the intersection curve seeds to avoid any modification
@@ -805,7 +772,6 @@ class TSurfGeometry(Geometry):
     # POINT METHODS
 
     def set_points(self, coor):
-
         """
         This will replace the nodal coordinates that define the surface.
 
@@ -818,7 +784,6 @@ class TSurfGeometry(Geometry):
         self.update(np.array(coor))
 
     def get_points(self):
-
         """
         This will give the nodal coordinates that define the surface.
         """
@@ -946,7 +911,6 @@ class TSurfGeometry(Geometry):
             self.curves[curveName].coorb[:, :] = 0.0
 
     def set_randomADSeeds(self, mode="both", fixedSeed=True):
-
         """
         This will set random normalized seeds to all variables.
         This can be used for testing purposes.
@@ -961,7 +925,6 @@ class TSurfGeometry(Geometry):
 
         # Set forward AD seeds
         if mode == "forward" or mode == "both":
-
             coord = np.random.random_sample(self.coor.shape)
             coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
@@ -973,7 +936,6 @@ class TSurfGeometry(Geometry):
 
         # Set reverse AD seeds
         if mode == "reverse" or mode == "both":
-
             coorb = np.random.random_sample(self.coor.shape)
             coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb
@@ -998,7 +960,6 @@ class TSurfGeometry(Geometry):
     # VISUALIZATION METHODS
 
     def export_tecplot(self, fileName):
-
         """
         This method will export the triangulated surface data into a tecplot format.
         This will write all elements as quad data. The triangle elements will be exported
@@ -1009,7 +970,6 @@ class TSurfGeometry(Geometry):
 
         # Only the root proc will work here
         if self.myID == 0:
-
             # Call the function that export FE data
             # we add -1 here to convert from Fortran to Python ordering
             # The Tecplot function shouldn't assume we have Fortran ordered data.
@@ -1050,7 +1010,6 @@ class TSurfCurve(Curve):
     """
 
     def __init__(self, coor, barsConn, name, mergeTol=1e-7, dtype=float):
-
         # Initialize the base classs
         super().__init__()
 
@@ -1131,7 +1090,6 @@ class TSurfCurve(Curve):
         self.coor = np.array(coor)
 
     def flip(self):
-
         self.barsConn = self.barsConn[::-1, ::-1]
 
         # Flip the extra data associated with element ordering
@@ -1156,7 +1114,6 @@ class TSurfCurve(Curve):
     # =================================================================
 
     def project(self, xyz, dist2=None, xyzProj=None, tanProj=None, elemIDs=None):
-
         """
         This function will take the points given in xyz and project them to the curve.
 
@@ -1220,7 +1177,6 @@ class TSurfCurve(Curve):
         return xyzProj, tanProj, elemIDs, curveMask
 
     def project_d(self, xyz, xyzd, xyzProj, xyzProjd, tanProj, tanProjd, elemIDs, curveMask):
-
         """
         This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
 
@@ -1278,7 +1234,6 @@ class TSurfCurve(Curve):
         )
 
     def project_b(self, xyz, xyzb, xyzProj, xyzProjb, tanProj, tanProjb, elemIDs, curveMask):
-
         """
         This function will run forward mode AD to propagate derivatives from inputs (xyz and coor) to outputs (xyzProj).
 
@@ -1342,7 +1297,6 @@ class TSurfCurve(Curve):
     # =================================================================
 
     def remesh(self, nNewNodes=None, method="linear", spacing="linear", initialSpacing=0.1, finalSpacing=0.1):
-
         """
         This function will redistribute the nodes along the curve to get better spacing among the nodes.
         This assumes that the FE data is ordered.
@@ -1431,7 +1385,6 @@ class TSurfCurve(Curve):
     def remesh_d(
         self, newCurve, nNewNodes=None, method="linear", spacing="linear", initialSpacing=0.1, finalSpacing=0.1
     ):
-
         """
         The original curve (before the remesh) should be the one that calls this method.
         """
@@ -1496,7 +1449,6 @@ class TSurfCurve(Curve):
         initialSpacing=0.1,
         finalSpacing=0.1,
     ):
-
         """
         The original curve (before the remesh) should be the one that calls this method.
         """
@@ -1589,14 +1541,12 @@ class TSurfCurve(Curve):
 
         # Check if the given curve is actually a child
         if childCurve.name in list(self.extra_data["splitCurves"].keys()):
-
             # The usedPtsMask of the child curve will help us inherit derivative seeds from
             # the parent curve
 
             usedPtsMask = childCurve.extra_data["usedPtsMask"]
 
             for parentNodeID in range(len(usedPtsMask)):
-
                 # Get child node that corresponds to the parent node
                 childNodeID = usedPtsMask[parentNodeID]
 
@@ -1614,14 +1564,12 @@ class TSurfCurve(Curve):
 
         # Check if the given curve is actually a child
         if childCurve.name in list(self.extra_data["splitCurves"].keys()):
-
             # The usedPtsMask of the child curve will help us inherit derivative seeds from
             # the parent curve
 
             usedPtsMask = childCurve.extra_data["usedPtsMask"]
 
             for parentNodeID in range(len(usedPtsMask)):
-
                 # Get child node that corresponds to the parent node
                 childNodeID = usedPtsMask[parentNodeID]
 
@@ -1684,16 +1632,13 @@ class TSurfCurve(Curve):
 
         # Loop over every curve we want to merge
         for curveName in self.extra_data["parentCurves"]:
-
             # Check if we have access to this curve
             if curveName in curveDict:
-
                 # Get derivative seeds of the parent curve
                 coord = curveDict[curveName]._get_forwardADSeeds()
 
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(coord.shape[0]):
-
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
@@ -1737,13 +1682,10 @@ class TSurfCurve(Curve):
 
         # Loop over every curve we want to merge
         for curveName in self.extra_data["parentCurves"]:
-
             # Check if we have access to this curve
             if curveName in curveDict:
-
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(curveDict[curveName].coor.shape[0]):
-
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
@@ -1765,13 +1707,10 @@ class TSurfCurve(Curve):
 
         # Loop over every curve we want to merge
         for curveName in self.extra_data["parentCurves"]:
-
             # Check if we have access to this curve
             if curveName in curveDict:
-
                 # Loop over the parent curve nodes to propagate seeds
                 for parentNodeID in range(curveDict[curveName].coor.shape[0]):
-
                     # Get corresponding ID in the child nodes
                     childNodeID = linkOld2New[indexOffset + parentNodeID]
 
@@ -1787,7 +1726,6 @@ class TSurfCurve(Curve):
     # =================================================================
 
     def condense_disconnect_curves(self, guessNode=0):
-
         """
         This function takes a curve defined by multiple discontinuous
         curves (in the FE connectivity sense) and tries to merge them in
@@ -1811,11 +1749,10 @@ class TSurfCurve(Curve):
             print("There is no need to condense curves.")
             print("")
         else:
-
             # Initialize
             FEcurves = []
             # Create one curve object for each disconnect curve
-            for (curveID, currConn) in enumerate(sortedConn):
+            for curveID, currConn in enumerate(sortedConn):
                 curveName = "FEcurve_%03d" % curveID
                 FEcurves.append(TSurfCurve(curveName, self.coor, currConn))
 
@@ -1831,7 +1768,6 @@ class TSurfCurve(Curve):
 
             # Loop to chain nodes
             while len(coorList) > 0:
-
                 # Get coordinates of the first and last nodes of the chain
                 firstNode = newCoor[0]
                 lastNode = newCoor[-1]
@@ -1844,7 +1780,6 @@ class TSurfCurve(Curve):
 
                 # Find if which end of the chain has the closest new node
                 if np.min(dist2first) < np.min(dist2last):
-
                     # The first node of the chain has the closest point.
                     # So we will add a node before the first point
 
@@ -1858,7 +1793,6 @@ class TSurfCurve(Curve):
                     newCoor.insert(0, nextNode)
 
                 else:
-
                     # The last node of the chain has the closest point.
                     # So we will add a node after the last point
 
@@ -1887,7 +1821,6 @@ class TSurfCurve(Curve):
             self.barsConn = newBarsConn
 
     def shift_end_nodes(self, criteria="maxX", startPoint=None, curveObject=None):
-
         """
         This method will shift the finite element ordering of
         a periodic curve so that the first and last elements
@@ -1926,14 +1859,12 @@ class TSurfCurve(Curve):
 
         # First we check if the FE data is ordered and periodic
         for elemID in range(1, nElem):
-
             # Get node indices
             prevNodeID = barsConn[elemID - 1, 1]
             currNodeID = barsConn[elemID, 0]
 
             # Check if the FE data is ordered
             if prevNodeID != currNodeID:
-
                 # Print warning
                 print("WARNING: Could not shift curve because it has unordered FE data.")
                 print("         Call FEsort first.")
@@ -1941,7 +1872,6 @@ class TSurfCurve(Curve):
 
         # The first and last nodes should be the same to have a periodic curve.
         if barsConn[0, 0] != barsConn[-1, 1]:
-
             # Print warning
             print("WARNING: Could not shift curve because it is not periodic.")
             return
@@ -1952,7 +1882,6 @@ class TSurfCurve(Curve):
         # reference node (startNodeID) to reorder the FE data
 
         if criteria in ["maxX", "maxY", "maxZ"]:
-
             if criteria == "maxX":
                 coorID = 0
             elif criteria == "maxY":
@@ -1964,7 +1893,6 @@ class TSurfCurve(Curve):
             startNodeID = np.argmax(coor[:, coorID])
 
         elif criteria in ["minX", "minY", "minZ"]:
-
             if criteria == "minX":
                 coorID = 0
             elif criteria == "minY":
@@ -1976,7 +1904,6 @@ class TSurfCurve(Curve):
             startNodeID = np.argmin(coor[:, coorID])
 
         elif criteria == "startPoint":
-
             # Compute the squared distances between the selected startPoint
             # the coordinates of the curve.
             deltas = coor - startPoint
@@ -1987,7 +1914,6 @@ class TSurfCurve(Curve):
             startNodeID = np.argmin(dist_2)
 
         elif criteria == "curve":
-
             # Find which node is the closest one to the reference curve
             startNodeID = closest_node(curveObject.coor, coor)
 
@@ -2004,7 +1930,6 @@ class TSurfCurve(Curve):
             )
 
     def export_tecplot(self, outputName="curve"):
-
         """
         This function will export the current curve in tecplot FE format
 
@@ -2022,7 +1947,6 @@ class TSurfCurve(Curve):
     # The last one of the previous bar in barsConn is the first node of the next bar.
 
     def get_points(self):
-
         """
         We will just return the nodes that define the curve.
         Use self.remesh first if you want a different set of points.
@@ -2045,7 +1969,6 @@ class TSurfCurve(Curve):
         return pts
 
     def set_points(self, pts):
-
         """
         We will just set the nodes that define the curve.
         """
@@ -2080,7 +2003,6 @@ class TSurfCurve(Curve):
             self.coord[self.barsConn[ii, 0], :] = coord[ii, :]
 
     def get_forwardADSeeds(self):
-
         # Get the number of elements
         numElems = self.barsConn.shape[0]
 
@@ -2184,7 +2106,6 @@ class TSurfCurve(Curve):
         self.coorb[:, :] = 0.0
 
     def set_randomADSeeds(self, mode="both", fixedSeed=True):
-
         """
         This will set random normalized seeds to all variables.
         This can be used for testing purposes.
@@ -2199,14 +2120,12 @@ class TSurfCurve(Curve):
 
         # Set forward AD seeds
         if mode == "forward" or mode == "both":
-
             coord = np.random.random_sample(self.coor.shape)
             coord = coord / np.sqrt(np.sum(coord**2))
             self.coord = coord
 
         # Set reverse AD seeds
         if mode == "reverse" or mode == "both":
-
             coorb = np.random.random_sample(self.coor.shape)
             coorb = coorb / np.sqrt(np.sum(coorb**2))
             self.coorb = coorb

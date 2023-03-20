@@ -9,11 +9,9 @@ import unittest
 
 
 class TestCurveProjection(unittest.TestCase):
-
     N_PROCS = 1
 
     def test_orig_curve_projection(self):
-
         coor = np.array(
             [[0.0, 0.0, 0.0], [-1, -1, -1], [-1, -1, -1], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [1.0, 1.0, 0.0]]
         )

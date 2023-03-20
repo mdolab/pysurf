@@ -4,11 +4,9 @@ from pysurf.tsurf_tools import create_curve_from_points
 
 
 class TestRemesh(unittest.TestCase):
-
     N_PROCS = 2
 
     def setUp(self):
-
         # Create simple curve and store within the class
         coor = np.array([[0.0, 0.2, 0.9], [0.1, 0.3, 0.7], [0.5, 0.6, 0.5], [0.8, 0.7, 0.4], [1.0, 0.9, 0.2]])
 
