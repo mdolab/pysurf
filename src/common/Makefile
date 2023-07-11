@@ -5,25 +5,22 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_1 = complexify.o
+FF90_OBJECTS_1 = precision.o
 
-FF90_OBJECTS_2 = precision.o
-
-FF90_OBJECTS_3 = communication.o \
+FF90_OBJECTS_2 = communication.o \
                  constants.o
 
 FILES_TO_COMPLEXIFY = precision.F90 \
                       communication.F90 \
                       constants.F90
 
-FILES_TO_COPY = complexify.f90
+FILES_TO_COPY =
 
 default: all
 
 all:
 	$(PMAKE) $(FF90_OBJECTS_1)
 	$(PMAKE) $(FF90_OBJECTS_2)
-	$(PMAKE) $(FF90_OBJECTS_3)
 	cp -f *.mod $(MODDIR)
 
 clean:
