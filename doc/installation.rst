@@ -3,7 +3,7 @@
 Installation
 ============
 
-Before installing pySurf, make sure you have CGNS Library installed.
+Before installing pySurf, make sure you have CGNS Library and `Complexify <https://github.com/mdolab/complexify>`__ installed.
 
 pySurf follows the standard MDO Lab build procedure.
 First, find a configuration file close to your current setup in ``config/defaults`` and copy it to ``config/config.mk``.
