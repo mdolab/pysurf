@@ -5,7 +5,7 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 
 LINKER_ALL_FLAGS = -L$(LIBDIR) -ldiscretesurf $(CGNS_LINKER_FLAGS) \
-                   $(LINKER_FLAGS) $(CGNS_LINKER_FLAGS)
+                   $(LINKER_FLAGS)
 
 CGNS_OBJECTS = fortranobject.o \
                cgnsAPImodule.o \
