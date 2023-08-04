@@ -53,7 +53,7 @@ complexify:
 	@for file in $(FILES_TO_COMPLEXIFY); do \
 		if [ $$file -nt ../../src_cs/ADT/$$file -o ! -e ../../src_cs/ADT/$$file ]; then \
 			echo complexifying file $$file; \
-			python ../complexify.py $$file; \
+			complexify $$file; \
 			mv c_$$file ../../src_cs/ADT/$$file; \
 		fi;\
 		done

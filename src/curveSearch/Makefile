@@ -27,7 +27,7 @@ complexify:
 	@for file in $(FILES_TO_COMPLEXIFY); do \
 		if [ $$file -nt ../../src_cs/curveSearch/$$file -o ! -e ../../src_cs/curveSearch/$$file ]; then \
 			echo complexifying file $$file; \
-			python ../complexify.py $$file; \
+			complexify $$file; \
 			mv c_$$file ../../src_cs/curveSearch/$$file; \
 		fi;\
 		done
