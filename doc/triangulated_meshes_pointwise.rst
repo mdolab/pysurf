@@ -16,5 +16,5 @@ Generating triangulated meshes in Pointwise
 
 .. note::
 
-While using this triangulated surface for DVGeoMulti, the terminal will show the number of triangular elements and some details about unspecified boundary conditions on the triangulated surface, which can be ignored.
-The structured surface mesh can also be refined before triangulation in specific intersection regions. The resulting triangulated mesh will reflect the same.
+    While using this triangulated surface for DVGeoMulti, the terminal will show the number of triangular elements and some details about unspecified boundary conditions on the triangulated surface, which can be ignored.
+    The structured surface mesh can also be refined before triangulation in specific intersection regions. The resulting triangulated mesh will reflect the same.
