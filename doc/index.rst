@@ -8,4 +8,5 @@ pySurf
    :maxdepth: 2
    
    installation
-   triangulated_meshes
+   triangulated_meshes_icem
+   triangulated_meshes_pointwise
