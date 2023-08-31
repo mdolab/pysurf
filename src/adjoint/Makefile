@@ -5,8 +5,7 @@ include ${COMMON_FILE}
 include ${RULES_FILE}
 vpath %.o $(OBJDIR)
 
-FF90_OBJECTS_1 = adBuffer.o \
-                 adStack.o \
+FF90_OBJECTS_1 = adStack.o \
                  utilities_b.o \
                  utilities_d.o
 
