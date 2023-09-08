@@ -6,8 +6,13 @@
 PMAKE = make -j 4
 
 # ------- Define the MPI Compilers--------------------------------------
-FF90 = mpiifort
-CC   = mpiicc
+ifdef I_MPI_ROOT # Using Intel MPI
+  FF90 = mpiifort
+  CC   = mpiicc
+else # Using HPE MPI
+  FF90 = ifort -lmpi
+  CC   = icc -lmpi
+endif
 
 # ----------- CGNS ------------------
 CGNS_INCLUDE_FLAGS=-I$(CGNS_HOME)/include
