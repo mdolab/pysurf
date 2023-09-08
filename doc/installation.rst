@@ -11,7 +11,7 @@ For example:
 
 .. prompt:: bash
 
-    cp config/defaults/config.LINUX_GFORTRAN_OPENMPI.mk config/config.mk
+    cp config/defaults/config_LINUX_GFORTRAN.mk config/config.mk
 
 Once you have copied the config file, compile pySurf by running:
 

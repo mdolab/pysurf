@@ -40,6 +40,9 @@ default:
 	sed -i -e 's/PRECISION_D/PRECISION/' -e 's/CONSTANTS_D/CONSTANTS/' *_d.f90
 	sed -i -e 's/PRECISION_B/PRECISION/' -e 's/CONSTANTS_B/CONSTANTS/' *_b.f90
 
+# Edit AD code to fix type declarations
+	sed -i -e 's/INTEGER\*4/INTEGER/' *_b.f90
+
 # Remove sed backup files
 	rm -f *~
 
