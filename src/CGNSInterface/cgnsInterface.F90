@@ -106,7 +106,7 @@ contains
                 stop
             end if
 
-            call cg_nzones_f(cg, base, nZones, ierr); 
+            call cg_nzones_f(cg, base, nZones, ierr)
             if (ierr .eq. CG_ERROR) call cg_error_exit_f
             print *, '   -> Number of Zones:', nzones
 
@@ -467,7 +467,7 @@ contains
 
                         ! This is the actual connectivity real call.
                         call cg_elements_read_f(cg, base, iZone, sec, &
-                                                zones(iZone)%sections(sec)%elemConn, NULL, ierr)
+                                                zones(iZone)%sections(sec)%elemConn, CG_Null, ierr)
                         zones(iZone)%sections(sec)%elemConn = &
                             zones(iZone)%sections(sec)%elemConn + zoneStart
                         if (ierr .eq. CG_ERROR) call cg_error_exit_f
@@ -508,7 +508,7 @@ contains
                         ! Now read the 'connectivity'--- not really, it has the
                         ! connectivity *AND* the element types.
                         call cg_elements_read_f(cg, base, iZone, sec, &
-                                                tmpConn, NULL, ierr)
+                                                tmpConn, CG_Null, ierr)
                         if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
                         ! NOW we can figure out if this is actually a surface
@@ -660,7 +660,7 @@ contains
                 !       ! We have to read off the start and end elements, this
                 !       ! will always require an array of lenght 2 (tmpInt)
                 !
-                !       call cg_boco_read_f(cg, base, iZone, boco, tmpInt, NULL, ierr)
+                !       call cg_boco_read_f(cg, base, iZone, boco, tmpInt, CG_Null, ierr)
                 !       if (ierr .eq. CG_ERROR) call cg_error_exit_f
                 !       nBCElem = tmpInt(2) - tmpInt(1) + 1
                 !       allocate(zones(iZone)%bocos(boco)%BCElements(nBCElem))
@@ -676,7 +676,7 @@ contains
                 !
                 !       allocate(zones(iZone)%bocos(boco)%BCElements(nPnts))
                 !       call cg_boco_read_f(cg, base, iZone, boco, &
-                !            zones(iZone)%bocos(boco)%BCElements, NULL, ierr)
+                !            zones(iZone)%bocos(boco)%BCElements, CG_Null, ierr)
                 !       nBCElem = nPnts
                 !    end if
                 !
