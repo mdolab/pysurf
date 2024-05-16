@@ -1,7 +1,7 @@
 pySurf
 ======
 [![Build Status](https://dev.azure.com/mdolab/Public/_apis/build/status/mdolab.pysurf?repoName=mdolab%2Fpysurf&branchName=main)](https://dev.azure.com/mdolab/Public/_build/latest?definitionId=46&repoName=mdolab%2Fpysurf&branchName=main)
-[![Documentation Status](https://readthedocs.com/projects/mdolab-pysurf/badge/?version=latest&token=067843d7a8abdc6f145c3207abe46d4d73bf44ad406656e48b06a15a4cfa37a7)](https://mdolab-pysurf.readthedocs-hosted.com/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.com/projects/mdolab-pysurf/badge/?version=latest)](https://mdolab-pysurf.readthedocs-hosted.com/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/mdolab/pysurf/branch/main/graph/badge.svg?token=4WJA4N7CDQ)](https://codecov.io/gh/mdolab/pysurf)
 
 pySurf provides a wide range of geometric operations for triangulated surfaces and piecewise linear curves, including computing intersections between components.
