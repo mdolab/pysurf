@@ -418,10 +418,6 @@ contains
                                            type, eBeg, eEnd, nBdry, parentFlag, ierr)
                     if (ierr .eq. CG_ERROR) call cg_error_exit_f
 
-                    ! Nullify the elemPtr and elemConn, since it may not be allocated
-                    nullify (zones(iZone)%sections(sec)%elemConn, &
-                             zones(iZone)%sections(sec)%elemPtr)
-
                     ! Number of elements on this section
                     nElem = eEnd - eBeg + 1
 
