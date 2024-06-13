@@ -17,8 +17,8 @@ module cgnsGrid
         integer(kind=intType) :: nBCElem
         integer(kind=intType) :: nBCNodes
         integer(kind=intType), dimension(:), allocatable :: BCElements
-        integer(kind=intType), dimension(:), pointer :: elemPtr, elemConn
-        real(kind=realType), dimension(:, :), pointer :: elemNodes
+        integer(kind=intType), dimension(:), allocatable :: elemPtr, elemConn
+        real(kind=realType), dimension(:, :), allocatable :: elemNodes
     end type bctype
 
     type sectionDataType

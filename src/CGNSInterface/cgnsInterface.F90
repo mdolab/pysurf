@@ -305,13 +305,13 @@ contains
         integer(kind=intType), dimension(:), allocatable :: tmpConn
         real(kind=realType), dimension(:, :), allocatable, target :: allNodes
         real(kind=realType), dimension(:, :), allocatable :: localNodes
-        real(kind=realType), dimension(:, :), pointer :: elemNodes
+        ! real(kind=realType), dimension(:, :), allocatable :: elemNodes
         integer(kind=intType), dimension(:), allocatable :: surfaceNodes, localSurfaceNodes
         integer(kind=intType), dimension(:, :), allocatable :: sizes
 
         integer(kind=intType) :: status(MPI_STATUS_SIZE)
-        type(sectionDataType), pointer :: secPtr
-        integer(kind=intType), dimension(:), pointer :: elemConn, elemPtr
+        ! type(sectionDataType), allocatable :: secPtr
+        integer(kind=intType), dimension(:), allocatable :: elemConn, elemPtr
 
         integer(kind=intType) :: nElemNotFound, curElem, curElemSize, localIndex, zoneStart
         real(kind=realType) :: symmSum(3)
