@@ -17,8 +17,8 @@ module cgnsGrid
         integer(kind=intType) :: nBCElem
         integer(kind=intType) :: nBCNodes
         integer(kind=intType), dimension(:), allocatable :: BCElements
-        integer(kind=intType), dimension(:), pointer :: elemPtr, elemConn
-        real(kind=realType), dimension(:, :), pointer :: elemNodes
+        integer(kind=intType), dimension(:), allocatable :: elemPtr, elemConn
+        real(kind=realType), dimension(:, :), allocatable :: elemNodes
     end type bctype
 
     type sectionDataType
@@ -28,7 +28,7 @@ module cgnsGrid
         integer(kind=intType) :: type
         integer(kind=intType) :: nElem, nTria, nQuads, nBars
         integer(kind=intType) :: elemStart, elemEnd
-        integer(kind=intType), dimension(:), pointer :: elemPtr, elemConn
+        integer(kind=intType), dimension(:), allocatable :: elemPtr, elemConn
     end type sectionDataType
 
     type zoneDataType
@@ -37,7 +37,7 @@ module cgnsGrid
         integer(kind=intType) :: nSurfSections, nCurveSections
         character(maxCGNSNameLen) :: name
         type(bcType), dimension(:), allocatable :: bocos
-        type(sectionDataType), dimension(:), pointer :: sections
+        type(sectionDataType), dimension(:), allocatable :: sections
 
     end type zoneDataType
 

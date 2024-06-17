@@ -172,14 +172,22 @@ contains
         ! Working variables
         integer(kind=intType) :: iZone, sec, nZones
 
+        nZones = size(zones)
+
         ! Deallocate zones
         if (allocated(zones)) then
             do iZone = 1, nZones
-                do sec = 1, zones(iZone)%nSections
-                    deallocate (zones(iZone)%sections(sec)%elemConn)
-                    deallocate (zones(iZone)%sections(sec)%elemPtr)
-                end do
-                deallocate (zones(iZone)%sections)
+                if (allocated(zones(iZone)%sections)) then
+                    do sec = 1, zones(iZone)%nSections
+                        if (allocated(zones(iZone)%sections(sec)%elemConn)) then
+                            deallocate (zones(iZone)%sections(sec)%elemConn)
+                        end if
+                        if (allocated(zones(iZone)%sections(sec)%elemPtr)) then
+                            deallocate (zones(iZone)%sections(sec)%elemPtr)
+                        end if
+                    end do
+                    deallocate (zones(iZone)%sections)
+                end if
             end do
             deallocate (zones)
         end if
