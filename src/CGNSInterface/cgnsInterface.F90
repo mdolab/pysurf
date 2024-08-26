@@ -286,7 +286,8 @@ contains
 
         ! CGNS Variables
         integer(kind=intType) :: i, j, k, m, l, istart, iend, localsize, iProc
-        integer(kind=intType) :: ierr, base, dims(3), iZone
+        integer(kind=intType) :: ierr, base, iZone
+        integer(cgsize_t) :: dims(3), elementDataSize, eBeg, eEnd
         integer(kind=intType) :: nNodes, nCells
         integer(kind=intType) :: tmpSym, nSymm
         character(len=32) :: zoneName, bocoName, famName
@@ -296,11 +297,11 @@ contains
         integer(kind=intType) :: nVertices, nElements, nzones
         integer(kind=intType) :: zoneType, dataType, sec, type
         integer(kind=intType) :: nSections, nElem, nConn
-        integer(kind=intType) :: eBeg, eEnd, nBdry, parentFlag
+        integer(kind=intType) :: nBdry, parentFlag
         integer(kind=intType) :: bocoType, ptsettype, nbcelem
         integer(kind=intType) :: normalIndex, normalListFlag
         integer(kind=intType) :: nDataSet, tmpInt(2)
-        integer(kind=intType) :: elementDataSize, curElement, eCount, nPnts
+        integer(kind=intType) :: curElement, eCount, nPnts
         real(kind=realType), dimension(:), allocatable :: coorX, coorY, coorZ
         integer(kind=intType), dimension(:), allocatable :: tmpConn
         real(kind=realType), dimension(:, :), allocatable, target :: allNodes
