@@ -47,12 +47,12 @@ class TSurfGeometry(Geometry):
 
         # Set real or complex Fortran APIs
         self.dtype = dtype
-        if dtype == float:
+        if dtype is float:
             self.adtAPI = adtAPI.adtapi
             self.curveSearchAPI = curveSearchAPI.curvesearchapi
             self.intersectionAPI = intersectionAPI.intersectionapi
             self.utilitiesAPI = utilitiesAPI.utilitiesapi
-        elif dtype == complex:
+        elif dtype is complex:
             self.adtAPI = adtAPI_cs.adtapi
             self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
             self.intersectionAPI = intersectionAPI_cs.intersectionapi
@@ -1012,11 +1012,11 @@ class TSurfCurve(Curve):
 
         # Set real or complex Fortran APIs
         self.dtype = dtype
-        if dtype == float:
+        if dtype is float:
             self.adtAPI = adtAPI.adtapi
             self.curveSearchAPI = curveSearchAPI.curvesearchapi
             self.utilitiesAPI = utilitiesAPI.utilitiesapi
-        elif dtype == complex:
+        elif dtype is complex:
             self.adtAPI = adtAPI_cs.adtapi
             self.curveSearchAPI = curveSearchAPI_cs.curvesearchapi
             self.utilitiesAPI = utilitiesAPI_cs.utilitiesapi
