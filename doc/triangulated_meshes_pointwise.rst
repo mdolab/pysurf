@@ -5,7 +5,7 @@ Generating triangulated meshes in Pointwise
 
 #. Select the surface mesh (domains) for the surfaces that need to be triangulated.
 
-#. Go to Create > Diagonalize. 
+#. Go to Create > Diagonalize.
 
 #. Select Diagonalize Method as 'Aligned'. This will align all the triangulated elements in the same way as the structured surface mesh. Keep default check on 'Link' and 'Hide' Visibility/Delete Options.
 

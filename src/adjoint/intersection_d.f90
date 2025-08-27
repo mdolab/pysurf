@@ -1100,4 +1100,3 @@ quadsloop:DO elemid=1,nquads
   END SUBROUTINE SORT
 
 END MODULE INTERSECTION_D
-

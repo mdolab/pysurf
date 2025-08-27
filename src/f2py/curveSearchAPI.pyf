@@ -61,7 +61,7 @@ python module curveSearchAPI ! in
             end subroutine mindistancecurve_b
 #endif
         end module curvesearchapi
-    end interface 
+    end interface
 end python module curveSearchAPI
 
 ! This file was auto-generated with f2py (version:2).

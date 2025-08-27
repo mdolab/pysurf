@@ -70,7 +70,7 @@ python module utilitiesAPI ! in
             end subroutine remesh_d
 #endif
         end module utilitiesapi
-    end interface 
+    end interface
 end python module utilitiesAPI
 
 ! This file was auto-generated with f2py (version:2).

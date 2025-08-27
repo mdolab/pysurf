@@ -27,7 +27,7 @@ AR       = ar
 AR_FLAGS = -rvs
 
 # ------- Define Linker Flags ------------------------------------------
-LINKER_FLAGS = 
+LINKER_FLAGS =
 
 # Define potentially different python, python-config and f2py executables:
 PYTHON = python

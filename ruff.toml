@@ -1,0 +1,3 @@
+extend = "~/.config/ruff/ruff.toml"
+
+extend-exclude = ["src/complexify.py"]

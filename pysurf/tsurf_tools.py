@@ -603,7 +603,6 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7, dty
 
     Parameters
     ----------
-
     coor -> float[numNodes,3] : coordinates (X,Y,Z) of the curve nodes.
 
     curveName -> string : name for the new curve object.
@@ -615,7 +614,6 @@ def create_curve_from_points(coor, curveName, periodic=False, mergeTol=1e-7, dty
 
     Returns
     -------
-
     curve -> TSurfCurve object : curve object defined by the given nodes.
 
     Ney Secco 2017-02
@@ -702,7 +700,7 @@ def split_curves(curveDict, curvesToBeSplit=None, optionsDict={}, criteria="shar
     criteria=['sharpness', 'curve']
 
     Returns
-    =======
+    -------
     breakList, list -> List of bar element IDs where the guideCurves split
                        the initial intersection. These are outputted and can
                        be used to always split the curves at the same bar
@@ -1163,7 +1161,6 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
 
     Parameters
     ----------
-
     TSurfGeometryA: TSurfGeometry object
 
     TSurfGeometryB: TSurfGeometry object
@@ -1179,7 +1176,6 @@ def _compute_pair_intersection_d(TSurfGeometryA, TSurfGeometryB, intCurve, coorA
 
     Returns
     -------
-
     coorIntd: float(nNodesInt,3) -> Derivative seeds of the intersection curve nodal coordinates
 
     Ney Secco 2016-09
@@ -1217,7 +1213,6 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
 
     Parameters
     ----------
-
     TSurfGeometryA: TSurfGeometry object
 
     TSurfGeometryB: TSurfGeometry object
@@ -1231,7 +1226,6 @@ def _compute_pair_intersection_b(TSurfGeometryA, TSurfGeometryB, intCurve, coorI
 
     Returns
     -------
-
     coorAb: float(nNodesA,3) -> Derivative seeds of the component A nodal coordinates
 
     coorBb: float(nNodesB,3) -> Derivative seeds of the component B nodal coordinates
@@ -1628,7 +1622,6 @@ def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF
 
     Parameters
     ----------
-
     node1: integer -> node1 index in coor
 
     node2: integer -> node2 index in coor
@@ -1652,7 +1645,6 @@ def detect_feature(node1, node2, element1, element2, coor, triaConnF, quadsConnF
 
     Returns
     -------
-
     featureIsDetected: logical -> True if feature is detected in this edge. Otherwise it is False.
 
     Ney Secco 2016-08
@@ -2188,18 +2180,18 @@ def airfoil_intersection(
         .. code-block:: python
 
             optionsBodyMesh = {
-                'dStart' : 0.01*2/fact,
-                'numLayers' : int(48/2*fact)+1, #Should be /4
-                'extension' : 1.8,
-                'epsE0' : 3.5,
-                'theta' : -0.5,
-                'alphaP0' : 0.25,
-                'numSmoothingPasses' : 0,
-                'nuArea' : 0.16,
-                'numAreaPasses' : 20,
-                'sigmaSplay' : 0.3,
-                'cMax' : 5.0,
-                'ratioGuess' : 10.0,
+                "dStart": 0.01 * 2 / fact,
+                "numLayers": int(48 / 2 * fact) + 1,  # Should be /4
+                "extension": 1.8,
+                "epsE0": 3.5,
+                "theta": -0.5,
+                "alphaP0": 0.25,
+                "numSmoothingPasses": 0,
+                "nuArea": 0.16,
+                "numAreaPasses": 20,
+                "sigmaSplay": 0.3,
+                "cMax": 5.0,
+                "ratioGuess": 10.0,
             }
 
 
@@ -2210,20 +2202,20 @@ def airfoil_intersection(
         .. code-block:: python
 
             optionsWingMesh = {
-                'dStart' : 0.01*2/fact,
-                'numLayers' : int(48/2*fact)+1,
-                'extension' : 2.2,
-                'epsE0' : 12.5,
-                'theta' : -0.8,
-                'alphaP0' : 0.25,
-                'numSmoothingPasses' : 4,
-                'nuArea' : 0.16,
-                'numAreaPasses' : 0,
-                'sigmaSplay' : 0.3,
-                'cMax' : 5.0,
-                'ratioGuess' : 10.0,
-                'guideCurves' : ['curve_te_low','curve_te_upp'],
-                'remesh' : True
+                "dStart": 0.01 * 2 / fact,
+                "numLayers": int(48 / 2 * fact) + 1,
+                "extension": 2.2,
+                "epsE0": 12.5,
+                "theta": -0.8,
+                "alphaP0": 0.25,
+                "numSmoothingPasses": 4,
+                "nuArea": 0.16,
+                "numAreaPasses": 0,
+                "sigmaSplay": 0.3,
+                "cMax": 5.0,
+                "ratioGuess": 10.0,
+                "guideCurves": ["curve_te_low", "curve_te_upp"],
+                "remesh": True,
             }
 
     wingGeomName : str
