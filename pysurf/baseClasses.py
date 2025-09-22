@@ -3,7 +3,6 @@ from mpi4py import MPI
 
 
 class Geometry(object):
-
     """
     This is the base Geometry class.
     All geometry engines should have their own
@@ -232,7 +231,6 @@ class Geometry(object):
 
         Parameters
         ----------
-
         GMObj: Geometry Manipulation Object
 
         Ney Secco 2017-02
@@ -438,7 +436,6 @@ class Geometry(object):
 
 
 class Curve(object):
-
     """
     This is the base Curve class.
     All geometry engines should have their own

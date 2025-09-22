@@ -113,7 +113,7 @@ python module intersectionAPI ! in
             end subroutine testtri
 #endif
         end module intersectionapi
-    end interface 
+    end interface
 end python module intersectionAPI
 
 ! This file was auto-generated with f2py (version:2).

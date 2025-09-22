@@ -45,3 +45,5 @@ callgrind*
 .coverage
 doc/_build
 src_cs
+.pre-commit-config.yaml
+ruff.toml
