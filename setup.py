@@ -29,10 +29,11 @@ setup(
         "pysurf",
     ],
     package_data={"pysurf": ["*.so"]},
+    python_requires=">=3.11",
     install_requires=[
-        "numpy>=1.21",
+        "numpy>=1.25",
         "mpi4py>=3.1.5",
-        "scipy>=1.7",
+        "scipy>=1.11",
         "complexify",
     ],
     extras_require={
